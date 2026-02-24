@@ -33,7 +33,7 @@ Fixes #(issue number)
 
 **Before your PR can be merged, you must sign our CLA.**
 
-- [ ] I have read and agree to the [Contributor License Agreement](LEGAL_AND_IP/CLA.md)
+- [ ] I have read and agree to the [PolyForm Noncommercial License 1.0.0](LICENSE)
 
 **Signature**:
 <!--

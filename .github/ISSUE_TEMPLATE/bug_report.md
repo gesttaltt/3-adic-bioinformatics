@@ -35,4 +35,4 @@ Add any other context about the problem here.
 
 **Important**: By submitting issues or pull requests, you agree that any contributions you make will be licensed under the project's [PolyForm Noncommercial License 1.0.0](../LICENSE).
 
-If you plan to contribute code, please sign our [CLA](../LEGAL_AND_IP/CLA.md) first.
+If you plan to contribute code, please review the [LICENSE](../LICENSE) first.

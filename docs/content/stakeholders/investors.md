@@ -128,7 +128,7 @@
 
 ## Team
 
-See [AUTHORS.md](../../../../LEGAL_AND_IP/AUTHORS.md)
+See [CITATION.cff](../../../../CITATION.cff)
 
 ---
 

@@ -3,7 +3,7 @@
 > **Deep-dive documentation for researchers and developers**
 >
 > For practical bioinformatics applications, see [../BIOINFORMATICS_GUIDE.md](../BIOINFORMATICS_GUIDE.md).
-> For implementation details, see [../../CLAUDE_DEV.md](../../CLAUDE_DEV.md).
+> For implementation details, see [CLAUDE.md](../../CLAUDE.md).
 
 ---
 
@@ -125,8 +125,8 @@ Euclidean space distorts hierarchies; hyperbolic space preserves them.
 | Need | Go To |
 |------|-------|
 | Practical applications | [../BIOINFORMATICS_GUIDE.md](../BIOINFORMATICS_GUIDE.md) |
-| Code implementation | [../../CLAUDE_DEV.md](../../CLAUDE_DEV.md) |
-| Quick reference | [../../CLAUDE_LITE.md](../../CLAUDE_LITE.md) |
+| Code implementation | [CLAUDE.md](../../CLAUDE.md) |
+| Quick reference | [CLAUDE.md](../../CLAUDE.md) |
 | Full original context | [archive/CLAUDE_ORIGINAL.md](archive/CLAUDE_ORIGINAL.md) |
 | Partner packages | [../../deliverables/partners/](../../deliverables/partners/) |
 

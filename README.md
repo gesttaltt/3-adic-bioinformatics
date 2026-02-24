@@ -3,7 +3,7 @@
 **High-throughput mutation screening 300-18,000x faster than physics-based methods**
 
 [![Version](https://img.shields.io/badge/version-5.12.5-blue.svg)](docs/mathematical-foundations/README.md)
-[![License: PolyForm NC](https://img.shields.io/badge/License-PolyForm%20NC-lightgrey.svg)](LEGAL_AND_IP/LICENSE)
+[![License: PolyForm NC](https://img.shields.io/badge/License-PolyForm%20NC-lightgrey.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-101%2B%20passing-brightgreen.svg)](deliverables/tests/)
 
 ---
@@ -84,13 +84,13 @@ Standard deep learning uses Euclidean geometry - great for images, suboptimal fo
 pip install -e ".[all]"
 
 # Run antimicrobial peptide design
-python deliverables/partners/antimicrobial_peptides/B1_pathogen_specific_design.py
+python deliverables/partners/antimicrobial_peptides/scripts/B1_pathogen_specific_design.py
 
 # Run DDG prediction
-python deliverables/partners/protein_stability_ddg/C4_mutation_effect_predictor.py
+python deliverables/partners/protein_stability_ddg/scripts/C4_mutation_effect_predictor.py
 
 # Run arbovirus primer design
-python deliverables/partners/arbovirus_surveillance/A2_pan_arbovirus_primers.py
+python deliverables/partners/arbovirus_surveillance/scripts/A2_pan_arbovirus_primers.py
 ```
 
 ### Interactive Demos
@@ -107,7 +107,7 @@ python deliverables/partners/arbovirus_surveillance/A2_pan_arbovirus_primers.py
 |------------|-----------|
 | **Investor/Partner** | [Business Case](docs/content/stakeholders/investors.md) - Market opportunity, defensibility, funding |
 | **Bioinformatician** | [Bioinformatics Guide](docs/BIOINFORMATICS_GUIDE.md) - No math required |
-| **ML Engineer** | [CLAUDE_DEV.md](CLAUDE_DEV.md) - Architecture, training, extending |
+| **ML Engineer** | [CLAUDE_DEV.md](deliverables/docs/CLAUDE_DEV.md) - Architecture, training, extending |
 | **Researcher** | [Partner Packages](deliverables/partners/) - Ready-to-use tools |
 
 ---
@@ -186,8 +186,8 @@ pip install -e ".[all]"
 
 ## License
 
-- **Code**: [PolyForm Non-Commercial 1.0.0](LEGAL_AND_IP/LICENSE) - Academic/non-profit use permitted; commercial use requires license
-- **Outputs**: [CC-BY-4.0](LEGAL_AND_IP/RESULTS_LICENSE.md) - Free for any reuse with attribution
+- **Code**: [PolyForm Non-Commercial 1.0.0](LICENSE) - Academic/non-profit use permitted; commercial use requires license
+- **Outputs**: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) - Free for any reuse with attribution
 
 ---
 

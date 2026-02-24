@@ -310,7 +310,7 @@ def main():
     parser.add_argument(
         "--data", "-d",
         type=str,
-        default="../../../deliverables/partners/jose_colbes/reproducibility/data/s669.csv",
+        default="../../../deliverables/partners/protein_stability_ddg/reproducibility/data/s669.csv",
         help="Path to S669 dataset"
     )
     parser.add_argument(

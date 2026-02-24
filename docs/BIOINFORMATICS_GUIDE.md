@@ -3,7 +3,7 @@
 > **For bioinformatics specialists** - No mathematical background required.
 >
 > **Foundation:** Mathematical framework at [3-adic-ml](https://github.com/Ai-Whisperers/3-adic-ml)
-> For implementation details, see [../CLAUDE_DEV.md](../CLAUDE_DEV.md).
+> For implementation details, see [CLAUDE.md](../CLAUDE.md).
 > For mathematical theory, see [mathematical-foundations/](mathematical-foundations/).
 
 **Note:** This is a **complement** to classical methods (AlphaFold, ESMFold, etc.), not a replacement. Results exceeding classical benchmarks emerge from proper 3-adic geometry research.
@@ -216,7 +216,7 @@ Use both when appropriate.
 
 ### Q: Can I train my own model?
 
-**A:** Yes, see [../CLAUDE_DEV.md](../CLAUDE_DEV.md) for training details.
+**A:** Yes, see [CLAUDE.md](../CLAUDE.md) for training details.
 
 ---
 
@@ -233,8 +233,8 @@ Use both when appropriate.
 
 ## Getting Help
 
-- **Quick reference:** [CLAUDE_LITE.md](../CLAUDE_LITE.md)
-- **Implementation questions:** [CLAUDE_DEV.md](../CLAUDE_DEV.md)
+- **Quick reference:** [CLAUDE.md](../CLAUDE.md)
+- **Implementation questions:** [CLAUDE.md](../CLAUDE.md)
 - **Theoretical background:** [mathematical-foundations/](mathematical-foundations/)
 - **Full original context:** [CLAUDE_ORIGINAL.md](mathematical-foundations/archive/CLAUDE_ORIGINAL.md)
 - **Bug reports:** GitHub Issues
