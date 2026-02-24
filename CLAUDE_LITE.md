@@ -1,1 +1,0 @@
-deliverables/docs/CLAUDE_LITE.md
