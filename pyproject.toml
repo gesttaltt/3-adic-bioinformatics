@@ -93,7 +93,7 @@ security = [
 ]
 bio = [
     "biopython>=1.81",
-    "pyarrow>=12.0.0",
+    "pyarrow>=23.0.1",
 ]
 all = [
     "ternary-vae[viz,dev,docs,security,bio]",
