@@ -213,3 +213,22 @@ pip install -e ".[all]"
 ---
 
 *Version 5.12.5 · Updated 2026-02-04*
+
+---
+
+## The P-Adic Ecosystem
+
+This repository is part of a tri-fold ecosystem exploring the intersection of p-adic mathematics, ternary logic, and high-performance computing:
+
+*   **[3-Adic ML](https://github.com/gesttaltt/3-adic-ml)**: Mathematical foundation and framework for p-adic Variational Autoencoders and geometric deep learning.
+*   **[3-Adic Bioinformatics](https://github.com/gesttaltt/3-adic-bioinformatics)**: (This Repo) Application of ultrametric geometry to genomic sequences, protein folding, and biological hierarchy analysis.
+*   **[Ternary Engine](https://github.com/gesttaltt/ternary-engine)**: High-performance C++/C backend for native ternary arithmetic and efficient p-adic valuation processing.
+
+## Status & Engagement
+
+**Current Phase**: Active Low-Profile Research
+
+We are investigating how p-adic geometry can better represent the hierarchical nature of biological sequences. While the code is now public to facilitate scientific transparency, we are maintaining a focused development environment.
+
+*   **Proposals**: We are not actively seeking investment or commercial acquisition. Our goal is the advancement of computational biology through non-Euclidean mathematics.
+*   **Collaboration**: We welcome collaboration from bioinformatics researchers and computational biologists interested in non-standard sequence representations.
