@@ -35,7 +35,7 @@ I came across your work on [specific paper/topic] and thought you might be inter
 
 Our tool uses p-adic geometric embeddings to predict DDG from sequence alone - no 3D structure required. Key results:
 
-- LOO Spearman rho = 0.585 (p < 0.001) on curated S669 subset
+- LOO Spearman rho = 0.585 (p < 0.001) on ProTherm benchmark subset (N=52, not comparable to S669 N=669)
 - <0.1 second per mutation (vs minutes for physics-based methods)
 - Detects "Rosetta-blind" instabilities that structure-based methods miss
 

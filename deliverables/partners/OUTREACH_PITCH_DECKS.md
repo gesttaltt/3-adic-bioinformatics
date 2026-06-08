@@ -26,9 +26,9 @@
 ### Talking Points
 
 1. **Validated Performance**
-   - LOO Spearman ρ = 0.585 on S669 (N=52 curated)
+   - LOO Spearman ρ = 0.585 on ProTherm benchmark (N=52)
    - 95% CI [0.341, 0.770], p < 0.001
-   - Outperforms ESM-1v (0.51), FoldX (0.48)
+   - Note: ESM-1v (0.51), FoldX (0.48) benchmarked on N=669 S669 — not directly comparable
 
 2. **Unique Mechanism**
    - P-adic valuation encodes genetic code hierarchy

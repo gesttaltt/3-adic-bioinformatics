@@ -30,7 +30,7 @@ Namrata,
 
 Your protein diffusion work generates impressive structures. We've been exploring something complementary - hyperbolic VAEs that embed codons (not amino acids) in Poincare space. Very different inductive bias.
 
-Quick question: in your structure generation, do you observe that some sequences with good structural predictions still fail experimentally on stability? We're finding our sequence-only approach (rho=0.58 on S669 subset (N=52)) catches some cases that physics-based methods miss.
+Quick question: in your structure generation, do you observe that some sequences with good structural predictions still fail experimentally on stability? We're finding our sequence-only approach (rho=0.58 on ProTherm benchmark (N=52)) catches some cases that physics-based methods miss.
 
 Wondering if diffusion models have similar blind spots, or if the structure-aware approach handles stability differently.
 

@@ -24,10 +24,10 @@ This package has been validated through multiple independent approaches:
 | Dataset | N | Method | Spearman ρ | Location |
 |---------|--:|--------|:----------:|----------|
 | **Structural Validation** | **176** | property + Ridge | **0.94** | research/diseases/structural_validation/ |
-| S669 curated | 52 | TrainableCodonEncoder | **0.61** | research/codon-encoder/training/ |
-| S669 curated | 52 | Multimodal (8 features) | **0.60** | research/codon-encoder/multimodal/ |
-| S669 curated | 52 | Fresh LOO Training | 0.58 | validation/bootstrap_test.py |
-| **S669 curated** | **52** | **ValidatedDDGPredictor** | **0.52** | **validation/scientific_metrics.json** |
+| ProTherm benchmark subset | 52 | TrainableCodonEncoder | **0.61** | research/codon-encoder/training/ |
+| ProTherm benchmark subset | 52 | Multimodal (8 features) | **0.60** | research/codon-encoder/multimodal/ |
+| ProTherm benchmark subset | 52 | Fresh LOO Training | 0.58 | validation/bootstrap_test.py |
+| **ProTherm benchmark subset** | **52** | **ValidatedDDGPredictor** | **0.52** | **validation/scientific_metrics.json** |
 | S669 full | 669 | ValidatedDDGPredictor | 0.37-0.40 | reproducibility/ |
 
 ---
@@ -76,14 +76,21 @@ This package has been validated through multiple independent approaches:
 
 ## Dataset Details
 
-### S669 Benchmark (Pancotti et al. 2022)
+### ⚠️ Dataset Provenance Note
+
+The N=52 dataset is **not** a subset of the S669 benchmark by Pancotti et al. 2022.
+It is a hand-curated ProTherm/literature fallback created when the real S669 file
+is unavailable. Performance on N=52 (ρ=0.52) is **not** directly comparable to
+S669-based literature benchmarks. For fair comparison, use the N=669 results (ρ=0.37-0.40).
+
+### ProTherm Benchmark Subset (N=52)
 
 | Subset | N | Description | Our Spearman |
 |--------|---|-------------|--------------|
-| Curated (V3) | 52 | Alanine scanning + variants | 0.52 (shipped) / 0.58 (fresh) |
-| Full dataset | 669 | All mutations | 0.37-0.40 |
+| ProTherm curated | 52 | Ala-scanning + variants from literature | 0.52 (shipped) / 0.58 (fresh) |
+| Full S669 (Pancotti 2022) | 669 | All mutations, fair literature comparison | 0.37-0.40 |
 
-### Proteins in N=52 Subset
+### Proteins in N=52 ProTherm Subset
 
 ```
 2LZM (9 mutations) - T4 Lysozyme

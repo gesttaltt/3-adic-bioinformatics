@@ -47,10 +47,10 @@ This package provides a **scientifically validated** toolkit for protein stabili
 | Dataset | N | Method | Spearman | Status |
 |---------|--:|--------|:--------:|--------|
 | **ProTherm curated** | **176** | **property + Ridge** | **0.94** | ⚠️ Different dataset |
-| S669 curated | 52 | TrainableCodonEncoder | **0.61** | Best on subset |
-| S669 curated | 52 | Multimodal (8 features) | **0.60** | LOO validated |
-| S669 curated | 52 | Fresh LOO Training | 0.58 | bootstrap_test.py |
-| **S669 curated** | **52** | **ValidatedDDGPredictor** | **0.52** | **Shipped to users** |
+| ProTherm subset (NOT S669) | 52 | TrainableCodonEncoder | **0.61** | Best on subset |
+| ProTherm subset (NOT S669) | 52 | Multimodal (8 features) | **0.60** | LOO validated |
+| ProTherm subset (NOT S669) | 52 | Fresh LOO Training | 0.58 | bootstrap_test.py |
+| **ProTherm subset (NOT S669)** | **52** | **ValidatedDDGPredictor** | **0.52** | **Shipped to users** |
 | **S669 full** | **669** | **physicochemical (best)** | **0.37** | **Benchmark (5-fold×3)** |
 
 ### ⚠️ Critical Dataset Distinction

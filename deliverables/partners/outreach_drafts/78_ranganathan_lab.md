@@ -30,7 +30,7 @@ Prof. Ranganathan,
 
 Your statistical coupling work revealed that coevolution encodes functional constraints. We've been exploring a different evolutionary signal: p-adic geometry on codon sequences (not amino acids).
 
-Our VAE embeds codons in hyperbolic space based on 3-adic valuation. This captures hierarchical structure (rho=-0.83 with valuation) that correlates with stability (rho=0.58 on S669 subset (N=52)).
+Our VAE embeds codons in hyperbolic space based on 3-adic valuation. This captures hierarchical structure (rho=-0.83 with valuation) that correlates with stability (rho=0.58 on ProTherm benchmark (N=52)).
 
 Question: do you think coevolution (pairwise correlations) and p-adic structure (hierarchical constraints) capture the same underlying evolutionary information, or are they likely orthogonal?
 

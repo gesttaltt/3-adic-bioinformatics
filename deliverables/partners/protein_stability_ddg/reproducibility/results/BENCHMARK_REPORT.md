@@ -1,7 +1,7 @@
 # P-adic DDG Prediction Benchmark Report
 
 **Generated:** 2026-01-03 (Updated: 2026-01-28)
-**Datasets:** S669 Benchmark (N=52 curated, N=669 full), Structural Validation (N=176)
+**Datasets:** ProTherm benchmark subset (N=52, NOT from S669), S669 full benchmark (N=669), Structural Validation (N=176)
 **Validation:** Leave-One-Out Cross-Validation
 
 **METRIC UPDATE (2026-01-28):** Complete results hierarchy documented:
@@ -21,10 +21,10 @@
 |---------|--:|--------|:--------:|------------|----------|
 | **Structural Validation** | **176** | **property + Ridge** | **0.94** | 5-fold×10 | research/diseases/structural_validation/ |
 | Structural Validation | 176 | padic_mass + Ridge | 0.93 | 5-fold×10 | research/diseases/structural_validation/ |
-| S669 curated | 52 | TrainableCodonEncoder | **0.61** | LOO CV | docs/MODEL_CHECKPOINT_INDEX.md |
-| S669 curated | 52 | Multimodal (8 features) | **0.60** | LOO CV | research/codon-encoder/multimodal/ |
-| S669 curated | 52 | Fresh LOO training | 0.58 | LOO CV | validation/bootstrap_test.py |
-| **S669 curated** | **52** | **ValidatedDDGPredictor (shipped)** | **0.52** | **LOO CV** | **validation/scientific_metrics.json** |
+| ProTherm subset (NOT S669) | 52 | TrainableCodonEncoder | **0.61** | LOO CV | docs/MODEL_CHECKPOINT_INDEX.md |
+| ProTherm subset (NOT S669) | 52 | Multimodal (8 features) | **0.60** | LOO CV | research/codon-encoder/multimodal/ |
+| ProTherm subset (NOT S669) | 52 | Fresh LOO training | 0.58 | LOO CV | validation/bootstrap_test.py |
+| **ProTherm subset (NOT S669)** | **52** | **ValidatedDDGPredictor (shipped)** | **0.52** | **LOO CV** | **validation/scientific_metrics.json** |
 | S669 full | 669 | ValidatedDDGPredictor | 0.37-0.40 | 5-fold CV | reproducibility/ |
 
 ### Historical Development
@@ -41,7 +41,7 @@
 
 **KEY FINDINGS:**
 1. On N=176 structural validation dataset, property features achieve **Spearman 0.94** (competitive with Rosetta)
-2. On N=52 curated S669, TrainableCodonEncoder achieves **Spearman 0.61** (beats literature sequence-only methods)
+2. On N=52 ProTherm subset, TrainableCodonEncoder achieves **Spearman 0.61** (beats literature sequence-only methods)
 3. Shipped ValidatedDDGPredictor achieves **0.52** (what users get by default)
 4. On N=669 full S669, performance is 0.37-0.40 (NOT competitive with literature)
 

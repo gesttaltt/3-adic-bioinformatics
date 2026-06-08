@@ -46,7 +46,7 @@ def download_file(url: str, output_path: Path, timeout: int = 30) -> bool:
         with open(output_path, "wb") as f:
             f.write(content)
 
-        print(f"Successfully downloaded to: {output_path}")
+        print(f"Successfully downloaded real S669 to: {output_path}")
         return True
 
     except HTTPError as e:
@@ -62,12 +62,18 @@ def download_file(url: str, output_path: Path, timeout: int = 30) -> bool:
 
 def create_fallback_s669(output_path: Path) -> None:
     """
-    Create a representative S669-format dataset from known mutations.
+    Create a ProTherm benchmark subset in S669-compatible CSV format.
 
-    This is used when the online source is unavailable.
-    The data includes well-characterized mutations from literature.
+    WARNING: This fallback dataset is NOT the S669 benchmark by Pancotti et al. 2022.
+    It is a hand-curated set of 52 mutations from ProTherm/literature (barnase,
+    T4 lysozyme, CI2, ubiquitin, staphylococcal nuclease, etc.) created for use
+    when the real S669 file cannot be downloaded.
+
+    Performance metrics (LOO Spearman ρ=0.52) computed on THIS dataset are NOT
+    directly comparable to literature benchmarks that use the full S669 (N=669).
+    For fair comparison, use the full S669 download with validate_padic_s669.py.
     """
-    print("Creating fallback S669 dataset from literature values...")
+    print("Creating ProTherm benchmark subset (fallback — NOT the real S669)...")
 
     # Representative mutations from ProTherm/literature with experimental DDG
     # Format: pdb_id, chain, position, wild_type, mutant, ddg (kcal/mol)

@@ -30,7 +30,7 @@ Debora,
 
 Your work on VAEs for protein fitness landscapes is what got me thinking about latent space geometry. We've been experimenting with embedding sequences in hyperbolic (Poincaré ball) space instead of Euclidean, using p-adic number theory to provide the hierarchical structure.
 
-Results so far: stability prediction ρ=0.58 on S669 subset (N=52), and the latent space shows 82.8% ultrametric compliance - meaning distances approximately satisfy the "strong triangle inequality" that trees have.
+Results so far: stability prediction ρ=0.58 on ProTherm benchmark (N=52), and the latent space shows 82.8% ultrametric compliance - meaning distances approximately satisfy the "strong triangle inequality" that trees have.
 
 Has your group experimented with non-Euclidean latent spaces? Wondering if the extra geometric inductive bias is worth the implementation complexity or if Euclidean is good enough.
 

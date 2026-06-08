@@ -29,7 +29,7 @@ AlphaFold Team,
 
 For regions where AlphaFold has low pLDDT (uncertain structure), would sequence-based stability signals be useful?
 
-We've built a predictor using codon embeddings in hyperbolic space (ρ=0.58 on S669 subset (N=52)). It doesn't need structure - just sequence. Might complement AlphaFold where structural confidence is low.
+We've built a predictor using codon embeddings in hyperbolic space (ρ=0.58 on ProTherm benchmark (N=52)). It doesn't need structure - just sequence. Might complement AlphaFold where structural confidence is low.
 
 Is this something you've considered, or is pLDDT already correlated with the stability signal?
 

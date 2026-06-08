@@ -82,7 +82,7 @@ class BenchmarkRunner:
 
     Runs evaluations on:
     - S669 full benchmark (N=669)
-    - S669 curated subset (N=52)
+    - ProTherm benchmark subset (N=52, NOT from S669)
     - ProTherm curated (N=176+)
     - Cross-dataset generalization
     """
@@ -95,7 +95,7 @@ class BenchmarkRunner:
             "cv_type": "5-fold x 3",
         },
         "s669_curated": {
-            "description": "S669 curated alanine-scanning subset",
+            "description": "ProTherm benchmark subset (N=52, NOT from S669 by Pancotti et al. 2022)",
             "n_expected": 52,
             "cv_type": "LOO",
         },

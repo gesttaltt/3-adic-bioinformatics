@@ -5,15 +5,22 @@ This module provides a validated DDG (protein stability change) predictor
 using the TrainableCodonEncoder with hyperbolic embeddings.
 
 VALIDATION (IMPORTANT - READ CAREFULLY):
-- LOO Spearman: 0.52 on N=52 SUBSET (95% CI: [0.21, 0.80], p<0.001)
+- LOO Spearman: 0.52 on ProTherm benchmark subset (N=52, 95% CI: [0.21, 0.80], p<0.001)
 - LOO Pearson: 0.48 (p<0.001)
 - Full S669 (N=669): 0.37-0.40 with combined features
 - Source: validation/results/scientific_metrics.json
 
+DATASET NOTE:
+The N=52 dataset is a hand-curated ProTherm/literature subset (barnase, T4 lysozyme,
+CI2, ubiquitin, staphylococcal nuclease, etc.) created as a fallback when the real
+S669 benchmark file is unavailable. It is NOT a subset of the S669 benchmark by
+Pancotti et al. 2022 (Briefings in Bioinformatics). Do not compare the N=52
+Spearman ρ=0.52 directly against S669-based literature values.
+
 COMPARISON NOTE:
 Literature methods (ESM-1v 0.51, FoldX 0.48, etc.) are benchmarked on N=669.
-Our N=52 result is NOT directly comparable. On full N=669, we achieve
-ρ=0.37-0.40, which does NOT outperform these methods.
+Our N=52 result is on a different, smaller dataset and is NOT directly comparable.
+On full S669 (N=669), we achieve ρ=0.37-0.40, which does NOT outperform these methods.
 
 See: ../VALIDATION_SUMMARY.md for complete validation details.
 
@@ -103,14 +110,17 @@ class ValidatedDDGPredictor:
     """Validated DDG predictor using TrainableCodonEncoder.
 
     PERFORMANCE:
-    - N=52 subset: LOO Spearman 0.52, Pearson 0.48 (small proteins, Ala-scanning)
-    - N=669 full: Spearman 0.37-0.40 (combined with physicochemical)
+    - ProTherm benchmark subset (N=52): LOO Spearman 0.52, Pearson 0.48
+    - Full S669 (N=669): Spearman 0.37-0.40 (combined with physicochemical)
 
-    IMPORTANT: The N=52 result does NOT directly compare to literature
-    benchmarks which use N=669. See VALIDATION_SUMMARY.md for details.
+    IMPORTANT: The N=52 dataset is a hand-curated ProTherm/literature subset,
+    NOT a subset of the S669 benchmark by Pancotti et al. 2022. Do NOT compare
+    the N=52 Spearman ρ=0.52 against S669-based literature values.
+    On full S669 (N=669), our method does NOT outperform ESM-1v (0.51) or FoldX (0.48).
+    See VALIDATION_SUMMARY.md for complete details.
 
     Best use cases:
-    - Ala-scanning on small proteins (N=52 validation applies)
+    - Ala-scanning on small proteins (N=52 ProTherm validation applies)
     - Neutral→charged mutations (+159% p-adic advantage)
     - Pre-filtering before FoldX/Rosetta (speed advantage)
 
@@ -371,7 +381,7 @@ def get_performance_metrics() -> dict:
         dict with validation metrics
     """
     return {
-        "dataset": "S669 curated subset (N=52)",
+        "dataset": "ProTherm benchmark subset (N=52, NOT from S669 by Pancotti et al. 2022)",
         "validation": "Leave-One-Out CV",
         "loo_spearman": 0.52,
         "loo_pearson": 0.48,

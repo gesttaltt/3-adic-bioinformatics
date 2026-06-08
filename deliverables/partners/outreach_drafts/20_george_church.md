@@ -30,7 +30,7 @@ Prof. Church,
 
 Your multiplex genome engineering work generates massive variant libraries. We've built a codon-level fitness predictor that might help prioritize variants.
 
-It embeds codons in hyperbolic space and predicts stability (ρ=0.58 on S669 subset (N=52)) without structure. Fast enough to score millions of sequences.
+It embeds codons in hyperbolic space and predicts stability (ρ=0.58 on ProTherm benchmark (N=52)) without structure. Fast enough to score millions of sequences.
 
 Would this be useful for filtering large designed libraries before synthesis? Trying to understand if there's demand for pre-synthesis computational screening at the codon (not just amino acid) level.
 

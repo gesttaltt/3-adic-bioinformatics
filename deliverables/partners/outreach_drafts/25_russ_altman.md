@@ -30,7 +30,7 @@ Prof. Altman,
 
 PharmGKB's variant annotation work involves triaging VUS. I'm wondering if stability prediction could help prioritize which variants to investigate further.
 
-We've built a sequence-only stability predictor (ρ=0.58 on S669 subset (N=52)) that's fast enough to screen large VUS lists. The idea: flag variants likely to affect protein stability for closer attention.
+We've built a sequence-only stability predictor (ρ=0.58 on ProTherm benchmark (N=52)) that's fast enough to screen large VUS lists. The idea: flag variants likely to affect protein stability for closer attention.
 
 Questions:
 1. Would predicted stability impact be useful as a VUS triage feature?

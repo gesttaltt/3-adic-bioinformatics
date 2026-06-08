@@ -30,7 +30,7 @@ Prof. Baker,
 
 Congratulations on the Nobel - well deserved for transforming the field.
 
-Quick question from our work on stability prediction: we're finding that codon choice (not just amino acid) contains stability-relevant information, at least for natural proteins. Embedding codons in hyperbolic space predicts DDG (ρ=0.58 on S669 subset (N=52)) without structure.
+Quick question from our work on stability prediction: we're finding that codon choice (not just amino acid) contains stability-relevant information, at least for natural proteins. Embedding codons in hyperbolic space predicts DDG (ρ=0.58 on ProTherm benchmark (N=52)) without structure.
 
 For de novo designed proteins that don't have evolutionary history, would you expect this codon-level signal to exist at all? Or is it purely a signature of natural selection on expression/folding that designed sequences wouldn't have?
 

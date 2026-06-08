@@ -83,6 +83,22 @@ def main():
 
     # Load data (local to colbes package)
     data_path = COLBES_ROOT / "reproducibility/data/s669.csv"
+    if not data_path.exists():
+        # The real S669 benchmark was not downloaded. Generate the ProTherm fallback.
+        # WARNING: This fallback (N=52) is NOT the S669 benchmark by Pancotti et al.
+        # 2022. It is a hand-curated ProTherm/literature subset. Results on this
+        # dataset (LOO Spearman ~0.52-0.58) are NOT directly comparable to
+        # literature benchmarks computed on the full S669 (N=669).
+        # Run: cd reproducibility && python download_s669.py
+        # to attempt downloading the real S669 file.
+        print("WARNING: s669.csv not found. Using ProTherm benchmark fallback (N=52).")
+        print("         Results on this subset are NOT comparable to S669 literature values.")
+        print("         Run 'python reproducibility/download_s669.py' for the real S669.")
+        sys.path.insert(0, str(COLBES_ROOT / "reproducibility"))
+        from download_s669 import create_fallback_s669
+        data_path.parent.mkdir(parents=True, exist_ok=True)
+        create_fallback_s669(data_path)
+
     mutations = load_s669(data_path)
     print(f"Loaded {len(mutations)} mutations")
 

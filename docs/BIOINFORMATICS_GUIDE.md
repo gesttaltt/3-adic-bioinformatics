@@ -27,7 +27,7 @@ The key insight: codons that encode similar amino acids are embedded near each o
 
 | Application | Metric | Value | Dataset | Status |
 |-------------|--------|-------|---------|--------|
-| **DDG Prediction** | Spearman ρ | 0.52 | S669 (N=52) | Production |
+| **DDG Prediction** | Spearman ρ | 0.52 | ProTherm subset (N=52, NOT S669) | Production |
 | **Contact Prediction** | AUC-ROC | 0.67 | Insulin B-chain | Research |
 | **Force Constants** | Correlation | 0.86 | AA properties | Validated |
 | **AMP Fitness** | Pearson r | 0.63 | DRAMP | Production |

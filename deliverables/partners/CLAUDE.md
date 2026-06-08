@@ -47,7 +47,7 @@
 | LOO CV Pearson | **0.478** | `validation/results/scientific_metrics.json` |
 | p-value | <0.001 | scientific_metrics.json |
 | 95% CI | [0.21, 0.80] | bootstrap n=1000 |
-| N mutations | 52 | S669 curated subset (NOT full N=669) |
+| N mutations | 52 | ProTherm subset (NOT S669 by Pancotti et al. 2022) |
 | MAE | 2.34 kcal/mol | scientific_metrics.json |
 | **N=669 performance** | **0.37-0.40** | ValidatedDDGPredictor.py |
 

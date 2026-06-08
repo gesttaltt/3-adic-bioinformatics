@@ -16,7 +16,7 @@ Sequence-only predictions for bioinformatics applications using learned codon em
 
 | Application | Metric | Value | Dataset | Status |
 |-------------|--------|-------|---------|--------|
-| **DDG Prediction** | LOO Spearman | 0.52-0.58 | S669 (N=52) | Production |
+| **DDG Prediction** | LOO Spearman | 0.52-0.58 | ProTherm subset (N=52, NOT S669) | Production |
 | **Contact Prediction** | AUC-ROC | 0.67 | Insulin B-chain | Research |
 | **AMP Fitness** | Pearson r | 0.61 | DRAMP | Production |
 | **Force Constants** | Correlation | 0.86 | AA properties | Validated |

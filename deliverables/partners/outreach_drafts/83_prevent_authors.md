@@ -30,7 +30,7 @@
 
 Your PREVENT paper integrates free energy directly into the VAE objective - physics-informed stability. We've taken an orthogonal route: encoding evolutionary constraints via p-adic geometry.
 
-Question: does PREVENT's physics-based approach catch instabilities that evolution-based methods miss, or vice versa? Our sequence-only predictor (rho=0.58 on S669 subset (N=52)) finds some mutations that Rosetta misses - different error patterns.
+Question: does PREVENT's physics-based approach catch instabilities that evolution-based methods miss, or vice versa? Our sequence-only predictor (rho=0.58 on ProTherm benchmark (N=52)) finds some mutations that Rosetta misses - different error patterns.
 
 Hypothesis: physics captures thermodynamic reality, evolution captures "what has survived." These might be complementary signals.
 

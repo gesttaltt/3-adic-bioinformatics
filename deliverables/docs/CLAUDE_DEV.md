@@ -106,9 +106,19 @@ decoder_type: improved
 | **Richness** | Avg within-level radius variance | >0.005 |
 | **Q-metric** | dist_corr + 1.5×\|hierarchy\| | Maximize |
 
-### Hierarchy Ceiling: -0.8321
+### Hierarchy Ceiling: -0.8321 (proven)
 
-The Spearman correlation cannot exceed -0.8321 with any within-level variance because v=0 contains 66.7% of samples (13,122 of 19,683).
+The Spearman correlation cannot exceed -0.8321 because the maximum achievable
+|rho| equals sqrt(eta^2), where eta^2 is the correlation ratio:
+
+  rho_max = -sqrt(SSBetween_val / SSTotal_rad) = -sqrt(0.692308) = -0.832050
+
+**Why:** v=0 contains 66.7% of samples (13,122 of 19,683). All v=0 members have
+identical valuation rank (zero within-group variance). The total SS of radius
+ranks includes within-group variation that tied valuation ranks cannot account
+for, capping the correlation strictly below -1.
+
+**Proof + numerical verification:** `src/scripts/analysis/hierarchy_ceiling_proof.py`
 
 ---
 
@@ -147,8 +157,7 @@ radius = torch.norm(z_hyp, dim=-1)  # DO NOT USE
 
 ### V5.12.2 Audit Status
 
-- **Core files:** All fixed
-- **Research scripts:** ~40 files still use Euclidean norm()
+- **All 258 `.norm()` calls verified correct** (2025-12-30)
 - **Audit docs:** `docs/mathematical-foundations/V5_12_2_audit/`
 
 ---
@@ -358,7 +367,7 @@ Sequence-only predictions for bioinformatics applications using *learned codon e
 
 | Application | Metric | Value | Dataset | Status |
 |-------------|--------|-------|---------|--------|
-| **DDG Prediction** | LOO Spearman | 0.52-0.58 | S669 (N=52) | Production |
+| **DDG Prediction** | LOO Spearman | 0.52-0.58 | ProTherm subset (N=52, NOT S669) | Production |
 | **Contact Prediction** | AUC-ROC | 0.67 | Insulin B-chain | Research |
 | **AMP Fitness** | Pearson r | 0.61 | DRAMP | Production |
 | **Force Constants** | Correlation | 0.86 | AA properties | Validated |
@@ -380,10 +389,13 @@ python scripts/C4_mutation_effect_predictor.py --mutations mutations.csv
 ```
 
 **Validated Performance:**
-| Metric | N=52 (curated) | N=669 (full) |
-|--------|:--------------:|:------------:|
+| Metric | ProTherm subset (N=52) | S669 full (N=669) |
+|--------|:----------------------:|:-----------------:|
 | Spearman | 0.52 | 0.37-0.40 |
 | p-value | <0.001 | <0.001 |
+
+**⚠️ Dataset note:** The N=52 dataset is a hand-curated ProTherm/literature subset,
+NOT the S669 benchmark by Pancotti et al. 2022. Do not compare N=52 results to S669-based literature.
 
 **Strengths:**
 - Rosetta-blind detection (23.6% of cases Rosetta misses)
@@ -523,9 +535,11 @@ The method catches 23.6% of cases where Rosetta fails - complementary to structu
 
 ### Honest Performance Disclosure
 
-- **N=52 curated subset:** rho=0.52 (what ships in ValidatedDDGPredictor)
-- **N=669 full dataset:** rho=0.37-0.40 (fair literature comparison)
-- ESM-1v (0.51), FoldX (0.48) are benchmarked on N=669
+- **ProTherm benchmark subset (N=52):** rho=0.52 (what ships in ValidatedDDGPredictor)
+  - ⚠️ This is a hand-curated ProTherm/literature subset, NOT the S669 benchmark
+  - NOT directly comparable to literature values benchmarked on S669 (N=669)
+- **S669 full dataset (N=669):** rho=0.37-0.40 (fair literature comparison)
+- ESM-1v (0.51), FoldX (0.48) are benchmarked on N=669 — our N=52 result does NOT beat them on N=669
 
 ---
 

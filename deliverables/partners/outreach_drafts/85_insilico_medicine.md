@@ -33,7 +33,7 @@ Insilico Team,
 
 Your AI drug discovery pipeline has impressive clinical results. Quick question about target analysis.
 
-We've built a sequence-only stability predictor using hyperbolic geometry (rho=0.58 on S669 subset (N=52)). It screens thousands of variants per second without requiring structure. The evolutionary constraints it captures sometimes flag instabilities that physics-based methods miss.
+We've built a sequence-only stability predictor using hyperbolic geometry (rho=0.58 on ProTherm benchmark (N=52)). It screens thousands of variants per second without requiring structure. The evolutionary constraints it captures sometimes flag instabilities that physics-based methods miss.
 
 Practical question: in your target identification workflow, is fast sequence-level stability screening useful before expensive experimental validation? Or do your structural methods already handle target druggability assessment well?
 

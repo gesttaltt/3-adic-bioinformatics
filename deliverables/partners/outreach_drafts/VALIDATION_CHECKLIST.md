@@ -48,7 +48,7 @@ This is the strongest package. The DENV-4 cryptic diversity discovery explains a
 - [x] Discordant cases claim is honest (different failure modes)
 
 ### Required Email Edits:
-Add to relevant emails: "on a curated N=52 subset of S669 (alanine scanning mutations)"
+Add to relevant emails: "on a ProTherm benchmark subset (N=52) — not a subset of S669 by Pancotti et al. 2022"
 
 ### Honest Framing:
 - ✅ "Different failure modes than Rosetta" - TRUE
