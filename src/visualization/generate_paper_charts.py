@@ -3,9 +3,10 @@ import seaborn as sns
 import pandas as pd
 import numpy as np
 import os
+from pathlib import Path
 
-# Configuration
-OUTPUT_DIR = r"c:\Users\Alejandro\Documents\Ivan\Work\ternary-vaes-bioinformatics\research\bioinformatics\codon_encoder_research\hiv\public_medical_paper\images"
+# Configuration — output alongside the other HIV paper images
+OUTPUT_DIR = str(Path(__file__).resolve().parents[2] / "research" / "diseases" / "hiv" / "public_medical_paper" / "images")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Style Settings

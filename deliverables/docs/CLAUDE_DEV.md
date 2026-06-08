@@ -310,14 +310,9 @@ from src.geometry import poincare_distance, exp_map_zero
   download URLs via API (`modelEntityId`/`entryId`/`pdbUrl`) with direct-URL fallback
   (`src/encoders/alphafold_encoder.py`)
 - V5.12.2 hyperbolic audit complete: all 258 `.norm()` calls verified correct
-
----
-
-## Remaining Tasks
-
-| Priority | Task |
-|:--------:|------|
-| 1 | Publication figures organization |
+- Publication figures organized: figure_5 moved to `deliverables/results/figures/`,
+  README index added, Windows paths fixed in `src/visualization/generate_paper_*.py`
+- Tier numbering fixed: `04_TIER_3` renamed to `03_TIER_3` in presentation_tiers
 
 ---
 
