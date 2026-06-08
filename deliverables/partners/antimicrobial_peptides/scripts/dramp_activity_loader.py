@@ -29,8 +29,10 @@ import numpy as np
 # Add package root to path for local imports
 PACKAGE_DIR = Path(__file__).parent.parent
 PROJECT_ROOT = PACKAGE_DIR.parent.parent.parent
-sys.path.insert(0, str(PACKAGE_DIR))  # For local src imports
+# PACKAGE_DIR must be inserted last (ends up at index 0) so the local src/
+# takes priority over the project-root src/ which requires torch.
 sys.path.insert(0, str(PROJECT_ROOT))  # For ML model imports
+sys.path.insert(0, str(PACKAGE_DIR))   # For local src imports (priority)
 
 # Import from local src (self-contained)
 from src.constants import HYDROPHOBICITY, CHARGES, VOLUMES, WHO_CRITICAL_PATHOGENS
@@ -350,12 +352,17 @@ class AMPDatabase:
         return X_train, y_train, X_val, y_val
 
     def get_feature_names(self) -> list[str]:
-        """Get ordered list of feature names for ML training."""
+        """Get ordered list of feature names for ML training.
+
+        Must stay in sync with AMPRecord.compute_features() key order.
+        """
         return [
             "length", "charge", "hydrophobicity", "volume",
             "positive_fraction", "negative_fraction", "aromatic_fraction",
             "aliphatic_fraction", "polar_fraction", "hydrophobic_fraction",
             "amphipathicity", "hydrophobic_moment",
+            "padic_mean_val", "padic_max_val", "padic_var_val",
+            "padic_val_product", "padic_val_gradient",
             "aac_A", "aac_C", "aac_D", "aac_E", "aac_F",
             "aac_G", "aac_H", "aac_I", "aac_K", "aac_L",
             "aac_M", "aac_N", "aac_P", "aac_Q", "aac_R",
@@ -377,13 +384,14 @@ class AMPDatabase:
         if not records:
             return np.array([]), np.array([])
 
+        feature_names = self.get_feature_names()
         features = []
         labels = []
 
         for record in records:
             feat = record.compute_features()
             if feat:
-                features.append(list(feat.values()))
+                features.append([feat[name] for name in feature_names])
                 labels.append(np.log10(record.mic_value))
 
         return np.array(features), np.array(labels)

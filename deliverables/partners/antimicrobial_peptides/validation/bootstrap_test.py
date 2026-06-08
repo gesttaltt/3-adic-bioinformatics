@@ -37,8 +37,11 @@ except ImportError:
 
 try:
     import joblib
+    from sklearn.base import clone
     from sklearn.model_selection import cross_val_score, cross_val_predict
     from sklearn.metrics import mean_squared_error
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import StandardScaler
     HAS_SKLEARN = True
 except ImportError:
     HAS_SKLEARN = False
@@ -145,15 +148,18 @@ def validate_model(model_path: Path, target: str = None,
         print(f"Not enough data for {target}: {len(X)} samples")
         return None
 
-    # Scale features
+    # Build a pipeline with scaler inside CV so each fold scales independently.
+    # Using scaler.transform(X) before cross_val_predict leaks test-fold statistics
+    # into the scaling step — the scaler was fitted on the full dataset including
+    # samples that will later appear as test folds.
     if scaler is not None:
-        X_scaled = scaler.transform(X)
+        cv_pipeline = Pipeline([('scaler', StandardScaler()), ('model', clone(model))])
     else:
-        X_scaled = X
+        cv_pipeline = clone(model)
 
-    # Cross-validation predictions
+    # Cross-validation predictions (scaler refitted per fold, no leakage)
     n_folds = min(5, len(X))
-    y_pred_cv = cross_val_predict(model, X_scaled, y, cv=n_folds)
+    y_pred_cv = cross_val_predict(cv_pipeline, X, y, cv=n_folds)
 
     # Compute correlations
     pearson_r, pearson_p = pearsonr(y, y_pred_cv)

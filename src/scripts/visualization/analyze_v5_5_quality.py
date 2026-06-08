@@ -228,18 +228,12 @@ def analyze_manifold_quality(encoder_A, encoder_B, decoder_A, device="cpu"):
             i2 //= 3
         return diff
 
-    adic_dists = []
-    latent_dists_A = []
-    latent_dists_B = []
+    adic_dists = np.array([compute_3adic_distance(i, j) for i, j in pairs])
 
-    for i, j in pairs:
-        adic_dists.append(compute_3adic_distance(i, j))
-        latent_dists_A.append(np.linalg.norm(z_A_np[i] - z_A_np[j]))
-        latent_dists_B.append(np.linalg.norm(z_B_np[i] - z_B_np[j]))
-
-    adic_dists = np.array(adic_dists)
-    latent_dists_A = np.array(latent_dists_A)
-    latent_dists_B = np.array(latent_dists_B)
+    # Compute latent distances using proper hyperbolic (Poincaré) distance
+    with torch.no_grad():
+        latent_dists_A = poincare_distance(z_A[pairs[:, 0]], z_A[pairs[:, 1]]).cpu().numpy()
+        latent_dists_B = poincare_distance(z_B[pairs[:, 0]], z_B[pairs[:, 1]]).cpu().numpy()
 
     corr_A, p_A = spearmanr(adic_dists, latent_dists_A)
     corr_B, p_B = spearmanr(adic_dists, latent_dists_B)

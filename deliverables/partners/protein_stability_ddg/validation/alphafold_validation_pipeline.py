@@ -94,9 +94,16 @@ class ValidationResult:
 # =============================================================================
 
 class AlphaFoldClient:
-    """Client for AlphaFold Protein Structure Database API."""
+    """Client for AlphaFold Protein Structure Database API.
+
+    NOTE: The /api/prediction endpoint is sunset 2026-06-25.
+    Field name change: entryId -> modelEntityId.
+    We fall back to direct file URL construction so the code stays
+    functional regardless of whether the API endpoint is live.
+    """
 
     BASE_URL = "https://alphafold.ebi.ac.uk/api"
+    FILES_BASE = "https://alphafold.ebi.ac.uk/files"
 
     # PDB to UniProt mapping (for S669 proteins)
     # This is a subset - full mapping should be fetched from SIFTS
@@ -156,14 +163,25 @@ class AlphaFoldClient:
 
         return None
 
+    def _construct_pdb_url(self, uniprot_id: str, version: int = 4, fragment: int = 1) -> str:
+        """Construct AlphaFold PDB file URL directly, without relying on the API.
+
+        Stable URL format that works regardless of API availability.
+        """
+        return f"{self.FILES_BASE}/AF-{uniprot_id}-F{fragment}-model_v{version}.pdb"
+
     def get_prediction_info(self, uniprot_id: str) -> Optional[dict]:
         """Get AlphaFold prediction info for a UniProt ID.
 
+        Handles both the old API format (entryId) and the new format
+        (modelEntityId, effective after 2026-06-25 sunset).
+
         Returns:
-            dict with keys: modelUrl, cifUrl, pdbUrl, confidenceUrl, etc.
+            dict with keys including pdbUrl and either entryId or modelEntityId.
+            Returns a synthetic dict with pdbUrl if the API is unavailable.
         """
         if self.session is None:
-            return None
+            return {"pdbUrl": self._construct_pdb_url(uniprot_id)}
 
         try:
             url = f"{self.BASE_URL}/prediction/{uniprot_id}"
@@ -175,7 +193,37 @@ class AlphaFoldClient:
         except Exception as e:
             print(f"  AlphaFold API error for {uniprot_id}: {e}")
 
-        return None
+        # API unavailable or changed: return synthetic info with direct file URL
+        return {"pdbUrl": self._construct_pdb_url(uniprot_id)}
+
+    def _resolve_pdb_url(self, uniprot_id: str, info: dict) -> str:
+        """Resolve the PDB download URL from an API response or construct it directly.
+
+        Handles old API format (entryId), new API format (modelEntityId),
+        and direct URL construction as a final fallback.
+        """
+        # pdbUrl present in response (works for both old and new API)
+        pdb_url = info.get("pdbUrl")
+        if pdb_url:
+            return pdb_url
+
+        # New API: modelEntityId present but pdbUrl absent
+        # modelEntityId may be "AF-P00720-F1-model_v4" (full) or "AF-P00720-F1" (bare)
+        model_entity_id = info.get("modelEntityId")
+        if model_entity_id:
+            if "-model_v" in model_entity_id:
+                return f"{self.FILES_BASE}/{model_entity_id}.pdb"
+            version = info.get("latestVersion", 4)
+            return f"{self.FILES_BASE}/{model_entity_id}-model_v{version}.pdb"
+
+        # Old API: entryId present but pdbUrl absent (shouldn't happen, but guard it)
+        entry_id = info.get("entryId")
+        if entry_id:
+            version = info.get("latestVersion", 4)
+            return f"{self.FILES_BASE}/{entry_id}-model_v{version}.pdb"
+
+        # Last resort: construct URL directly from UniProt ID
+        return self._construct_pdb_url(uniprot_id)
 
     def get_plddt_scores(self, uniprot_id: str) -> Optional[list[float]]:
         """Get per-residue pLDDT confidence scores from PDB B-factors.
@@ -194,14 +242,9 @@ class AlphaFoldClient:
         if self.session is None:
             return None
 
-        # Get prediction info to find PDB URL
-        info = self.get_prediction_info(uniprot_id)
-        if info is None:
-            return None
-
-        pdb_url = info.get("pdbUrl")
-        if not pdb_url:
-            return None
+        # Get prediction info, then resolve a download URL from it
+        info = self.get_prediction_info(uniprot_id) or {}
+        pdb_url = self._resolve_pdb_url(uniprot_id, info)
 
         try:
             response = self.session.get(pdb_url, timeout=60)

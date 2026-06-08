@@ -310,9 +310,9 @@ def find_natural_positions(embeddings, force=False):
             selected = []
             z_candidates = z_B_hyp[candidates]
 
-            # Start with centroid
+            # Start with centroid (Euclidean mean as initialization point)
             centroid = z_candidates.mean(dim=0)
-            dists = torch.norm(z_candidates - centroid, dim=1)
+            dists = poincare_distance(z_candidates, centroid.unsqueeze(0).expand_as(z_candidates))
             selected.append(candidates[dists.argmin().item()])
 
             # Add diverse points
@@ -320,10 +320,10 @@ def find_natural_positions(embeddings, force=False):
                 remaining = [c for c in candidates if c not in selected]
                 if not remaining:
                     break
-                # Pick point furthest from selected
+                # Pick point furthest from selected (hyperbolic distance)
                 min_dists = []
                 for c in remaining:
-                    d = min(torch.norm(z_B_hyp[c] - z_B_hyp[s]).item() for s in selected)
+                    d = min(poincare_distance(z_B_hyp[c], z_B_hyp[s]).item() for s in selected)
                     min_dists.append(d)
                 best_idx = np.argmax(min_dists)
                 selected.append(remaining[best_idx])
@@ -342,7 +342,7 @@ def find_natural_positions(embeddings, force=False):
 
     for i, pos_i in enumerate(positions):
         for j, pos_j in enumerate(positions[i+1:], i+1):
-            d = torch.norm(z_B_hyp[pos_i] - z_B_hyp[pos_j]).item()
+            d = poincare_distance(z_B_hyp[pos_i], z_B_hyp[pos_j]).item()
             if labels[i] == labels[j]:
                 within_dists.append(d)
             else:

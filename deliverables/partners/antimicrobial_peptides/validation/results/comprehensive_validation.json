@@ -1,8 +1,8 @@
 {
   "metadata": {
     "validation_type": "comprehensive",
-    "n_permutations": 100,
-    "timestamp": "2026-01-23T19:55:31"
+    "n_permutations": 50,
+    "timestamp": "2026-06-08T10:51:13"
   },
   "models": [
     {
@@ -12,35 +12,35 @@
       "n_samples": 425,
       "n_unique_sequences": 193,
       "cv_method": "5-fold",
-      "pearson_r": 0.6081768641992892,
-      "pearson_p": 2.403872077578673e-44,
-      "spearman_r": 0.6187050608285929,
-      "spearman_p": 2.958564827698579e-46,
-      "rmse": 0.3989798767986111,
-      "mae": 0.29579176115941086,
-      "permutation_p": 0.009900990099009901,
-      "permutation_score": -0.15918494209023487,
-      "n_permutations": 100,
+      "pearson_r": 0.6061112293160343,
+      "pearson_p": 5.588280762045494e-44,
+      "spearman_r": 0.6163767140134238,
+      "spearman_p": 7.93726397544487e-46,
+      "rmse": 0.40002114030916774,
+      "mae": 0.29661224200869946,
+      "permutation_p": 0.0196078431372549,
+      "permutation_score": -0.1600169126942469,
+      "n_permutations": 50,
       "top_features": [
         {
           "feature": "charge",
-          "importance": 0.18833908778334338
+          "importance": 0.18890117309979249
         },
         {
           "feature": "feature_32",
-          "importance": 0.08677023372610541
+          "importance": 0.08675085438861282
         },
         {
           "feature": "aac_D",
-          "importance": 0.08171735028496696
+          "importance": 0.0817311487745813
         },
         {
           "feature": "feature_33",
-          "importance": 0.058592209212078264
+          "importance": 0.0590647262124598
         },
         {
           "feature": "aliphatic_fraction",
-          "importance": 0.050014181282803875
+          "importance": 0.05012001425045101
         }
       ],
       "primary_predictor": "charge",
@@ -56,35 +56,35 @@
       "n_samples": 104,
       "n_unique_sequences": 84,
       "cv_method": "5-fold",
-      "pearson_r": 0.3483781803978115,
-      "pearson_p": 0.00029001925740871183,
-      "spearman_r": 0.3161012029604286,
-      "spearman_p": 0.0010796929495872235,
-      "rmse": 0.44116932945918486,
-      "mae": 0.33936784043982937,
-      "permutation_p": 0.009900990099009901,
-      "permutation_score": -0.1940109763534736,
-      "n_permutations": 100,
+      "pearson_r": 0.34347310562469663,
+      "pearson_p": 0.0003574472064061446,
+      "spearman_r": 0.31061517371435227,
+      "spearman_p": 0.0013312805106516549,
+      "rmse": 0.4426641845740434,
+      "mae": 0.33996813102954737,
+      "permutation_p": 0.0196078431372549,
+      "permutation_score": -0.19531959651642727,
+      "n_permutations": 50,
       "top_features": [
         {
           "feature": "feature_33",
-          "importance": 0.18157427684535477
+          "importance": 0.1814764425186452
         },
         {
           "feature": "feature_32",
-          "importance": 0.0876555597251928
+          "importance": 0.08724559846946583
         },
         {
           "feature": "aac_A",
-          "importance": 0.07092937886121253
+          "importance": 0.07085496904466462
         },
         {
           "feature": "negative_fraction",
-          "importance": 0.055704578627677234
+          "importance": 0.05601900622991969
         },
         {
           "feature": "polar_fraction",
-          "importance": 0.04991149092305868
+          "importance": 0.049647460083933996
         }
       ],
       "primary_predictor": "feature_33",
@@ -100,35 +100,35 @@
       "n_samples": 100,
       "n_unique_sequences": 86,
       "cv_method": "5-fold",
-      "pearson_r": 0.5057418848921581,
-      "pearson_p": 7.997605214056357e-08,
-      "spearman_r": 0.48972251385831106,
-      "spearman_p": 2.3287010414199202e-07,
-      "rmse": 0.4198636010748785,
-      "mae": 0.29653004973722086,
-      "permutation_p": 0.009900990099009901,
-      "permutation_score": -0.17628544350756478,
-      "n_permutations": 100,
+      "pearson_r": 0.5071868529362553,
+      "pearson_p": 7.242911293298453e-08,
+      "spearman_r": 0.49216889681275805,
+      "spearman_p": 1.984977223108404e-07,
+      "rmse": 0.41945988663621253,
+      "mae": 0.29517897617052125,
+      "permutation_p": 0.0196078431372549,
+      "permutation_score": -0.17594659649686434,
+      "n_permutations": 50,
       "top_features": [
         {
           "feature": "positive_fraction",
-          "importance": 0.23977911099474195
+          "importance": 0.24050668081163867
         },
         {
           "feature": "charge",
-          "importance": 0.11843692088531615
+          "importance": 0.1177368573834022
         },
         {
           "feature": "aac_A",
-          "importance": 0.05981070584350015
+          "importance": 0.06068348370250977
         },
         {
           "feature": "aac_D",
-          "importance": 0.05830953766787739
+          "importance": 0.057329681093619404
         },
         {
           "feature": "length",
-          "importance": 0.048016098731652565
+          "importance": 0.0472333505510252
         }
       ],
       "primary_predictor": "positive_fraction",
@@ -144,35 +144,35 @@
       "n_samples": 133,
       "n_unique_sequences": 114,
       "cv_method": "5-fold",
-      "pearson_r": 0.4922490460751565,
-      "pearson_p": 1.7674292025795848e-09,
-      "spearman_r": 0.4988400482444136,
-      "spearman_p": 9.898692816516738e-10,
-      "rmse": 0.5260452135680653,
-      "mae": 0.41411480520576943,
-      "permutation_p": 0.009900990099009901,
-      "permutation_score": -0.27627004545157,
-      "n_permutations": 100,
+      "pearson_r": 0.49330706001622165,
+      "pearson_p": 1.6117101180974833e-09,
+      "spearman_r": 0.502079840645889,
+      "spearman_p": 7.410538600033639e-10,
+      "rmse": 0.5253278821634185,
+      "mae": 0.41312849637955373,
+      "permutation_p": 0.0196078431372549,
+      "permutation_score": -0.27550113154749234,
+      "n_permutations": 50,
       "top_features": [
         {
           "feature": "charge",
-          "importance": 0.18486720496775347
+          "importance": 0.1850015299104032
         },
         {
           "feature": "positive_fraction",
-          "importance": 0.16384185482322972
+          "importance": 0.16386142170979068
         },
         {
           "feature": "length",
-          "importance": 0.049190207686771605
+          "importance": 0.04909260267321267
         },
         {
           "feature": "aac_A",
-          "importance": 0.04351200108506416
+          "importance": 0.04378946173937259
         },
         {
           "feature": "feature_32",
-          "importance": 0.04069751216437084
+          "importance": 0.04068652759428317
         }
       ],
       "primary_predictor": "charge",
@@ -188,35 +188,35 @@
       "n_samples": 88,
       "n_unique_sequences": 80,
       "cv_method": "5-fold",
-      "pearson_r": 0.4625506019764127,
-      "pearson_p": 5.701360930776272e-06,
-      "spearman_r": 0.4456951856348173,
-      "spearman_p": 1.351520305509218e-05,
-      "rmse": 0.3594134657408258,
-      "mae": 0.2710756185185531,
-      "permutation_p": 0.009900990099009901,
-      "permutation_score": -0.1296101801908954,
-      "n_permutations": 100,
+      "pearson_r": 0.46090100000760337,
+      "pearson_p": 6.216513100966553e-06,
+      "spearman_r": 0.45004214217575844,
+      "spearman_p": 1.0865355713022695e-05,
+      "rmse": 0.35943956764308915,
+      "mae": 0.2709862221823082,
+      "permutation_p": 0.0196078431372549,
+      "permutation_score": -0.12960935781064561,
+      "n_permutations": 50,
       "top_features": [
         {
           "feature": "charge",
-          "importance": 0.1493406811650619
+          "importance": 0.15020468348066993
         },
         {
           "feature": "positive_fraction",
-          "importance": 0.13072049653747914
+          "importance": 0.1303498465516624
         },
         {
           "feature": "feature_33",
-          "importance": 0.11876920452656341
+          "importance": 0.11857388795636302
         },
         {
           "feature": "feature_32",
-          "importance": 0.10192598533337856
+          "importance": 0.10192039946790413
         },
         {
           "feature": "polar_fraction",
-          "importance": 0.040184834662897524
+          "importance": 0.040127564535216195
         }
       ],
       "primary_predictor": "charge",

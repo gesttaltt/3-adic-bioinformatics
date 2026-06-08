@@ -360,6 +360,13 @@ def get_performance_metrics() -> dict:
     Literature methods are benchmarked on N=669. Direct comparison is NOT valid.
     On N=669, our method achieves ρ=0.37-0.40.
 
+    NOTE on the 0.52 vs 0.58 discrepancy:
+    - This function returns ρ=0.52 from ValidatedDDGPredictor (TrainableCodonEncoder
+      with hyperbolic embeddings + Ridge regression with fixed coefficients).
+    - validation/bootstrap_test.py reports ρ=0.581 from a separately trained
+      Ridge(α=100) on raw physicochemical features via LOO CV.
+    These are two different models on the same N=52 dataset — not contradictory.
+
     Returns:
         dict with validation metrics
     """
@@ -424,10 +431,14 @@ if __name__ == "__main__":
         print(f"{wt}→{mut:<8} {pred.ddg:<15.2f} {pred.classification:<15} {pred.confidence:<12.2f}")
 
     print("\n" + "=" * 70)
-    print("Comparison with Literature")
+    print("Comparison with Literature (N=669 full dataset — fair comparison)")
     print("=" * 70)
+    print(f"\nNote: {metrics['n52_vs_n669_caveat']}")
     print("\n| Method | Spearman | Type |")
     print("|--------|----------|------|")
-    for method, r in metrics['comparison'].items():
-        marker = "**" if method == "TrainableCodonEncoder (this)" else ""
-        print(f"| {marker}{method}{marker} | {r:.2f} | {'Sequence' if 'Codon' in method or 'ESM' in method or 'ELASPIC' in method else 'Structure'} |")
+    for method, value in metrics['comparison_n669'].items():
+        if method == 'note':
+            continue
+        marker = "**" if "TrainableCodonEncoder" in method else ""
+        kind = 'Sequence' if any(x in method for x in ('Codon', 'ESM', 'ELASPIC')) else 'Structure'
+        print(f"| {marker}{method}{marker} | {value:.2f} | {kind} |")

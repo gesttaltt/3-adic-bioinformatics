@@ -383,7 +383,7 @@ From Contact Prediction validation:
 
 2. **Bootstrap Validation:** The 95% CI [{results['loo_cv']['overall']['ci_lower']}, {results['loo_cv']['overall']['ci_upper']}] {'does not include zero, confirming the correlation is real' if results['loo_cv']['overall']['ci_lower'] > 0 else 'needs careful interpretation'}
 
-3. **Competitive Performance:** Our sequence-only predictor {'outperforms' if results['loo_cv']['overall']['spearman'] > 0.56 else 'is competitive with'} published sequence-only methods
+3. **Performance (N=52 curated subset):** Our sequence-only predictor achieves ρ={results['loo_cv']['overall']['spearman']} on N=52. On the full N=669 benchmark (comparable to literature), performance is ρ=0.37-0.40, which does NOT outperform ESM-1v (0.51) or other sequence-only methods.
 
 4. **Structural Insight:** AlphaFold cross-validation confirms that prediction accuracy correlates with structural confidence
 

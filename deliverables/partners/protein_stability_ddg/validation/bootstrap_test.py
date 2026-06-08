@@ -148,8 +148,11 @@ def main():
     pearson_r, pearson_p = pearsonr(y, y_pred)
 
     print(f"\n{'=' * 60}")
-    print("LOO CROSS-VALIDATION RESULTS")
+    print("LOO CROSS-VALIDATION RESULTS (Ridge α=100 on physicochemical features)")
     print("=" * 60)
+    print("NOTE: This reports ρ≈0.58 for a Ridge regression model.")
+    print("      validated_ddg_predictor.py reports ρ=0.52 for the TrainableCodonEncoder")
+    print("      model. Both use N=52 LOO CV but test different model architectures.")
     print(f"Spearman rho: {observed_rho:.4f} (p = {p:.2e})")
     print(f"Pearson r:    {pearson_r:.4f} (p = {pearson_p:.2e})")
     print(f"MAE:          {np.mean(np.abs(y - y_pred)):.3f} kcal/mol")

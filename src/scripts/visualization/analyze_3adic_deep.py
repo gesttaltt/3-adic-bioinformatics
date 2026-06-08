@@ -31,6 +31,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config.paths import CHECKPOINTS_DIR
 from src.data.generation import generate_all_ternary_operations
+from src.geometry import poincare_distance
 # V5.11 is the canonical model - alias for backwards compatibility
 from src.models import TernaryVAE as DualNeuralVAEV5
 
@@ -462,9 +463,12 @@ def analyze_training_trajectory(output_path, device="cpu"):
             z_A = mu_A.cpu().numpy()
             z_B = mu_B.cpu().numpy()
 
-            # Compute latent distances for sampled pairs
-            latent_dists_A = np.array([np.linalg.norm(z_A[i] - z_A[j]) for i, j in pairs])
-            latent_dists_B = np.array([np.linalg.norm(z_B[i] - z_B[j]) for i, j in pairs])
+            # Compute latent distances for sampled pairs (hyperbolic Poincaré distance)
+            z_A_t = torch.from_numpy(z_A)
+            z_B_t = torch.from_numpy(z_B)
+            with torch.no_grad():
+                latent_dists_A = poincare_distance(z_A_t[pairs[:, 0]], z_A_t[pairs[:, 1]]).numpy()
+                latent_dists_B = poincare_distance(z_B_t[pairs[:, 0]], z_B_t[pairs[:, 1]]).numpy()
 
             # Correlations
             corr_A, _ = spearmanr(adic_dists, latent_dists_A)
