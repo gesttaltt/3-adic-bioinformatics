@@ -317,8 +317,7 @@ from src.geometry import poincare_distance, exp_map_zero
 
 | Priority | Task |
 |:--------:|------|
-| 1 | Fix tier numbering in docs |
-| 2 | Publication figures organization |
+| 1 | Publication figures organization |
 
 ---
 

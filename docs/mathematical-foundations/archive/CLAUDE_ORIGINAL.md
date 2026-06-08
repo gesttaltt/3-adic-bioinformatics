@@ -894,8 +894,8 @@ When discussing DDG prediction:
 | Priority | Task | Category | Details |
 |:--------:|------|----------|---------|
 | **1** | Sync stakeholder-portfolio branch | Git | Cherry-pick/merge organized main to stakeholder-portfolio |
-| **2** | Create HIV deep dive document | Docs | Missing from DOCUMENTATION tier 3 (01, 02, 04 gap) |
-| **3** | Fix tier numbering | Docs | Renumber 04 → 03 or add missing 03_HIV_DEEP_DIVE.md |
+| **2** | Create HIV deep dive document | Docs | Could be added as 04_TIER_4 or appended to 03_TIER_3 |
+| **3** | ~~Fix tier numbering~~ | Docs | DONE: 04_TIER_3 renamed to 03_TIER_3 |
 | **4** | V5.12.2 research script fixes | Code | ~40 files in src/research/ use Euclidean norm() |
 | **5** | Partner README updates | Docs | Add usage examples, benchmark results to each partner |
 | **6** | Stakeholder portfolio curation | Git | Remove dev artifacts from stakeholder-portfolio branch |
