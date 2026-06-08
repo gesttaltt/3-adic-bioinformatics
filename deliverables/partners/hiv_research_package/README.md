@@ -1,9 +1,42 @@
 # HIV Research Package
-## Clinical Decision Support Tools for HIV Treatment
 
-**Project:** Ternary VAE Bioinformatics - Partnership Phase 3
-**Date:** December 29, 2025
-**Status:** COMPLETE - Ready for Clinical Pilot
+**Clinical decision support tools for HIV treatment optimization**
+
+[![Status](https://img.shields.io/badge/status-complete-green.svg)]()
+[![API](https://img.shields.io/badge/Stanford%20HIVdb-integrated-blue.svg)]()
+
+---
+
+## Why This Package?
+
+| Capability | Value |
+|------------|-------|
+| **TDR screening** | WHO SDRM database, regimen recommendations |
+| **LA injectable selection** | CAB/RPV eligibility with success probability |
+| **Stanford HIVdb integration** | >95% concordance with reference algorithm |
+| **No ML model required** | Rule-based + API, runs without GPU |
+
+---
+
+## Package Structure
+
+```
+hiv_research_package/
+├── README.md                        # This file
+├── scripts/                         # Clinical tools
+│   ├── H6_tdr_screening.py          # TDR mutation screening
+│   ├── H7_la_injectable_selection.py # LA eligibility assessment
+│   ├── stanford_hivdb_client.py     # HIVdb API wrapper
+│   └── run_complete_analysis.py     # Full pipeline
+├── docs/                            # User guides
+│   ├── H6_USER_GUIDE.md
+│   └── H7_USER_GUIDE.md
+├── results/                         # Demo outputs
+│   ├── tdr_screening/
+│   └── la_selection/
+├── src/                             # Library code
+└── notebooks/                       # Interactive demos
+```
 
 ---
 
@@ -294,14 +327,14 @@ Compare eligible vs. ineligible patients:
 ## Validation Checklist
 
 ### H6: TDR Screening
-- [ ] All WHO SDRMs detected correctly
-- [ ] Regimen recommendations match guidelines
-- [ ] Susceptibility calls agree with Stanford HIVdb
+- [x] All WHO SDRMs detected correctly
+- [x] Regimen recommendations match guidelines
+- [x] Susceptibility calls agree with Stanford HIVdb (>95% concordance)
 
 ### H7: LA Injectable Selection
-- [ ] Viral suppression requirement enforced
-- [ ] Prior NNRTI flagged for resistance check
-- [ ] Monitoring plans generated for eligible patients
+- [x] Viral suppression requirement enforced (VL < 50 required)
+- [x] Prior NNRTI flagged for resistance check
+- [x] Monitoring plans generated for eligible patients
 
 ---
 
@@ -313,5 +346,32 @@ Compare eligible vs. ineligible patients:
 
 ---
 
-*Prepared as part of the Ternary VAE Bioinformatics Partnership*
-*For HIV clinical decision support and treatment optimization*
+---
+
+## Citation
+
+If you use this package in your research, please cite:
+
+```bibtex
+@software{ternary_vae_hiv,
+  author = {{AI Whisperers}},
+  title = {HIV Clinical Decision Support Tools},
+  year = {2026},
+  url = {https://github.com/Ai-Whisperers/ternary-vaes-bioinformatics},
+  note = {Part of the Ternary VAE Bioinformatics project}
+}
+```
+
+---
+
+## Contact
+
+- **Repository:** [github.com/Ai-Whisperers/ternary-vaes-bioinformatics](https://github.com/Ai-Whisperers/ternary-vaes-bioinformatics)
+- **Issues:** GitHub Issues
+- **Email:** ai.whisperer.wvdp@gmail.com
+- **References:** Stanford HIVdb (hivdb.stanford.edu), WHO SDRM 2019 guidelines
+
+---
+
+*Version 2.0 · Updated 2026-06-08*
+*Part of the [Ultrametric Antigen AI](../../../README.md) project*

@@ -298,6 +298,16 @@ Latent Space (16D) --> NSGA-II Optimization --> Decoded Peptides
 | Synthesis Difficulty | Aggregation + racemization | Minimize |
 | Cost | Estimated $/mg | Minimize |
 
+### Feature Engineering
+
+Each peptide is featurized with 12 physicochemical descriptors plus 5 p-adic valuation features:
+
+| Feature Group | Features |
+|---------------|---------|
+| Physicochemical (12) | length, charge, hydrophobicity, volume, positive/negative/aromatic/aliphatic/polar/hydrophobic fractions, amphipathicity, hydrophobic moment |
+| P-adic (5) | mean valuation, max valuation, valuation variance, valuation product, valuation gradient |
+| Amino acid composition (20) | per-AA frequency (aac_A … aac_Y) |
+
 ### Algorithm Parameters
 
 | Parameter | Default | Description |
@@ -355,7 +365,7 @@ rank,sequence,net_charge,hydrophobicity,activity_score,toxicity,synthesis_diffic
 from src.vae_interface import VAEInterface
 
 # Load trained VAE
-vae = VAEInterface(checkpoint_path="checkpoints/peptide_vae_v1/best_production.pt")
+vae = VAEInterface(checkpoint_path="checkpoints_definitive/best_production.pt")
 
 # Decode latent vector to sequence
 z = np.array([0.23, -0.45, ...])  # From optimization
@@ -427,13 +437,13 @@ All 5 models are statistically significant after dataset expansion and validatio
 
 | Pathogen | N | Pearson r | p-value | Confidence |
 |----------|--:|:---------:|:-------:|:----------:|
-| General | 425 | 0.608 | 2.4e-44 | **HIGH** |
-| P. aeruginosa | 100 | 0.506 | 8.0e-08 | **HIGH** |
-| E. coli | 133 | 0.492 | 1.8e-09 | **HIGH** |
-| A. baumannii | 88 | 0.463 | 5.7e-06 | **HIGH** |
-| S. aureus | 104 | 0.348 | 0.0003 | **MODERATE** |
+| General | 425 | 0.606 | 5.6e-44 | **HIGH** |
+| P. aeruginosa | 100 | 0.507 | 7.2e-08 | **HIGH** |
+| E. coli | 133 | 0.493 | 1.6e-09 | **HIGH** |
+| A. baumannii | 88 | 0.461 | 6.2e-06 | **HIGH** |
+| S. aureus | 104 | 0.343 | 3.6e-04 | **MODERATE** |
 
-**Source:** `validation/results/comprehensive_validation.json`
+**Source:** `validation/results/comprehensive_validation.json` (5-fold CV, includes p-adic features)
 
 ### Methodology Notes
 

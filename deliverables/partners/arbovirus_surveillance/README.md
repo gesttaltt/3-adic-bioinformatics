@@ -105,6 +105,7 @@ python scripts/A2_pan_arbovirus_primers.py --use-ncbi --output_dir results/pan_a
 | Zika | Single | 10.8 kb | E, NS1 |
 | Chikungunya | Single | 11.8 kb | nsP1, E1 |
 | Mayaro | Single | 11.5 kb | nsP1, E2 |
+| Yellow Fever | Single | 10.9 kb | E, NS5 |
 
 ### Output Files
 - `{VIRUS}_primers.csv` - Ranked primer candidates
@@ -270,6 +271,8 @@ jupyter notebook notebooks/serotype_forecast.ipynb
 | Dengue | 12637 | DENV-1, DENV-2, DENV-3, DENV-4 |
 | Zika | 64320 | Single serotype |
 | Chikungunya | 37124 | Single serotype |
+| Mayaro | 11038 | Single serotype |
+| Yellow Fever | 11234 | Single serotype |
 
 ### Hyperbolic Embedding Method
 
