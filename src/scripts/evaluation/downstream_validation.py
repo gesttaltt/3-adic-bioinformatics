@@ -160,12 +160,12 @@ def test_nearest_neighbor_retrieval(embeddings: dict, k: int = 10):
             by_level[int(v)].append(valuation_agreement[i])
 
         print(f"\n{name}:")
-        print(f"  Same valuation rate (k={k}): {same_rate*100:.1f}%")
-        print(f"  Adjacent valuation rate (±1): {adjacent_rate*100:.1f}%")
+        print(f"  Same valuation rate (k={k}): {same_rate * 100:.1f}%")
+        print(f"  Adjacent valuation rate (±1): {adjacent_rate * 100:.1f}%")
         print("  By valuation level:")
         for v in sorted(by_level.keys()):
             rates = by_level[v]
-            print(f"    v={v}: {np.mean(rates)*100:.1f}% same (n={len(rates)})")
+            print(f"    v={v}: {np.mean(rates) * 100:.1f}% same (n={len(rates)})")
 
         results[name] = {
             "same_rate": same_rate,
@@ -223,7 +223,7 @@ def test_hierarchy_preservation(embeddings: dict):
         print(f"\n{name}:")
         print(f"  Spearman correlation: {spearman_corr:.4f} (p={spearman_p:.2e})")
         print(f"  Kendall's tau: {kendall_corr:.4f} (p={kendall_p:.2e})")
-        print(f"  Pairwise accuracy: {pairwise_accuracy*100:.1f}%")
+        print(f"  Pairwise accuracy: {pairwise_accuracy * 100:.1f}%")
         print("  Radius by valuation level:")
 
         for v in range(10):
@@ -293,9 +293,9 @@ def test_arithmetic_structure(embeddings: dict):
         c0_accuracy = c0_scores.mean()
 
         print(f"\n{name}:")
-        print(f"  Valuation class prediction (3-class): {val_accuracy*100:.1f}% (baseline: 33.3%)")
-        print(f"  Has-zero prediction (binary): {zero_accuracy*100:.1f}% (baseline: ~50%)")
-        print(f"  Result component prediction (3-class): {c0_accuracy*100:.1f}% (baseline: 33.3%)")
+        print(f"  Valuation class prediction (3-class): {val_accuracy * 100:.1f}% (baseline: 33.3%)")
+        print(f"  Has-zero prediction (binary): {zero_accuracy * 100:.1f}% (baseline: ~50%)")
+        print(f"  Result component prediction (3-class): {c0_accuracy * 100:.1f}% (baseline: 33.3%)")
 
         results[name] = {
             "valuation_accuracy": val_accuracy,

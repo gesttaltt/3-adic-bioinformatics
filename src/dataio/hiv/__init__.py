@@ -40,37 +40,37 @@ Usage:
     catnap_df = load_catnap()
 """
 
-from .stanford import (
-    load_stanford_hivdb,
-    get_stanford_drug_columns,
-    parse_mutation_list,
-    extract_stanford_positions,
+from .catnap import (
+    calculate_antibody_breadth,
+    get_catnap_by_antibody,
+    get_catnap_resistant_viruses,
+    get_catnap_sensitive_viruses,
+    load_catnap,
 )
 from .ctl import (
+    get_epitopes_by_hla,
+    get_epitopes_by_protein,
     load_lanl_ctl,
     parse_hla_restrictions,
-    get_epitopes_by_protein,
-    get_epitopes_by_hla,
-)
-from .catnap import (
-    load_catnap,
-    get_catnap_by_antibody,
-    get_catnap_sensitive_viruses,
-    get_catnap_resistant_viruses,
-    calculate_antibody_breadth,
 )
 from .external import (
-    load_v3_coreceptor,
-    load_hiv_ppi,
-    load_gp120_alignments,
-    load_hiv_sequences,
     load_epidemiological_data,
+    load_gp120_alignments,
+    load_hiv_ppi,
+    load_hiv_sequences,
+    load_v3_coreceptor,
 )
 from .position_mapper import (
     PositionMapper,
+    codon_position_to_hxb2,
     hxb2_to_protein_position,
     protein_position_to_hxb2,
-    codon_position_to_hxb2,
+)
+from .stanford import (
+    extract_stanford_positions,
+    get_stanford_drug_columns,
+    load_stanford_hivdb,
+    parse_mutation_list,
 )
 
 __all__ = [

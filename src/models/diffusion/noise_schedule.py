@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -31,7 +30,7 @@ class NoiseSchedule(ABC):
         self.n_timesteps = n_timesteps
 
     @abstractmethod
-    def get_rates(self, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_rates(self, t: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Get forward and reverse rates at timestep t.
 
         Args:
@@ -81,7 +80,7 @@ class LinearSchedule(NoiseSchedule):
         self.alphas = 1 - self.betas
         self.alpha_cumprod = torch.cumprod(self.alphas, dim=0)
 
-    def get_rates(self, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_rates(self, t: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Get rates at timestep t."""
         t = t.long().clamp(0, self.n_timesteps - 1)
         return self.alphas[t], self.betas[t]
@@ -127,7 +126,7 @@ class CosineSchedule(NoiseSchedule):
         self.betas = self.betas.clamp(max=0.999)
         self.alphas = 1 - self.betas
 
-    def get_rates(self, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_rates(self, t: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Get rates at timestep t."""
         t = t.long().clamp(0, self.n_timesteps - 1)
         return self.alphas[t], self.betas[t]
@@ -223,8 +222,8 @@ class PAdicNoiseSchedule(NoiseSchedule):
     def get_rates(
         self,
         t: torch.Tensor,
-        positions: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        positions: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Get position-aware rates.
 
         Args:
@@ -247,7 +246,7 @@ class PAdicNoiseSchedule(NoiseSchedule):
     def get_cumulative(
         self,
         t: torch.Tensor,
-        positions: Optional[torch.Tensor] = None,
+        positions: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Get position-aware cumulative product.
 
@@ -353,7 +352,7 @@ class AdaptiveSchedule(NoiseSchedule):
             loss.backward()
             optimizer.step()
 
-    def get_rates(self, t: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_rates(self, t: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Get learned rates at timestep t."""
         t_normalized = t.float().unsqueeze(-1) / self.n_timesteps
         alpha_cumprod = self.schedule_net(t_normalized).squeeze(-1)

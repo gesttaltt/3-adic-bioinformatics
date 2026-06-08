@@ -12,18 +12,18 @@ This script trains WITHOUT loading any checkpoint using a TWO-PHASE approach:
 2. Phase 2: Train for hierarchy (radial ordering by valuation)
 """
 
-import sys
-from pathlib import Path
-import time
 import json
+import sys
+import time
 from datetime import datetime
+from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
 from scipy.stats import spearmanr
-import numpy as np
+from torch.utils.data import DataLoader, TensorDataset
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -31,17 +31,16 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.core import TERNARY
 from src.data.generation import generate_all_ternary_operations
 from src.models import TernaryVAEV5_11_PartialFreeze
-from src.utils.checkpoint import save_checkpoint, ArchitectureConfig
-
+from src.utils.checkpoint import save_checkpoint
 
 # Optimal config from sweep experiments
 # Note: existing checkpoints use hidden_dim=256, so we match that for comparable results
 OPTIMAL_CONFIG = {
     "latent_dim": 16,
-    "hidden_dim": 256,           # Match existing checkpoints (64 is too small)
+    "hidden_dim": 256,  # Match existing checkpoints (64 is too small)
     "max_radius": 0.99,
-    "curvature": 2.0,           # From Phase 1: 2.0 is marginally better
-    "use_controller": False,     # Simpler architecture for from-scratch
+    "curvature": 2.0,  # From Phase 1: 2.0 is marginally better
+    "use_controller": False,  # Simpler architecture for from-scratch
     "use_dual_projection": True,
     "freeze_encoder_b": False,
     "encoder_b_lr_scale": 0.1,
@@ -53,8 +52,7 @@ class CoverageLoss(nn.Module):
     """Phase 1: Focus on reconstruction accuracy."""
 
     def forward(self, logits, targets):
-        return nn.functional.cross_entropy(
-            logits.view(-1, 3), (targets + 1).long().view(-1))
+        return nn.functional.cross_entropy(logits.view(-1, 3), (targets + 1).long().view(-1))
 
 
 class HierarchyLoss(nn.Module):
@@ -64,9 +62,7 @@ class HierarchyLoss(nn.Module):
         super().__init__()
         self.hierarchy_weight = hierarchy_weight
         self.separation_weight = separation_weight
-        self.register_buffer('target_radii', torch.tensor([
-            0.9 - (v / 9) * 0.8 for v in range(10)
-        ]))
+        self.register_buffer("target_radii", torch.tensor([0.9 - (v / 9) * 0.8 for v in range(10)]))
 
     def forward(self, z_hyp, indices, logits, targets):
         device = z_hyp.device
@@ -74,8 +70,7 @@ class HierarchyLoss(nn.Module):
         valuations = TERNARY.valuation(indices).long().to(device)
 
         # Coverage loss (still need to maintain reconstruction)
-        coverage_loss = nn.functional.cross_entropy(
-            logits.view(-1, 3), (targets + 1).long().view(-1))
+        coverage_loss = nn.functional.cross_entropy(logits.view(-1, 3), (targets + 1).long().view(-1))
 
         # Hierarchy loss
         hierarchy_loss = torch.tensor(0.0, device=device)
@@ -88,17 +83,15 @@ class HierarchyLoss(nn.Module):
 
         # Separation loss
         separation_loss = torch.tensor(0.0, device=device)
-        mean_radii = [(v, radii[valuations == v].mean())
-                      for v in sorted(unique_vals.tolist()) if (valuations == v).sum() > 0]
+        mean_radii = [
+            (v, radii[valuations == v].mean()) for v in sorted(unique_vals.tolist()) if (valuations == v).sum() > 0
+        ]
         for i in range(len(mean_radii) - 1):
-            separation_loss += torch.relu(mean_radii[i+1][1] - mean_radii[i][1] + 0.01)
+            separation_loss += torch.relu(mean_radii[i + 1][1] - mean_radii[i][1] + 0.01)
 
-        total = (coverage_loss +
-                 self.hierarchy_weight * hierarchy_loss +
-                 self.separation_weight * separation_loss)
+        total = coverage_loss + self.hierarchy_weight * hierarchy_loss + self.separation_weight * separation_loss
 
-        return {'total': total, 'coverage': coverage_loss,
-                'hierarchy': hierarchy_loss, 'separation': separation_loss}
+        return {"total": total, "coverage": coverage_loss, "hierarchy": hierarchy_loss, "separation": separation_loss}
 
 
 def compute_metrics(model, all_ops, indices, device):
@@ -108,30 +101,25 @@ def compute_metrics(model, all_ops, indices, device):
 
     with torch.no_grad():
         for i in range(0, len(all_ops), 4096):
-            batch = all_ops[i:i+4096].to(device)
+            batch = all_ops[i : i + 4096].to(device)
             out = model(batch, compute_control=False)
-            all_radii.append(out['z_A_hyp'].norm(dim=-1).cpu().numpy())
-            logits = model.decoder_A(out['mu_A'])
-            all_correct.append(
-                (torch.argmax(logits, dim=-1) - 1 == batch.long()).float().mean(dim=1).cpu().numpy()
-            )
+            all_radii.append(out["z_A_hyp"].norm(dim=-1).cpu().numpy())
+            logits = model.decoder_A(out["mu_A"])
+            all_correct.append((torch.argmax(logits, dim=-1) - 1 == batch.long()).float().mean(dim=1).cpu().numpy())
 
     all_radii = np.concatenate(all_radii)
     all_correct = np.concatenate(all_correct)
     valuations = TERNARY.valuation(indices).numpy()
 
-    richness = sum(
-        all_radii[valuations == v].var()
-        for v in range(10) if (valuations == v).sum() > 1
-    ) / 10
+    richness = sum(all_radii[valuations == v].var() for v in range(10) if (valuations == v).sum() > 1) / 10
 
     model.train()
     return {
-        'coverage': float((all_correct == 1.0).mean()),
-        'hierarchy': float(spearmanr(valuations, all_radii)[0]),
-        'richness': float(richness),
-        'r_v0': float(all_radii[valuations == 0].mean()),
-        'r_v9': float(all_radii[valuations == 9].mean()) if (valuations == 9).any() else np.nan,
+        "coverage": float((all_correct == 1.0).mean()),
+        "hierarchy": float(spearmanr(valuations, all_radii)[0]),
+        "richness": float(richness),
+        "r_v0": float(all_radii[valuations == 0].mean()),
+        "r_v9": float(all_radii[valuations == 9].mean()) if (valuations == 9).any() else np.nan,
     }
 
 
@@ -168,7 +156,7 @@ def train_phase1_coverage(
             # Get model outputs and compute logits WITH gradients
             # Note: model's logits_A is computed in no_grad for verification only
             out = model(batch_ops, compute_control=False)
-            logits = model.decoder_A(out['mu_A'])  # Compute with gradients
+            logits = model.decoder_A(out["mu_A"])  # Compute with gradients
 
             loss = loss_fn(logits, batch_ops)
 
@@ -182,22 +170,24 @@ def train_phase1_coverage(
         scheduler.step(avg_loss)
 
         metrics = compute_metrics(model, all_ops, indices, device)
-        print(f"  Epoch {epoch:2d} | cov={metrics['coverage']*100:.1f}% "
-              f"hier={metrics['hierarchy']:.4f} loss={avg_loss:.4f}")
+        print(
+            f"  Epoch {epoch:2d} | cov={metrics['coverage'] * 100:.1f}% "
+            f"hier={metrics['hierarchy']:.4f} loss={avg_loss:.4f}"
+        )
 
-        if metrics['coverage'] > best_coverage:
-            best_coverage = metrics['coverage']
+        if metrics["coverage"] > best_coverage:
+            best_coverage = metrics["coverage"]
             best_state = {k: v.clone() for k, v in model.state_dict().items()}
             no_improve = 0
         else:
             no_improve += 1
 
-        if metrics['coverage'] >= target_coverage:
-            print(f"  Target coverage {target_coverage*100:.0f}% reached!")
+        if metrics["coverage"] >= target_coverage:
+            print(f"  Target coverage {target_coverage * 100:.0f}% reached!")
             break
 
         if no_improve >= 10:
-            print(f"  Coverage plateau at {best_coverage*100:.1f}%")
+            print(f"  Coverage plateau at {best_coverage * 100:.1f}%")
             break
 
     # Restore best coverage state
@@ -240,37 +230,39 @@ def train_phase2_hierarchy(
             batch_ops, batch_idx = batch_ops.to(device), batch_idx.to(device)
             out = model(batch_ops, compute_control=False)
             # Compute logits with gradients (model's logits_A is in no_grad)
-            logits = model.decoder_A(out['mu_A'])
-            losses = loss_fn(out['z_A_hyp'], batch_idx, logits, batch_ops)
+            logits = model.decoder_A(out["mu_A"])
+            losses = loss_fn(out["z_A_hyp"], batch_idx, logits, batch_ops)
 
             optimizer.zero_grad()
-            losses['total'].backward()
+            losses["total"].backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
 
         scheduler.step()
         metrics = compute_metrics(model, all_ops, indices, device)
-        history.append({'epoch': epoch, **metrics})
+        history.append({"epoch": epoch, **metrics})
 
-        print(f"  Epoch {epoch:2d} | hier={metrics['hierarchy']:.4f} "
-              f"rich={metrics['richness']:.6f} cov={metrics['coverage']*100:.1f}%")
+        print(
+            f"  Epoch {epoch:2d} | hier={metrics['hierarchy']:.4f} "
+            f"rich={metrics['richness']:.6f} cov={metrics['coverage'] * 100:.1f}%"
+        )
 
         # Track best (negative hierarchy, maintain coverage)
-        if metrics['hierarchy'] < best_hier and metrics['coverage'] > 0.95:
-            best_hier = metrics['hierarchy']
+        if metrics["hierarchy"] < best_hier and metrics["coverage"] > 0.95:
+            best_hier = metrics["hierarchy"]
             best_epoch = epoch
             best_metrics = metrics.copy()
             no_improve = 0
 
             # Save checkpoint
             checkpoint = {
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'metrics': metrics,
-                'config': OPTIMAL_CONFIG,
-                'training_type': 'from_scratch_two_phase',
+                "epoch": epoch,
+                "model_state_dict": model.state_dict(),
+                "metrics": metrics,
+                "config": OPTIMAL_CONFIG,
+                "training_type": "from_scratch_two_phase",
             }
-            save_checkpoint(checkpoint, save_dir / 'best.pt')
+            save_checkpoint(checkpoint, save_dir / "best.pt")
             print(f"    *** New best: {best_hier:.4f} ***")
         else:
             no_improve += 1
@@ -292,9 +284,9 @@ def train_from_scratch(
     phase2_epochs: int = 30,
 ):
     """Train a model from scratch using two-phase approach."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"FROM-SCRATCH RUN {run_id}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     run_dir = save_dir / f"scratch_run_{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -316,24 +308,21 @@ def train_from_scratch(
     model.set_encoder_b_frozen(False)
 
     init_metrics = compute_metrics(model, all_ops, indices, device)
-    print(f"  Random init: hier={init_metrics['hierarchy']:.4f}, cov={init_metrics['coverage']*100:.1f}%")
+    print(f"  Random init: hier={init_metrics['hierarchy']:.4f}, cov={init_metrics['coverage'] * 100:.1f}%")
 
     start = time.time()
 
     # Phase 1: Coverage
     phase1_coverage = train_phase1_coverage(
-        model, all_ops, indices, device,
-        epochs=phase1_epochs, lr=1e-3, target_coverage=0.99
+        model, all_ops, indices, device, epochs=phase1_epochs, lr=1e-3, target_coverage=0.99
     )
 
     phase1_metrics = compute_metrics(model, all_ops, indices, device)
-    print(f"\n  After Phase 1: cov={phase1_metrics['coverage']*100:.1f}%, "
-          f"hier={phase1_metrics['hierarchy']:.4f}")
+    print(f"\n  After Phase 1: cov={phase1_metrics['coverage'] * 100:.1f}%, hier={phase1_metrics['hierarchy']:.4f}")
 
     # Phase 2: Hierarchy
     best_hier, best_epoch, best_metrics, history = train_phase2_hierarchy(
-        model, all_ops, indices, device, run_dir,
-        epochs=phase2_epochs, lr=3e-4, patience=5
+        model, all_ops, indices, device, run_dir, epochs=phase2_epochs, lr=3e-4, patience=5
     )
 
     elapsed = time.time() - start
@@ -342,21 +331,22 @@ def train_from_scratch(
     print(f"\n  RESULT: best_hier={best_hier:.4f} @ epoch {best_epoch}, elapsed={elapsed:.1f}s")
 
     return {
-        'run_id': run_id,
-        'init_metrics': init_metrics,
-        'phase1_coverage': phase1_coverage,
-        'phase1_metrics': phase1_metrics,
-        'best_hierarchy': best_hier,
-        'best_epoch': best_epoch,
-        'best_metrics': best_metrics,
-        'final_metrics': final_metrics,
-        'elapsed': elapsed,
-        'history': history,
+        "run_id": run_id,
+        "init_metrics": init_metrics,
+        "phase1_coverage": phase1_coverage,
+        "phase1_metrics": phase1_metrics,
+        "best_hierarchy": best_hier,
+        "best_epoch": best_epoch,
+        "best_metrics": best_metrics,
+        "final_metrics": final_metrics,
+        "elapsed": elapsed,
+        "history": history,
     }
 
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="Train TernaryVAE from scratch (two-phase)")
     parser.add_argument("--runs", type=int, default=3, help="Number of runs")
     parser.add_argument("--phase1-epochs", type=int, default=50, help="Phase 1 (coverage) epochs")
@@ -365,9 +355,9 @@ def main():
     parser.add_argument("--seed", type=int, default=None, help="Random seed (optional)")
     args = parser.parse_args()
 
-    device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
-    print(f"Two-Phase Training from Scratch")
+    print("Two-Phase Training from Scratch")
     print(f"  Phase 1: {args.phase1_epochs} epochs for coverage")
     print(f"  Phase 2: {args.phase2_epochs} epochs for hierarchy")
     print(f"  Curvature: {OPTIMAL_CONFIG['curvature']}")
@@ -404,46 +394,45 @@ def main():
     total = time.time() - total_start
 
     # Summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("FROM-SCRATCH TRAINING SUMMARY")
-    print("="*60)
+    print("=" * 60)
 
-    best_hiers = [r['best_hierarchy'] for r in results]
-    coverages = [r['best_metrics']['coverage'] if r['best_metrics'] else 0 for r in results]
+    best_hiers = [r["best_hierarchy"] for r in results]
+    coverages = [r["best_metrics"]["coverage"] if r["best_metrics"] else 0 for r in results]
 
     print(f"\n{'Run':<6} {'P1 Cov':>10} {'Best Hier':>12} {'Final Hier':>12} {'@ Ep':>6}")
-    print("-"*55)
+    print("-" * 55)
     for r in results:
-        print(f"{r['run_id']:<6} {r['phase1_coverage']*100:>9.1f}% "
-              f"{r['best_hierarchy']:>12.4f} {r['final_metrics']['hierarchy']:>12.4f} "
-              f"{r['best_epoch']:>6}")
+        print(
+            f"{r['run_id']:<6} {r['phase1_coverage'] * 100:>9.1f}% "
+            f"{r['best_hierarchy']:>12.4f} {r['final_metrics']['hierarchy']:>12.4f} "
+            f"{r['best_epoch']:>6}"
+        )
 
     print(f"\nBest Hierarchy: mean={np.mean(best_hiers):.4f}, std={np.std(best_hiers):.4f}")
-    print(f"Coverage: mean={np.mean(coverages)*100:.1f}%")
-    print(f"\nTotal time: {total/60:.1f} min")
+    print(f"Coverage: mean={np.mean(coverages) * 100:.1f}%")
+    print(f"\nTotal time: {total / 60:.1f} min")
 
     # Save summary
     summary = {
-        'timestamp': datetime.now().isoformat(),
-        'config': OPTIMAL_CONFIG,
-        'results': [
-            {k: v for k, v in r.items() if k != 'history'}
-            for r in results
-        ],
-        'summary': {
-            'best_hier_mean': float(np.mean(best_hiers)),
-            'best_hier_std': float(np.std(best_hiers)),
-            'coverage_mean': float(np.mean(coverages)),
-            'total_minutes': total / 60,
-        }
+        "timestamp": datetime.now().isoformat(),
+        "config": OPTIMAL_CONFIG,
+        "results": [{k: v for k, v in r.items() if k != "history"} for r in results],
+        "summary": {
+            "best_hier_mean": float(np.mean(best_hiers)),
+            "best_hier_std": float(np.std(best_hiers)),
+            "coverage_mean": float(np.mean(coverages)),
+            "total_minutes": total / 60,
+        },
     }
 
-    summary_path = save_dir / 'from_scratch_summary.json'
-    with open(summary_path, 'w') as f:
+    summary_path = save_dir / "from_scratch_summary.json"
+    with open(summary_path, "w") as f:
         json.dump(summary, f, indent=2, default=float)
 
     print(f"\nSummary saved to: {summary_path}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -1,28 +1,29 @@
 """Clinical Decision Support Module for HIV Drug Resistance.
 
-Provides clinical-grade decision support including:
+⚠️ RESEARCH PROTOTYPE — NOT VALIDATED FOR CLINICAL USE ⚠️
+This module has NOT been evaluated for clinical deployment. Outputs are
+computational predictions only. DO NOT use for patient diagnosis,
+treatment selection, or any clinical decision. All clinical decisions
+must involve a qualified physician using validated, approved tools.
+
+Provides research-oriented decision support including:
 1. Resistance interpretation with confidence intervals
 2. Treatment recommendations based on resistance profile
 3. Cross-resistance warnings
 4. Drug interaction alerts
 5. Guideline-based recommendations (DHHS, IAS-USA, EACS)
-
-IMPORTANT: This module is for research purposes only.
-Clinical decisions should be made by qualified healthcare providers.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
-
-import numpy as np
 
 
 class ResistanceLevel(Enum):
     """Resistance interpretation levels (Stanford HIVDB convention)."""
+
     SUSCEPTIBLE = "Susceptible"
     POTENTIAL_LOW = "Potential Low-Level"
     LOW = "Low-Level"
@@ -32,6 +33,7 @@ class ResistanceLevel(Enum):
 
 class DrugClass(Enum):
     """HIV drug classes."""
+
     PI = "Protease Inhibitor"
     NRTI = "Nucleoside/Nucleotide RTI"
     NNRTI = "Non-Nucleoside RTI"
@@ -42,18 +44,20 @@ class DrugClass(Enum):
 @dataclass
 class DrugResistanceResult:
     """Result for a single drug."""
+
     drug: str
     drug_class: DrugClass
     resistance_score: float
-    confidence_interval: Tuple[float, float]
+    confidence_interval: tuple[float, float]
     resistance_level: ResistanceLevel
-    key_mutations: List[str]
-    supporting_mutations: List[str]
+    key_mutations: list[str]
+    supporting_mutations: list[str]
 
 
 @dataclass
 class TreatmentRecommendation:
     """Treatment recommendation."""
+
     drug: str
     recommendation: str  # "Recommended", "Consider", "Avoid", "Contraindicated"
     rationale: str
@@ -63,6 +67,7 @@ class TreatmentRecommendation:
 @dataclass
 class ClinicalAlert:
     """Clinical alert for important findings."""
+
     severity: str  # "info", "warning", "critical"
     category: str  # "cross-resistance", "interaction", "novel-mutation"
     message: str
@@ -72,19 +77,20 @@ class ClinicalAlert:
 @dataclass
 class ClinicalReport:
     """Complete clinical decision support report."""
-    patient_id: Optional[str]
+
+    patient_id: str | None
     report_date: datetime
-    sequence_info: Dict[str, str]
+    sequence_info: dict[str, str]
 
     # Results
-    drug_results: List[DrugResistanceResult]
-    recommendations: List[TreatmentRecommendation]
-    alerts: List[ClinicalAlert]
+    drug_results: list[DrugResistanceResult]
+    recommendations: list[TreatmentRecommendation]
+    alerts: list[ClinicalAlert]
 
     # Summary
     overall_resistance_profile: str
-    suggested_regimens: List[str]
-    clinical_notes: List[str]
+    suggested_regimens: list[str]
+    clinical_notes: list[str]
 
 
 # Drug information database
@@ -93,7 +99,6 @@ DRUG_INFO = {
     "LPV": {"class": DrugClass.PI, "full_name": "Lopinavir/ritonavir", "boosted": True},
     "DRV": {"class": DrugClass.PI, "full_name": "Darunavir/ritonavir", "boosted": True},
     "ATV": {"class": DrugClass.PI, "full_name": "Atazanavir/ritonavir", "boosted": True},
-
     # NRTI
     "TDF": {"class": DrugClass.NRTI, "full_name": "Tenofovir DF", "backbone": True},
     "TAF": {"class": DrugClass.NRTI, "full_name": "Tenofovir AF", "backbone": True},
@@ -101,12 +106,10 @@ DRUG_INFO = {
     "3TC": {"class": DrugClass.NRTI, "full_name": "Lamivudine", "backbone": True},
     "FTC": {"class": DrugClass.NRTI, "full_name": "Emtricitabine", "backbone": True},
     "AZT": {"class": DrugClass.NRTI, "full_name": "Zidovudine", "backbone": True},
-
     # NNRTI
     "EFV": {"class": DrugClass.NNRTI, "full_name": "Efavirenz"},
     "DOR": {"class": DrugClass.NNRTI, "full_name": "Doravirine"},
     "RPV": {"class": DrugClass.NNRTI, "full_name": "Rilpivirine"},
-
     # INI
     "DTG": {"class": DrugClass.INI, "full_name": "Dolutegravir", "high_barrier": True},
     "BIC": {"class": DrugClass.INI, "full_name": "Bictegravir", "high_barrier": True},
@@ -154,7 +157,7 @@ class ResistanceInterpreter:
         level: ResistanceLevel,
     ) -> TreatmentRecommendation:
         """Get treatment recommendation based on resistance level."""
-        drug_info = DRUG_INFO.get(drug, {})
+        DRUG_INFO.get(drug, {})
 
         if level == ResistanceLevel.SUSCEPTIBLE:
             return TreatmentRecommendation(
@@ -226,8 +229,8 @@ class CrossResistanceAnalyzer:
 
     def analyze(
         self,
-        results: List[DrugResistanceResult],
-    ) -> List[ClinicalAlert]:
+        results: list[DrugResistanceResult],
+    ) -> list[ClinicalAlert]:
         """Generate cross-resistance alerts."""
         alerts = []
 
@@ -237,19 +240,23 @@ class CrossResistanceAnalyzer:
         for (drug1, drug2), info in self.CROSS_RESISTANCE_RULES.items():
             if drug1 in scores and drug2 in scores:
                 if scores[drug1] > 0.5 and scores[drug2] > 0.5:
-                    alerts.append(ClinicalAlert(
-                        severity="warning",
-                        category="cross-resistance",
-                        message=f"{info['message']} (both show resistance)",
-                        action_required=f"Consider avoiding both {drug1} and {drug2}",
-                    ))
+                    alerts.append(
+                        ClinicalAlert(
+                            severity="warning",
+                            category="cross-resistance",
+                            message=f"{info['message']} (both show resistance)",
+                            action_required=f"Consider avoiding both {drug1} and {drug2}",
+                        )
+                    )
                 elif info["correlation"] < 0 and scores[drug1] > 0.5:
-                    alerts.append(ClinicalAlert(
-                        severity="info",
-                        category="cross-resistance",
-                        message=f"{info['message']} (potential resensitization)",
-                        action_required=f"{drug2} may still be effective despite {drug1} resistance",
-                    ))
+                    alerts.append(
+                        ClinicalAlert(
+                            severity="info",
+                            category="cross-resistance",
+                            message=f"{info['message']} (potential resensitization)",
+                            action_required=f"{drug2} may still be effective despite {drug1} resistance",
+                        )
+                    )
 
         return alerts
 
@@ -262,9 +269,9 @@ class RegimenSelector:
 
     def evaluate_regimen(
         self,
-        regimen: Dict,
-        results: List[DrugResistanceResult],
-    ) -> Tuple[str, float, str]:
+        regimen: dict,
+        results: list[DrugResistanceResult],
+    ) -> tuple[str, float, str]:
         """Evaluate a regimen based on resistance profile.
 
         Returns: (recommendation, score, rationale)
@@ -312,21 +319,23 @@ class RegimenSelector:
 
     def select_regimens(
         self,
-        results: List[DrugResistanceResult],
+        results: list[DrugResistanceResult],
         n_regimens: int = 3,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Select top regimens based on resistance profile."""
         evaluated = []
 
         for regimen in FIRST_LINE_REGIMENS:
             rec, score, rationale = self.evaluate_regimen(regimen, results)
-            evaluated.append({
-                "name": regimen["name"],
-                "drugs": regimen["drugs"],
-                "recommendation": rec,
-                "score": score,
-                "rationale": rationale,
-            })
+            evaluated.append(
+                {
+                    "name": regimen["name"],
+                    "drugs": regimen["drugs"],
+                    "recommendation": rec,
+                    "score": score,
+                    "rationale": rationale,
+                }
+            )
 
         # Sort by score (descending)
         evaluated.sort(key=lambda x: x["score"], reverse=True)
@@ -344,10 +353,10 @@ class ClinicalDecisionSupport:
 
     def generate_report(
         self,
-        predictions: Dict[str, float],
-        confidence_intervals: Dict[str, Tuple[float, float]] = None,
-        mutations: Dict[str, List[str]] = None,
-        patient_id: Optional[str] = None,
+        predictions: dict[str, float],
+        confidence_intervals: dict[str, tuple[float, float]] = None,
+        mutations: dict[str, list[str]] = None,
+        patient_id: str | None = None,
     ) -> ClinicalReport:
         """Generate comprehensive clinical report.
 

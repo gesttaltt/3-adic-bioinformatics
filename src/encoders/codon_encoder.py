@@ -29,8 +29,6 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -231,7 +229,7 @@ class CodonEncoder(nn.Module):
     def __init__(
         self,
         embedding_dim: int = 16,
-        padding_idx: Optional[int] = None,
+        padding_idx: int | None = None,
         use_padic_init: bool = True,
     ):
         """Initialize CodonEncoder.
@@ -373,9 +371,7 @@ class CodonEncoder(nn.Module):
             Scalar loss tensor
         """
         # Target distance matrix (combined p-adic + AA)
-        target = compute_combined_distance_matrix(
-            self.num_codons, padic_weight, aa_weight
-        )
+        target = compute_combined_distance_matrix(self.num_codons, padic_weight, aa_weight)
         target = torch.from_numpy(target).float().to(self.embedding.weight.device)
 
         # Current embedding distances

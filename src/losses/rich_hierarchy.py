@@ -31,8 +31,6 @@ Usage:
     total_loss = losses['total']
 """
 
-from typing import Dict, Optional
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -96,11 +94,10 @@ class RichHierarchyLoss(nn.Module):
 
         # Precompute target radii for each valuation level (in hyperbolic distance)
         # v=0 → outer_radius, v=9 → inner_radius
-        target_radii = torch.tensor([
-            outer_radius - (v / self.max_valuation) * (outer_radius - inner_radius)
-            for v in range(10)
-        ])
-        self.register_buffer('target_radii', target_radii)
+        target_radii = torch.tensor(
+            [outer_radius - (v / self.max_valuation) * (outer_radius - inner_radius) for v in range(10)]
+        )
+        self.register_buffer("target_radii", target_radii)
 
     def forward(
         self,
@@ -108,8 +105,8 @@ class RichHierarchyLoss(nn.Module):
         indices: torch.Tensor,
         logits: torch.Tensor,
         targets: torch.Tensor,
-        original_radii: Optional[torch.Tensor] = None,
-    ) -> Dict[str, torch.Tensor]:
+        original_radii: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Compute combined hierarchy, coverage, richness, and separation losses.
 
         Args:
@@ -157,10 +154,7 @@ class RichHierarchyLoss(nn.Module):
 
         if original_radii is not None:
             # Handle both indexed and pre-indexed original_radii
-            if original_radii.shape[0] == 19683:
-                orig_radii_batch = original_radii[indices]
-            else:
-                orig_radii_batch = original_radii
+            orig_radii_batch = original_radii[indices] if original_radii.shape[0] == 19683 else original_radii
 
             for v in unique_vals:
                 mask = valuations == v
@@ -195,18 +189,18 @@ class RichHierarchyLoss(nn.Module):
 
         # === Combine with weights ===
         total = (
-            self.hierarchy_weight * hierarchy_loss +
-            self.coverage_weight * coverage_loss +
-            self.richness_weight * richness_loss +
-            self.separation_weight * separation_loss
+            self.hierarchy_weight * hierarchy_loss
+            + self.coverage_weight * coverage_loss
+            + self.richness_weight * richness_loss
+            + self.separation_weight * separation_loss
         )
 
         return {
-            'total': total,
-            'hierarchy_loss': hierarchy_loss,
-            'coverage_loss': coverage_loss,
-            'richness_loss': richness_loss,
-            'separation_loss': separation_loss,
+            "total": total,
+            "hierarchy_loss": hierarchy_loss,
+            "coverage_loss": coverage_loss,
+            "richness_loss": richness_loss,
+            "separation_loss": separation_loss,
         }
 
     def extra_repr(self) -> str:

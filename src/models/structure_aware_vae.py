@@ -32,8 +32,7 @@ Usage:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
@@ -115,7 +114,7 @@ class InvariantPointAttention(nn.Module):
         self,
         features: torch.Tensor,
         coords: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
+        mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Forward pass.
 
@@ -235,8 +234,8 @@ class SE3Encoder(nn.Module):
     def forward(
         self,
         coords: torch.Tensor,
-        aa_indices: Optional[torch.Tensor] = None,
-        mask: Optional[torch.Tensor] = None,
+        aa_indices: torch.Tensor | None = None,
+        mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Encode 3D structure.
 
@@ -372,8 +371,8 @@ class StructureAwareVAE(nn.Module):
         self,
         input_dim: int,
         latent_dim: int = 32,
-        hidden_dims: Optional[list[int]] = None,
-        structure_config: Optional[StructureConfig] = None,
+        hidden_dims: list[int] | None = None,
+        structure_config: StructureConfig | None = None,
         dropout: float = 0.1,
     ):
         """Initialize structure-aware VAE.
@@ -453,9 +452,9 @@ class StructureAwareVAE(nn.Module):
     def encode(
         self,
         sequence: torch.Tensor,
-        structure: Optional[torch.Tensor] = None,
-        plddt: Optional[torch.Tensor] = None,
-        aa_indices: Optional[torch.Tensor] = None,
+        structure: torch.Tensor | None = None,
+        plddt: torch.Tensor | None = None,
+        aa_indices: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Encode input to latent distribution.
 
@@ -509,9 +508,9 @@ class StructureAwareVAE(nn.Module):
     def forward(
         self,
         sequence: torch.Tensor,
-        structure: Optional[torch.Tensor] = None,
-        plddt: Optional[torch.Tensor] = None,
-        aa_indices: Optional[torch.Tensor] = None,
+        structure: torch.Tensor | None = None,
+        plddt: torch.Tensor | None = None,
+        aa_indices: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         """Forward pass.
 

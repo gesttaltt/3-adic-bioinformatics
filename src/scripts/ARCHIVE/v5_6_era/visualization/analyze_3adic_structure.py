@@ -34,9 +34,10 @@ from sklearn.decomposition import PCA
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.models.ternary_vae_v5_6 import DualNeuralVAEV5
+
 from src.config.paths import CHECKPOINTS_DIR, VIZ_DIR
 from src.data.generation import generate_all_ternary_operations
-from src.models.ternary_vae_v5_6 import DualNeuralVAEV5
 
 
 def load_model_and_encode(checkpoint_path: Path, device: str = "cpu"):
@@ -510,7 +511,7 @@ def analyze_algebraic_structure(data: dict, output_path: Path):
         corr_center, _ = spearmanr(pc, center_elem)
         corr_last, _ = spearmanr(pc, last_elem)
         print(
-            f"  PC{pc_idx+1}: sum={corr_sum:.3f}, var={corr_var:.3f}, "
+            f"  PC{pc_idx + 1}: sum={corr_sum:.3f}, var={corr_var:.3f}, "
             f"elem[0]={corr_first:.3f}, elem[4]={corr_center:.3f}, elem[8]={corr_last:.3f}"
         )
 
@@ -523,7 +524,7 @@ def analyze_algebraic_structure(data: dict, output_path: Path):
         corr_center, _ = spearmanr(pc, center_elem)
         corr_last, _ = spearmanr(pc, last_elem)
         print(
-            f"  PC{pc_idx+1}: sum={corr_sum:.3f}, var={corr_var:.3f}, "
+            f"  PC{pc_idx + 1}: sum={corr_sum:.3f}, var={corr_var:.3f}, "
             f"elem[0]={corr_first:.3f}, elem[4]={corr_center:.3f}, elem[8]={corr_last:.3f}"
         )
 
@@ -534,7 +535,7 @@ def analyze_algebraic_structure(data: dict, output_path: Path):
     ax = fig.add_subplot(231, projection="3d")
     ax.scatter(z_A_3d[:, 0], z_A_3d[:, 1], z_A_3d[:, 2], c="gray", s=1, alpha=0.3)
     colors = plt.cm.tab10(np.linspace(0, 1, len(special_ops)))
-    for (name, idx), color in zip(special_ops.items(), colors):
+    for (name, idx), color in zip(special_ops.items(), colors, strict=False):
         ax.scatter(
             [z_A_3d[idx, 0]],
             [z_A_3d[idx, 1]],
@@ -553,7 +554,7 @@ def analyze_algebraic_structure(data: dict, output_path: Path):
 
     ax = fig.add_subplot(232, projection="3d")
     ax.scatter(z_B_3d[:, 0], z_B_3d[:, 1], z_B_3d[:, 2], c="gray", s=1, alpha=0.3)
-    for (name, idx), color in zip(special_ops.items(), colors):
+    for (name, idx), color in zip(special_ops.items(), colors, strict=False):
         ax.scatter(
             [z_B_3d[idx, 0]],
             [z_B_3d[idx, 1]],

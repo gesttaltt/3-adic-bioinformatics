@@ -21,8 +21,6 @@ References:
     - Goldilocks zone concept from autoimmune research
 """
 
-from typing import Union
-
 import torch
 
 # Import all core p-adic operations from centralized module
@@ -47,7 +45,7 @@ def compute_padic_valuation(
     n: int,
     p: int = DEFAULT_P,
     return_infinity: bool = True,
-) -> Union[int, float]:
+) -> int | float:
     """Compute p-adic valuation of integer n.
 
     The p-adic valuation v_p(n) is the highest power of p that divides n.
@@ -137,9 +135,7 @@ def is_in_goldilocks_zone(
     Returns:
         True if in Goldilocks zone
     """
-    return _core_is_in_goldilocks(
-        distance, center=center, width=width, threshold=threshold
-    )
+    return _core_is_in_goldilocks(distance, center=center, width=width, threshold=threshold)
 
 
 def compute_padic_distance_tensor(

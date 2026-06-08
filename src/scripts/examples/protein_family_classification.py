@@ -24,11 +24,9 @@ Usage:
 from __future__ import annotations
 
 import sys
-from typing import List
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 def create_protein_encoder(input_dim: int = 20, hidden_dim: int = 64, output_dim: int = 32) -> nn.Module:
@@ -113,7 +111,7 @@ def contrastive_pretrain(
     Returns:
         Pretrained encoder
     """
-    from src.contrastive import SimCLREncoder, PAdicContrastiveLoss
+    from src.contrastive import PAdicContrastiveLoss, SimCLREncoder
 
     # Wrap encoder with projection head
     simclr = SimCLREncoder(
@@ -157,7 +155,7 @@ def create_few_shot_tasks(
     n_way: int = 5,  # Classes per task
     n_support: int = 5,  # Examples per class in support set
     n_query: int = 10,  # Examples per class in query set
-) -> List:
+) -> list:
     """Create few-shot learning tasks.
 
     Each task has:
@@ -215,7 +213,7 @@ def create_few_shot_tasks(
 
 def train_maml(
     encoder: nn.Module,
-    tasks: List,
+    tasks: list,
     n_way: int = 5,
     n_epochs: int = 30,
 ) -> tuple:
@@ -271,7 +269,7 @@ def train_maml(
 
 def evaluate_few_shot(
     maml,
-    test_tasks: List,
+    test_tasks: list,
 ) -> dict:
     """Evaluate few-shot performance on held-out tasks.
 
@@ -295,7 +293,8 @@ def evaluate_few_shot(
 
     return {
         "mean_accuracy": sum(accuracies) / len(accuracies),
-        "std_accuracy": (sum((a - sum(accuracies) / len(accuracies)) ** 2 for a in accuracies) / len(accuracies)) ** 0.5,
+        "std_accuracy": (sum((a - sum(accuracies) / len(accuracies)) ** 2 for a in accuracies) / len(accuracies))
+        ** 0.5,
         "min_accuracy": min(accuracies),
         "max_accuracy": max(accuracies),
     }
@@ -349,14 +348,16 @@ def main():
     # Step 4: Create few-shot tasks
     print("\n4. Creating few-shot tasks...")
     train_tasks = create_few_shot_tasks(
-        train_data, train_labels,
+        train_data,
+        train_labels,
         n_tasks=50,
         n_way=n_way,
         n_support=n_support,
         n_query=n_query,
     )
     test_tasks = create_few_shot_tasks(
-        test_data, test_labels,
+        test_data,
+        test_labels,
         n_tasks=20,
         n_way=min(n_way, n_families - train_families),
         n_support=n_support,

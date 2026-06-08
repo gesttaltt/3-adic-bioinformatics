@@ -9,9 +9,8 @@ Creates publication-quality figures showing:
 from __future__ import annotations
 
 import sys
-from pathlib import Path
-from typing import Dict, List, Tuple
 import warnings
+from pathlib import Path
 
 warnings.filterwarnings("ignore")
 
@@ -19,13 +18,11 @@ root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(root))
 
 import numpy as np
-import pandas as pd
-import torch
-import torch.nn as nn
 
 try:
-    import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
+    import matplotlib.pyplot as plt
+
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
     MATPLOTLIB_AVAILABLE = False
@@ -71,9 +68,9 @@ def create_attention_heatmap(
     positions = np.arange(1, n_positions + 1)
 
     # Color by known vs unknown
-    colors = ['#e74c3c' if p in known_pos else '#3498db' for p in positions]
+    colors = ["#e74c3c" if p in known_pos else "#3498db" for p in positions]
 
-    bars = ax.bar(positions, attention_weights, color=colors, alpha=0.7, edgecolor='none')
+    ax.bar(positions, attention_weights, color=colors, alpha=0.7, edgecolor="none")
 
     # Highlight top attended positions
     top_k = 15
@@ -86,30 +83,30 @@ def create_attention_heatmap(
                 (idx + 1, attention_weights[idx]),
                 textcoords="offset points",
                 xytext=(0, 5),
-                ha='center',
+                ha="center",
                 fontsize=8,
             )
 
-    ax.set_xlabel('Position', fontsize=12)
-    ax.set_ylabel('Attention Weight', fontsize=12)
-    ax.set_title(f'{drug} Attention Weights - {drug_class.upper()}', fontsize=14)
+    ax.set_xlabel("Position", fontsize=12)
+    ax.set_ylabel("Attention Weight", fontsize=12)
+    ax.set_title(f"{drug} Attention Weights - {drug_class.upper()}", fontsize=14)
 
     # Legend
-    known_patch = mpatches.Patch(color='#e74c3c', alpha=0.7, label='Known Mutation Sites')
-    other_patch = mpatches.Patch(color='#3498db', alpha=0.7, label='Other Positions')
-    ax.legend(handles=[known_patch, other_patch], loc='upper right')
+    known_patch = mpatches.Patch(color="#e74c3c", alpha=0.7, label="Known Mutation Sites")
+    other_patch = mpatches.Patch(color="#3498db", alpha=0.7, label="Other Positions")
+    ax.legend(handles=[known_patch, other_patch], loc="upper right")
 
     # Save
     output_path = output_dir / f"attention_{drug_class}_{drug}.png"
     plt.tight_layout()
-    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close()
 
     print(f"  Saved: {output_path}")
 
 
 def create_mutation_comparison(
-    attention_weights: Dict[str, np.ndarray],
+    attention_weights: dict[str, np.ndarray],
     drug_class: str,
     output_dir: Path,
 ) -> None:
@@ -123,7 +120,7 @@ def create_mutation_comparison(
     if n_drugs == 1:
         axes = [axes]
 
-    for ax, (drug, weights) in zip(axes, attention_weights.items()):
+    for ax, (drug, weights) in zip(axes, attention_weights.items(), strict=False):
         # Get top 20 positions
         top_k = 20
         top_indices = np.argsort(weights)[-top_k:][::-1]
@@ -134,37 +131,36 @@ def create_mutation_comparison(
         known = set(KNOWN_MUTATIONS.get(drug_class, {}).get(drug, []))
 
         # Color by known vs novel
-        colors = ['#27ae60' if p in known else '#f39c12' for p in top_positions]
+        colors = ["#27ae60" if p in known else "#f39c12" for p in top_positions]
 
         ax.barh(range(top_k), top_weights, color=colors, alpha=0.8)
         ax.set_yticks(range(top_k))
         ax.set_yticklabels([str(p) for p in top_positions])
         ax.invert_yaxis()
-        ax.set_xlabel('Attention Weight')
-        ax.set_title(f'{drug}')
+        ax.set_xlabel("Attention Weight")
+        ax.set_title(f"{drug}")
 
         # Calculate overlap
         overlap = len(set(top_positions) & known)
-        ax.text(0.95, 0.05, f'Overlap: {overlap}/{len(known)}',
-                transform=ax.transAxes, ha='right', fontsize=10)
+        ax.text(0.95, 0.05, f"Overlap: {overlap}/{len(known)}", transform=ax.transAxes, ha="right", fontsize=10)
 
     # Legend
-    known_patch = mpatches.Patch(color='#27ae60', alpha=0.8, label='Known Mutation')
-    novel_patch = mpatches.Patch(color='#f39c12', alpha=0.8, label='Potential Novel')
-    fig.legend(handles=[known_patch, novel_patch], loc='upper center', ncol=2, bbox_to_anchor=(0.5, 0.02))
+    known_patch = mpatches.Patch(color="#27ae60", alpha=0.8, label="Known Mutation")
+    novel_patch = mpatches.Patch(color="#f39c12", alpha=0.8, label="Potential Novel")
+    fig.legend(handles=[known_patch, novel_patch], loc="upper center", ncol=2, bbox_to_anchor=(0.5, 0.02))
 
-    plt.suptitle(f'{drug_class.upper()} - Top Attended Positions vs Known Mutations', fontsize=14)
+    plt.suptitle(f"{drug_class.upper()} - Top Attended Positions vs Known Mutations", fontsize=14)
     plt.tight_layout()
 
     output_path = output_dir / f"mutation_comparison_{drug_class}.png"
-    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close()
 
     print(f"  Saved: {output_path}")
 
 
 def create_cross_drug_attention(
-    attention_weights: Dict[str, np.ndarray],
+    attention_weights: dict[str, np.ndarray],
     drug_class: str,
     output_dir: Path,
 ) -> None:
@@ -188,7 +184,7 @@ def create_cross_drug_attention(
 
     fig, ax = plt.subplots(figsize=(8, 6))
 
-    im = ax.imshow(corr_matrix, cmap='RdYlBu_r', vmin=-1, vmax=1)
+    im = ax.imshow(corr_matrix, cmap="RdYlBu_r", vmin=-1, vmax=1)
 
     ax.set_xticks(range(n_drugs))
     ax.set_yticks(range(n_drugs))
@@ -198,19 +194,18 @@ def create_cross_drug_attention(
     # Add values
     for i in range(n_drugs):
         for j in range(n_drugs):
-            text = ax.text(j, i, f'{corr_matrix[i, j]:.2f}',
-                          ha='center', va='center', color='black', fontsize=10)
+            ax.text(j, i, f"{corr_matrix[i, j]:.2f}", ha="center", va="center", color="black", fontsize=10)
 
-    ax.set_title(f'{drug_class.upper()} - Cross-Drug Attention Correlation', fontsize=14)
+    ax.set_title(f"{drug_class.upper()} - Cross-Drug Attention Correlation", fontsize=14)
 
     # Colorbar
     cbar = plt.colorbar(im, ax=ax, shrink=0.8)
-    cbar.set_label('Correlation')
+    cbar.set_label("Correlation")
 
     plt.tight_layout()
 
     output_path = output_dir / f"cross_drug_attention_{drug_class}.png"
-    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close()
 
     print(f"  Saved: {output_path}")

@@ -12,7 +12,6 @@ training parameters based on model performance.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -20,7 +19,7 @@ class CurriculumState:
     """Current state of the adaptive curriculum."""
 
     tau_frozen: bool = False
-    frozen_tau: Optional[float] = None
+    frozen_tau: float | None = None
     should_stop: bool = False
     new_best: bool = False
     triggered_freeze: bool = False
@@ -77,8 +76,8 @@ class AdaptiveCurriculum:
 
         # State
         self.tau_frozen = False
-        self.frozen_tau: Optional[float] = None
-        self.frozen_epoch: Optional[int] = None
+        self.frozen_tau: float | None = None
+        self.frozen_epoch: int | None = None
         self.best_score = float("-inf")  # Higher is better (composite)
         self.best_epoch = 0
         self.epochs_without_improvement = 0

@@ -21,7 +21,7 @@ Single responsibility: Provide safe training utilities and common boilerplate.
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Any, Dict, Optional
+from typing import Any
 
 import torch
 from torch.utils.data import DataLoader
@@ -39,7 +39,7 @@ class BaseTrainer(ABC):
     def __init__(
         self,
         model: torch.nn.Module,
-        config: Dict[str, Any],
+        config: dict[str, Any],
         device: str = "cuda",
     ):
         """Initialize base trainer.
@@ -56,10 +56,10 @@ class BaseTrainer(ABC):
 
     @staticmethod
     def safe_average_losses(
-        epoch_losses: Dict[str, float],
+        epoch_losses: dict[str, float],
         num_batches: int,
-        exclude_keys: Optional[set] = None,
-    ) -> Dict[str, float]:
+        exclude_keys: set | None = None,
+    ) -> dict[str, float]:
         """Safely average accumulated losses, guarding against division by zero.
 
         Args:
@@ -83,7 +83,7 @@ class BaseTrainer(ABC):
         return averaged
 
     @staticmethod
-    def accumulate_losses(epoch_losses: Dict[str, float], batch_losses: Dict[str, Any]) -> None:
+    def accumulate_losses(epoch_losses: dict[str, float], batch_losses: dict[str, Any]) -> None:
         """Accumulate batch losses into epoch losses (in-place).
 
         Handles both Tensor and scalar values.
@@ -98,7 +98,9 @@ class BaseTrainer(ABC):
             else:
                 epoch_losses[key] += val
 
-    def run_validation(self, val_loader: Optional[DataLoader], train_losses: Dict[str, float]) -> tuple[Dict[str, float], bool]:
+    def run_validation(
+        self, val_loader: DataLoader | None, train_losses: dict[str, float]
+    ) -> tuple[dict[str, float], bool]:
         """Run validation with proper None-check.
 
         Args:
@@ -118,7 +120,7 @@ class BaseTrainer(ABC):
         return val_losses, is_best
 
     @abstractmethod
-    def validate(self, val_loader: DataLoader) -> Dict[str, float]:
+    def validate(self, val_loader: DataLoader) -> dict[str, float]:
         """Validation pass (must be implemented by subclass).
 
         Args:
@@ -130,7 +132,7 @@ class BaseTrainer(ABC):
         pass
 
     @abstractmethod
-    def _check_best(self, losses: Dict[str, float]) -> bool:
+    def _check_best(self, losses: dict[str, float]) -> bool:
         """Check if current losses represent best model (subclass-specific).
 
         Args:
@@ -141,7 +143,7 @@ class BaseTrainer(ABC):
         """
         pass
 
-    def create_epoch_losses(self) -> Dict[str, float]:
+    def create_epoch_losses(self) -> dict[str, float]:
         """Create a new epoch losses accumulator with defaultdict(float).
 
         Returns:

@@ -27,7 +27,6 @@ import sys
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
@@ -38,6 +37,7 @@ from src.config.paths import PROCESSED_DATA_DIR, RAW_DATA_DIR
 
 try:
     import torch
+
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
@@ -46,6 +46,7 @@ try:
     from Bio.PDB import MMCIFParser, PDBParser
     from Bio.PDB.Polypeptide import is_aa
     from Bio.PDB.vectors import calc_dihedral
+
     HAS_BIOPYTHON = True
 except ImportError:
     HAS_BIOPYTHON = False
@@ -54,10 +55,10 @@ except ImportError:
 # Chi angle atom definitions for each amino acid
 CHI_ATOMS = {
     "ARG": [
-        ("N", "CA", "CB", "CG"),    # chi1
-        ("CA", "CB", "CG", "CD"),   # chi2
-        ("CB", "CG", "CD", "NE"),   # chi3
-        ("CG", "CD", "NE", "CZ"),   # chi4
+        ("N", "CA", "CB", "CG"),  # chi1
+        ("CA", "CB", "CG", "CD"),  # chi2
+        ("CB", "CG", "CD", "NE"),  # chi3
+        ("CG", "CD", "NE", "CZ"),  # chi4
     ],
     "ASN": [
         ("N", "CA", "CB", "CG"),
@@ -143,7 +144,7 @@ class RotamerData:
     sequence_context: str  # 5-residue context window
 
 
-def download_pdb(pdb_id: str, output_dir: Path, format: str = "pdb") -> Optional[Path]:
+def download_pdb(pdb_id: str, output_dir: Path, format: str = "pdb") -> Path | None:
     """Download PDB file from RCSB.
 
     Args:
@@ -179,7 +180,7 @@ def download_pdb(pdb_id: str, output_dir: Path, format: str = "pdb") -> Optional
 def compute_dihedral(
     residue,
     atom_names: tuple[str, str, str, str],
-) -> Optional[float]:
+) -> float | None:
     """Compute dihedral angle from four atoms.
 
     Args:
@@ -239,10 +240,7 @@ def parse_structure(
         raise ImportError("Biopython required for structure parsing")
 
     # Select parser based on file extension
-    if pdb_file.suffix == ".cif":
-        parser = MMCIFParser(QUIET=True)
-    else:
-        parser = PDBParser(QUIET=True)
+    parser = MMCIFParser(QUIET=True) if pdb_file.suffix == ".cif" else PDBParser(QUIET=True)
 
     structure = parser.get_structure(pdb_id, pdb_file)
     rotamer_data = []
@@ -251,10 +249,7 @@ def parse_structure(
         for chain in model:
             # Build sequence for context
             residues = [r for r in chain if is_aa(r)]
-            sequence = "".join([
-                r.get_resname()[0] if len(r.get_resname()) == 3 else "X"
-                for r in residues
-            ])
+            sequence = "".join([r.get_resname()[0] if len(r.get_resname()) == 3 else "X" for r in residues])
 
             for i, residue in enumerate(residues):
                 # Skip non-standard amino acids
@@ -388,8 +383,23 @@ def create_demo_rotamer_data(output_path: Path) -> None:
     positions = []
 
     rotameric_residues = [
-        "LEU", "ILE", "VAL", "PHE", "TYR", "TRP", "HIS", "ASN",
-        "ASP", "GLU", "GLN", "LYS", "ARG", "MET", "SER", "THR", "CYS",
+        "LEU",
+        "ILE",
+        "VAL",
+        "PHE",
+        "TYR",
+        "TRP",
+        "HIS",
+        "ASN",
+        "ASP",
+        "GLU",
+        "GLN",
+        "LYS",
+        "ARG",
+        "MET",
+        "SER",
+        "THR",
+        "CYS",
     ]
 
     for i in range(n_residues):
@@ -445,9 +455,7 @@ def create_demo_rotamer_data(output_path: Path) -> None:
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Ingest PDB structures and extract rotamer angles"
-    )
+    parser = argparse.ArgumentParser(description="Ingest PDB structures and extract rotamer angles")
     parser.add_argument(
         "--pdb_ids",
         type=str,

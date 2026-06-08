@@ -23,7 +23,6 @@ Usage:
 """
 
 import math
-from typing import Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -132,7 +131,7 @@ class GeometricAlignmentLoss(nn.Module):
 
         return points
 
-    def forward(self, z: torch.Tensor, target_indices: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, Dict]:
+    def forward(self, z: torch.Tensor, target_indices: torch.Tensor | None = None) -> tuple[torch.Tensor, dict]:
         """Compute alignment loss.
 
         Args:
@@ -169,7 +168,9 @@ class GeometricAlignmentLoss(nn.Module):
         # Only needed if we want to fill the space.
         # Inverse pairwise distance?
 
-        total_loss = self.alignment_weight * alignment_loss + self.alignment_weight * coverage_loss  # Weight both equally for now
+        total_loss = (
+            self.alignment_weight * alignment_loss + self.alignment_weight * coverage_loss
+        )  # Weight both equally for now
 
         metrics = {
             "geo_coverage_loss": coverage_loss.item(),

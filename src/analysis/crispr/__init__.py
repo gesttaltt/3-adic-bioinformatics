@@ -23,17 +23,8 @@ Example:
 """
 
 # Types and constants
-from .types import (
-    GuideSafetyProfile,
-    IDX_TO_NUCLEOTIDE,
-    MismatchType,
-    NUCLEOTIDE_TO_IDX,
-    OffTargetSite,
-    PAM_SEQUENCES,
-)
-
-# Core components
-from .padic_distance import POSITION_WEIGHTS, PAdicSequenceDistance
+# High-level analysis
+from .analyzer import CRISPROfftargetAnalyzer
 
 # Neural network modules
 from .embedder import (
@@ -41,11 +32,19 @@ from .embedder import (
     encode_sequence,
     sequence_to_onehot,
 )
-from .predictor import OfftargetActivityPredictor
-
-# High-level analysis
-from .analyzer import CRISPROfftargetAnalyzer
 from .optimizer import GuideDesignOptimizer
+
+# Core components
+from .padic_distance import POSITION_WEIGHTS, PAdicSequenceDistance
+from .predictor import OfftargetActivityPredictor
+from .types import (
+    IDX_TO_NUCLEOTIDE,
+    NUCLEOTIDE_TO_IDX,
+    PAM_SEQUENCES,
+    GuideSafetyProfile,
+    MismatchType,
+    OffTargetSite,
+)
 
 __all__ = [
     # Types

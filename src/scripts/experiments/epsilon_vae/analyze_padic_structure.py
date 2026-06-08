@@ -40,11 +40,7 @@ def load_encoder_weights(checkpoint_path: Path) -> dict:
     """Load encoder weights from checkpoint."""
     ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
 
-    model_state = (
-        ckpt.get("model_state_dict") or
-        ckpt.get("model_state") or
-        {}
-    )
+    model_state = ckpt.get("model_state_dict") or ckpt.get("model_state") or {}
 
     encoder_A = {}
     encoder_B = {}
@@ -82,7 +78,7 @@ def analyze_encoder_bijectivity(encoder_weights: dict, p: int = 3) -> dict:
     Returns:
         Analysis of bijectivity properties
     """
-    n_operations = p ** 9  # Total operations in p-adic space
+    n_operations = p**9  # Total operations in p-adic space
     required_bits = np.log2(n_operations)
 
     analysis = {
@@ -93,9 +89,9 @@ def analyze_encoder_bijectivity(encoder_weights: dict, p: int = 3) -> dict:
     }
 
     # Analyze each layer's information capacity
-    layer_keys = sorted([k for k in encoder_weights.keys() if "weight" in k])
+    layer_keys = sorted([k for k in encoder_weights if "weight" in k])
 
-    cumulative_capacity = float('inf')
+    cumulative_capacity = float("inf")
 
     for key in layer_keys:
         w = encoder_weights[key]
@@ -109,7 +105,7 @@ def analyze_encoder_bijectivity(encoder_weights: dict, p: int = 3) -> dict:
 
         # Effective rank (number of significant singular values)
         threshold = 0.01 * S[0]
-        effective_rank = int(np.sum(S > threshold))
+        effective_rank = int(np.sum(threshold < S))
 
         # Information capacity of this layer
         # Each dimension can encode ~log2(p) bits for p-adic
@@ -121,16 +117,18 @@ def analyze_encoder_bijectivity(encoder_weights: dict, p: int = 3) -> dict:
         # Condition number (stability of mapping)
         condition = S[0] / (S[-1] + 1e-10)
 
-        analysis["layer_analysis"].append({
-            "layer": key,
-            "shape": f"{in_dim} -> {out_dim}",
-            "effective_rank": effective_rank,
-            "max_rank": min(in_dim, out_dim),
-            "rank_ratio": effective_rank / min(in_dim, out_dim),
-            "layer_capacity_bits": layer_capacity,
-            "condition_number": condition,
-            "top_singular_values": S[:5].tolist(),
-        })
+        analysis["layer_analysis"].append(
+            {
+                "layer": key,
+                "shape": f"{in_dim} -> {out_dim}",
+                "effective_rank": effective_rank,
+                "max_rank": min(in_dim, out_dim),
+                "rank_ratio": effective_rank / min(in_dim, out_dim),
+                "layer_capacity_bits": layer_capacity,
+                "condition_number": condition,
+                "top_singular_values": S[:5].tolist(),
+            }
+        )
 
     analysis["total_capacity_bits"] = cumulative_capacity
     analysis["can_represent_all"] = cumulative_capacity >= required_bits
@@ -181,17 +179,23 @@ def compare_high_vs_low_coverage(high_cov_ckpt: Path, low_cov_ckpt: Path) -> dic
         )
 
         # Singular value changes
-        _, S_high, _ = np.linalg.svd(w_high.reshape(-1, w_high.shape[-1]) if w_high.ndim > 1 else w_high.reshape(1, -1), full_matrices=False)
-        _, S_low, _ = np.linalg.svd(w_low.reshape(-1, w_low.shape[-1]) if w_low.ndim > 1 else w_low.reshape(1, -1), full_matrices=False)
+        _, S_high, _ = np.linalg.svd(
+            w_high.reshape(-1, w_high.shape[-1]) if w_high.ndim > 1 else w_high.reshape(1, -1), full_matrices=False
+        )
+        _, S_low, _ = np.linalg.svd(
+            w_low.reshape(-1, w_low.shape[-1]) if w_low.ndim > 1 else w_low.reshape(1, -1), full_matrices=False
+        )
 
-        comparison["weight_changes"].append({
-            "layer": key,
-            "relative_change": float(relative_change),
-            "cosine_similarity": float(cos_sim),
-            "norm_high": float(np.linalg.norm(w_high)),
-            "norm_low": float(np.linalg.norm(w_low)),
-            "norm_change": float(np.linalg.norm(w_low) - np.linalg.norm(w_high)),
-        })
+        comparison["weight_changes"].append(
+            {
+                "layer": key,
+                "relative_change": float(relative_change),
+                "cosine_similarity": float(cos_sim),
+                "norm_high": float(np.linalg.norm(w_high)),
+                "norm_low": float(np.linalg.norm(w_low)),
+                "norm_change": float(np.linalg.norm(w_low) - np.linalg.norm(w_high)),
+            }
+        )
 
     # Sort by relative change
     comparison["weight_changes"].sort(key=lambda x: x["relative_change"], reverse=True)
@@ -227,7 +231,7 @@ def analyze_latent_coverage(checkpoint_path: Path, device: str = "cpu") -> dict:
     with torch.no_grad():
         outputs = model(all_ops_tensor, compute_control=False)
         z_A = outputs["z_A_euc"].cpu().numpy()  # Euclidean latent (before projection)
-        z_A_hyp = outputs["z_A_hyp"].cpu().numpy()  # Hyperbolic (after projection)
+        outputs["z_A_hyp"].cpu().numpy()  # Hyperbolic (after projection)
 
     # Analyze coverage
     n_ops = len(all_ops)
@@ -236,7 +240,7 @@ def analyze_latent_coverage(checkpoint_path: Path, device: str = "cpu") -> dict:
     # Use approximate nearest neighbors for efficiency
     from sklearn.neighbors import NearestNeighbors
 
-    nn = NearestNeighbors(n_neighbors=2, metric='euclidean')
+    nn = NearestNeighbors(n_neighbors=2, metric="euclidean")
     nn.fit(z_A)
     distances, indices = nn.kneighbors(z_A)
 
@@ -253,6 +257,7 @@ def analyze_latent_coverage(checkpoint_path: Path, device: str = "cpu") -> dict:
 
     # Effective dimensionality (how many dimensions are actually used)
     from sklearn.decomposition import PCA
+
     pca = PCA()
     pca.fit(z_A)
     explained_var_ratio = pca.explained_variance_ratio_
@@ -288,11 +293,15 @@ def visualize_padic_analysis(
     layers = [la["layer"].split(".")[-1] for la in bijectivity["layer_analysis"]]
     capacities = [la["layer_capacity_bits"] for la in bijectivity["layer_analysis"]]
 
-    bars = ax1.bar(range(len(layers)), capacities, color='steelblue', alpha=0.7)
-    ax1.axhline(y=bijectivity["required_bits"], color='r', linestyle='--',
-                label=f'Required: {bijectivity["required_bits"]:.1f} bits')
+    ax1.bar(range(len(layers)), capacities, color="steelblue", alpha=0.7)
+    ax1.axhline(
+        y=bijectivity["required_bits"],
+        color="r",
+        linestyle="--",
+        label=f"Required: {bijectivity['required_bits']:.1f} bits",
+    )
     ax1.set_xticks(range(len(layers)))
-    ax1.set_xticklabels(layers, rotation=45, ha='right')
+    ax1.set_xticklabels(layers, rotation=45, ha="right")
     ax1.set_ylabel("Information Capacity (bits)")
     ax1.set_title(f"{run_name}: Layer Capacity for p={bijectivity['p']}")
     ax1.legend()
@@ -305,10 +314,10 @@ def visualize_padic_analysis(
 
     x = np.arange(len(layers))
     width = 0.35
-    ax2.bar(x - width/2, ranks, width, label='Effective Rank', color='steelblue')
-    ax2.bar(x + width/2, max_ranks, width, label='Max Rank', color='lightgray')
+    ax2.bar(x - width / 2, ranks, width, label="Effective Rank", color="steelblue")
+    ax2.bar(x + width / 2, max_ranks, width, label="Max Rank", color="lightgray")
     ax2.set_xticks(x)
-    ax2.set_xticklabels(layers, rotation=45, ha='right')
+    ax2.set_xticklabels(layers, rotation=45, ha="right")
     ax2.set_ylabel("Rank")
     ax2.set_title(f"{run_name}: Effective vs Max Rank")
     ax2.legend()
@@ -318,48 +327,48 @@ def visualize_padic_analysis(
     ax3 = axes[1, 0]
     if "pca_explained_variance" in coverage_analysis:
         cumvar = np.cumsum(coverage_analysis["pca_explained_variance"])
-        ax3.plot(range(1, len(cumvar)+1), cumvar, 'o-', color='purple')
-        ax3.axhline(y=0.99, color='r', linestyle='--', label='99% variance')
+        ax3.plot(range(1, len(cumvar) + 1), cumvar, "o-", color="purple")
+        ax3.axhline(y=0.99, color="r", linestyle="--", label="99% variance")
         ax3.set_xlabel("Number of Components")
         ax3.set_ylabel("Cumulative Explained Variance")
         ax3.set_title(f"{run_name}: Latent Space Dimensionality")
         ax3.legend()
         ax3.grid(True, alpha=0.3)
     else:
-        ax3.text(0.5, 0.5, "Coverage analysis not available",
-                ha='center', va='center', transform=ax3.transAxes)
+        ax3.text(0.5, 0.5, "Coverage analysis not available", ha="center", va="center", transform=ax3.transAxes)
 
     # Plot 4: Summary metrics
     ax4 = axes[1, 1]
-    ax4.axis('off')
+    ax4.axis("off")
 
     summary_text = f"""
 P-ADIC REPRESENTATION ANALYSIS: {run_name}
 
-Algebraic Structure (p={bijectivity['p']}):
-  Total operations: {bijectivity['n_operations']:,}
-  Required capacity: {bijectivity['required_bits']:.1f} bits
-  Encoder capacity: {bijectivity['total_capacity_bits']:.1f} bits
-  CAN REPRESENT ALL: {'YES' if bijectivity['can_represent_all'] else 'NO'}
-  Capacity margin: {bijectivity['capacity_margin']:.1f} bits
+Algebraic Structure (p={bijectivity["p"]}):
+  Total operations: {bijectivity["n_operations"]:,}
+  Required capacity: {bijectivity["required_bits"]:.1f} bits
+  Encoder capacity: {bijectivity["total_capacity_bits"]:.1f} bits
+  CAN REPRESENT ALL: {"YES" if bijectivity["can_represent_all"] else "NO"}
+  Capacity margin: {bijectivity["capacity_margin"]:.1f} bits
 
 """
     if "n_operations" in coverage_analysis:
         summary_text += f"""Latent Space Coverage:
-  Effective dimensions: {coverage_analysis['effective_dim']} / {coverage_analysis['latent_dim']}
-  Potential collisions: {coverage_analysis['potential_collisions']} ({coverage_analysis['collision_rate']:.2%})
-  Mean NN distance: {coverage_analysis['mean_nn_distance']:.4f}
-  Min NN distance: {coverage_analysis['min_nn_distance']:.4f}
+  Effective dimensions: {coverage_analysis["effective_dim"]} / {coverage_analysis["latent_dim"]}
+  Potential collisions: {coverage_analysis["potential_collisions"]} ({coverage_analysis["collision_rate"]:.2%})
+  Mean NN distance: {coverage_analysis["mean_nn_distance"]:.4f}
+  Min NN distance: {coverage_analysis["min_nn_distance"]:.4f}
 """
 
     summary_text += f"""
 IMPLICATION FOR P-ADIC GENERALIZATION:
-  {'Encoder has sufficient capacity for bijective mapping' if bijectivity['can_represent_all'] else 'Encoder capacity insufficient - information loss'}
-  {'Ready for p-adic generalization' if bijectivity['can_represent_all'] and bijectivity['capacity_margin'] > 10 else 'May need architecture changes for larger p'}
+  {"Encoder has sufficient capacity for bijective mapping" if bijectivity["can_represent_all"] else "Encoder capacity insufficient - information loss"}
+  {"Ready for p-adic generalization" if bijectivity["can_represent_all"] and bijectivity["capacity_margin"] > 10 else "May need architecture changes for larger p"}
 """
 
-    ax4.text(0.05, 0.95, summary_text, transform=ax4.transAxes,
-            fontsize=10, verticalalignment='top', fontfamily='monospace')
+    ax4.text(
+        0.05, 0.95, summary_text, transform=ax4.transAxes, fontsize=10, verticalalignment="top", fontfamily="monospace"
+    )
 
     plt.tight_layout()
     plt.savefig(output_dir / f"{run_name}_padic_analysis.png", dpi=150)
@@ -370,17 +379,17 @@ IMPLICATION FOR P-ADIC GENERALIZATION:
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze p-adic structure in encoder")
-    parser.add_argument("--checkpoint_dir", type=str,
-                       default=str(CHECKPOINTS_DIR),
-                       help="Root checkpoint directory")
-    parser.add_argument("--output_dir", type=str,
-                       default=str(OUTPUT_DIR / "epsilon_vae_analysis" / "padic_analysis"),
-                       help="Output directory")
-    parser.add_argument("--runs", nargs="+",
-                       default=["progressive_tiny_lr", "v5_11_progressive"],
-                       help="Run names to analyze")
-    parser.add_argument("--device", type=str, default="cuda",
-                       help="Device to use")
+    parser.add_argument("--checkpoint_dir", type=str, default=str(CHECKPOINTS_DIR), help="Root checkpoint directory")
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default=str(OUTPUT_DIR / "epsilon_vae_analysis" / "padic_analysis"),
+        help="Output directory",
+    )
+    parser.add_argument(
+        "--runs", nargs="+", default=["progressive_tiny_lr", "v5_11_progressive"], help="Run names to analyze"
+    )
+    parser.add_argument("--device", type=str, default="cuda", help="Device to use")
     args = parser.parse_args()
 
     checkpoint_dir = Path(args.checkpoint_dir)
@@ -392,9 +401,9 @@ def main():
     all_results = {}
 
     for run_name in args.runs:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"P-ADIC ANALYSIS: {run_name}")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
 
         run_dir = checkpoint_dir / run_name
         if not run_dir.exists():
@@ -410,7 +419,7 @@ def main():
         elif epoch0_path.exists():
             ckpt_path = epoch0_path
         else:
-            print(f"  No suitable checkpoint found")
+            print("  No suitable checkpoint found")
             continue
 
         print(f"  Analyzing: {ckpt_path.name}")
@@ -427,8 +436,10 @@ def main():
         print(f"    Can represent all: {bijectivity['can_represent_all']}")
 
         for layer in bijectivity["layer_analysis"]:
-            print(f"    {layer['layer']}: rank={layer['effective_rank']}/{layer['max_rank']} "
-                  f"({layer['rank_ratio']:.0%}), capacity={layer['layer_capacity_bits']:.1f} bits")
+            print(
+                f"    {layer['layer']}: rank={layer['effective_rank']}/{layer['max_rank']} "
+                f"({layer['rank_ratio']:.0%}), capacity={layer['layer_capacity_bits']:.1f} bits"
+            )
 
         # Analyze for p=5 (pentary) - future generalization
         print("\n  Bijectivity Analysis (p=5, hypothetical):")
@@ -459,9 +470,9 @@ def main():
 
     # Compare high vs low coverage runs
     if len(args.runs) >= 2:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print("HIGH vs LOW COVERAGE COMPARISON")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
 
         # Find highest and lowest coverage
         coverages = []
@@ -483,11 +494,13 @@ def main():
 
             comparison = compare_high_vs_low_coverage(high_path, low_path)
 
-            print(f"\n  Weight changes (high -> low coverage):")
+            print("\n  Weight changes (high -> low coverage):")
             for change in comparison["weight_changes"][:5]:
-                print(f"    {change['layer']}: "
-                      f"norm {change['norm_high']:.2f} -> {change['norm_low']:.2f} "
-                      f"(change: {change['relative_change']:.1%})")
+                print(
+                    f"    {change['layer']}: "
+                    f"norm {change['norm_high']:.2f} -> {change['norm_low']:.2f} "
+                    f"(change: {change['relative_change']:.1%})"
+                )
 
     # Save results
     def convert_numpy(obj):
@@ -504,9 +517,9 @@ def main():
     with open(output_dir / "padic_analysis_results.json", "w") as f:
         json.dump(convert_numpy(all_results), f, indent=2)
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"Results saved to {output_dir}")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
 
 if __name__ == "__main__":

@@ -19,20 +19,17 @@ meaningful relationships between mutations and resistance.
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple
+from dataclasses import dataclass
+from typing import Any
 
-import torch
-from torch.utils.data import Dataset, IterableDataset
+from torch.utils.data import Dataset
 
+from src.analysis.set_theory.formal_concepts import ConceptLattice, FormalContext
+from src.analysis.set_theory.lattice import ResistanceLattice, ResistanceLevel
 from src.analysis.set_theory.mutation_sets import (
     Mutation,
     MutationSet,
-    MutationSetAlgebra,
-    ResistanceProfile,
 )
-from src.analysis.set_theory.lattice import ResistanceLattice, ResistanceLevel
-from src.analysis.set_theory.formal_concepts import FormalContext, ConceptLattice
 
 
 @dataclass
@@ -75,8 +72,8 @@ class SetAugmenter:
 
     def __init__(
         self,
-        config: Optional[AugmentationConfig] = None,
-        lattice: Optional[ResistanceLattice] = None,
+        config: AugmentationConfig | None = None,
+        lattice: ResistanceLattice | None = None,
     ):
         """Initialize augmenter.
 
@@ -88,12 +85,10 @@ class SetAugmenter:
         self.lattice = lattice or ResistanceLattice()
 
         # Store samples for combination
-        self.samples: List[MutationSet] = []
-        self.by_level: Dict[ResistanceLevel, List[MutationSet]] = {
-            level: [] for level in ResistanceLevel
-        }
+        self.samples: list[MutationSet] = []
+        self.by_level: dict[ResistanceLevel, list[MutationSet]] = {level: [] for level in ResistanceLevel}
 
-    def add_samples(self, samples: List[MutationSet]):
+    def add_samples(self, samples: list[MutationSet]):
         """Add samples for augmentation source.
 
         Args:
@@ -110,7 +105,7 @@ class SetAugmenter:
         self,
         sample: MutationSet,
         n_augmentations: int = 1,
-    ) -> List[MutationSet]:
+    ) -> list[MutationSet]:
         """Generate augmented versions of a sample.
 
         Args:
@@ -129,7 +124,7 @@ class SetAugmenter:
 
         return augmented
 
-    def _augment_single(self, sample: MutationSet) -> Optional[MutationSet]:
+    def _augment_single(self, sample: MutationSet) -> MutationSet | None:
         """Generate a single augmentation.
 
         Args:
@@ -169,11 +164,11 @@ class SetAugmenter:
             # Randomly select subset
             mutations = list(combined._mutations)
             random.shuffle(mutations)
-            combined = MutationSet(mutations[:self.config.max_mutations])
+            combined = MutationSet(mutations[: self.config.max_mutations])
 
         return combined
 
-    def _intersection_augment(self, sample: MutationSet) -> Optional[MutationSet]:
+    def _intersection_augment(self, sample: MutationSet) -> MutationSet | None:
         """Create augmentation via intersection.
 
         Args:
@@ -183,10 +178,7 @@ class SetAugmenter:
             Intersection with another sample (if non-empty)
         """
         # Find samples with overlap
-        candidates = [
-            s for s in self.samples
-            if not s.isdisjoint(sample) and s != sample
-        ]
+        candidates = [s for s in self.samples if not s.isdisjoint(sample) and s != sample]
 
         if not candidates:
             return sample
@@ -214,10 +206,7 @@ class SetAugmenter:
             return sample
 
         # Random subset size
-        size = random.randint(
-            self.config.min_mutations,
-            len(mutations) - 1
-        )
+        size = random.randint(self.config.min_mutations, len(mutations) - 1)
 
         random.shuffle(mutations)
         return MutationSet(mutations[:size])
@@ -254,7 +243,7 @@ class SetAugmenter:
         self,
         target_level: ResistanceLevel,
         n_samples: int = 10,
-    ) -> List[MutationSet]:
+    ) -> list[MutationSet]:
         """Generate samples at a specific resistance level.
 
         Args:
@@ -269,10 +258,7 @@ class SetAugmenter:
         # Get existing samples at adjacent levels
         level_samples = self.by_level[target_level]
 
-        if target_level.value > 0:
-            lower_samples = self.by_level[ResistanceLevel(target_level.value - 1)]
-        else:
-            lower_samples = []
+        lower_samples = self.by_level[ResistanceLevel(target_level.value - 1)] if target_level.value > 0 else []
 
         if target_level.value < len(ResistanceLevel) - 1:
             higher_samples = self.by_level[ResistanceLevel(target_level.value + 1)]
@@ -291,13 +277,9 @@ class SetAugmenter:
 
                 # Union to increase, intersection to decrease
                 if random.random() > 0.5:
-                    candidate = low | MutationSet(
-                        random.sample(list(high._mutations), min(2, len(high)))
-                    )
+                    candidate = low | MutationSet(random.sample(list(high._mutations), min(2, len(high))))
                 else:
-                    candidate = MutationSet(
-                        random.sample(list(high._mutations), max(1, len(high) - 1))
-                    )
+                    candidate = MutationSet(random.sample(list(high._mutations), max(1, len(high) - 1)))
 
                 # Check if at target level
                 if self.lattice.resistance_level(candidate) == target_level:
@@ -331,7 +313,7 @@ class ConceptBasedAugmenter:
         self,
         sample: MutationSet,
         target_concept: int,
-    ) -> Optional[MutationSet]:
+    ) -> MutationSet | None:
         """Augment sample to match a target concept.
 
         Args:
@@ -347,10 +329,7 @@ class ConceptBasedAugmenter:
         concept = self.lattice.concepts[target_concept]
 
         # Get mutations from concept intent
-        concept_mutations = {
-            attr for attr in concept.intent
-            if not attr.endswith("_R")
-        }
+        concept_mutations = {attr for attr in concept.intent if not attr.endswith("_R")}
 
         # Create sample with these mutations
         mutations = []
@@ -368,7 +347,7 @@ class ConceptBasedAugmenter:
     def generate_concept_samples(
         self,
         n_per_concept: int = 5,
-    ) -> Dict[int, List[MutationSet]]:
+    ) -> dict[int, list[MutationSet]]:
         """Generate samples for each concept.
 
         Args:
@@ -402,7 +381,7 @@ class ConceptBasedAugmenter:
                     # Subset
                     muts = list(base._mutations)
                     random.shuffle(muts)
-                    sample = MutationSet(muts[:max(1, len(muts) - 1)])
+                    sample = MutationSet(muts[: max(1, len(muts) - 1)])
                 else:
                     sample = base
 
@@ -442,7 +421,7 @@ class AugmentedDataset(Dataset):
     def __len__(self) -> int:
         return len(self.base_dataset)
 
-    def __getitem__(self, idx: int) -> Dict[str, Any]:
+    def __getitem__(self, idx: int) -> dict[str, Any]:
         sample = self.base_dataset[idx]
 
         # Apply augmentation with probability
@@ -475,7 +454,7 @@ class BalancedSampler:
 
     def __init__(
         self,
-        samples: List[MutationSet],
+        samples: list[MutationSet],
         lattice: ResistanceLattice,
     ):
         """Initialize balanced sampler.
@@ -487,9 +466,7 @@ class BalancedSampler:
         self.lattice = lattice
 
         # Group by level
-        self.by_level: Dict[ResistanceLevel, List[MutationSet]] = {
-            level: [] for level in ResistanceLevel
-        }
+        self.by_level: dict[ResistanceLevel, list[MutationSet]] = {level: [] for level in ResistanceLevel}
 
         for sample in samples:
             level = lattice.resistance_level(sample)
@@ -502,7 +479,7 @@ class BalancedSampler:
     def sample_balanced(
         self,
         n_per_level: int,
-    ) -> List[Tuple[MutationSet, ResistanceLevel]]:
+    ) -> list[tuple[MutationSet, ResistanceLevel]]:
         """Sample with balanced levels.
 
         Args:
@@ -536,9 +513,7 @@ class BalancedSampler:
                                 selected.append(aug)
                     else:
                         # Generate from scratch
-                        generated = self.augmenter.generate_hierarchy_samples(
-                            level, n_per_level - len(selected)
-                        )
+                        generated = self.augmenter.generate_hierarchy_samples(level, n_per_level - len(selected))
                         selected.extend(generated)
                         break
 

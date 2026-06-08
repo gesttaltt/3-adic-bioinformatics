@@ -16,7 +16,7 @@ Single responsibility: Configuration typing and validation only.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from src.config.paths import CHECKPOINTS_DIR, RUNS_DIR
 
@@ -55,7 +55,7 @@ class OptimizerConfig:
     type: str = "adamw"
     lr_start: float = 0.001
     weight_decay: float = 0.0001
-    lr_schedule: List[Dict[str, float]] = field(default_factory=list)
+    lr_schedule: list[dict[str, float]] = field(default_factory=list)
 
 
 @dataclass
@@ -245,7 +245,7 @@ class TrainingConfig:
     checkpoint_freq: int = 10
     checkpoint_dir: str = str(CHECKPOINTS_DIR / "v5_10")
     tensorboard_dir: str = str(RUNS_DIR)
-    experiment_name: Optional[str] = None
+    experiment_name: str | None = None
     histogram_interval: int = 10
     embedding_interval: int = 50  # Log embeddings every N epochs (0 to disable)
     embedding_n_samples: int = 5000  # Number of samples for embedding visualization
@@ -262,7 +262,7 @@ class TrainingConfig:
     target_ranking_correlation: float = 0.99
 
 
-def _build_nested_config(raw: Dict[str, Any], cls, defaults: Optional[Dict[str, Any]] = None) -> Any:
+def _build_nested_config(raw: dict[str, Any], cls, defaults: dict[str, Any] | None = None) -> Any:
     """Build a dataclass from raw dict, using defaults for missing keys."""
     if raw is None:
         raw = {}
@@ -287,7 +287,7 @@ def _build_nested_config(raw: Dict[str, Any], cls, defaults: Optional[Dict[str, 
     return cls(**kwargs)
 
 
-def validate_config(raw_config: Dict[str, Any]) -> TrainingConfig:
+def validate_config(raw_config: dict[str, Any]) -> TrainingConfig:
     """Validate raw YAML dict and return typed TrainingConfig.
 
     Args:
@@ -362,7 +362,9 @@ def validate_config(raw_config: Dict[str, Any]) -> TrainingConfig:
     if not (0 < raw_config.get("train_split", 0.8) <= 1):
         errors.append("train_split must be in (0, 1]")
 
-    splits_sum = raw_config.get("train_split", 0.8) + raw_config.get("val_split", 0.1) + raw_config.get("test_split", 0.1)
+    splits_sum = (
+        raw_config.get("train_split", 0.8) + raw_config.get("val_split", 0.1) + raw_config.get("test_split", 0.1)
+    )
     if abs(splits_sum - 1.0) > 0.001:
         errors.append(f"Data splits must sum to 1.0, got {splits_sum}")
 
@@ -415,7 +417,7 @@ def validate_config(raw_config: Dict[str, Any]) -> TrainingConfig:
     return config
 
 
-def config_to_dict(config: TrainingConfig) -> Dict[str, Any]:
+def config_to_dict(config: TrainingConfig) -> dict[str, Any]:
     """Convert TrainingConfig back to dict for passing to existing code.
 
     This allows gradual migration - validated config can still be used

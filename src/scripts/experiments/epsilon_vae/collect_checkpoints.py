@@ -18,7 +18,6 @@ Usage:
 
 import argparse
 import json
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -67,19 +66,21 @@ def collect_checkpoint_data(checkpoint_dir: Path) -> list[dict]:
 
                 # Extract state dict (handle different checkpoint formats)
                 state_dict = (
-                    ckpt.get("model_state_dict") or
-                    ckpt.get("model_state") or
-                    ckpt.get("state_dict") or
-                    ckpt.get("model") or
-                    {}
+                    ckpt.get("model_state_dict")
+                    or ckpt.get("model_state")
+                    or ckpt.get("state_dict")
+                    or ckpt.get("model")
+                    or {}
                 )
                 if not state_dict:
                     continue
 
                 # Handle nested state dict
-                if isinstance(state_dict, dict) and not any(k.endswith('.weight') or k.endswith('.bias') for k in list(state_dict.keys())[:10]):
+                if isinstance(state_dict, dict) and not any(
+                    k.endswith(".weight") or k.endswith(".bias") for k in list(state_dict.keys())[:10]
+                ):
                     # Might be a model object, try to get state_dict
-                    if hasattr(state_dict, 'state_dict'):
+                    if hasattr(state_dict, "state_dict"):
                         state_dict = state_dict.state_dict()
 
                 # Extract key weights
@@ -100,19 +101,21 @@ def collect_checkpoint_data(checkpoint_dir: Path) -> list[dict]:
                 weight_sizes = [w.numel() for w in weights]
                 total_params = sum(weight_sizes)
 
-                dataset.append({
-                    "path": str(ckpt_path),
-                    "run_name": run_dir.name,
-                    "epoch": epoch,
-                    "date": date.isoformat(),
-                    "date_obj": date,
-                    "coverage": metrics.get("coverage", 0.0),
-                    "dist_corr": metrics.get("distance_corr_A", 0.0),
-                    "rad_hier": metrics.get("radial_corr_A", 0.0),
-                    "weight_sizes": weight_sizes,
-                    "total_params": total_params,
-                    "n_weight_blocks": len(weights),
-                })
+                dataset.append(
+                    {
+                        "path": str(ckpt_path),
+                        "run_name": run_dir.name,
+                        "epoch": epoch,
+                        "date": date.isoformat(),
+                        "date_obj": date,
+                        "coverage": metrics.get("coverage", 0.0),
+                        "dist_corr": metrics.get("distance_corr_A", 0.0),
+                        "rad_hier": metrics.get("radial_corr_A", 0.0),
+                        "weight_sizes": weight_sizes,
+                        "total_params": total_params,
+                        "n_weight_blocks": len(weights),
+                    }
+                )
 
             except Exception as e:
                 errors.append((str(ckpt_path), str(e)))
@@ -267,7 +270,7 @@ def main():
     print(f"  - full_dataset.json ({len(dataset)} checkpoints)")
     print(f"  - train_dataset.json ({len(train_data)} checkpoints)")
     print(f"  - val_dataset.json ({len(val_data)} checkpoints)")
-    print(f"  - analysis.json")
+    print("  - analysis.json")
 
     if errors:
         print(f"\n{len(errors)} errors (see errors.json)")

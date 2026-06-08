@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -39,7 +39,7 @@ class CalibrationMetrics:
     mce: float  # Maximum Calibration Error
     brier: float  # Brier Score
     nll: float  # Negative Log-Likelihood
-    reliability_diagram: Dict[str, np.ndarray] = field(default_factory=dict)
+    reliability_diagram: dict[str, np.ndarray] = field(default_factory=dict)
 
 
 class BaseCalibrator(ABC, nn.Module):
@@ -55,7 +55,7 @@ class BaseCalibrator(ABC, nn.Module):
         logits: Tensor,
         labels: Tensor,
         **kwargs: Any,
-    ) -> "BaseCalibrator":
+    ) -> BaseCalibrator:
         """Fit calibrator to validation data."""
         pass
 
@@ -105,7 +105,7 @@ class TemperatureScaling(BaseCalibrator):
         lr: float = 0.01,
         max_iter: int = 100,
         verbose: bool = False,
-    ) -> "TemperatureScaling":
+    ) -> TemperatureScaling:
         """Fit temperature parameter using NLL loss.
 
         Args:
@@ -193,7 +193,7 @@ class VectorScaling(BaseCalibrator):
         max_epochs: int = 100,
         patience: int = 10,
         verbose: bool = False,
-    ) -> "VectorScaling":
+    ) -> VectorScaling:
         """Fit vector scaling parameters.
 
         Args:
@@ -259,14 +259,11 @@ class PlattScaling(BaseCalibrator):
         lr: float = 0.01,
         max_iter: int = 100,
         verbose: bool = False,
-    ) -> "PlattScaling":
+    ) -> PlattScaling:
         """Fit Platt scaling parameters."""
         # For binary classification, use single column
         if logits.dim() == 2:
-            if logits.shape[1] == 2:
-                scores = logits[:, 1] - logits[:, 0]
-            else:
-                scores = logits[:, 0]
+            scores = logits[:, 1] - logits[:, 0] if logits.shape[1] == 2 else logits[:, 0]
         else:
             scores = logits
 
@@ -290,10 +287,7 @@ class PlattScaling(BaseCalibrator):
     def calibrate(self, logits: Tensor) -> Tensor:
         """Apply Platt scaling."""
         if logits.dim() == 2:
-            if logits.shape[1] == 2:
-                scores = logits[:, 1] - logits[:, 0]
-            else:
-                scores = logits[:, 0]
+            scores = logits[:, 1] - logits[:, 0] if logits.shape[1] == 2 else logits[:, 0]
         else:
             scores = logits
 
@@ -316,14 +310,14 @@ class IsotonicCalibration(BaseCalibrator):
 
     def __init__(self):
         super().__init__()
-        self._isotonic_models: List[Any] = []
+        self._isotonic_models: list[Any] = []
 
     def fit(
         self,
         logits: Tensor,
         labels: Tensor,
         verbose: bool = False,
-    ) -> "IsotonicCalibration":
+    ) -> IsotonicCalibration:
         """Fit isotonic regression for each class."""
         try:
             from sklearn.isotonic import IsotonicRegression
@@ -371,7 +365,7 @@ class FocalLossCalibration(nn.Module):
         Lin et al., "Focal Loss for Dense Object Detection" (2017)
     """
 
-    def __init__(self, gamma: float = 2.0, alpha: Optional[Tensor] = None):
+    def __init__(self, gamma: float = 2.0, alpha: Tensor | None = None):
         """Initialize focal loss.
 
         Args:
@@ -475,7 +469,7 @@ def compute_calibration_metrics(
         confidences = probs_np
         predictions = (probs_np >= 0.5).astype(int)
 
-    accuracies = (predictions == labels_np)
+    accuracies = predictions == labels_np
 
     # Compute ECE and MCE
     bin_boundaries = np.linspace(0, 1, n_bins + 1)
@@ -488,7 +482,7 @@ def compute_calibration_metrics(
     bin_confs = []
     bin_counts = []
 
-    for bin_lower, bin_upper in zip(bin_lowers, bin_uppers):
+    for bin_lower, bin_upper in zip(bin_lowers, bin_uppers, strict=False):
         in_bin = (confidences > bin_lower) & (confidences <= bin_upper)
         prop_in_bin = in_bin.mean()
 
@@ -543,7 +537,7 @@ def auto_calibrate(
     method: str = "temperature",
     device: str = "cuda",
     verbose: bool = True,
-) -> Tuple[BaseCalibrator, CalibrationMetrics]:
+) -> tuple[BaseCalibrator, CalibrationMetrics]:
     """Automatically calibrate a model on validation data.
 
     Args:
@@ -573,10 +567,7 @@ def auto_calibrate(
             inputs = inputs.to(device)
             outputs = model(inputs)
 
-            if isinstance(outputs, dict):
-                logits = outputs.get("logits", outputs.get("predictions"))
-            else:
-                logits = outputs
+            logits = outputs.get("logits", outputs.get("predictions")) if isinstance(outputs, dict) else outputs
 
             all_logits.append(logits.cpu())
             if labels is not None:
@@ -649,17 +640,14 @@ class CalibratedModel(nn.Module):
         with torch.no_grad():
             outputs = self.model(x)
 
-        if isinstance(outputs, dict):
-            logits = outputs.get("logits", outputs.get("predictions"))
-        else:
-            logits = outputs
+        logits = outputs.get("logits", outputs.get("predictions")) if isinstance(outputs, dict) else outputs
 
         return self.calibrator.calibrate(logits)
 
     def predict_with_uncertainty(
         self,
         x: Tensor,
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """Get calibrated predictions with uncertainty.
 
         Args:

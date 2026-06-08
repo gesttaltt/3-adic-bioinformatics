@@ -13,7 +13,7 @@ production including expression yield, purification ease, and cost.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import torch
 
@@ -115,7 +115,7 @@ class ManufacturabilityObjective(Objective):
     def evaluate(
         self,
         latent: torch.Tensor,
-        decoded: Optional[torch.Tensor] = None,
+        decoded: torch.Tensor | None = None,
         **kwargs: Any,
     ) -> ObjectiveResult:
         """Evaluate manufacturability objective.
@@ -232,7 +232,7 @@ class ProductionCostObjective(Objective):
     def evaluate(
         self,
         latent: torch.Tensor,
-        decoded: Optional[torch.Tensor] = None,
+        decoded: torch.Tensor | None = None,
         **kwargs: Any,
     ) -> ObjectiveResult:
         """Evaluate production cost objective.

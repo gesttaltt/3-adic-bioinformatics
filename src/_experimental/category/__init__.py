@@ -36,19 +36,19 @@ References:
 - Curry (2014): Sheaves, Cosheaves and Applications
 """
 
-from src._experimental.category.sheaves import (
-    ProteinSheaf,
-    ResidueSection,
-    SheafConstraint,
-    SheafGluing,
-    SheafMorphism,
-)
 from src._experimental.category.functors import (
     CategoricalFunctor,
     CodonToProteinFunctor,
     LatentSpaceFunctor,
     NaturalTransformation,
     SequenceCategory,
+)
+from src._experimental.category.sheaves import (
+    ProteinSheaf,
+    ResidueSection,
+    SheafConstraint,
+    SheafGluing,
+    SheafMorphism,
 )
 
 __all__ = [

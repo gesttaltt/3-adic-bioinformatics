@@ -34,18 +34,13 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Union
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from src.core.padic_math import (
     DEFAULT_P,
-    PADIC_INFINITY_INT,
-    compute_hierarchical_embedding,
-    padic_distance,
     padic_valuation,
 )
 
@@ -96,7 +91,7 @@ class PAdicActivation(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        valuations: Optional[torch.Tensor] = None,
+        valuations: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Apply p-adic activation.
 
@@ -160,10 +155,9 @@ class PAdicLinearLayer(nn.Module):
 
         # Level-wise weights: one weight matrix per valuation level
         # This is the key innovation: O(n_digits * dim^2) instead of O(N^2)
-        self.level_weights = nn.ModuleList([
-            nn.Linear(config.input_dim, config.output_dim, bias=False)
-            for _ in range(config.n_digits + 1)
-        ])
+        self.level_weights = nn.ModuleList(
+            [nn.Linear(config.input_dim, config.output_dim, bias=False) for _ in range(config.n_digits + 1)]
+        )
 
         # Shared bias across all levels
         self.bias = nn.Parameter(torch.zeros(config.output_dim))
@@ -173,8 +167,7 @@ class PAdicLinearLayer(nn.Module):
 
         # Optional: cross-level attention
         self.cross_level_attn = nn.Parameter(
-            torch.eye(config.n_digits + 1) * 0.9 +
-            torch.ones(config.n_digits + 1, config.n_digits + 1) * 0.01
+            torch.eye(config.n_digits + 1) * 0.9 + torch.ones(config.n_digits + 1, config.n_digits + 1) * 0.01
         )
 
         # Dropout
@@ -211,10 +204,9 @@ class PAdicLinearLayer(nn.Module):
         valuations = valuations.clamp(0, self.n_digits).long()
 
         # Compute all level outputs
-        level_outputs = torch.stack([
-            self.level_weights[level](x)
-            for level in range(self.n_digits + 1)
-        ], dim=1)  # (batch, n_levels, output_dim)
+        level_outputs = torch.stack(
+            [self.level_weights[level](x) for level in range(self.n_digits + 1)], dim=1
+        )  # (batch, n_levels, output_dim)
 
         # Apply level gates
         gates = torch.sigmoid(self.level_gates)  # (n_levels,)
@@ -229,11 +221,7 @@ class PAdicLinearLayer(nn.Module):
         if self.config.use_valuation_weighting:
             attn_weights = F.softmax(self.cross_level_attn[valuations], dim=-1)
             # Weighted combination of all level outputs
-            weighted_outputs = torch.einsum(
-                "bl,blo->bo",
-                attn_weights,
-                level_outputs
-            )
+            weighted_outputs = torch.einsum("bl,blo->bo", attn_weights, level_outputs)
             output = 0.7 * output + 0.3 * weighted_outputs
 
         output = self.dropout(output)
@@ -269,22 +257,14 @@ class PAdicEmbedding(nn.Module):
         self.use_positional = use_positional
 
         # Digit embedding: each position gets separate embedding
-        self.digit_embeddings = nn.ModuleList([
-            nn.Embedding(p, embedding_dim // n_digits)
-            for _ in range(n_digits)
-        ])
+        self.digit_embeddings = nn.ModuleList([nn.Embedding(p, embedding_dim // n_digits) for _ in range(n_digits)])
 
         # Projection to final dimension
-        self.projection = nn.Linear(
-            (embedding_dim // n_digits) * n_digits,
-            embedding_dim
-        )
+        self.projection = nn.Linear((embedding_dim // n_digits) * n_digits, embedding_dim)
 
         # Positional encoding for digit positions
         if use_positional:
-            self.positional = nn.Parameter(
-                self._create_positional_encoding(n_digits, embedding_dim // n_digits)
-            )
+            self.positional = nn.Parameter(self._create_positional_encoding(n_digits, embedding_dim // n_digits))
 
     def _create_positional_encoding(self, n_positions: int, dim: int) -> torch.Tensor:
         """Create sinusoidal positional encoding."""
@@ -334,7 +314,7 @@ class PAdicEmbedding(nn.Module):
 
         # Embed each digit position
         embeddings = []
-        for pos, (digit, embed_layer) in enumerate(zip(digits, self.digit_embeddings)):
+        for pos, (digit, embed_layer) in enumerate(zip(digits, self.digit_embeddings, strict=False)):
             emb = embed_layer(digit)  # (batch*seq, dim/n_digits)
             if self.use_positional:
                 emb = emb + self.positional[pos]
@@ -373,7 +353,7 @@ class HierarchicalPAdicMLP(nn.Module):
     def __init__(
         self,
         input_dim: int,
-        hidden_dims: List[int],
+        hidden_dims: list[int],
         output_dim: int,
         p: int = DEFAULT_P,
         n_digits: int = 9,
@@ -431,11 +411,12 @@ class HierarchicalPAdicMLP(nn.Module):
 
         # Skip connection projections
         if use_skip_connections and len(hidden_dims) > 1:
-            self.skip_projections = nn.ModuleList([
-                nn.Linear(dims[i], dims[i + 1])
-                if dims[i] != dims[i + 1] else nn.Identity()
-                for i in range(len(dims) - 1)
-            ])
+            self.skip_projections = nn.ModuleList(
+                [
+                    nn.Linear(dims[i], dims[i + 1]) if dims[i] != dims[i + 1] else nn.Identity()
+                    for i in range(len(dims) - 1)
+                ]
+            )
         else:
             self.skip_projections = None
 
@@ -450,6 +431,7 @@ class HierarchicalPAdicMLP(nn.Module):
         """
         try:
             from src.core.ternary import TERNARY
+
             return TERNARY.valuation(indices)
         except (ImportError, RuntimeError):
             # Fallback to direct computation
@@ -484,7 +466,7 @@ class HierarchicalPAdicMLP(nn.Module):
 
         # Apply layers with skip connections
         for i, (layer, activation, norm) in enumerate(
-            zip(self.layers, self.activations, self.layer_norms)
+            zip(self.layers, self.activations, self.layer_norms, strict=False)
         ):
             # Store for skip connection
             residual = h
@@ -505,7 +487,7 @@ class HierarchicalPAdicMLP(nn.Module):
         self,
         x: torch.Tensor,
         indices: torch.Tensor,
-    ) -> List[torch.Tensor]:
+    ) -> list[torch.Tensor]:
         """Get representations at each layer for analysis.
 
         Args:
@@ -526,9 +508,7 @@ class HierarchicalPAdicMLP(nn.Module):
 
         representations.append(h.clone())
 
-        for layer, activation, norm in zip(
-            self.layers, self.activations, self.layer_norms
-        ):
+        for layer, activation, norm in zip(self.layers, self.activations, self.layer_norms, strict=False):
             h = layer(h, valuations)
             h = activation(h, valuations)
             h = norm(h)
@@ -561,8 +541,8 @@ class PAdicLinearRegression:
         self.p = p
         self.regularization = regularization
         self.valuation_power = valuation_power
-        self.weights: Optional[torch.Tensor] = None
-        self.bias: Optional[torch.Tensor] = None
+        self.weights: torch.Tensor | None = None
+        self.bias: torch.Tensor | None = None
         self._fitted = False
 
     def fit(
@@ -573,7 +553,7 @@ class PAdicLinearRegression:
         n_iterations: int = 1000,
         lr: float = 0.01,
         verbose: bool = False,
-    ) -> "PAdicLinearRegression":
+    ) -> PAdicLinearRegression:
         """Fit regression with p-adic structure.
 
         Args:
@@ -598,10 +578,7 @@ class PAdicLinearRegression:
 
         # Compute p-adic weights
         valuations = self._compute_valuations(indices)
-        padic_weights = torch.pow(
-            float(self.p),
-            valuations.float() * self.valuation_power
-        )
+        padic_weights = torch.pow(float(self.p), valuations.float() * self.valuation_power)
         padic_weights = padic_weights / padic_weights.sum()
 
         for iteration in range(n_iterations):
@@ -613,7 +590,7 @@ class PAdicLinearRegression:
             # P-adic weighted MSE
             errors = (pred - y) ** 2
             loss = (errors * padic_weights).sum()
-            loss += self.regularization * (self.weights ** 2).sum()
+            loss += self.regularization * (self.weights**2).sum()
 
             loss.backward()
             optimizer.step()
@@ -641,7 +618,7 @@ class PAdicLinearRegression:
         self,
         X: torch.Tensor,
         y: torch.Tensor,
-        indices: Optional[torch.Tensor] = None,
+        indices: torch.Tensor | None = None,
     ) -> float:
         """Compute R^2 score.
 
@@ -672,6 +649,7 @@ class PAdicLinearRegression:
         """Compute p-adic valuations."""
         try:
             from src.core.ternary import TERNARY
+
             return TERNARY.valuation(indices)
         except (ImportError, RuntimeError):
             valuations = torch.zeros_like(indices, dtype=torch.float)
@@ -712,10 +690,7 @@ class PAdicClassificationHead(nn.Module):
             n_levels = int(math.ceil(math.log(n_classes) / math.log(p))) + 1
 
             # Create level-wise classifiers
-            self.level_classifiers = nn.ModuleList([
-                nn.Linear(input_dim, p)
-                for _ in range(n_levels)
-            ])
+            self.level_classifiers = nn.ModuleList([nn.Linear(input_dim, p) for _ in range(n_levels)])
         else:
             self.classifier = nn.Linear(input_dim, n_classes)
 
@@ -747,13 +722,9 @@ class PAdicClassificationHead(nn.Module):
 
         # Truncate/pad to n_classes
         if combined.shape[1] >= self.n_classes:
-            return combined[:, :self.n_classes]
+            return combined[:, : self.n_classes]
         else:
-            padding = torch.zeros(
-                batch_size,
-                self.n_classes - combined.shape[1],
-                device=device
-            )
+            padding = torch.zeros(batch_size, self.n_classes - combined.shape[1], device=device)
             return torch.cat([combined, padding], dim=1)
 
 

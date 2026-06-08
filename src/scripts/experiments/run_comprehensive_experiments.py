@@ -22,14 +22,13 @@ Licensed under PolyForm Noncommercial License 1.0.0
 import argparse
 import json
 import logging
-import os
 import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -55,14 +54,10 @@ class ExperimentConfig:
     timestamp: str = field(default_factory=lambda: datetime.now().strftime("%Y%m%d_%H%M%S"))
 
     # Drug groups
-    pi_drugs: List[str] = field(
-        default_factory=lambda: ["ATV", "DRV", "FPV", "IDV", "LPV", "NFV", "SQV", "TPV"]
-    )
-    nrti_drugs: List[str] = field(
-        default_factory=lambda: ["3TC", "ABC", "AZT", "D4T", "DDI", "FTC", "TDF"]
-    )
-    nnrti_drugs: List[str] = field(default_factory=lambda: ["EFV", "ETR", "NVP", "RPV"])
-    ini_drugs: List[str] = field(default_factory=lambda: ["BIC", "CAB", "DTG", "EVG", "RAL"])
+    pi_drugs: list[str] = field(default_factory=lambda: ["ATV", "DRV", "FPV", "IDV", "LPV", "NFV", "SQV", "TPV"])
+    nrti_drugs: list[str] = field(default_factory=lambda: ["3TC", "ABC", "AZT", "D4T", "DDI", "FTC", "TDF"])
+    nnrti_drugs: list[str] = field(default_factory=lambda: ["EFV", "ETR", "NVP", "RPV"])
+    ini_drugs: list[str] = field(default_factory=lambda: ["BIC", "CAB", "DTG", "EVG", "RAL"])
 
     # Experiment flags
     run_enhanced_training: bool = True
@@ -86,7 +81,7 @@ class ExperimentRunner:
 
     def __init__(self, config: ExperimentConfig):
         self.config = config
-        self.results: Dict[str, Any] = {
+        self.results: dict[str, Any] = {
             "timestamp": config.timestamp,
             "config": config.__dict__,
             "experiments": {},
@@ -101,9 +96,9 @@ class ExperimentRunner:
     def run_script(
         self,
         script_path: str,
-        args: List[str] = None,
+        args: list[str] = None,
         timeout: int = 7200,  # 2 hours default
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run a Python script and capture output.
 
         Args:
@@ -160,7 +155,7 @@ class ExperimentRunner:
                 "elapsed_seconds": elapsed,
             }
 
-    def run_enhanced_training(self) -> Dict[str, Any]:
+    def run_enhanced_training(self) -> dict[str, Any]:
         """Run enhanced training experiments with TAM integration."""
         logger.info("\n" + "=" * 60)
         logger.info("ENHANCED TRAINING (TAM Integration)")
@@ -193,7 +188,7 @@ class ExperimentRunner:
 
         return results
 
-    def run_maml_evaluation(self) -> Dict[str, Any]:
+    def run_maml_evaluation(self) -> dict[str, Any]:
         """Run MAML few-shot evaluation."""
         logger.info("\n" + "=" * 60)
         logger.info("MAML FEW-SHOT EVALUATION")
@@ -239,7 +234,7 @@ class ExperimentRunner:
         self._save_checkpoint("maml_evaluation", results)
         return results
 
-    def run_multitask_training(self) -> Dict[str, Any]:
+    def run_multitask_training(self) -> dict[str, Any]:
         """Run multi-task training experiments."""
         logger.info("\n" + "=" * 60)
         logger.info("MULTI-TASK TRAINING (GradNorm)")
@@ -280,7 +275,7 @@ class ExperimentRunner:
         self._save_checkpoint("multitask_training", results)
         return results
 
-    def run_external_validation(self) -> Dict[str, Any]:
+    def run_external_validation(self) -> dict[str, Any]:
         """Run external validation experiments."""
         logger.info("\n" + "=" * 60)
         logger.info("EXTERNAL VALIDATION")
@@ -307,7 +302,7 @@ class ExperimentRunner:
         self._save_checkpoint("external_validation", results)
         return results
 
-    def run_transformer_experiments(self) -> Dict[str, Any]:
+    def run_transformer_experiments(self) -> dict[str, Any]:
         """Run transformer experiments for long sequences."""
         logger.info("\n" + "=" * 60)
         logger.info("STABLE TRANSFORMER EXPERIMENTS")
@@ -342,7 +337,7 @@ class ExperimentRunner:
         self._save_checkpoint("transformer_experiments", results)
         return results
 
-    def run_ablation_studies(self) -> Dict[str, Any]:
+    def run_ablation_studies(self) -> dict[str, Any]:
         """Run ablation studies on key components."""
         logger.info("\n" + "=" * 60)
         logger.info("ABLATION STUDIES")
@@ -381,7 +376,7 @@ class ExperimentRunner:
         self._save_checkpoint("ablation_studies", results)
         return results
 
-    def _save_checkpoint(self, experiment_name: str, results: Dict[str, Any]) -> None:
+    def _save_checkpoint(self, experiment_name: str, results: dict[str, Any]) -> None:
         """Save intermediate results."""
         self.results["experiments"][experiment_name] = results
 
@@ -391,7 +386,7 @@ class ExperimentRunner:
 
         logger.info(f"Checkpoint saved: {checkpoint_path}")
 
-    def run_all(self) -> Dict[str, Any]:
+    def run_all(self) -> dict[str, Any]:
         """Run all configured experiments."""
         start_time = time.time()
 
@@ -451,9 +446,7 @@ class ExperimentRunner:
             lines.append(f"\n### {exp_name.replace('_', ' ').title()}")
 
             if isinstance(exp_results, dict):
-                successes = sum(
-                    1 for r in exp_results.values() if isinstance(r, dict) and r.get("success", False)
-                )
+                successes = sum(1 for r in exp_results.values() if isinstance(r, dict) and r.get("success", False))
                 total = len(exp_results)
                 lines.append(f"- Success rate: {successes}/{total}")
 
@@ -530,7 +523,7 @@ def main():
 
     # Run experiments
     runner = ExperimentRunner(config)
-    results = runner.run_all()
+    runner.run_all()
 
     # Generate report
     report = runner.generate_summary_report()

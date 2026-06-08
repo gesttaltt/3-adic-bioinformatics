@@ -22,7 +22,6 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import torch
@@ -58,7 +57,7 @@ class AblationConfig:
     early_stopping_min_delta: float = 0.001
 
     # Model architecture
-    hidden_dims: Optional[list] = None  # None = default [64, 32]
+    hidden_dims: list | None = None  # None = default [64, 32]
 
     # Curriculum settings
     curriculum_tau_scale: float = 0.1
@@ -97,7 +96,7 @@ class AblationResult:
     early_stop_epoch: int = 0
     total_epochs_run: int = 0
     completed: bool = False
-    error: Optional[str] = None
+    error: str | None = None
 
 
 def set_seeds(seed: int):
@@ -123,7 +122,7 @@ def run_ablation_training(config: AblationConfig) -> AblationResult:
     Returns:
         AblationResult with all metrics
     """
-    from src.training import GrokDetector, EpochMetrics
+    from src.training import EpochMetrics, GrokDetector
 
     set_seeds(config.seed)
     result = AblationResult(name=config.name)
@@ -154,12 +153,8 @@ def run_ablation_training(config: AblationConfig) -> AblationResult:
             dataset, [n_train, n_val], generator=torch.Generator().manual_seed(config.seed)
         )
 
-        train_loader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=config.batch_size, shuffle=True
-        )
-        val_loader = torch.utils.data.DataLoader(
-            val_dataset, batch_size=config.batch_size, shuffle=False
-        )
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+        val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False)
 
         # ================================================================
         # MODEL CREATION
@@ -179,7 +174,9 @@ def run_ablation_training(config: AblationConfig) -> AblationResult:
                 hidden_dims=hidden_dims,
                 dropout=config.dropout,
             ).to(config.device)
-            print(f"[{config.name}] Model: SimpleVAEWithHyperbolic, hidden={hidden_dims}, latent={config.latent_dim}, dropout={config.dropout}")
+            print(
+                f"[{config.name}] Model: SimpleVAEWithHyperbolic, hidden={hidden_dims}, latent={config.latent_dim}, dropout={config.dropout}"
+            )
         else:
             model = SimpleVAE(
                 input_dim=9,
@@ -187,7 +184,9 @@ def run_ablation_training(config: AblationConfig) -> AblationResult:
                 hidden_dims=hidden_dims,
                 dropout=config.dropout,
             ).to(config.device)
-            print(f"[{config.name}] Model: SimpleVAE, hidden={hidden_dims}, latent={config.latent_dim}, dropout={config.dropout}")
+            print(
+                f"[{config.name}] Model: SimpleVAE, hidden={hidden_dims}, latent={config.latent_dim}, dropout={config.dropout}"
+            )
 
         # Print parameter count
         params = model.count_parameters()
@@ -206,7 +205,7 @@ def run_ablation_training(config: AblationConfig) -> AblationResult:
         # LOSS COMPONENTS
         # ================================================================
         # Use simple reconstruction + KL loss for ablation (not the full dual VAE loss)
-        from src.losses.dual_vae_loss import ReconstructionLoss, KLDivergenceLoss
+        from src.losses.dual_vae_loss import KLDivergenceLoss, ReconstructionLoss
 
         recon_loss_fn = ReconstructionLoss()
         kl_loss_fn = KLDivergenceLoss()
@@ -274,7 +273,7 @@ def run_ablation_training(config: AblationConfig) -> AblationResult:
             if config.enable_curriculum_learning and epoch >= config.curriculum_start_epoch:
                 curriculum_tau = min(1.0, config.curriculum_tau_scale * (epoch - config.curriculum_start_epoch))
 
-            for batch_idx, batch in enumerate(train_loader):
+            for _batch_idx, batch in enumerate(train_loader):
                 # Handle dict batch from TernaryDataset
                 if isinstance(batch, dict):
                     x = batch["operation"].to(config.device)
@@ -313,9 +312,7 @@ def run_ablation_training(config: AblationConfig) -> AblationResult:
                 # Radial stratification
                 if config.enable_radial_stratification:
                     radius = torch.norm(z, dim=-1)
-                    radial_penalty = torch.relu(radius - config.radial_outer) + torch.relu(
-                        config.radial_inner - radius
-                    )
+                    radial_penalty = torch.relu(radius - config.radial_outer) + torch.relu(config.radial_inner - radius)
                     loss = loss + config.radial_weight * radial_penalty.mean()
 
                 loss.backward()
@@ -363,10 +360,7 @@ def run_ablation_training(config: AblationConfig) -> AblationResult:
             total = 0
             with torch.no_grad():
                 for batch in val_loader:
-                    if isinstance(batch, dict):
-                        x = batch["operation"].to(config.device)
-                    else:
-                        x = batch[0].to(config.device)
+                    x = batch["operation"].to(config.device) if isinstance(batch, dict) else batch[0].to(config.device)
                     outputs = model(x)
                     logits = outputs["logits"]
                     pred = torch.argmax(logits, dim=-1)  # (batch, 9)
@@ -410,8 +404,7 @@ def run_ablation_training(config: AblationConfig) -> AblationResult:
             # Progress
             if epoch % 10 == 0:
                 print(
-                    f"[{config.name}] Epoch {epoch}: loss={epoch_loss:.4f}, "
-                    f"acc={accuracy:.1%}, val_loss={val_loss:.4f}"
+                    f"[{config.name}] Epoch {epoch}: loss={epoch_loss:.4f}, acc={accuracy:.1%}, val_loss={val_loss:.4f}"
                 )
 
         # ================================================================
@@ -419,10 +412,7 @@ def run_ablation_training(config: AblationConfig) -> AblationResult:
         # ================================================================
         # Check for loss spikes
         if len(loss_history) > 1:
-            max_ratio = max(
-                loss_history[i] / max(loss_history[i - 1], 1e-8)
-                for i in range(1, len(loss_history))
-            )
+            max_ratio = max(loss_history[i] / max(loss_history[i - 1], 1e-8) for i in range(1, len(loss_history)))
             result.max_spike_ratio = max_ratio
             result.had_loss_spike = max_ratio > 2.0
 

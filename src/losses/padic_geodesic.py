@@ -25,8 +25,6 @@ than two at boundary.
 Single responsibility: Unified p-adic geodesic alignment.
 """
 
-from typing import Tuple
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -88,7 +86,7 @@ class PAdicGeodesicLoss(nn.Module):
         """
         return self.max_target * torch.exp(-valuation / self.valuation_scale)
 
-    def forward(self, z_hyp: torch.Tensor, batch_indices: torch.Tensor) -> Tuple[torch.Tensor, dict]:
+    def forward(self, z_hyp: torch.Tensor, batch_indices: torch.Tensor) -> tuple[torch.Tensor, dict]:
         """Compute unified geodesic loss.
 
         Args:
@@ -122,10 +120,7 @@ class PAdicGeodesicLoss(nn.Module):
         d_target = self.target_distance(valuation)
 
         # Loss: align actual geodesic distance with target
-        if self.use_smooth_l1:
-            loss = F.smooth_l1_loss(d_actual, d_target)
-        else:
-            loss = F.mse_loss(d_actual, d_target)
+        loss = F.smooth_l1_loss(d_actual, d_target) if self.use_smooth_l1 else F.mse_loss(d_actual, d_target)
 
         # Compute metrics
         with torch.no_grad():
@@ -195,7 +190,7 @@ class RadialHierarchyLoss(nn.Module):
         # Compute radius step per valuation level
         self.radius_step = (outer_radius - inner_radius) / max_valuation
 
-    def forward(self, z_hyp: torch.Tensor, batch_indices: torch.Tensor) -> Tuple[torch.Tensor, dict]:
+    def forward(self, z_hyp: torch.Tensor, batch_indices: torch.Tensor) -> tuple[torch.Tensor, dict]:
         """Compute radial hierarchy loss.
 
         Args:
@@ -321,7 +316,7 @@ class CombinedGeodesicLoss(nn.Module):
         z_hyp: torch.Tensor,
         batch_indices: torch.Tensor,
         tau: float = 0.5,
-    ) -> Tuple[torch.Tensor, dict]:
+    ) -> tuple[torch.Tensor, dict]:
         """Compute combined loss with curriculum blending.
 
         Args:
@@ -387,7 +382,7 @@ class GlobalRankLoss(nn.Module):
         self.use_all_pairs = use_all_pairs
         self.curvature = curvature
 
-    def forward(self, z_hyp: torch.Tensor, batch_indices: torch.Tensor) -> Tuple[torch.Tensor, dict]:
+    def forward(self, z_hyp: torch.Tensor, batch_indices: torch.Tensor) -> tuple[torch.Tensor, dict]:
         """Compute global rank loss.
 
         Args:
@@ -539,7 +534,7 @@ class MonotonicRadialLoss(nn.Module):
         self.radius_range = outer_radius - inner_radius
         self.level_step = self.radius_range / max_valuation
 
-    def forward(self, z_hyp: torch.Tensor, batch_indices: torch.Tensor) -> Tuple[torch.Tensor, dict]:
+    def forward(self, z_hyp: torch.Tensor, batch_indices: torch.Tensor) -> tuple[torch.Tensor, dict]:
         """Compute monotonic radial loss.
 
         Args:

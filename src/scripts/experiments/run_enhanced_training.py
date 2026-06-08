@@ -18,7 +18,6 @@ import argparse
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -32,7 +31,7 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "src"))
 
-from encoding.tam_aware_encoder import TAMAwareEncoder, NRTI_KEY_POSITIONS, TAM_PATHWAYS
+from encoding.tam_aware_encoder import NRTI_KEY_POSITIONS, TAMAwareEncoder
 
 
 @dataclass
@@ -41,7 +40,7 @@ class EnhancedConfig:
 
     input_dim: int = 99
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [256, 128, 64])
+    hidden_dims: list[int] = field(default_factory=lambda: [256, 128, 64])
     batch_size: int = 32
     epochs: int = 150
     lr: float = 0.001
@@ -146,7 +145,7 @@ class EnhancedVAE(nn.Module):
             nn.Linear(32, 1),
         )
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         h = self.encoder(x)
         mu = self.fc_mu(h)
         logvar = self.fc_logvar(h)
@@ -171,7 +170,7 @@ class TAMAwareLoss(nn.Module):
 
     def __init__(
         self,
-        key_positions: List[int] = None,
+        key_positions: list[int] = None,
         position_weight: float = 2.0,
         tam_consistency_weight: float = 0.5,
     ):
@@ -196,8 +195,8 @@ class TAMAwareLoss(nn.Module):
         self,
         x_recon: torch.Tensor,
         x: torch.Tensor,
-        tam_features: Optional[torch.Tensor] = None,
-        z: Optional[torch.Tensor] = None,
+        tam_features: torch.Tensor | None = None,
+        z: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute TAM-aware reconstruction loss."""
         device = x.device
@@ -212,7 +211,7 @@ class TAMAwareLoss(nn.Module):
         # TAM consistency (if TAM features provided)
         if tam_features is not None and z is not None:
             # The latent should correlate with TAM patterns
-            tam_pred = z[:, :tam_features.shape[1]]
+            tam_pred = z[:, : tam_features.shape[1]]
             tam_loss = F.mse_loss(tam_pred, tam_features)
             loss = loss + self.tam_consistency_weight * tam_loss
 
@@ -221,12 +220,12 @@ class TAMAwareLoss(nn.Module):
 
 def compute_enhanced_loss(
     cfg: EnhancedConfig,
-    out: Dict[str, torch.Tensor],
+    out: dict[str, torch.Tensor],
     x: torch.Tensor,
     fitness: torch.Tensor,
-    tam_features: Optional[torch.Tensor] = None,
-    tam_loss_fn: Optional[TAMAwareLoss] = None,
-) -> Dict[str, torch.Tensor]:
+    tam_features: torch.Tensor | None = None,
+    tam_loss_fn: TAMAwareLoss | None = None,
+) -> dict[str, torch.Tensor]:
     """Compute all losses with TAM awareness."""
     losses = {}
 
@@ -265,7 +264,7 @@ def compute_enhanced_loss(
     return losses
 
 
-def load_stanford_data(drug_class: str = "pi") -> Tuple[pd.DataFrame, List[str], List[str]]:
+def load_stanford_data(drug_class: str = "pi") -> tuple[pd.DataFrame, list[str], list[str]]:
     """Load Stanford HIVDB data."""
     data_dir = project_root / "data" / "research"
 
@@ -297,13 +296,13 @@ def load_stanford_data(drug_class: str = "pi") -> Tuple[pd.DataFrame, List[str],
     else:  # ini
         prefix = "IN"
 
-    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix):].isdigit()]
-    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix):]))
+    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix) :].isdigit()]
+    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix) :]))
 
     return df, position_cols, drug_columns[drug_class]
 
 
-def encode_amino_acids(df: pd.DataFrame, position_cols: List[str]) -> np.ndarray:
+def encode_amino_acids(df: pd.DataFrame, position_cols: list[str]) -> np.ndarray:
     """Standard one-hot encoding."""
     aa_alphabet = "ACDEFGHIKLMNPQRSTVWY*-"
     aa_to_idx = {aa: i for i, aa in enumerate(aa_alphabet)}
@@ -330,7 +329,7 @@ def prepare_data_enhanced(
     target_drug: str,
     test_size: float = 0.2,
     use_tam: bool = False,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int, Optional[torch.Tensor], Optional[torch.Tensor]]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int, torch.Tensor | None, torch.Tensor | None]:
     """Prepare data with optional TAM features."""
     df, position_cols, drugs = load_stanford_data(drug_class)
 
@@ -349,7 +348,7 @@ def prepare_data_enhanced(
         print("  Using TAM-aware encoding...")
         tam_encoder = TAMAwareEncoder(position_cols)
         X = tam_encoder.encode_dataframe(df_valid)
-        tam_features_full = X[:, -tam_encoder.tam_dim:]  # Last N columns are TAM features
+        tam_features_full = X[:, -tam_encoder.tam_dim :]  # Last N columns are TAM features
     else:
         X = encode_amino_acids(df_valid, position_cols)
         tam_features_full = None
@@ -391,9 +390,9 @@ def train_and_evaluate_enhanced(
     train_y: torch.Tensor,
     test_x: torch.Tensor,
     test_y: torch.Tensor,
-    tam_train: Optional[torch.Tensor] = None,
-    tam_test: Optional[torch.Tensor] = None,
-) -> Dict[str, float]:
+    tam_train: torch.Tensor | None = None,
+    tam_test: torch.Tensor | None = None,
+) -> dict[str, float]:
     """Train model and evaluate with enhanced features."""
     device = torch.device(cfg.device)
     model = EnhancedVAE(cfg).to(device)
@@ -404,10 +403,7 @@ def train_and_evaluate_enhanced(
     tam_loss_fn = TAMAwareLoss() if cfg.use_tam_loss else None
 
     # Prepare data loaders
-    if tam_train is not None:
-        dataset = TensorDataset(train_x, train_y, tam_train)
-    else:
-        dataset = TensorDataset(train_x, train_y)
+    dataset = TensorDataset(train_x, train_y, tam_train) if tam_train is not None else TensorDataset(train_x, train_y)
     loader = DataLoader(dataset, batch_size=cfg.batch_size, shuffle=True)
 
     best_test_corr = -1.0
@@ -461,7 +457,9 @@ def train_and_evaluate_enhanced(
                 best_test_corr = test_corr
 
             if (epoch + 1) % 50 == 0:
-                print(f"    Epoch {epoch + 1}: train={train_corr:+.4f}, test={test_corr:+.4f}, loss={epoch_loss/len(loader):.4f}")
+                print(
+                    f"    Epoch {epoch + 1}: train={train_corr:+.4f}, test={test_corr:+.4f}, loss={epoch_loss / len(loader):.4f}"
+                )
 
     return {
         "best_test_corr": best_test_corr,
@@ -470,7 +468,7 @@ def train_and_evaluate_enhanced(
     }
 
 
-def run_drug_class(drug_class: str, drugs: List[str], epochs: int, use_tam: bool) -> List[Dict]:
+def run_drug_class(drug_class: str, drugs: list[str], epochs: int, use_tam: bool) -> list[dict]:
     """Run training for a drug class."""
     results = []
 
@@ -504,28 +502,30 @@ def run_drug_class(drug_class: str, drugs: List[str], epochs: int, use_tam: bool
                 cfg.latent_dim = 24
 
             # Train and evaluate
-            result = train_and_evaluate_enhanced(
-                cfg, train_x, train_y, test_x, test_y, tam_train, tam_test
-            )
+            result = train_and_evaluate_enhanced(cfg, train_x, train_y, test_x, test_y, tam_train, tam_test)
 
-            results.append({
-                "drug_class": drug_class,
-                "drug": drug,
-                "n_train": len(train_x),
-                "n_test": len(test_x),
-                "use_tam": use_tam,
-                **result,
-            })
+            results.append(
+                {
+                    "drug_class": drug_class,
+                    "drug": drug,
+                    "n_train": len(train_x),
+                    "n_test": len(test_x),
+                    "use_tam": use_tam,
+                    **result,
+                }
+            )
 
             print(f"  Best test correlation: {result['best_test_corr']:+.4f}")
 
         except Exception as e:
             print(f"  Error: {e}")
-            results.append({
-                "drug_class": drug_class,
-                "drug": drug,
-                "error": str(e),
-            })
+            results.append(
+                {
+                    "drug_class": drug_class,
+                    "drug": drug,
+                    "error": str(e),
+                }
+            )
 
     return results
 
@@ -550,15 +550,12 @@ def main():
         "ini": ["BIC", "DTG", "EVG", "RAL"],  # Removed CAB (limited data)
     }
 
-    if args.drug_class == "all":
-        classes_to_test = list(drug_classes.keys())
-    else:
-        classes_to_test = [args.drug_class]
+    classes_to_test = list(drug_classes.keys()) if args.drug_class == "all" else [args.drug_class]
 
     all_results = []
 
     for drug_class in classes_to_test:
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print(f"DRUG CLASS: {drug_class.upper()}")
         print("=" * 80)
 
@@ -593,7 +590,9 @@ def main():
         print(f"\n{'Drug':<8} {'Class':<8} {'Variant':<10} {'N Train':<10} {'Test Corr':<12}")
         print("-" * 60)
         for r in sorted(successful, key=lambda x: (x["drug"], x.get("variant", ""))):
-            print(f"{r['drug']:<8} {r['drug_class']:<8} {r.get('variant', 'n/a'):<10} {r['n_train']:<10} {r['best_test_corr']:+.4f}")
+            print(
+                f"{r['drug']:<8} {r['drug_class']:<8} {r.get('variant', 'n/a'):<10} {r['n_train']:<10} {r['best_test_corr']:+.4f}"
+            )
     else:
         print(f"\n{'Drug':<8} {'Class':<8} {'N Train':<10} {'Test Corr':<12}")
         print("-" * 50)

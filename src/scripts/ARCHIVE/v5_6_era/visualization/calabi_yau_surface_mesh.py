@@ -38,9 +38,10 @@ from skimage import measure
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from src.models.ternary_vae_v5_6 import DualNeuralVAEV5
+
 from src.config.paths import CHECKPOINTS_DIR, VIZ_DIR
 from src.data.generation import generate_all_ternary_operations
-from src.models.ternary_vae_v5_6 import DualNeuralVAEV5
 
 
 def load_embeddings(checkpoint_path, device="cuda"):
@@ -508,8 +509,7 @@ def main():
 
     # Generate Calabi-Yau projections
     print("\nGenerating Calabi-Yau projections...")
-    from scripts.visualization.calabi_yau_projection import \
-        calabi_yau_quintic_projection
+    from scripts.visualization.calabi_yau_projection import calabi_yau_quintic_projection
 
     points_16d = calabi_yau_quintic_projection(z_A)
     points_32d = calabi_yau_quintic_32d(z_32d)

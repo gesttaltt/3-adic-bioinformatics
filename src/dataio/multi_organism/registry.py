@@ -6,7 +6,7 @@ for loading data across organisms.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Type
+from typing import Any
 
 from .base import OrganismLoader, OrganismType, SequenceRecord
 
@@ -14,14 +14,14 @@ from .base import OrganismLoader, OrganismType, SequenceRecord
 class OrganismRegistry:
     """Registry for organism-specific data loaders."""
 
-    _loaders: Dict[OrganismType, Type[OrganismLoader]] = {}
-    _instances: Dict[OrganismType, OrganismLoader] = {}
+    _loaders: dict[OrganismType, type[OrganismLoader]] = {}
+    _instances: dict[OrganismType, OrganismLoader] = {}
 
     @classmethod
     def register(cls, organism: OrganismType):
         """Decorator to register a loader for an organism."""
 
-        def decorator(loader_class: Type[OrganismLoader]):
+        def decorator(loader_class: type[OrganismLoader]):
             cls._loaders[organism] = loader_class
             return loader_class
 
@@ -88,16 +88,16 @@ class OrganismRegistry:
                 print(f"Warning: Could not import loader for {organism.name}: {e}")
 
     @classmethod
-    def list_available(cls) -> List[OrganismType]:
+    def list_available(cls) -> list[OrganismType]:
         """List all organisms with registered loaders."""
         return list(cls._loaders.keys())
 
     @classmethod
     def load_multi_organism(
         cls,
-        organisms: List[OrganismType],
-        max_per_organism: Optional[int] = None,
-    ) -> List[SequenceRecord]:
+        organisms: list[OrganismType],
+        max_per_organism: int | None = None,
+    ) -> list[SequenceRecord]:
         """Load sequences from multiple organisms.
 
         Args:
@@ -122,8 +122,8 @@ class OrganismRegistry:
     @classmethod
     def get_statistics(
         cls,
-        organisms: Optional[List[OrganismType]] = None,
-    ) -> Dict[str, Any]:
+        organisms: list[OrganismType] | None = None,
+    ) -> dict[str, Any]:
         """Get statistics for one or more organisms.
 
         Args:
@@ -152,7 +152,7 @@ def load_organism(organism: OrganismType, **kwargs) -> OrganismLoader:
     return OrganismRegistry.get_loader(organism, **kwargs)
 
 
-def load_all_viruses(max_per_organism: int = 1000) -> List[SequenceRecord]:
+def load_all_viruses(max_per_organism: int = 1000) -> list[SequenceRecord]:
     """Load sequences from all virus types."""
     virus_types = [
         OrganismType.HIV,
@@ -164,7 +164,7 @@ def load_all_viruses(max_per_organism: int = 1000) -> List[SequenceRecord]:
     return OrganismRegistry.load_multi_organism(virus_types, max_per_organism)
 
 
-def load_all_bacteria(max_per_organism: int = 1000) -> List[SequenceRecord]:
+def load_all_bacteria(max_per_organism: int = 1000) -> list[SequenceRecord]:
     """Load sequences from all bacteria types."""
     bacteria_types = [
         OrganismType.TB,
@@ -174,7 +174,7 @@ def load_all_bacteria(max_per_organism: int = 1000) -> List[SequenceRecord]:
     return OrganismRegistry.load_multi_organism(bacteria_types, max_per_organism)
 
 
-def load_all_proteins(max_per_type: int = 1000) -> List[SequenceRecord]:
+def load_all_proteins(max_per_type: int = 1000) -> list[SequenceRecord]:
     """Load sequences from all protein types."""
     protein_types = [
         OrganismType.ANTIBODY,

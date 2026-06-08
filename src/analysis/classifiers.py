@@ -32,19 +32,15 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal
 
 import numpy as np
-import torch
 
 from src.core.padic_math import (
     DEFAULT_P,
     compute_goldilocks_score,
-    compute_hierarchical_embedding,
     padic_distance,
-    padic_distance_matrix,
 )
-
 
 # ============================================================================
 # Base Classifier
@@ -74,7 +70,7 @@ class PAdicClassifierBase(ABC):
         self.is_fitted = False
 
     @abstractmethod
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "PAdicClassifierBase":
+    def fit(self, X: np.ndarray, y: np.ndarray) -> PAdicClassifierBase:
         """Fit the classifier to training data.
 
         Args:
@@ -170,11 +166,11 @@ class PAdicKNN(PAdicClassifierBase):
         super().__init__(p=p)
         self.k = k
         self.weights = weights
-        self.X_train: Optional[np.ndarray] = None
-        self.y_train: Optional[np.ndarray] = None
-        self.classes_: Optional[np.ndarray] = None
+        self.X_train: np.ndarray | None = None
+        self.y_train: np.ndarray | None = None
+        self.classes_: np.ndarray | None = None
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "PAdicKNN":
+    def fit(self, X: np.ndarray, y: np.ndarray) -> PAdicKNN:
         """Fit the classifier to training data.
 
         Args:
@@ -238,7 +234,7 @@ class PAdicKNN(PAdicClassifierBase):
             # Add small epsilon to avoid division by zero
             weights = 1.0 / (k_distances + 1e-10)
             class_weights = {}
-            for cls, w in zip(k_classes, weights):
+            for cls, w in zip(k_classes, weights, strict=False):
                 class_weights[cls] = class_weights.get(cls, 0) + w
 
             predicted_class = max(class_weights, key=class_weights.get)
@@ -315,7 +311,7 @@ class PAdicKNN(PAdicClassifierBase):
                 weights = 1.0 / (k_distances + 1e-10)
                 total_weight = weights.sum()
 
-                for cls, w in zip(k_classes, weights):
+                for cls, w in zip(k_classes, weights, strict=False):
                     cls_idx = np.where(self.classes_ == cls)[0][0]
                     probas[i, cls_idx] += w / total_weight
 
@@ -373,9 +369,7 @@ class GoldilocksZoneClassifier(PAdicClassifierBase):
         self.width = width
         self.threshold = threshold
 
-    def fit(
-        self, X: Optional[np.ndarray] = None, y: Optional[np.ndarray] = None
-    ) -> "GoldilocksZoneClassifier":
+    def fit(self, X: np.ndarray | None = None, y: np.ndarray | None = None) -> GoldilocksZoneClassifier:
         """Fit classifier (optional - can use default parameters).
 
         If X and y are provided, optimizes center and width parameters.
@@ -471,22 +465,70 @@ class CodonClassifier(PAdicKNN):
 
     # Standard genetic code
     GENETIC_CODE = {
-        "TTT": "F", "TTC": "F", "TTA": "L", "TTG": "L",
-        "TCT": "S", "TCC": "S", "TCA": "S", "TCG": "S",
-        "TAT": "Y", "TAC": "Y", "TAA": "*", "TAG": "*",
-        "TGT": "C", "TGC": "C", "TGA": "*", "TGG": "W",
-        "CTT": "L", "CTC": "L", "CTA": "L", "CTG": "L",
-        "CCT": "P", "CCC": "P", "CCA": "P", "CCG": "P",
-        "CAT": "H", "CAC": "H", "CAA": "Q", "CAG": "Q",
-        "CGT": "R", "CGC": "R", "CGA": "R", "CGG": "R",
-        "ATT": "I", "ATC": "I", "ATA": "I", "ATG": "M",
-        "ACT": "T", "ACC": "T", "ACA": "T", "ACG": "T",
-        "AAT": "N", "AAC": "N", "AAA": "K", "AAG": "K",
-        "AGT": "S", "AGC": "S", "AGA": "R", "AGG": "R",
-        "GTT": "V", "GTC": "V", "GTA": "V", "GTG": "V",
-        "GCT": "A", "GCC": "A", "GCA": "A", "GCG": "A",
-        "GAT": "D", "GAC": "D", "GAA": "E", "GAG": "E",
-        "GGT": "G", "GGC": "G", "GGA": "G", "GGG": "G",
+        "TTT": "F",
+        "TTC": "F",
+        "TTA": "L",
+        "TTG": "L",
+        "TCT": "S",
+        "TCC": "S",
+        "TCA": "S",
+        "TCG": "S",
+        "TAT": "Y",
+        "TAC": "Y",
+        "TAA": "*",
+        "TAG": "*",
+        "TGT": "C",
+        "TGC": "C",
+        "TGA": "*",
+        "TGG": "W",
+        "CTT": "L",
+        "CTC": "L",
+        "CTA": "L",
+        "CTG": "L",
+        "CCT": "P",
+        "CCC": "P",
+        "CCA": "P",
+        "CCG": "P",
+        "CAT": "H",
+        "CAC": "H",
+        "CAA": "Q",
+        "CAG": "Q",
+        "CGT": "R",
+        "CGC": "R",
+        "CGA": "R",
+        "CGG": "R",
+        "ATT": "I",
+        "ATC": "I",
+        "ATA": "I",
+        "ATG": "M",
+        "ACT": "T",
+        "ACC": "T",
+        "ACA": "T",
+        "ACG": "T",
+        "AAT": "N",
+        "AAC": "N",
+        "AAA": "K",
+        "AAG": "K",
+        "AGT": "S",
+        "AGC": "S",
+        "AGA": "R",
+        "AGG": "R",
+        "GTT": "V",
+        "GTC": "V",
+        "GTA": "V",
+        "GTG": "V",
+        "GCT": "A",
+        "GCC": "A",
+        "GCA": "A",
+        "GCG": "A",
+        "GAT": "D",
+        "GAC": "D",
+        "GAA": "E",
+        "GAG": "E",
+        "GGT": "G",
+        "GGC": "G",
+        "GGA": "G",
+        "GGG": "G",
     }
 
     BASES = ["T", "C", "A", "G"]
@@ -527,7 +569,7 @@ class CodonClassifier(PAdicKNN):
         """
         return self.GENETIC_CODE.get(codon.upper(), "X")
 
-    def fit_from_genetic_code(self) -> "CodonClassifier":
+    def fit_from_genetic_code(self) -> CodonClassifier:
         """Fit classifier from the standard genetic code.
 
         Returns:
@@ -606,7 +648,7 @@ class PAdicHierarchicalClassifier(PAdicClassifierBase):
         super().__init__(p=p)
         self.n_digits = n_digits
         self.min_samples_leaf = min_samples_leaf
-        self.tree_: Optional[dict] = None
+        self.tree_: dict | None = None
 
     def _extract_digits(self, index: int) -> tuple[int, ...]:
         """Extract p-adic digits from an index.
@@ -624,7 +666,7 @@ class PAdicHierarchicalClassifier(PAdicClassifierBase):
             remaining //= self.p
         return tuple(digits)
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "PAdicHierarchicalClassifier":
+    def fit(self, X: np.ndarray, y: np.ndarray) -> PAdicHierarchicalClassifier:
         """Fit the hierarchical classifier.
 
         Builds a tree where each node corresponds to a partial
@@ -647,7 +689,7 @@ class PAdicHierarchicalClassifier(PAdicClassifierBase):
         self.tree_ = {}
         self.classes_ = np.unique(y)
 
-        for idx, label in zip(X, y):
+        for idx, label in zip(X, y, strict=False):
             digits = self._extract_digits(idx)
 
             # Add to tree at each level

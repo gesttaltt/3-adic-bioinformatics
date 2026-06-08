@@ -40,13 +40,45 @@ Usage:
 # =============================================================================
 # Ternary Operations
 # =============================================================================
-from .ternary import (
-    TERNARY,
-    TernarySpace,
-    distance,
-    from_ternary,
-    to_ternary,
-    valuation,
+# =============================================================================
+# Configuration Base Classes
+# =============================================================================
+from .config_base import (
+    BaseConfig,
+    ContrastiveConfig,
+    ExperimentConfig,
+    HyperbolicConfig,
+    MetaLearningConfig,
+    PAdicConfig,
+    PhysicsConfig,
+    TrainingConfig,
+)
+
+# =============================================================================
+# Geometry Utilities
+# =============================================================================
+from .geometry_utils import (
+    exp_map,
+    exp_map_zero,
+    gyration,
+    hyperbolic_mean,
+    hyperbolic_midpoint,
+    lambda_x,
+    log_map,
+    log_map_zero,
+    lorentz_distance,
+    lorentz_inner,
+    lorentz_to_poincare,
+    mobius_add,
+    mobius_matvec,
+    mobius_scalar_mul,
+    parallel_transport,
+    poincare_distance,
+    poincare_distance_squared,
+    poincare_to_lorentz,
+    project_polar,
+    project_to_ball,
+    project_to_poincare,
 )
 
 # =============================================================================
@@ -106,46 +138,13 @@ from .tensor_utils import (
     soft_clamp,
     unflatten_batch,
 )
-
-# =============================================================================
-# Geometry Utilities
-# =============================================================================
-from .geometry_utils import (
-    exp_map,
-    exp_map_zero,
-    gyration,
-    hyperbolic_mean,
-    hyperbolic_midpoint,
-    lambda_x,
-    log_map,
-    log_map_zero,
-    lorentz_distance,
-    lorentz_inner,
-    lorentz_to_poincare,
-    mobius_add,
-    mobius_matvec,
-    mobius_scalar_mul,
-    parallel_transport,
-    poincare_distance,
-    poincare_distance_squared,
-    poincare_to_lorentz,
-    project_polar,
-    project_to_ball,
-    project_to_poincare,
-)
-
-# =============================================================================
-# Configuration Base Classes
-# =============================================================================
-from .config_base import (
-    BaseConfig,
-    ContrastiveConfig,
-    ExperimentConfig,
-    HyperbolicConfig,
-    MetaLearningConfig,
-    PAdicConfig,
-    PhysicsConfig,
-    TrainingConfig,
+from .ternary import (
+    TERNARY,
+    TernarySpace,
+    distance,
+    from_ternary,
+    to_ternary,
+    valuation,
 )
 
 # =============================================================================
@@ -179,8 +178,8 @@ from .types import (
     TaskSampler,
     Tensor,
     TensorOrArray,
-    ValuationType,
     VAELike,
+    ValuationType,
     ensure_array,
     ensure_tensor,
     is_array,

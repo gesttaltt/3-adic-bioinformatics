@@ -12,7 +12,6 @@ Measures the "sharpness" of the continuous learned manifold vs discrete ternary 
 
 import sys
 from pathlib import Path
-from typing import Dict
 
 import numpy as np
 import torch
@@ -20,10 +19,9 @@ import torch
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config.paths import CHECKPOINTS_DIR
+from src.benchmark import BenchmarkBase, create_v5_6_model, get_device, load_checkpoint_safe, load_config, save_results
 
-from src.benchmark import (BenchmarkBase, create_v5_6_model, get_device,
-                           load_checkpoint_safe, load_config, save_results)
+from src.config.paths import CHECKPOINTS_DIR
 
 
 class ManifoldResolutionBenchmark(BenchmarkBase):
@@ -33,7 +31,7 @@ class ManifoldResolutionBenchmark(BenchmarkBase):
         super().__init__(model, device)
 
     @torch.no_grad()
-    def measure_reconstruction_fidelity(self, vae="A", batch_size=256) -> Dict:
+    def measure_reconstruction_fidelity(self, vae="A", batch_size=256) -> dict:
         """Measure exact reconstruction accuracy"""
         correct = 0
         total = 0
@@ -72,11 +70,13 @@ class ManifoldResolutionBenchmark(BenchmarkBase):
             "median_bit_error": np.median(bit_errors),
             "max_bit_error": bit_errors.max(),
             "zero_error_count": (bit_errors == 0).sum(),
-            "error_histogram": {int(k): int(v) for k, v in zip(*np.unique(bit_errors, return_counts=True))},
+            "error_histogram": {
+                int(k): int(v) for k, v in zip(*np.unique(bit_errors, return_counts=True), strict=False)
+            },
         }
 
     @torch.no_grad()
-    def measure_latent_separation(self, vae="A", batch_size=256) -> Dict:
+    def measure_latent_separation(self, vae="A", batch_size=256) -> dict:
         """Measure how well-separated operations are in latent space"""
         # Encode all operations
         latents = []
@@ -112,7 +112,7 @@ class ManifoldResolutionBenchmark(BenchmarkBase):
         }
 
     @torch.no_grad()
-    def measure_sampling_coverage(self, vae="A", n_samples=50000, batch_size=1000) -> Dict:
+    def measure_sampling_coverage(self, vae="A", n_samples=50000, batch_size=1000) -> dict:
         """Measure what fraction of discrete operations can be sampled"""
         sampled_ops = set()
 
@@ -135,7 +135,7 @@ class ManifoldResolutionBenchmark(BenchmarkBase):
         }
 
     @torch.no_grad()
-    def measure_interpolation_quality(self, vae="A", n_pairs=100) -> Dict:
+    def measure_interpolation_quality(self, vae="A", n_pairs=100) -> dict:
         """Measure smoothness of interpolation between operations"""
         # Sample random pairs
         indices = torch.randperm(self.n_ops)[: n_pairs * 2].reshape(n_pairs, 2)
@@ -165,15 +165,14 @@ class ManifoldResolutionBenchmark(BenchmarkBase):
                 z_interp = (1 - alpha) * mu1 + alpha * mu2
 
                 # Decode
-                if vae == "A":
-                    logits = self.model.decoder_A(z_interp)
-                else:
-                    logits = self.model.decoder_B(z_interp)
+                logits = self.model.decoder_A(z_interp) if vae == "A" else self.model.decoder_B(z_interp)
 
                 recon = torch.argmax(logits, dim=-1) - 1
 
                 # Check if valid operation
-                if tuple(recon[0].cpu().numpy().astype(int)) in set(tuple(op.cpu().numpy().astype(int)) for op in self.all_ops):
+                if tuple(recon[0].cpu().numpy().astype(int)) in set(
+                    tuple(op.cpu().numpy().astype(int)) for op in self.all_ops
+                ):
                     valid_interpolations += 1
 
                 # Measure error relative to linear interpolation in discrete space
@@ -190,7 +189,7 @@ class ManifoldResolutionBenchmark(BenchmarkBase):
         }
 
     @torch.no_grad()
-    def measure_nearest_neighbor_consistency(self, vae="A", n_queries=500) -> Dict:
+    def measure_nearest_neighbor_consistency(self, vae="A", n_queries=500) -> dict:
         """Measure if nearest neighbors in latent space map to similar operations"""
         # Encode all operations
         latents = []
@@ -235,7 +234,7 @@ class ManifoldResolutionBenchmark(BenchmarkBase):
         }
 
     @torch.no_grad()
-    def measure_manifold_dimensionality(self, vae="A", n_samples=1000) -> Dict:
+    def measure_manifold_dimensionality(self, vae="A", n_samples=1000) -> dict:
         """Estimate effective dimensionality of learned manifold"""
         # Sample operations
         indices = torch.randperm(self.n_ops)[:n_samples]
@@ -272,7 +271,7 @@ class ManifoldResolutionBenchmark(BenchmarkBase):
             "eigenvalue_ratio": eigenvalues[0] / eigenvalues[-1],
         }
 
-    def run_full_benchmark(self) -> Dict:
+    def run_full_benchmark(self) -> dict:
         """Run all benchmark measurements"""
         results = {
             "model_info": {
@@ -307,7 +306,7 @@ class ManifoldResolutionBenchmark(BenchmarkBase):
 
         return results
 
-    def compute_resolution_score(self, results: Dict) -> Dict:
+    def compute_resolution_score(self, results: dict) -> dict:
         """Compute aggregate resolution quality score"""
 
         def score_vae(vae_results):
@@ -322,7 +321,13 @@ class ManifoldResolutionBenchmark(BenchmarkBase):
             dim_score = 1.0 - abs(dim_ratio - 0.7)  # Target ~70% effective usage
 
             # Weighted average
-            overall = 0.30 * recon_score + 0.25 * coverage_score + 0.20 * interp_score + 0.15 * nn_score + 0.10 * max(0, dim_score)
+            overall = (
+                0.30 * recon_score
+                + 0.25 * coverage_score
+                + 0.20 * interp_score
+                + 0.15 * nn_score
+                + 0.10 * max(0, dim_score)
+            )
 
             return {
                 "reconstruction": recon_score,

@@ -30,10 +30,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Callable, Dict, FrozenSet, Generic, List, Optional, Set, Tuple, TypeVar
+from typing import Generic, TypeVar
 
 from src.analysis.set_theory.mutation_sets import Mutation, MutationSet
-
 
 T = TypeVar("T")
 
@@ -44,9 +43,9 @@ class ResistanceLevel(IntEnum):
     SUSCEPTIBLE = 0
     MONO_RESISTANT = 1
     POLY_RESISTANT = 2  # Resistant to multiple first-line drugs
-    MDR = 3             # Multi-drug resistant (INH + RIF)
-    PRE_XDR = 4         # MDR + FQ or injectable
-    XDR = 5             # MDR + FQ + injectable
+    MDR = 3  # Multi-drug resistant (INH + RIF)
+    PRE_XDR = 4  # MDR + FQ or injectable
+    XDR = 5  # MDR + FQ + injectable
 
 
 @dataclass
@@ -62,8 +61,8 @@ class LatticeNode(Generic[T]):
 
     element: T
     level: int = 0
-    parents: List["LatticeNode[T]"] = field(default_factory=list)
-    children: List["LatticeNode[T]"] = field(default_factory=list)
+    parents: list[LatticeNode[T]] = field(default_factory=list)
+    children: list[LatticeNode[T]] = field(default_factory=list)
 
     def __hash__(self) -> int:
         return hash(id(self))
@@ -76,9 +75,9 @@ class LatticeNode(Generic[T]):
     def __repr__(self) -> str:
         return f"LatticeNode({self.element}, level={self.level})"
 
-    def ancestors(self) -> Set["LatticeNode[T]"]:
+    def ancestors(self) -> set[LatticeNode[T]]:
         """Get all ancestors (transitive closure of parents)."""
-        result: Set[LatticeNode[T]] = set()
+        result: set[LatticeNode[T]] = set()
         stack = list(self.parents)
 
         while stack:
@@ -89,9 +88,9 @@ class LatticeNode(Generic[T]):
 
         return result
 
-    def descendants(self) -> Set["LatticeNode[T]"]:
+    def descendants(self) -> set[LatticeNode[T]]:
         """Get all descendants (transitive closure of children)."""
-        result: Set[LatticeNode[T]] = set()
+        result: set[LatticeNode[T]] = set()
         stack = list(self.children)
 
         while stack:
@@ -102,11 +101,11 @@ class LatticeNode(Generic[T]):
 
         return result
 
-    def is_ancestor_of(self, other: "LatticeNode[T]") -> bool:
+    def is_ancestor_of(self, other: LatticeNode[T]) -> bool:
         """Check if this node is an ancestor of other."""
         return self in other.ancestors()
 
-    def is_descendant_of(self, other: "LatticeNode[T]") -> bool:
+    def is_descendant_of(self, other: LatticeNode[T]) -> bool:
         """Check if this node is a descendant of other."""
         return self in other.descendants()
 
@@ -127,9 +126,9 @@ class ResistanceLattice:
 
     def __init__(self):
         """Initialize empty lattice."""
-        self.nodes: Dict[FrozenSet[Mutation], LatticeNode[MutationSet]] = {}
-        self.bottom: Optional[LatticeNode[MutationSet]] = None
-        self.top: Optional[LatticeNode[MutationSet]] = None
+        self.nodes: dict[frozenset[Mutation], LatticeNode[MutationSet]] = {}
+        self.bottom: LatticeNode[MutationSet] | None = None
+        self.top: LatticeNode[MutationSet] | None = None
 
         # Add bottom element (empty set)
         self._add_bottom()
@@ -143,7 +142,7 @@ class ResistanceLattice:
     def add_profile(
         self,
         name: str,
-        mutations: List[str],
+        mutations: list[str],
     ) -> LatticeNode[MutationSet]:
         """Add a resistance profile to the lattice.
 
@@ -182,18 +181,20 @@ class ResistanceLattice:
 
         # Find covering elements (immediate parents)
         # These are maximal elements that are subsets of mutation_set
-        for existing_key, existing_node in self.nodes.items():
+        for _existing_key, existing_node in self.nodes.items():
             existing_set = existing_node.element
 
             if existing_set.issubset(mutation_set) and existing_set != mutation_set:
                 # Check if this is a covering (no intermediate element)
                 is_cover = True
-                for other_key, other_node in self.nodes.items():
+                for _other_key, other_node in self.nodes.items():
                     other_set = other_node.element
-                    if (existing_set.issubset(other_set) and
-                        other_set.issubset(mutation_set) and
-                        other_set != existing_set and
-                        other_set != mutation_set):
+                    if (
+                        existing_set.issubset(other_set)
+                        and other_set.issubset(mutation_set)
+                        and other_set != existing_set
+                        and other_set != mutation_set
+                    ):
                         is_cover = False
                         break
 
@@ -202,17 +203,19 @@ class ResistanceLattice:
                     existing_node.children.append(node)
 
         # Find covered elements (immediate children)
-        for existing_key, existing_node in self.nodes.items():
+        for _existing_key, existing_node in self.nodes.items():
             existing_set = existing_node.element
 
             if mutation_set.issubset(existing_set) and existing_set != mutation_set:
                 is_cover = True
-                for other_key, other_node in self.nodes.items():
+                for _other_key, other_node in self.nodes.items():
                     other_set = other_node.element
-                    if (mutation_set.issubset(other_set) and
-                        other_set.issubset(existing_set) and
-                        other_set != mutation_set and
-                        other_set != existing_set):
+                    if (
+                        mutation_set.issubset(other_set)
+                        and other_set.issubset(existing_set)
+                        and other_set != mutation_set
+                        and other_set != existing_set
+                    ):
                         is_cover = False
                         break
 
@@ -270,7 +273,7 @@ class ResistanceLattice:
         self,
         a: MutationSet,
         b: MutationSet,
-    ) -> Optional[int]:
+    ) -> int | None:
         """Compare two elements in lattice ordering.
 
         Args:
@@ -304,9 +307,7 @@ class ResistanceLattice:
         has_inh = "katG" in genes or "inhA" in genes
         has_rif = "rpoB" in genes
         has_fq = "gyrA" in genes or "gyrB" in genes
-        has_injectable = any(
-            g in genes for g in ["rrs", "eis", "tlyA"]
-        )
+        has_injectable = any(g in genes for g in ["rrs", "eis", "tlyA"])
 
         if has_inh and has_rif and has_fq and has_injectable:
             return ResistanceLevel.XDR
@@ -324,8 +325,8 @@ class ResistanceLattice:
     def filter_by_level(
         self,
         min_level: int = 0,
-        max_level: Optional[int] = None,
-    ) -> List[LatticeNode[MutationSet]]:
+        max_level: int | None = None,
+    ) -> list[LatticeNode[MutationSet]]:
         """Get nodes within level range.
 
         Args:
@@ -337,12 +338,11 @@ class ResistanceLattice:
         """
         result = []
         for node in self.nodes.values():
-            if node.level >= min_level:
-                if max_level is None or node.level <= max_level:
-                    result.append(node)
+            if node.level >= min_level and (max_level is None or node.level <= max_level):
+                result.append(node)
         return result
 
-    def atoms(self) -> List[LatticeNode[MutationSet]]:
+    def atoms(self) -> list[LatticeNode[MutationSet]]:
         """Get atoms (elements covering bottom).
 
         These are single-mutation profiles.
@@ -354,7 +354,7 @@ class ResistanceLattice:
             return []
         return self.bottom.children
 
-    def coatoms(self) -> List[LatticeNode[MutationSet]]:
+    def coatoms(self) -> list[LatticeNode[MutationSet]]:
         """Get coatoms (elements covered by top).
 
         These are maximal non-full profiles.
@@ -366,7 +366,7 @@ class ResistanceLattice:
             return []
         return self.top.parents
 
-    def chains(self) -> List[List[LatticeNode[MutationSet]]]:
+    def chains(self) -> list[list[LatticeNode[MutationSet]]]:
         """Find all maximal chains in lattice.
 
         A chain is a totally ordered subset.
@@ -377,11 +377,11 @@ class ResistanceLattice:
         if self.bottom is None:
             return []
 
-        chains: List[List[LatticeNode[MutationSet]]] = []
+        chains: list[list[LatticeNode[MutationSet]]] = []
 
         def find_chains(
             current: LatticeNode[MutationSet],
-            chain: List[LatticeNode[MutationSet]],
+            chain: list[LatticeNode[MutationSet]],
         ):
             chain.append(current)
 
@@ -397,7 +397,7 @@ class ResistanceLattice:
         find_chains(self.bottom, [])
         return chains
 
-    def antichains(self) -> List[List[LatticeNode[MutationSet]]]:
+    def antichains(self) -> list[list[LatticeNode[MutationSet]]]:
         """Find all maximal antichains.
 
         An antichain is a set of pairwise incomparable elements.
@@ -406,7 +406,7 @@ class ResistanceLattice:
             List of antichains
         """
         # Group by level (elements at same level are candidates for antichain)
-        by_level: Dict[int, List[LatticeNode[MutationSet]]] = {}
+        by_level: dict[int, list[LatticeNode[MutationSet]]] = {}
         for node in self.nodes.values():
             if node.level not in by_level:
                 by_level[node.level] = []
@@ -439,7 +439,7 @@ class ResistanceLattice:
             return 0
         return self.top.level + 1
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary representation.
 
         Returns:
@@ -467,7 +467,7 @@ class PowerSetLattice(Generic[T]):
     with meet = intersection and join = union.
     """
 
-    def __init__(self, base_set: Set[T]):
+    def __init__(self, base_set: set[T]):
         """Initialize power set lattice.
 
         Args:
@@ -478,13 +478,13 @@ class PowerSetLattice(Generic[T]):
 
     def _build_lattice(self):
         """Build the full power set lattice."""
-        self.nodes: Dict[FrozenSet[T], LatticeNode[FrozenSet[T]]] = {}
+        self.nodes: dict[frozenset[T], LatticeNode[frozenset[T]]] = {}
 
         # Generate power set
         elements = list(self.base_set)
         n = len(elements)
 
-        for i in range(2 ** n):
+        for i in range(2**n):
             subset = frozenset(elements[j] for j in range(n) if (i >> j) & 1)
             node = LatticeNode(subset, level=len(subset))
             self.nodes[subset] = node
@@ -502,7 +502,7 @@ class PowerSetLattice(Generic[T]):
         self.bottom = self.nodes[frozenset()]
         self.top = self.nodes[self.base_set]
 
-    def get_node(self, subset: Set[T]) -> Optional[LatticeNode[FrozenSet[T]]]:
+    def get_node(self, subset: set[T]) -> LatticeNode[frozenset[T]] | None:
         """Get node for a subset.
 
         Args:
@@ -513,7 +513,7 @@ class PowerSetLattice(Generic[T]):
         """
         return self.nodes.get(frozenset(subset))
 
-    def complement(self, subset: Set[T]) -> FrozenSet[T]:
+    def complement(self, subset: set[T]) -> frozenset[T]:
         """Compute complement.
 
         Args:
@@ -524,7 +524,7 @@ class PowerSetLattice(Generic[T]):
         """
         return self.base_set - frozenset(subset)
 
-    def is_boolean_sublattice(self, elements: Set[FrozenSet[T]]) -> bool:
+    def is_boolean_sublattice(self, elements: set[frozenset[T]]) -> bool:
         """Check if elements form a Boolean sublattice.
 
         Args:

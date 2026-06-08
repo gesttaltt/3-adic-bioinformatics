@@ -30,7 +30,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import requests
 
@@ -135,7 +135,7 @@ REFERENCE_SEQUENCES = {
 }
 
 
-def query_hivdb(query: str, variables: Optional[dict] = None) -> dict[str, Any]:
+def query_hivdb(query: str, variables: dict | None = None) -> dict[str, Any]:
     """Execute a GraphQL query against HIVDB API.
 
     Args:
@@ -226,6 +226,7 @@ def generate_synthetic_sequences(
         List of (sequence, mutations, resistance_scores) tuples
     """
     import numpy as np
+
     np.random.seed(seed)
 
     reference = REFERENCE_SEQUENCES.get(gene, "")
@@ -240,7 +241,7 @@ def generate_synthetic_sequences(
     # Wild-type
     samples.append((reference, [], {drug: 0.0 for drug in get_drugs_for_gene(gene)}))
 
-    for i in range(n_samples - 1):
+    for _i in range(n_samples - 1):
         # Pick random number of mutations
         n_muts = np.random.randint(1, min(max_mutations + 1, len(mutation_list) + 1))
         selected_muts = np.random.choice(mutation_list, n_muts, replace=False)
@@ -278,7 +279,7 @@ def generate_synthetic_sequences(
 def get_drugs_for_gene(gene: str) -> list[str]:
     """Get list of drugs targeting a gene."""
     drugs = []
-    for drug_class, drug_list in DRUG_CLASSES.get(gene, {}).items():
+    for _drug_class, drug_list in DRUG_CLASSES.get(gene, {}).items():
         drugs.extend(drug_list)
     return drugs
 
@@ -420,7 +421,7 @@ def main():
 
     # Try to get real mutation scores from API
     logger.info("\nFetching mutation scores from HIVDB...")
-    mutation_scores = get_mutation_scores()
+    get_mutation_scores()
 
     for gene in args.genes:
         logger.info(f"\nProcessing {gene}...")
@@ -444,7 +445,7 @@ def main():
         )
 
         # Create splits
-        logger.info(f"  Creating train/val/test splits...")
+        logger.info("  Creating train/val/test splits...")
         create_train_test_split(
             csv_path=csv_path,
             output_dir=args.output_dir / "splits" / gene.lower(),

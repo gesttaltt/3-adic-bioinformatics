@@ -31,7 +31,6 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import numpy as np
 import torch
@@ -84,7 +83,7 @@ class HIVPipeline:
             "metrics": {},
         }
 
-    def run(self, stages: Optional[List[str]] = None, skip_download: bool = False):
+    def run(self, stages: list[str] | None = None, skip_download: bool = False):
         """Run the pipeline.
 
         Args:
@@ -143,6 +142,7 @@ class HIVPipeline:
         except Exception as e:
             print(f"\n[ERROR] Pipeline failed: {e}")
             import traceback
+
             traceback.print_exc()
             return 1
 
@@ -299,14 +299,17 @@ class HIVPipeline:
                 epoch_loss += loss.item()
 
             if (epoch + 1) % 5 == 0:
-                print(f"    Epoch {epoch+1}/{epochs}: loss={epoch_loss/n_batches:.4f}")
+                print(f"    Epoch {epoch + 1}/{epochs}: loss={epoch_loss / n_batches:.4f}")
 
         # Save checkpoint
         checkpoint_path = self.models_dir / "codon_vae.pt"
-        torch.save({
-            "epoch": epochs,
-            "model_state_dict": model.state_dict(),
-        }, checkpoint_path)
+        torch.save(
+            {
+                "epoch": epochs,
+                "model_state_dict": model.state_dict(),
+            },
+            checkpoint_path,
+        )
 
         self.state["vae_checkpoint"] = str(checkpoint_path)
         print(f"  Saved to: {checkpoint_path}")
@@ -334,10 +337,7 @@ class HIVPipeline:
                 continue
 
             # Extract features
-            features = np.array([
-                extractor.sequence_features(seq)
-                for seq in df["sequence"]
-            ])
+            features = np.array([extractor.sequence_features(seq) for seq in df["sequence"]])
 
             # Save embeddings
             embeddings_path = data_path / "embeddings.npy"
@@ -392,6 +392,7 @@ class HIVPipeline:
             embeddings = np.load(data_path / "embeddings.npy")
 
             import pandas as pd
+
             df = pd.read_csv(list(data_path.glob("*.csv"))[0])
             targets = df[config["target_col"]].values
 
@@ -441,7 +442,7 @@ class HIVPipeline:
                     "metrics": {
                         k: float(v) if isinstance(v, (float, np.floating)) else v
                         for k, v in info.get("metrics", {}).items()
-                    }
+                    },
                 }
                 for name, info in self.state["predictors"].items()
             },
@@ -482,21 +483,18 @@ class HIVPipeline:
                 return str(obj)
             return obj
 
-        state_json = json.loads(
-            json.dumps(self.state, default=convert)
-        )
+        state_json = json.loads(json.dumps(self.state, default=convert))
 
         with open(state_path, "w") as f:
             json.dump(state_json, f, indent=2)
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Run full HIV analysis pipeline"
-    )
+    parser = argparse.ArgumentParser(description="Run full HIV analysis pipeline")
 
     parser.add_argument(
-        "--output-dir", "-o",
+        "--output-dir",
+        "-o",
         type=Path,
         default=Path("outputs/hiv_analysis"),
         help="Output directory",

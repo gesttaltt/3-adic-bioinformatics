@@ -15,7 +15,7 @@ Single responsibility: Correlation-based early stopping logic.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any
 
 
 @dataclass
@@ -37,7 +37,7 @@ class CorrelationEarlyStopConfig:
     correlation_patience: int = 10
 
     @classmethod
-    def from_dict(cls, config: Dict[str, Any]) -> CorrelationEarlyStopConfig:
+    def from_dict(cls, config: dict[str, Any]) -> CorrelationEarlyStopConfig:
         """Create config from dictionary.
 
         Args:
@@ -77,7 +77,7 @@ class CorrelationEarlyStop:
     best_correlation: float = field(default=0.0)
 
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> CorrelationEarlyStop:
+    def from_dict(cls, config_dict: dict[str, Any]) -> CorrelationEarlyStop:
         """Create controller from configuration dictionary.
 
         Args:
@@ -121,7 +121,7 @@ class CorrelationEarlyStop:
         self.drop_counter = 0
         self.best_correlation = 0.0
 
-    def get_state(self) -> Dict[str, Any]:
+    def get_state(self) -> dict[str, Any]:
         """Get current controller state for checkpointing.
 
         Returns:
@@ -132,7 +132,7 @@ class CorrelationEarlyStop:
             "best_correlation": self.best_correlation,
         }
 
-    def restore_state(self, state: Dict[str, Any]) -> None:
+    def restore_state(self, state: dict[str, Any]) -> None:
         """Restore controller state from checkpoint.
 
         Args:

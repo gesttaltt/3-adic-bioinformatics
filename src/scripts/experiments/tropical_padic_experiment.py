@@ -18,9 +18,9 @@ import json
 import sys
 import time
 import traceback
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -69,8 +69,8 @@ class ExperimentResult:
     training_time: float
     final_loss: float
     config: ExperimentConfig
-    error: Optional[str] = None
-    history: Optional[Dict[str, List[float]]] = None
+    error: str | None = None
+    history: dict[str, list[float]] | None = None
 
 
 # =============================================================================
@@ -90,7 +90,7 @@ def compute_padic_distance(i: int, j: int) -> float:
     return 3.0 ** (-k)
 
 
-def evaluate_embeddings(z: torch.Tensor, indices: torch.Tensor) -> Dict[str, float]:
+def evaluate_embeddings(z: torch.Tensor, indices: torch.Tensor) -> dict[str, float]:
     """Evaluate latent space structure."""
     from sklearn.cluster import KMeans
     from sklearn.metrics import silhouette_score
@@ -107,7 +107,7 @@ def evaluate_embeddings(z: torch.Tensor, indices: torch.Tensor) -> Dict[str, flo
     mask = i_idx != j_idx
     i_idx, j_idx = i_idx[mask], j_idx[mask]
 
-    padic_dists = [compute_padic_distance(indices_np[i], indices_np[j]) for i, j in zip(i_idx, j_idx)]
+    padic_dists = [compute_padic_distance(indices_np[i], indices_np[j]) for i, j in zip(i_idx, j_idx, strict=False)]
     latent_dists = np.linalg.norm(z_np[i_idx] - z_np[j_idx], axis=1)
 
     corr, _ = spearmanr(padic_dists, latent_dists)
@@ -195,7 +195,7 @@ class EnhancedTropicalVAE(nn.Module):
 
         return z_tropical
 
-    def forward(self, x: torch.Tensor) -> Dict[str, Any]:
+    def forward(self, x: torch.Tensor) -> dict[str, Any]:
         # Encode
         h = self.encoder(x)
         mu = self.mu_proj(h)
@@ -455,7 +455,7 @@ def run_experiment(config: ExperimentConfig) -> ExperimentResult:
 # =============================================================================
 
 
-def get_experiments() -> List[ExperimentConfig]:
+def get_experiments() -> list[ExperimentConfig]:
     """Define all experiments to test TropicalVAE + p-adic losses."""
     experiments = []
 
@@ -612,24 +612,30 @@ def main():
     # Find specific results
     tropical_baseline = next((r for r in results if r.name == "baseline_tropical" and not r.error), None)
     simple_baseline = next((r for r in results if r.name == "baseline_simple_triplet_mono" and not r.error), None)
-    tropical_triplet_mono = next(
-        (r for r in results if r.name == "tropical_triplet_monotonic" and not r.error), None
-    )
+    tropical_triplet_mono = next((r for r in results if r.name == "tropical_triplet_monotonic" and not r.error), None)
     tropical_soft_hier = next((r for r in results if r.name == "tropical_soft_hierarchy" and not r.error), None)
 
     print("\nPrevious Results (from comprehensive sweep):")
-    print(f"  TropicalVAE alone:           96.7% acc, +0.21 corr")
-    print(f"  SimpleHyp+triplet+monotonic: 74.8% acc, +0.55 corr")
+    print("  TropicalVAE alone:           96.7% acc, +0.21 corr")
+    print("  SimpleHyp+triplet+monotonic: 74.8% acc, +0.55 corr")
 
     print("\nNew Results (from this experiment):")
     if tropical_baseline:
-        print(f"  TropicalVAE (this run):      {tropical_baseline.accuracy:.1%} acc, {tropical_baseline.spearman:+.2f} corr")
+        print(
+            f"  TropicalVAE (this run):      {tropical_baseline.accuracy:.1%} acc, {tropical_baseline.spearman:+.2f} corr"
+        )
     if simple_baseline:
-        print(f"  SimpleHyp+triplet+mono:      {simple_baseline.accuracy:.1%} acc, {simple_baseline.spearman:+.2f} corr")
+        print(
+            f"  SimpleHyp+triplet+mono:      {simple_baseline.accuracy:.1%} acc, {simple_baseline.spearman:+.2f} corr"
+        )
     if tropical_triplet_mono:
-        print(f"  TropicalVAE+triplet+mono:    {tropical_triplet_mono.accuracy:.1%} acc, {tropical_triplet_mono.spearman:+.2f} corr  <-- KEY TEST")
+        print(
+            f"  TropicalVAE+triplet+mono:    {tropical_triplet_mono.accuracy:.1%} acc, {tropical_triplet_mono.spearman:+.2f} corr  <-- KEY TEST"
+        )
     if tropical_soft_hier:
-        print(f"  TropicalVAE+soft+hierarchy:  {tropical_soft_hier.accuracy:.1%} acc, {tropical_soft_hier.spearman:+.2f} corr")
+        print(
+            f"  TropicalVAE+soft+hierarchy:  {tropical_soft_hier.accuracy:.1%} acc, {tropical_soft_hier.spearman:+.2f} corr"
+        )
 
     # Conclusion
     print("\n" + "=" * 80)

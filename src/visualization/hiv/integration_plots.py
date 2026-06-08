@@ -8,19 +8,20 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
 
 try:
     import matplotlib.pyplot as plt
+
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
 
 try:
     import seaborn as sns
+
     HAS_SEABORN = True
 except ImportError:
     HAS_SEABORN = False
@@ -33,7 +34,7 @@ def _check_matplotlib():
 
 def plot_constraint_landscape(
     df: pd.DataFrame,
-    save_path: Optional[Union[str, Path]] = None,
+    save_path: str | Path | None = None,
     figsize: tuple = (12, 10),
 ) -> plt.Figure:
     """Plot multi-pressure constraint landscape.
@@ -52,8 +53,7 @@ def plot_constraint_landscape(
 
     required_cols = ["resistance_pressure", "immune_pressure"]
     if not all(c in df.columns for c in required_cols):
-        ax.text(0.5, 0.5, "Required columns not found",
-                ha="center", va="center", transform=ax.transAxes)
+        ax.text(0.5, 0.5, "Required columns not found", ha="center", va="center", transform=ax.transAxes)
         return fig
 
     # Size by total constraint
@@ -72,11 +72,10 @@ def plot_constraint_landscape(
 
         # Add legend
         from matplotlib.lines import Line2D
+
         legend_elements = [
-            Line2D([0], [0], marker="o", color="w", markerfacecolor="red",
-                   markersize=10, label="Trade-off position"),
-            Line2D([0], [0], marker="o", color="w", markerfacecolor="blue",
-                   markersize=10, label="Single pressure"),
+            Line2D([0], [0], marker="o", color="w", markerfacecolor="red", markersize=10, label="Trade-off position"),
+            Line2D([0], [0], marker="o", color="w", markerfacecolor="blue", markersize=10, label="Single pressure"),
         ]
         ax.legend(handles=legend_elements, loc="upper right")
     else:
@@ -119,7 +118,7 @@ def plot_constraint_landscape(
 def plot_vaccine_targets(
     df: pd.DataFrame,
     top_n: int = 20,
-    save_path: Optional[Union[str, Path]] = None,
+    save_path: str | Path | None = None,
     figsize: tuple = (12, 8),
 ) -> plt.Figure:
     """Plot ranked vaccine target positions.
@@ -148,7 +147,7 @@ def plot_vaccine_targets(
         elif "hxb2_position" in df_top.columns:
             labels = [f"HXB2:{int(p)}" for p in df_top["hxb2_position"]]
         else:
-            labels = [f"Target {i+1}" for i in range(len(df_top))]
+            labels = [f"Target {i + 1}" for i in range(len(df_top))]
 
         axes[0].barh(labels, df_top["vaccine_score"], color=colors)
         axes[0].set_xlabel("Vaccine Score")
@@ -177,7 +176,9 @@ def plot_vaccine_targets(
         for col in available_cols:
             values = df_top[col].fillna(0).values
             axes[1].bar(
-                x, values, bottom=bottom,
+                x,
+                values,
+                bottom=bottom,
                 label=labels_map.get(col, col),
                 color=color_map.get(col, "gray"),
                 alpha=0.8,
@@ -201,7 +202,7 @@ def plot_vaccine_targets(
 
 def plot_tradeoff_map(
     df: pd.DataFrame,
-    save_path: Optional[Union[str, Path]] = None,
+    save_path: str | Path | None = None,
     figsize: tuple = (10, 8),
 ) -> plt.Figure:
     """Plot resistance-immunity trade-off map.
@@ -246,8 +247,7 @@ def plot_tradeoff_map(
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
         ax.set_yticklabels(ax.get_yticklabels(), rotation=0)
     else:
-        ax.text(0.5, 0.5, "Required columns not found",
-                ha="center", va="center", transform=ax.transAxes)
+        ax.text(0.5, 0.5, "Required columns not found", ha="center", va="center", transform=ax.transAxes)
 
     plt.tight_layout()
 

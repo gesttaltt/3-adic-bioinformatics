@@ -48,14 +48,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config.paths import CHECKPOINTS_DIR
-from src.geometry import poincare_distance
 from src.core import TERNARY
 from src.data.generation import generate_all_ternary_operations
-from src.geometry import get_riemannian_optimizer
-from src.losses import (CombinedZeroStructureLoss, GlobalRankLoss,
-                        PAdicGeodesicLoss, RadialHierarchyLoss)
-from src.models import (HomeostasisController, TernaryVAEV5_11,
-                        TernaryVAEV5_11_PartialFreeze)
+from src.geometry import get_riemannian_optimizer, poincare_distance
+from src.losses import CombinedZeroStructureLoss, GlobalRankLoss, PAdicGeodesicLoss, RadialHierarchyLoss
+from src.models import HomeostasisController, TernaryVAEV5_11, TernaryVAEV5_11_PartialFreeze
 
 
 def parse_args():
@@ -438,7 +435,7 @@ class AdaptiveCurriculum:
 
 def load_config(config_path: str) -> dict:
     """Load configuration from YAML file."""
-    with open(config_path, "r") as f:
+    with open(config_path) as f:
         return yaml.safe_load(f)
 
 
@@ -805,9 +802,8 @@ def main():
         config = load_config(args.config)
         # Override with command line args
         for key in ["epochs", "lr", "batch_size", "curvature", "max_radius"]:
-            if hasattr(args, key) and getattr(args, key) is not None:
-                if key in config:
-                    config[key] = getattr(args, key)
+            if hasattr(args, key) and getattr(args, key) is not None and key in config:
+                config[key] = getattr(args, key)
     else:
         config = vars(args)
 
@@ -834,6 +830,7 @@ def main():
 
     # Setup TensorBoard
     from src.config.paths import RUNS_DIR
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_dir = RUNS_DIR / f"ternary_{variant}_{timestamp}"
     writer = SummaryWriter(log_dir=str(log_dir))
@@ -849,7 +846,9 @@ def main():
     capacity_str = f" (hidden={proj_hidden_dim}, layers={proj_layers}, dropout={proj_dropout})"
     curvature_str = " + LEARNABLE_C" if learnable_curvature else ""
     if use_option_c:
-        print(f"\n=== Creating V5.11 Model (PartialFreeze: encoder_B trainable{dual_str}{capacity_str}{curvature_str}) ===")
+        print(
+            f"\n=== Creating V5.11 Model (PartialFreeze: encoder_B trainable{dual_str}{capacity_str}{curvature_str}) ==="
+        )
         model = TernaryVAEV5_11_PartialFreeze(
             latent_dim=16,
             hidden_dim=proj_hidden_dim,
@@ -938,7 +937,9 @@ def main():
     if use_rank_loss:
         print(f"  Global rank loss: weight={rank_loss_weight}")
     if use_zero_structure:
-        print(f"  Zero-structure loss: valuation={config.get('zero_valuation_weight', 1.0)}, sparsity={config.get('zero_sparsity_weight', 0.5)}")
+        print(
+            f"  Zero-structure loss: valuation={config.get('zero_valuation_weight', 1.0)}, sparsity={config.get('zero_sparsity_weight', 0.5)}"
+        )
 
     # Create optimizer (only trainable parameters)
     base_lr = config.get("lr", 1e-3)
@@ -1015,7 +1016,9 @@ def main():
     unfreeze_warmup = config.get("unfreeze_warmup_epochs", 5)
     encoder_a_target_lr = config.get("encoder_a_lr_scale", 0.05)
     if progressive_unfreeze:
-        print(f"Progressive unfreezing: start={unfreeze_start}, warmup={unfreeze_warmup}, target_lr_scale={encoder_a_target_lr}")
+        print(
+            f"Progressive unfreezing: start={unfreeze_start}, warmup={unfreeze_warmup}, target_lr_scale={encoder_a_target_lr}"
+        )
 
     # Homeostatic control (v5.11.7 + v5.11.8 Q-gated annealing)
     use_homeostasis = config.get("homeostasis", False)
@@ -1030,7 +1033,9 @@ def main():
             annealing_step=config.get("annealing_step", 0.005),
             coverage_floor=config.get("coverage_floor", 0.95),
         )
-        print(f"Homeostasis: ENABLED (coverage_freeze={homeostasis.coverage_freeze_threshold}, warmup={homeostasis.warmup_epochs})")
+        print(
+            f"Homeostasis: ENABLED (coverage_freeze={homeostasis.coverage_freeze_threshold}, warmup={homeostasis.warmup_epochs})"
+        )
         if enable_annealing:
             print(f"  Q-gated annealing: step={homeostasis.annealing_step}, floor={homeostasis.coverage_floor}")
         # Track previous freeze state for optimizer rebuild
@@ -1222,13 +1227,17 @@ def main():
         if epoch % 5 == 0 or epoch == n_epochs - 1:
             print(f"\nEpoch {epoch}/{n_epochs}")
             rank_str = f", rank: {train_metrics['rank_loss']:.4f}" if rank_loss_fn else ""
-            print(f"  Loss: {train_metrics['loss']:.4f} (geo: {train_metrics['geo_loss']:.4f}, rad: {train_metrics['rad_loss']:.4f}{rank_str})")
-            print(f"  Coverage: {eval_metrics['coverage']*100:.1f}%")
+            print(
+                f"  Loss: {train_metrics['loss']:.4f} (geo: {train_metrics['geo_loss']:.4f}, rad: {train_metrics['rad_loss']:.4f}{rank_str})"
+            )
+            print(f"  Coverage: {eval_metrics['coverage'] * 100:.1f}%")
             print(f"  Radial Hierarchy: A={eval_metrics['radial_corr_A']:.3f}, B={eval_metrics['radial_corr_B']:.3f}")
             print(
                 f"  Radius Range: [{eval_metrics['radius_min_A']:.3f}, {eval_metrics['radius_max_A']:.3f}] (range={eval_metrics['radius_range_A']:.3f})"
             )
-            print(f"  Radius v=0: {eval_metrics['radius_v0']:.3f}, v=9: {eval_metrics['radius_v9']:.3f} (target: 0.85, 0.10)")
+            print(
+                f"  Radius v=0: {eval_metrics['radius_v0']:.3f}, v=9: {eval_metrics['radius_v9']:.3f} (target: 0.85, 0.10)"
+            )
             print(f"  Distance Corr: A={eval_metrics['distance_corr_A']:.3f}")
             tau_status = f"tau: {tau:.3f}"
             if curriculum.tau_frozen:
@@ -1240,7 +1249,9 @@ def main():
 
         # Handle curriculum events
         if curriculum_status.get("triggered_freeze"):
-            print(f"  [TAU FROZEN] Hierarchy threshold {curriculum.hierarchy_threshold} reached at tau={curriculum.frozen_tau:.3f}")
+            print(
+                f"  [TAU FROZEN] Hierarchy threshold {curriculum.hierarchy_threshold} reached at tau={curriculum.frozen_tau:.3f}"
+            )
 
         # Save best model (best = highest composite score: hierarchy + low loss)
         composite_score = curriculum.compute_composite_score(eval_metrics["radial_corr_A"], train_metrics["loss"])
@@ -1300,7 +1311,7 @@ def main():
     print("TRAINING COMPLETE")
     print("=" * 60)
     print(f"\nFinal Metrics (epoch {final_epoch}):")
-    print(f"  Coverage: {eval_metrics['coverage']*100:.1f}%")
+    print(f"  Coverage: {eval_metrics['coverage'] * 100:.1f}%")
     print(f"  Radial Hierarchy: A={eval_metrics['radial_corr_A']:.3f}, B={eval_metrics['radial_corr_B']:.3f}")
     print(f"  Radius Range: [{eval_metrics['radius_min_A']:.3f}, {eval_metrics['radius_max_A']:.3f}]")
     print(f"  Radius v=0: {eval_metrics['radius_v0']:.3f} (target: 0.85)")

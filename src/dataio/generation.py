@@ -12,8 +12,6 @@ This module generates all possible ternary operations for the 3^9 space.
 Single responsibility: Data generation only.
 """
 
-from typing import List
-
 import numpy as np
 
 
@@ -47,7 +45,7 @@ def count_ternary_operations() -> int:
     return 3**9
 
 
-def generate_ternary_operation_by_index(index: int) -> List[int]:
+def generate_ternary_operation_by_index(index: int) -> list[int]:
     """Generate a specific ternary operation by its index.
 
     Args:

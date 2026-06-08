@@ -11,12 +11,10 @@ for hierarchical sequence representations.
 
 from __future__ import annotations
 
-from typing import Optional, Union
-
 import torch
 import torch.nn as nn
 
-from src.geometry import exp_map_zero, project_to_poincare
+from src.geometry import project_to_poincare
 from src.models.plm.base import PLMEncoderBase
 from src.models.plm.esm_encoder import ESM2Config, ESM2Encoder
 
@@ -52,8 +50,8 @@ class HyperbolicPLMEncoder(nn.Module):
         hidden_dim: int = 512,
         curvature: float = -1.0,
         dropout: float = 0.1,
-        plm_encoder: Optional[PLMEncoderBase] = None,
-        plm_config: Optional[ESM2Config] = None,
+        plm_encoder: PLMEncoderBase | None = None,
+        plm_config: ESM2Config | None = None,
         device: str = "cuda",
     ):
         """Initialize hyperbolic PLM encoder.
@@ -108,9 +106,9 @@ class HyperbolicPLMEncoder(nn.Module):
 
     def forward(
         self,
-        x: Union[str, list[str], torch.Tensor],
+        x: str | list[str] | torch.Tensor,
         return_euclidean: bool = False,
-    ) -> Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """Encode sequences to hyperbolic space.
 
         Args:
@@ -124,10 +122,7 @@ class HyperbolicPLMEncoder(nn.Module):
         # Get PLM embeddings if needed
         if isinstance(x, (str, list)):
             if self.plm is None:
-                raise ValueError(
-                    "PLM encoder required for sequence input. "
-                    "Provide plm_encoder or plm_config."
-                )
+                raise ValueError("PLM encoder required for sequence input. Provide plm_encoder or plm_config.")
             plm_embeddings = self.plm.encode(x)
         else:
             plm_embeddings = x
@@ -180,7 +175,7 @@ class HyperbolicPLMEncoder(nn.Module):
 
     def encode_with_attention(
         self,
-        sequences: Union[str, list[str]],
+        sequences: str | list[str],
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Encode with attention weights for interpretability.
 
@@ -278,8 +273,8 @@ class DualHyperbolicPLMEncoder(nn.Module):
 
     def forward(
         self,
-        seq_a: Union[str, list[str], torch.Tensor],
-        seq_b: Union[str, list[str], torch.Tensor],
+        seq_a: str | list[str] | torch.Tensor,
+        seq_b: str | list[str] | torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Encode two sequences and compute their distance.
 

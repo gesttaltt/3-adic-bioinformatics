@@ -29,7 +29,6 @@ import argparse
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -76,7 +75,7 @@ def load_vae(checkpoint_path: Path, device: str) -> torch.nn.Module:
     print(f"  Loaded from epoch {ckpt.get('epoch', 'unknown')}")
     if "metrics" in ckpt:
         m = ckpt["metrics"]
-        print(f"  VAE Coverage: {m.get('coverage', 0)*100:.1f}%")
+        print(f"  VAE Coverage: {m.get('coverage', 0) * 100:.1f}%")
         print(f"  VAE Radial Corr: {m.get('radial_corr_A', 0):.4f}")
 
     return model
@@ -84,7 +83,7 @@ def load_vae(checkpoint_path: Path, device: str) -> torch.nn.Module:
 
 def extract_embeddings(
     model: torch.nn.Module,
-    sequences: List[str],
+    sequences: list[str],
     device: str,
 ) -> np.ndarray:
     """Extract hyperbolic embeddings for sequences using VAE.
@@ -113,7 +112,7 @@ def extract_embeddings(
 def generate_synthetic_data(
     n_samples: int = 1000,
     predictor_type: str = "resistance",
-) -> Tuple[List[str], np.ndarray, np.ndarray]:
+) -> tuple[list[str], np.ndarray, np.ndarray]:
     """Generate synthetic data for testing.
 
     Args:
@@ -159,7 +158,7 @@ def generate_synthetic_data(
 def load_real_data(
     data_path: Path,
     predictor_type: str,
-) -> Tuple[List[str], np.ndarray, np.ndarray]:
+) -> tuple[list[str], np.ndarray, np.ndarray]:
     """Load real data from file.
 
     Expected CSV format:
@@ -207,7 +206,7 @@ def train_predictor(
     y_train: np.ndarray,
     X_val: np.ndarray,
     y_val: np.ndarray,
-) -> Tuple[object, Dict]:
+) -> tuple[object, dict]:
     """Train a predictor.
 
     Args:
@@ -250,12 +249,12 @@ def train_predictor(
     train_metrics = predictor.evaluate(X_train, y_train)
     val_metrics = predictor.evaluate(X_val, y_val)
 
-    print(f"\n  Training metrics:")
+    print("\n  Training metrics:")
     for k, v in train_metrics.items():
         if isinstance(v, float):
             print(f"    {k}: {v:.4f}")
 
-    print(f"\n  Validation metrics:")
+    print("\n  Validation metrics:")
     for k, v in val_metrics.items():
         if isinstance(v, float):
             print(f"    {k}: {v:.4f}")
@@ -264,12 +263,11 @@ def train_predictor(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Train downstream predictors using VAE embeddings"
-    )
+    parser = argparse.ArgumentParser(description="Train downstream predictors using VAE embeddings")
 
     parser.add_argument(
-        "--predictor", "-p",
+        "--predictor",
+        "-p",
         type=str,
         required=True,
         choices=["resistance", "escape", "neutralization", "tropism", "all"],
@@ -362,8 +360,10 @@ def main():
         # Train predictor
         predictor, metrics = train_predictor(
             predictor_type,
-            X_train, y_train,
-            X_val, y_val,
+            X_train,
+            y_train,
+            X_val,
+            y_val,
         )
 
         # Save predictor

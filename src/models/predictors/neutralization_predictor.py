@@ -7,16 +7,15 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 
 from .base_predictor import BasePredictor
 
 try:
-    from sklearn.ensemble import GradientBoostingRegressor, RandomForestClassifier
-    from sklearn.metrics import mean_squared_error, r2_score, accuracy_score
     from scipy.stats import spearmanr
+    from sklearn.ensemble import GradientBoostingRegressor, RandomForestClassifier
+    from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
+
     HAS_SKLEARN = True
 except ImportError:
     HAS_SKLEARN = False
@@ -31,7 +30,7 @@ class NeutralizationPredictor(BasePredictor):
 
     def __init__(
         self,
-        model: Optional[any] = None,
+        model: any | None = None,
         mode: str = "regression",
         n_estimators: int = 100,
         max_depth: int = 8,
@@ -55,7 +54,7 @@ class NeutralizationPredictor(BasePredictor):
         y: np.ndarray,
         ic50_threshold: float = 1.0,
         **kwargs,
-    ) -> "NeutralizationPredictor":
+    ) -> NeutralizationPredictor:
         """Train the neutralization predictor.
 
         Args:
@@ -112,14 +111,14 @@ class NeutralizationPredictor(BasePredictor):
 
         if self.mode == "regression":
             # Transform back from log scale
-            predictions = 10 ** predictions
+            predictions = 10**predictions
 
         return predictions
 
     def predict_sensitivity(
         self,
         X: np.ndarray,
-        threshold: Optional[float] = None,
+        threshold: float | None = None,
     ) -> np.ndarray:
         """Predict sensitivity as binary labels.
 
@@ -142,7 +141,7 @@ class NeutralizationPredictor(BasePredictor):
     def predict_from_epitope(
         self,
         epitope_sequence: str,
-        antibody_class: Optional[str] = None,
+        antibody_class: str | None = None,
     ) -> dict[str, float]:
         """Predict neutralization from epitope sequence.
 
@@ -224,4 +223,4 @@ class NeutralizationPredictor(BasePredictor):
         ]
 
         importances = self.model.feature_importances_
-        return dict(zip(feature_names[:len(importances)], importances))
+        return dict(zip(feature_names[: len(importances)], importances, strict=False))

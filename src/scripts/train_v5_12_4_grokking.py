@@ -28,7 +28,6 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import numpy as np
 import torch
@@ -40,19 +39,16 @@ from torch.utils.tensorboard import SummaryWriter
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config.paths import CHECKPOINTS_DIR, RUNS_DIR
+from src.config.paths import RUNS_DIR
 from src.core import TERNARY
-from src.core.metrics import ComprehensiveMetrics, compute_comprehensive_metrics
 from src.data.generation import generate_all_ternary_operations
 from src.geometry import get_riemannian_optimizer, poincare_distance
 from src.losses import (
-    CombinedZeroStructureLoss,
-    GlobalRankLoss,
     PAdicGeodesicLoss,
     RadialHierarchyLoss,
     RichHierarchyLoss,
 )
-from src.models import HomeostasisController, TernaryVAEV5_11_PartialFreeze
+from src.models import TernaryVAEV5_11_PartialFreeze
 from src.models.homeostasis import compute_Q
 from src.utils.checkpoint import get_model_state_dict, load_checkpoint_compat
 
@@ -81,18 +77,17 @@ class GrokkingDetector:
         self.accuracy_jump_threshold = accuracy_jump_threshold
 
         # History tracking
-        self.loss_history: List[float] = []
-        self.accuracy_history: List[float] = []
-        self.gradient_norm_history: List[float] = []
-        self.hierarchy_history: List[float] = []
+        self.loss_history: list[float] = []
+        self.accuracy_history: list[float] = []
+        self.gradient_norm_history: list[float] = []
+        self.hierarchy_history: list[float] = []
 
         # State tracking
         self.in_plateau = False
         self.plateau_start_epoch = None
         self.potential_grokking_events = []
 
-    def update(self, epoch: int, loss: float, accuracy: float,
-               gradient_norm: float, hierarchy: float) -> Dict:
+    def update(self, epoch: int, loss: float, accuracy: float, gradient_norm: float, hierarchy: float) -> dict:
         """Update detector with new metrics and analyze for grokking.
 
         Returns:
@@ -115,7 +110,7 @@ class GrokkingDetector:
             return analysis
 
         # Plateau detection
-        recent_losses = self.loss_history[-self.plateau_patience:]
+        recent_losses = self.loss_history[-self.plateau_patience :]
         if len(recent_losses) >= self.plateau_patience:
             loss_change = max(recent_losses) - min(recent_losses)
 
@@ -134,30 +129,32 @@ class GrokkingDetector:
 
                     # Check for accuracy jump
                     if len(self.accuracy_history) >= self.window_size:
-                        pre_plateau_acc = np.mean(self.accuracy_history[-self.window_size:-self.plateau_patience])
+                        pre_plateau_acc = np.mean(self.accuracy_history[-self.window_size : -self.plateau_patience])
                         current_acc = self.accuracy_history[-1]
                         acc_jump = current_acc - pre_plateau_acc
 
                         if acc_jump > self.accuracy_jump_threshold:
-                            self.potential_grokking_events.append({
-                                "epoch": epoch,
-                                "plateau_duration": analysis["plateau_duration"],
-                                "accuracy_jump": acc_jump,
-                                "loss_before": np.mean(recent_losses),
-                                "loss_after": loss,
-                            })
+                            self.potential_grokking_events.append(
+                                {
+                                    "epoch": epoch,
+                                    "plateau_duration": analysis["plateau_duration"],
+                                    "accuracy_jump": acc_jump,
+                                    "loss_before": np.mean(recent_losses),
+                                    "loss_after": loss,
+                                }
+                            )
 
                 self.in_plateau = False
                 self.plateau_start_epoch = None
 
         # Gradient regime change detection
         if len(self.gradient_norm_history) >= self.window_size:
-            recent_grad_norms = self.gradient_norm_history[-self.window_size:]
-            grad_std = np.std(recent_grad_norms)
+            recent_grad_norms = self.gradient_norm_history[-self.window_size :]
+            np.std(recent_grad_norms)
             grad_mean = np.mean(recent_grad_norms)
 
             if len(self.gradient_norm_history) > self.window_size:
-                prev_grad_norms = self.gradient_norm_history[-2*self.window_size:-self.window_size]
+                prev_grad_norms = self.gradient_norm_history[-2 * self.window_size : -self.window_size]
                 prev_grad_mean = np.mean(prev_grad_norms)
 
                 # Significant change in gradient regime
@@ -166,7 +163,7 @@ class GrokkingDetector:
 
         return analysis
 
-    def get_summary(self) -> Dict:
+    def get_summary(self) -> dict:
         """Get summary of detected grokking events."""
         return {
             "total_grokking_events": len(self.potential_grokking_events),
@@ -176,23 +173,19 @@ class GrokkingDetector:
         }
 
 
-def create_multi_phase_scheduler(optimizer, config: Dict):
+def create_multi_phase_scheduler(optimizer, config: dict):
     """Create multi-phase learning rate scheduler."""
     sched_config = config.get("training", {}).get("scheduler", {})
 
     if sched_config.get("type") != "multi_phase_cosine":
         # Fall back to standard scheduler
-        return torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-            optimizer, T_0=20, T_mult=2
-        )
+        return torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=20, T_mult=2)
 
     # For now, return standard scheduler - full multi-phase implementation would require custom scheduler
-    return torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer, T_0=25, T_mult=2
-    )
+    return torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=25, T_mult=2)
 
 
-def log_enhanced_metrics(writer: SummaryWriter, model, epoch: int, config: Dict):
+def log_enhanced_metrics(writer: SummaryWriter, model, epoch: int, config: dict):
     """Log enhanced metrics for grokking analysis."""
     enhanced_config = config.get("logging", {}).get("enhanced_metrics", {})
 
@@ -208,11 +201,11 @@ def log_enhanced_metrics(writer: SummaryWriter, model, epoch: int, config: Dict)
             if param.grad is not None:
                 grad_norm = param.grad.data.norm(2).item()
                 writer.add_scalar(f"Gradients/{name}_norm", grad_norm, epoch)
-                total_grad_norm += grad_norm ** 2
+                total_grad_norm += grad_norm**2
                 param_count += 1
 
         if param_count > 0:
-            total_grad_norm = (total_grad_norm ** 0.5)
+            total_grad_norm = total_grad_norm**0.5
             writer.add_scalar("Gradients/total_norm", total_grad_norm, epoch)
 
     # Weight norms
@@ -226,13 +219,13 @@ def log_enhanced_metrics(writer: SummaryWriter, model, epoch: int, config: Dict)
     if enhanced_config.get("effective_rank", False):
         try:
             # Get projection layer weights for effective rank analysis
-            if hasattr(model, 'projection'):
+            if hasattr(model, "projection"):
                 proj_weight = model.projection.layers[0].weight.data
                 U, S, V = torch.svd(proj_weight)
                 # Effective rank = (sum of singular values)^2 / (sum of squared singular values)
-                eff_rank = (S.sum() ** 2) / (S ** 2).sum()
+                eff_rank = (S.sum() ** 2) / (S**2).sum()
                 writer.add_scalar("Analysis/effective_rank", eff_rank.item(), epoch)
-        except Exception as e:
+        except Exception:
             # Skip if SVD fails
             pass
 
@@ -270,7 +263,7 @@ def main():
         print(f"ERROR: Config file not found: {config_path}")
         sys.exit(1)
 
-    with open(config_path, "r") as f:
+    with open(config_path) as f:
         config = yaml.safe_load(f)
 
     print(f"Loaded extended grokking config from: {config_path}")
@@ -292,9 +285,9 @@ def main():
     log_dir = RUNS_DIR / f"v5_12_4_grokking_{timestamp}"
     writer = SummaryWriter(log_dir=str(log_dir))
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("V5.12.4 EXTENDED TRAINING WITH GROKKING DETECTION")
-    print("="*80)
+    print("=" * 80)
     print(f"Target: {config['training']['epochs']} epochs (~4-8 hours)")
     print(f"Save dir: {save_dir}")
     print(f"Log dir: {log_dir}")
@@ -357,7 +350,7 @@ def main():
 
     # RichHierarchyLoss (Primary)
     rich_cfg = loss_cfg["rich_hierarchy"]
-    rich_hierarchy_loss = RichHierarchyLoss(
+    RichHierarchyLoss(
         hierarchy_weight=rich_cfg.get("hierarchy_weight", 5.0),
         coverage_weight=rich_cfg.get("coverage_weight", 1.0),
         richness_weight=rich_cfg.get("richness_weight", 2.5),
@@ -374,10 +367,14 @@ def main():
     ).to(device)
 
     geo_cfg = loss_cfg["geodesic"]
-    geodesic_loss_fn = PAdicGeodesicLoss(
-        curvature=geo_cfg.get("curvature", 1.0),
-        n_pairs=geo_cfg.get("n_pairs", 2000),
-    ).to(device) if geo_cfg.get("enabled", True) else None
+    geodesic_loss_fn = (
+        PAdicGeodesicLoss(
+            curvature=geo_cfg.get("curvature", 1.0),
+            n_pairs=geo_cfg.get("n_pairs", 2000),
+        ).to(device)
+        if geo_cfg.get("enabled", True)
+        else None
+    )
 
     # Create optimizer
     print("\n=== Creating Optimizer ===")
@@ -419,7 +416,7 @@ def main():
     print_every = train_cfg.get("print_every", 2)
 
     print(f"\nStarting extended training: {n_epochs} epochs")
-    print(f"Expected runtime: 4-8 hours (depending on hardware)")
+    print("Expected runtime: 4-8 hours (depending on hardware)")
 
     # Training loop
     training_start_time = time.time()
@@ -516,14 +513,12 @@ def main():
             for param in model.parameters():
                 if param.grad is not None:
                     total_grad_norm += param.grad.data.norm(2).item() ** 2
-            total_grad_norm = total_grad_norm ** 0.5
+            total_grad_norm = total_grad_norm**0.5
 
             # Grokking detection
             grokking_analysis = {}
             if grokking_detector is not None:
-                grokking_analysis = grokking_detector.update(
-                    epoch, avg_loss, coverage, total_grad_norm, hierarchy
-                )
+                grokking_analysis = grokking_detector.update(epoch, avg_loss, coverage, total_grad_norm, hierarchy)
 
             # Logging
             writer.add_scalar("Train/loss", avg_loss, epoch)
@@ -548,7 +543,7 @@ def main():
                 remaining_hours = (elapsed_hours / (epoch + 1)) * (n_epochs - epoch - 1)
 
                 print(f"\nEpoch {epoch}/{n_epochs} [{elapsed_hours:.1f}h elapsed, ~{remaining_hours:.1f}h remaining]")
-                print(f"  Loss: {avg_loss:.4f}, Coverage: {coverage*100:.1f}%, Hierarchy: {hierarchy:.3f}")
+                print(f"  Loss: {avg_loss:.4f}, Coverage: {coverage * 100:.1f}%, Hierarchy: {hierarchy:.3f}")
                 print(f"  Q: {Q:.3f}, GradNorm: {total_grad_norm:.3f}, LR: {optimizer.param_groups[0]['lr']:.1e}")
                 print(f"  Epoch time: {epoch_time:.1f}s")
 
@@ -556,64 +551,75 @@ def main():
                 if grokking_analysis.get("in_plateau"):
                     print(f"  [PLATEAU] Duration: {grokking_analysis.get('plateau_duration', 0)} epochs")
                 if grokking_analysis.get("potential_grokking"):
-                    print(f"  [GROKKING] Potential emergence detected!")
+                    print("  [GROKKING] Potential emergence detected!")
                 if grokking_analysis.get("phase_transition"):
-                    print(f"  [TRANSITION] Phase change detected")
+                    print("  [TRANSITION] Phase change detected")
 
             # Save best models
             composite_score = -hierarchy - 0.5 * avg_loss  # Higher is better
 
-            if Q > best_Q:
+            if best_Q < Q:
                 best_Q = Q
-                torch.save({
-                    "epoch": epoch,
-                    "model_state_dict": model.state_dict(),
-                    "optimizer_state_dict": optimizer.state_dict(),
-                    "Q": Q,
-                    "hierarchy": hierarchy,
-                    "coverage": coverage,
-                    "config": config,
-                    "grokking_summary": grokking_detector.get_summary() if grokking_detector else {},
-                }, save_dir / "best_Q.pt")
+                torch.save(
+                    {
+                        "epoch": epoch,
+                        "model_state_dict": model.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                        "Q": Q,
+                        "hierarchy": hierarchy,
+                        "coverage": coverage,
+                        "config": config,
+                        "grokking_summary": grokking_detector.get_summary() if grokking_detector else {},
+                    },
+                    save_dir / "best_Q.pt",
+                )
                 print(f"  [NEW BEST Q: {Q:.3f}]")
 
             if composite_score > best_composite:
                 best_composite = composite_score
-                torch.save({
-                    "epoch": epoch,
-                    "model_state_dict": model.state_dict(),
-                    "optimizer_state_dict": optimizer.state_dict(),
-                    "composite_score": composite_score,
-                    "config": config,
-                }, save_dir / "best.pt")
+                torch.save(
+                    {
+                        "epoch": epoch,
+                        "model_state_dict": model.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                        "composite_score": composite_score,
+                        "config": config,
+                    },
+                    save_dir / "best.pt",
+                )
 
         # Periodic checkpoint
         if epoch % 50 == 0:
-            torch.save({
-                "epoch": epoch,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "config": config,
-                "grokking_summary": grokking_detector.get_summary() if grokking_detector else {},
-            }, save_dir / f"epoch_{epoch}.pt")
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "config": config,
+                    "grokking_summary": grokking_detector.get_summary() if grokking_detector else {},
+                },
+                save_dir / f"epoch_{epoch}.pt",
+            )
 
     # Final summary
     total_time = time.time() - training_start_time
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("EXTENDED TRAINING COMPLETE")
-    print("="*80)
-    print(f"Total time: {total_time/3600:.1f} hours")
+    print("=" * 80)
+    print(f"Total time: {total_time / 3600:.1f} hours")
     print(f"Best Q: {best_Q:.3f}")
     print(f"Best composite: {best_composite:.3f}")
 
     # Grokking summary
     if grokking_detector:
         grokking_summary = grokking_detector.get_summary()
-        print(f"\nGROKKING ANALYSIS:")
+        print("\nGROKKING ANALYSIS:")
         print(f"  Total grokking events detected: {grokking_summary['total_grokking_events']}")
-        for i, event in enumerate(grokking_summary['grokking_events']):
-            print(f"  Event {i+1}: Epoch {event['epoch']}, plateau {event['plateau_duration']} epochs, "
-                  f"accuracy jump {event['accuracy_jump']:.3f}")
+        for i, event in enumerate(grokking_summary["grokking_events"]):
+            print(
+                f"  Event {i + 1}: Epoch {event['epoch']}, plateau {event['plateau_duration']} epochs, "
+                f"accuracy jump {event['accuracy_jump']:.3f}"
+            )
 
     # Save final summary
     summary = {

@@ -16,8 +16,7 @@ References:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
@@ -26,7 +25,6 @@ import torch.nn.functional as F
 from src.models.equivariant.layers import (
     EquivariantBlock,
     InvariantReadout,
-    RadialBasisFunctions,
 )
 
 
@@ -81,7 +79,7 @@ class SE3EquivariantEncoder(nn.Module):
 
     def __init__(
         self,
-        config: Optional[SE3Config] = None,
+        config: SE3Config | None = None,
         device: str = "cuda",
     ):
         """Initialize SE(3) encoder.
@@ -102,16 +100,18 @@ class SE3EquivariantEncoder(nn.Module):
         )
 
         # Equivariant message passing layers
-        self.layers = nn.ModuleList([
-            EquivariantBlock(
-                node_dim=self.config.node_dim,
-                hidden_dim=self.config.hidden_dim,
-                n_rbf=self.config.n_rbf,
-                cutoff=self.config.cutoff,
-                use_e3nn=self.config.use_e3nn,
-            )
-            for _ in range(self.config.n_layers)
-        ])
+        self.layers = nn.ModuleList(
+            [
+                EquivariantBlock(
+                    node_dim=self.config.node_dim,
+                    hidden_dim=self.config.hidden_dim,
+                    n_rbf=self.config.n_rbf,
+                    cutoff=self.config.cutoff,
+                    use_e3nn=self.config.use_e3nn,
+                )
+                for _ in range(self.config.n_layers)
+            ]
+        )
 
         # Invariant readout
         self.readout = InvariantReadout(
@@ -134,9 +134,9 @@ class SE3EquivariantEncoder(nn.Module):
     def forward(
         self,
         positions: torch.Tensor,
-        node_features: Optional[torch.Tensor] = None,
-        edge_index: Optional[torch.Tensor] = None,
-        batch: Optional[torch.Tensor] = None,
+        node_features: torch.Tensor | None = None,
+        edge_index: torch.Tensor | None = None,
+        batch: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Encode protein structure to embedding.
 
@@ -178,7 +178,7 @@ class SE3EquivariantEncoder(nn.Module):
     def _build_edges(
         self,
         positions: torch.Tensor,
-        batch: Optional[torch.Tensor] = None,
+        batch: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Build edge index based on distance cutoff.
 
@@ -248,11 +248,14 @@ class SE3EquivariantEncoder(nn.Module):
         norm_pos = (positions - centroid) / (dist_from_center.max() + 1e-8)
 
         # Combine features
-        features = torch.cat([
-            dist_from_center / (dist_from_center.max() + 1e-8),
-            local_density,
-            norm_pos,
-        ], dim=-1)
+        features = torch.cat(
+            [
+                dist_from_center / (dist_from_center.max() + 1e-8),
+                local_density,
+                norm_pos,
+            ],
+            dim=-1,
+        )
 
         # Pad to expected dimension
         n_features = features.shape[-1]
@@ -270,7 +273,7 @@ class SE3EquivariantEncoder(nn.Module):
         self,
         coords: torch.Tensor,
         residue_types: torch.Tensor,
-        atom_types: Optional[torch.Tensor] = None,
+        atom_types: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Encode protein from standard representation.
 
@@ -314,7 +317,7 @@ class SE3WithHyperbolic(nn.Module):
 
     def __init__(
         self,
-        se3_config: Optional[SE3Config] = None,
+        se3_config: SE3Config | None = None,
         hyperbolic_dim: int = 32,
         curvature: float = -1.0,
         device: str = "cuda",
@@ -344,7 +347,7 @@ class SE3WithHyperbolic(nn.Module):
     def forward(
         self,
         positions: torch.Tensor,
-        node_features: Optional[torch.Tensor] = None,
+        node_features: torch.Tensor | None = None,
         **kwargs,
     ) -> torch.Tensor:
         """Encode structure to hyperbolic space.
@@ -365,7 +368,7 @@ class SE3WithHyperbolic(nn.Module):
         # Map to Poincaré ball via exponential map
         c = abs(self.curvature)
         norm = pre_hyp.norm(dim=-1, keepdim=True).clamp(min=1e-8)
-        sqrt_c = c ** 0.5
+        sqrt_c = c**0.5
 
         hyperbolic = torch.tanh(sqrt_c * norm) * pre_hyp / (sqrt_c * norm)
 

@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from src.config.constants import N_TERNARY_OPERATIONS
 
@@ -41,7 +41,7 @@ class FileLogger:
 
     def __init__(
         self,
-        log_dir: Optional[str] = "logs",
+        log_dir: str | None = "logs",
         experiment_name: str = "experiment",
         log_to_file: bool = True,
     ):
@@ -53,7 +53,7 @@ class FileLogger:
             log_to_file: Whether to enable file logging
         """
         self.experiment_name = experiment_name
-        self.logger: Optional[logging.Logger] = None
+        self.logger: logging.Logger | None = None
 
         if log_to_file and log_dir:
             self.logger = self._setup_file_logging(log_dir, experiment_name)
@@ -132,17 +132,14 @@ class FileLogger:
         """
         if batch_idx % log_interval == 0 or batch_idx == total_batches - 1:
             progress = (batch_idx + 1) / total_batches * 100
-            self.log(
-                f"  [Epoch {epoch}] Batch {batch_idx+1}/{total_batches} "
-                f"({progress:.0f}%) | Loss: {loss:.4f}"
-            )
+            self.log(f"  [Epoch {epoch}] Batch {batch_idx + 1}/{total_batches} ({progress:.0f}%) | Loss: {loss:.4f}")
 
     def log_epoch(
         self,
         epoch: int,
         total_epochs: int,
-        train_losses: Dict[str, Any],
-        val_losses: Dict[str, Any],
+        train_losses: dict[str, Any],
+        val_losses: dict[str, Any],
         unique_A: int,
         cov_A: float,
         unique_B: int,
@@ -169,20 +166,9 @@ class FileLogger:
             grad_balance_achieved: Whether gradient balance is achieved
         """
         self.log(f"\nEpoch {epoch}/{total_epochs}")
-        self.log(
-            f"  Loss: Train={train_losses['loss']:.4f} "
-            f"Val={val_losses['loss']:.4f}"
-        )
-        self.log(
-            f"  VAE-A: CE={train_losses['ce_A']:.4f} "
-            f"KL={train_losses['kl_A']:.4f} "
-            f"H={train_losses['H_A']:.3f}"
-        )
-        self.log(
-            f"  VAE-B: CE={train_losses['ce_B']:.4f} "
-            f"KL={train_losses['kl_B']:.4f} "
-            f"H={train_losses['H_B']:.3f}"
-        )
+        self.log(f"  Loss: Train={train_losses['loss']:.4f} Val={val_losses['loss']:.4f}")
+        self.log(f"  VAE-A: CE={train_losses['ce_A']:.4f} KL={train_losses['kl_A']:.4f} H={train_losses['H_A']:.3f}")
+        self.log(f"  VAE-B: CE={train_losses['ce_B']:.4f} KL={train_losses['kl_B']:.4f} H={train_losses['H_B']:.3f}")
         self.log(
             f"  Weights: l1={train_losses['lambda1']:.3f} "
             f"l2={train_losses['lambda2']:.3f} "
@@ -193,10 +179,7 @@ class FileLogger:
             f"rho={train_losses['rho']:.3f} "
             f"(balance: {'Y' if grad_balance_achieved else 'N'})"
         )
-        self.log(
-            f"  Grad: ratio={train_losses['grad_ratio']:.3f} "
-            f"EMA_a={train_losses['ema_momentum']:.2f}"
-        )
+        self.log(f"  Grad: ratio={train_losses['grad_ratio']:.3f} EMA_a={train_losses['ema_momentum']:.2f}")
         self.log(
             f"  Temp: A={train_losses['temp_A']:.3f} "
             f"B={train_losses['temp_B']:.3f} | "
@@ -218,10 +201,7 @@ class FileLogger:
         else:
             self.log(f"  LR: {train_losses['lr_scheduled']:.6f}")
 
-        self.log(
-            f"  Coverage: A={unique_A} ({cov_A:.2f}%) | "
-            f"B={unique_B} ({cov_B:.2f}%)"
-        )
+        self.log(f"  Coverage: A={unique_A} ({cov_A:.2f}%) | B={unique_B} ({cov_B:.2f}%)")
 
         # p-Adic losses
         self._log_padic_losses(train_losses)
@@ -229,7 +209,7 @@ class FileLogger:
         if is_best:
             self.log(f"  Best val loss: {best_val_loss:.4f}")
 
-    def _log_padic_losses(self, train_losses: Dict[str, Any]) -> None:
+    def _log_padic_losses(self, train_losses: dict[str, Any]) -> None:
         """Log p-adic loss components.
 
         Args:
@@ -247,22 +227,14 @@ class FileLogger:
         parts = []
         if train_losses.get("padic_metric_A", 0) > 0:
             parts.append(
-                f"metric="
-                f"{train_losses.get('padic_metric_A', 0):.4f}/"
-                f"{train_losses.get('padic_metric_B', 0):.4f}"
+                f"metric={train_losses.get('padic_metric_A', 0):.4f}/{train_losses.get('padic_metric_B', 0):.4f}"
             )
         if train_losses.get("padic_ranking_A", 0) > 0:
             parts.append(
-                f"rank="
-                f"{train_losses.get('padic_ranking_A', 0):.4f}/"
-                f"{train_losses.get('padic_ranking_B', 0):.4f}"
+                f"rank={train_losses.get('padic_ranking_A', 0):.4f}/{train_losses.get('padic_ranking_B', 0):.4f}"
             )
         if train_losses.get("padic_norm_A", 0) > 0:
-            parts.append(
-                f"norm="
-                f"{train_losses.get('padic_norm_A', 0):.4f}/"
-                f"{train_losses.get('padic_norm_B', 0):.4f}"
-            )
+            parts.append(f"norm={train_losses.get('padic_norm_A', 0):.4f}/{train_losses.get('padic_norm_B', 0):.4f}")
         self.log(f"  p-Adic: {' '.join(parts)}")
 
     def log_epoch_summary(
@@ -287,7 +259,7 @@ class FileLogger:
         hyp_kl_B: float = 0.0,
         centroid_loss: float = 0.0,
         radial_loss: float = 0.0,
-        homeostatic_metrics: Optional[Dict[str, float]] = None,
+        homeostatic_metrics: dict[str, float] | None = None,
     ) -> None:
         """Log comprehensive epoch summary (v5.10 hyperbolic).
 
@@ -319,10 +291,7 @@ class FileLogger:
 
         self.log(f"\nEpoch {epoch}/{total_epochs}")
         self.log(f"  Loss: {loss:.4f} | Ranking Weight: {ranking_weight:.3f}")
-        self.log(
-            f"  Coverage [{cov_status}]: A={cov_A:.1f}% B={cov_B:.1f}% "
-            f"(best={best_coverage:.1f}%)"
-        )
+        self.log(f"  Coverage [{cov_status}]: A={cov_A:.1f}% B={cov_B:.1f}% (best={best_coverage:.1f}%)")
         self.log(
             f"  3-Adic Correlation [{corr_status}] (Hyp): "
             f"A={corr_A_hyp:.3f} B={corr_B_hyp:.3f} "
@@ -330,10 +299,7 @@ class FileLogger:
         )
 
         if correlation_evaluated:
-            self.log(
-                f"  3-Adic Correlation (Euclidean): "
-                f"A={corr_A_euc:.3f} B={corr_B_euc:.3f}"
-            )
+            self.log(f"  3-Adic Correlation (Euclidean): A={corr_A_euc:.3f} B={corr_B_euc:.3f}")
 
         self.log(f"  Mean Radius: A={mean_radius_A:.3f} B={mean_radius_B:.3f}")
 
@@ -379,9 +345,9 @@ class FileLogger:
             coverage_A_history: VAE-A coverage history
             coverage_B_history: VAE-B coverage history
         """
-        self.log(f"\n{'='*80}")
+        self.log(f"\n{'=' * 80}")
         self.log("Training Complete")
-        self.log(f"{'='*80}")
+        self.log(f"{'=' * 80}")
         self.log(f"Best val loss: {best_val_loss:.4f}")
         self.log(f"Best hyperbolic correlation: {best_corr_hyp:.4f}")
         self.log(f"Best Euclidean correlation: {best_corr_euc:.4f}")
@@ -390,14 +356,8 @@ class FileLogger:
         if coverage_A_history:
             final_cov_A = coverage_A_history[-1]
             final_cov_B = coverage_B_history[-1]
-            self.log(
-                f"Final Coverage: A={final_cov_A} "
-                f"({final_cov_A/N_TERNARY_OPERATIONS*100:.2f}%)"
-            )
-            self.log(
-                f"                B={final_cov_B} "
-                f"({final_cov_B/N_TERNARY_OPERATIONS*100:.2f}%)"
-            )
+            self.log(f"Final Coverage: A={final_cov_A} ({final_cov_A / N_TERNARY_OPERATIONS * 100:.2f}%)")
+            self.log(f"                B={final_cov_B} ({final_cov_B / N_TERNARY_OPERATIONS * 100:.2f}%)")
 
         self.log("Target: r > 0.99, coverage > 99.7%")
 

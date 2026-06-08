@@ -23,18 +23,11 @@ Note:
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
 from typing import (
     Any,
-    Callable,
-    Dict,
     Generic,
-    Iterator,
-    List,
-    Mapping,
-    Optional,
     Protocol,
-    Sequence,
-    Tuple,
     TypeVar,
     Union,
     runtime_checkable,
@@ -42,7 +35,6 @@ from typing import (
 
 import numpy as np
 import torch
-
 
 # ============================================================================
 # Basic Type Aliases
@@ -55,10 +47,10 @@ TensorOrArray = Union[Tensor, Array]
 
 # Numeric types
 Number = Union[int, float]
-NumberSequence = Union[List[Number], Tuple[Number, ...], Array, Tensor]
+NumberSequence = Union[list[Number], tuple[Number, ...], Array, Tensor]
 
 # Shape types
-Shape = Tuple[int, ...]
+Shape = tuple[int, ...]
 DType = Union[torch.dtype, np.dtype]
 
 # Device type
@@ -73,13 +65,13 @@ Device = Union[str, torch.device]
 PAdicIndex = int
 
 # P-adic digits (list of remainders mod p)
-PAdicDigits = List[int]
+PAdicDigits = list[int]
 
 # Valuation type (int for finite, float('inf') for infinite)
 ValuationType = Union[int, float]
 
 # P-adic expansion (valuation and digits)
-PAdicExpansion = Tuple[ValuationType, PAdicDigits]
+PAdicExpansion = tuple[ValuationType, PAdicDigits]
 
 
 # ============================================================================
@@ -110,10 +102,10 @@ MetricTensor = Tensor
 LossValue = Union[float, Tensor]
 
 # Loss dictionary (named losses)
-LossDict = Dict[str, LossValue]
+LossDict = dict[str, LossValue]
 
 # Metrics dictionary
-MetricsDict = Dict[str, float]
+MetricsDict = dict[str, float]
 
 # Learning rate schedule function
 LRSchedule = Callable[[int], float]
@@ -141,10 +133,10 @@ ActivationFn = Callable[[Tensor], Tensor]
 # ============================================================================
 
 # Batch of data (input, target)
-Batch = Tuple[Tensor, Tensor]
+Batch = tuple[Tensor, Tensor]
 
 # Named batch with metadata
-NamedBatch = Dict[str, Tensor]
+NamedBatch = dict[str, Tensor]
 
 # Data loader iterator
 DataIterator = Iterator[Batch]
@@ -212,7 +204,7 @@ class Decoder(Protocol):
 class VAELike(Protocol):
     """Protocol for VAE-like models."""
 
-    def encode(self, x: Tensor) -> Tuple[Tensor, Tensor]:
+    def encode(self, x: Tensor) -> tuple[Tensor, Tensor]:
         """Encode to mean and log variance."""
         ...
 
@@ -251,11 +243,11 @@ class Sampler(Protocol):
 class TaskSampler(Protocol):
     """Protocol for meta-learning task samplers."""
 
-    def sample_task(self) -> "Task":
+    def sample_task(self) -> Task:
         """Sample a single task."""
         ...
 
-    def sample_batch(self, n_tasks: int) -> List["Task"]:
+    def sample_batch(self, n_tasks: int) -> list[Task]:
         """Sample a batch of tasks."""
         ...
 
@@ -292,17 +284,17 @@ class Result(Generic[T]):
                 return Result.error(str(e))
     """
 
-    def __init__(self, value: Optional[T], error: Optional[str] = None):
+    def __init__(self, value: T | None, error: str | None = None):
         self._value = value
         self._error = error
 
     @classmethod
-    def ok(cls, value: T) -> "Result[T]":
+    def ok(cls, value: T) -> Result[T]:
         """Create successful result."""
         return cls(value, None)
 
     @classmethod
-    def error(cls, message: str) -> "Result[T]":
+    def error(cls, message: str) -> Result[T]:
         """Create error result."""
         return cls(None, message)
 
@@ -329,7 +321,7 @@ class Result(Generic[T]):
         return self._value  # type: ignore
 
     @property
-    def error_message(self) -> Optional[str]:
+    def error_message(self) -> str | None:
         """Get error message if any."""
         return self._error
 
@@ -356,8 +348,8 @@ def is_numeric(obj: Any) -> bool:
 
 def ensure_tensor(
     obj: TensorOrArray,
-    device: Optional[Device] = None,
-    dtype: Optional[torch.dtype] = None,
+    device: Device | None = None,
+    dtype: torch.dtype | None = None,
 ) -> Tensor:
     """Convert to PyTorch tensor if needed."""
     if isinstance(obj, np.ndarray):

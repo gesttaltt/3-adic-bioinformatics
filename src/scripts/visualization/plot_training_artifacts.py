@@ -61,6 +61,7 @@ def plot_benchmark_summary(output_path):
     for bar, val in zip(
         bars,
         [coverage["vae_a_mean_coverage"], coverage["vae_b_mean_coverage"]],
+        strict=False,
     ):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
@@ -89,7 +90,7 @@ def plot_benchmark_summary(output_path):
     ax.set_ylabel("Latent Entropy (nats)")
     ax.set_title("Latent Space Utilization")
     ax.legend()
-    for bar, val in zip(bars, [entropy["entropy_A"], entropy["entropy_B"]]):
+    for bar, val in zip(bars, [entropy["entropy_A"], entropy["entropy_B"]], strict=False):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height() + 0.05,
@@ -109,7 +110,7 @@ def plot_benchmark_summary(output_path):
     bars = ax.bar(["VAE-A", "VAE-B"], speeds, color=["#3498db", "#e74c3c"], alpha=0.8)
     ax.set_ylabel("Million Samples/sec")
     ax.set_title("Inference Throughput")
-    for bar, val in zip(bars, speeds):
+    for bar, val in zip(bars, speeds, strict=False):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height() + 0.1,
@@ -135,7 +136,7 @@ def plot_benchmark_summary(output_path):
     )
     ax.set_ylabel("Memory (MB)")
     ax.set_title("GPU Memory Usage")
-    for bar, val in zip(bars, mem_vals):
+    for bar, val in zip(bars, mem_vals, strict=False):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height() + 0.2,
@@ -166,21 +167,21 @@ def plot_benchmark_summary(output_path):
     ══════════════════════════════════════
 
     Coverage (195K samples, 5 trials):
-      VAE-A: {coverage['vae_a_mean_coverage']:.2f}% ± {coverage['vae_a_std_coverage']:.3f}%
-      VAE-B: {coverage['vae_b_mean_coverage']:.2f}% ± {coverage['vae_b_std_coverage']:.3f}%
+      VAE-A: {coverage["vae_a_mean_coverage"]:.2f}% ± {coverage["vae_a_std_coverage"]:.3f}%
+      VAE-B: {coverage["vae_b_mean_coverage"]:.2f}% ± {coverage["vae_b_std_coverage"]:.3f}%
 
     Entropy:
-      VAE-A: {entropy['entropy_A']:.4f} nats
-      VAE-B: {entropy['entropy_B']:.4f} nats
-      Diff:  {entropy['entropy_diff']:.4f} nats
+      VAE-A: {entropy["entropy_A"]:.4f} nats
+      VAE-B: {entropy["entropy_B"]:.4f} nats
+      Diff:  {entropy["entropy_diff"]:.4f} nats
 
     Inference (10K samples, 10 trials):
-      VAE-A: {inference['vae_a_samples_per_sec']/1e6:.2f}M samples/sec
-      VAE-B: {inference['vae_b_samples_per_sec']/1e6:.2f}M samples/sec
+      VAE-A: {inference["vae_a_samples_per_sec"] / 1e6:.2f}M samples/sec
+      VAE-B: {inference["vae_b_samples_per_sec"] / 1e6:.2f}M samples/sec
 
     Memory:
-      Overhead: {memory['overhead_gb']*1000:.1f} MB
-      Peak: {memory['peak_gb']*1000:.1f} MB
+      Overhead: {memory["overhead_gb"] * 1000:.1f} MB
+      Peak: {memory["peak_gb"] * 1000:.1f} MB
     """
     ax.text(
         0.1,
@@ -210,9 +211,9 @@ def plot_manifold_resolution(output_path):
     ax = fig.add_subplot(gs[0, 0])
     hist_A = data["vae_a"]["reconstruction"]["error_histogram"]
     hist_B = data["vae_b"]["reconstruction"]["error_histogram"]
-    x_A = [int(k) for k in hist_A.keys()]
+    x_A = [int(k) for k in hist_A]
     y_A = list(hist_A.values())
-    x_B = [int(k) for k in hist_B.keys()]
+    x_B = [int(k) for k in hist_B]
     y_B = list(hist_B.values())
     width = 0.35
     ax.bar(
@@ -403,21 +404,21 @@ def plot_manifold_resolution(output_path):
     MANIFOLD RESOLUTION SUMMARY
     ════════════════════════════
 
-    Model: {data['model_info']['total_params']:,} params
-    Latent: {data['model_info']['latent_dim']} dims
-    Operations: {data['model_info']['n_operations']:,}
+    Model: {data["model_info"]["total_params"]:,} params
+    Latent: {data["model_info"]["latent_dim"]} dims
+    Operations: {data["model_info"]["n_operations"]:,}
 
     VAE-A (Chaotic):
-      Exact match: {data['vae_a']['reconstruction']['exact_match_rate']*100:.1f}%
-      Effective dims: {dim_A['effective_dim']:.1f}
-      Resolution: {scores_A['overall']:.3f}
+      Exact match: {data["vae_a"]["reconstruction"]["exact_match_rate"] * 100:.1f}%
+      Effective dims: {dim_A["effective_dim"]:.1f}
+      Resolution: {scores_A["overall"]:.3f}
 
     VAE-B (Frozen):
-      Exact match: {data['vae_b']['reconstruction']['exact_match_rate']*100:.1f}%
-      Effective dims: {dim_B['effective_dim']:.1f}
-      Resolution: {scores_B['overall']:.3f}
+      Exact match: {data["vae_b"]["reconstruction"]["exact_match_rate"] * 100:.1f}%
+      Effective dims: {dim_B["effective_dim"]:.1f}
+      Resolution: {scores_B["overall"]:.3f}
 
-    Combined Resolution: {data['resolution_score']['combined']:.3f}
+    Combined Resolution: {data["resolution_score"]["combined"]:.3f}
 
     Note: VAE-B latent space is {ratio:.0f}x larger
     than VAE-A (57 vs 5 mean norm)
@@ -469,11 +470,11 @@ def plot_coupled_system(output_path):
     ax.set_ylabel("Exact Match Rate")
     ax.set_title("Ensemble Reconstruction\n(All ensemble strategies reach 100%)")
     ax.set_ylim(0, 1.1)
-    for bar, val in zip(bars, values):
+    for bar, val in zip(bars, values, strict=False):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height() + 0.02,
-            f"{val*100:.0f}%",
+            f"{val * 100:.0f}%",
             ha="center",
             va="bottom",
             fontsize=9,
@@ -494,7 +495,7 @@ def plot_coupled_system(output_path):
     bars = ax.bar(rhos, coverages, color=colors, alpha=0.8)
     ax.set_ylabel("Coverage (%)")
     ax.set_title("Cross-Injection Sampling Coverage\n(Higher ρ = more mixing)")
-    for bar, val in zip(bars, coverages):
+    for bar, val in zip(bars, coverages, strict=False):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height() + 0.5,
@@ -550,19 +551,19 @@ def plot_coupled_system(output_path):
         coupling["mean_distance"],
         color="red",
         linestyle="--",
-        label=f'Mean: {coupling["mean_distance"]:.1f}',
+        label=f"Mean: {coupling['mean_distance']:.1f}",
     )
     ax.axvline(
         coupling["min_distance"],
         color="green",
         linestyle=":",
-        label=f'Min: {coupling["min_distance"]:.1f}',
+        label=f"Min: {coupling['min_distance']:.1f}",
     )
     ax.axvline(
         coupling["max_distance"],
         color="orange",
         linestyle=":",
-        label=f'Max: {coupling["max_distance"]:.1f}',
+        label=f"Max: {coupling['max_distance']:.1f}",
     )
     ax.set_xlabel("Inter-VAE Latent Distance")
     ax.set_ylabel("Count")
@@ -588,7 +589,7 @@ def plot_coupled_system(output_path):
     ax.set_xlabel("Score")
     ax.set_title("System Resolution Breakdown")
     ax.set_xlim(0, 1.1)
-    for bar, val in zip(bars, values):
+    for bar, val in zip(bars, values, strict=False):
         ax.text(
             val + 0.02,
             bar.get_y() + bar.get_height() / 2,

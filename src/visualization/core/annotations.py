@@ -13,7 +13,8 @@ significance brackets, and other common figure annotations.
 
 from __future__ import annotations
 
-from typing import Literal, Sequence
+from collections.abc import Sequence
+from typing import Literal
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -497,7 +498,7 @@ def add_colorbar_annotation(
         labels: Labels for each position
         fontsize: Font size
     """
-    for pos, label in zip(positions, labels):
+    for pos, label in zip(positions, labels, strict=False):
         cbar.ax.text(
             1.1,
             pos,

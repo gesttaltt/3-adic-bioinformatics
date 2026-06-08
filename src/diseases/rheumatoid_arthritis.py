@@ -178,10 +178,7 @@ class CitrullinationPredictor(nn.Module):
         )
 
         # PAD enzyme specificity heads
-        self.pad_heads = nn.ModuleDict({
-            pad.value: nn.Linear(hidden_dim // 2, 1)
-            for pad in PADEnzyme
-        })
+        self.pad_heads = nn.ModuleDict({pad.value: nn.Linear(hidden_dim // 2, 1) for pad in PADEnzyme})
 
     def encode_sequence(self, sequence: str) -> torch.Tensor:
         """Encode amino acid sequence.
@@ -214,9 +211,7 @@ class CitrullinationPredictor(nn.Module):
             Dictionary with predictions
         """
         # Encode sequences
-        encoded = torch.stack([
-            self.encode_sequence(seq) for seq in context_sequences
-        ])
+        encoded = torch.stack([self.encode_sequence(seq) for seq in context_sequences])
 
         # Embed
         embedded = self.aa_embedding(encoded)  # (batch, context, embed_dim)
@@ -232,16 +227,12 @@ class CitrullinationPredictor(nn.Module):
 
         # Predict PAD-specific propensity if requested
         if pad_enzyme is not None:
-            pad_specific = torch.sigmoid(
-                self.pad_heads[pad_enzyme.value](context_features)
-            )
+            pad_specific = torch.sigmoid(self.pad_heads[pad_enzyme.value](context_features))
             result["pad_specific"] = pad_specific.squeeze(-1)
         else:
             # Predict for all PAD enzymes
             for pad in PADEnzyme:
-                pad_score = torch.sigmoid(
-                    self.pad_heads[pad.value](context_features)
-                )
+                pad_score = torch.sigmoid(self.pad_heads[pad.value](context_features))
                 result[f"pad_{pad.value.lower()}"] = pad_score.squeeze(-1)
 
         return result
@@ -305,7 +296,7 @@ class PAdicCitrullinationShift(nn.Module):
         seq = sequence.upper()
         i = 0
         while i < len(seq):
-            if seq[i:i+3] == "CIT":
+            if seq[i : i + 3] == "CIT":
                 indices.append(20)  # Citrulline
                 i += 3
             else:
@@ -337,7 +328,7 @@ class PAdicCitrullinationShift(nn.Module):
         # Pad sequences
         native_padded = torch.zeros(batch_size, max_len, dtype=torch.long)
         for i, seq in enumerate(native_encoded):
-            native_padded[i, :len(seq)] = seq
+            native_padded[i, : len(seq)] = seq
 
         native_emb = self.aa_embedding(native_padded)
         native_out, _ = self.encoder(native_emb)
@@ -347,7 +338,7 @@ class PAdicCitrullinationShift(nn.Module):
         cit_encoded = [self.encode_sequence(s) for s in citrullinated_sequences]
         cit_padded = torch.zeros(batch_size, max_len, dtype=torch.long)
         for i, seq in enumerate(cit_encoded):
-            cit_padded[i, :len(seq)] = seq
+            cit_padded[i, : len(seq)] = seq
 
         cit_emb = self.aa_embedding(cit_padded)
         cit_out, _ = self.encoder(cit_emb)
@@ -433,7 +424,7 @@ class GoldilocksZoneDetector(nn.Module):
 
         # Gaussian-like scoring centered on zone
         distance_to_center = torch.abs(padic_distance - zone_center)
-        risk = torch.exp(-distance_to_center ** 2 / (2 * (zone_width / 2) ** 2))
+        risk = torch.exp(-(distance_to_center**2) / (2 * (zone_width / 2) ** 2))
 
         return risk
 
@@ -582,20 +573,19 @@ class RheumatoidArthritisAnalyzer:
             in_zone = self.goldilocks.zone_min <= padic_dist <= self.goldilocks.zone_max
 
             # Check if known ACPA target
-            known_target = any(
-                protein_name.lower() in target_protein.lower()
-                for target_protein in KNOWN_ACPA_TARGETS.keys()
-            )
+            known_target = any(protein_name.lower() in target_protein.lower() for target_protein in KNOWN_ACPA_TARGETS)
 
-            sites.append(CitrullinationSite(
-                protein_name=protein_name,
-                position=pos,
-                sequence_context=context,
-                padic_distance_to_self=padic_dist,
-                immunogenicity_score=propensity * (1 if in_zone else 0.5),
-                in_goldilocks_zone=in_zone,
-                known_acpa_target=known_target,
-            ))
+            sites.append(
+                CitrullinationSite(
+                    protein_name=protein_name,
+                    position=pos,
+                    sequence_context=context,
+                    padic_distance_to_self=padic_dist,
+                    immunogenicity_score=propensity * (1 if in_zone else 0.5),
+                    in_goldilocks_zone=in_zone,
+                    known_acpa_target=known_target,
+                )
+            )
 
         return sites
 
@@ -651,14 +641,10 @@ class RheumatoidArthritisAnalyzer:
             RARiskProfile object
         """
         # Genetic risk
-        genetic_risk, contributing = self.compute_genetic_risk(
-            hla_alleles, padi4_haplotype
-        )
+        genetic_risk, contributing = self.compute_genetic_risk(hla_alleles, padi4_haplotype)
 
         # Check for shared epitope
-        shared_epitope = any(
-            allele in RA_RISK_HLA_ALLELES for allele in hla_alleles
-        )
+        shared_epitope = any(allele in RA_RISK_HLA_ALLELES for allele in hla_alleles)
 
         # Environmental risk
         env_risk = 1.0

@@ -54,8 +54,8 @@ class EnvironmentStatus:
     python_version: str = ""
 
     # Issues
-    warnings: List[str] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
     @property
     def is_valid(self) -> bool:
@@ -91,7 +91,7 @@ class EnvironmentStatus:
 
 
 def validate_environment(
-    config: Union[dict[str, Any], Any],
+    config: dict[str, Any] | Any,
     monitor: Optional["TrainingMonitor"] = None,
     strict: bool = False,
 ) -> EnvironmentStatus:
@@ -217,7 +217,9 @@ def validate_environment(
     return status
 
 
-def require_valid_environment(config: Union[dict[str, Any], Any], monitor: Optional["TrainingMonitor"] = None) -> EnvironmentStatus:
+def require_valid_environment(
+    config: dict[str, Any] | Any, monitor: Optional["TrainingMonitor"] = None
+) -> EnvironmentStatus:
     """Validate environment and raise if invalid.
 
     Convenience wrapper that raises ConfigValidationError if

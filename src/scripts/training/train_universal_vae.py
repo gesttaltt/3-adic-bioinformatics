@@ -13,7 +13,6 @@ from pathlib import Path
 
 import torch
 import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
 
 # Add project root to path
 project_root = Path(__file__).resolve().parents[2]
@@ -53,7 +52,7 @@ def train_universal_vae(
     else:
         print("I: Encoder Frozen - Training Projection only.")
 
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    optim.Adam(model.parameters(), lr=lr)
 
     print("I: Training loop simulation (Infrastructure Test)...")
     # For robust verification, we simulate a training step

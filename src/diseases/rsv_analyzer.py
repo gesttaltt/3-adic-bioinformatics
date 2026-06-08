@@ -37,7 +37,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -56,18 +56,18 @@ class RSVSubtype(Enum):
 class RSVGene(Enum):
     """RSV genes."""
 
-    F = "F"    # Fusion protein - mAb target
-    G = "G"    # Attachment glycoprotein
-    N = "N"    # Nucleoprotein
-    L = "L"    # Polymerase
+    F = "F"  # Fusion protein - mAb target
+    G = "G"  # Attachment glycoprotein
+    N = "N"  # Nucleoprotein
+    L = "L"  # Polymerase
 
 
 class RSVDrug(Enum):
     """RSV therapeutics."""
 
     # Monoclonal antibodies
-    NIRSEVIMAB = "nirsevimab"      # Beyfortus
-    PALIVIZUMAB = "palivizumab"    # Synagis
+    NIRSEVIMAB = "nirsevimab"  # Beyfortus
+    PALIVIZUMAB = "palivizumab"  # Synagis
 
     # Fusion inhibitors
     PRESATOVIR = "presatovir"
@@ -81,16 +81,20 @@ class RSVConfig(DiseaseConfig):
     name: str = "rsv"
     display_name: str = "Respiratory Syncytial Virus"
     disease_type: DiseaseType = DiseaseType.VIRAL
-    tasks: list[TaskType] = field(default_factory=lambda: [
-        TaskType.RESISTANCE,
-        TaskType.ESCAPE,
-    ])
+    tasks: list[TaskType] = field(
+        default_factory=lambda: [
+            TaskType.RESISTANCE,
+            TaskType.ESCAPE,
+        ]
+    )
 
-    data_sources: dict[str, str] = field(default_factory=lambda: {
-        "gisaid": "https://gisaid.org/",
-        "ncbi_rsv": "https://www.ncbi.nlm.nih.gov/labs/virus/",
-        "cdc_rsv": "https://www.cdc.gov/rsv/",
-    })
+    data_sources: dict[str, str] = field(
+        default_factory=lambda: {
+            "gisaid": "https://gisaid.org/",
+            "ncbi_rsv": "https://www.ncbi.nlm.nih.gov/labs/virus/",
+            "cdc_rsv": "https://www.cdc.gov/rsv/",
+        }
+    )
 
 
 # F protein antigenic site mutations
@@ -136,7 +140,7 @@ class RSVAnalyzer(DiseaseAnalyzer):
     - Antigenic site analysis
     """
 
-    def __init__(self, config: Optional[RSVConfig] = None):
+    def __init__(self, config: RSVConfig | None = None):
         """Initialize analyzer."""
         self.config = config or RSVConfig()
         super().__init__(self.config)
@@ -148,7 +152,7 @@ class RSVAnalyzer(DiseaseAnalyzer):
         self,
         sequences: dict[RSVGene, list[str]],
         subtype: RSVSubtype = RSVSubtype.RSV_A,
-        embeddings: Optional[torch.Tensor] = None,
+        embeddings: torch.Tensor | None = None,
         **kwargs,
     ) -> dict[str, Any]:
         """Analyze RSV sequences.
@@ -164,7 +168,7 @@ class RSVAnalyzer(DiseaseAnalyzer):
         results = {
             "n_sequences": len(next(iter(sequences.values()))) if sequences else 0,
             "subtype": subtype.value,
-            "genes_analyzed": [g.value for g in sequences.keys()],
+            "genes_analyzed": [g.value for g in sequences],
             "drug_resistance": {},
             "mab_escape": {},
         }
@@ -173,23 +177,17 @@ class RSVAnalyzer(DiseaseAnalyzer):
         if RSVGene.F in sequences:
             # Nirsevimab escape
             results["mab_escape"]["nirsevimab"] = self._analyze_f_site(
-                sequences[RSVGene.F],
-                F_SITE_0_MUTATIONS,
-                "nirsevimab"
+                sequences[RSVGene.F], F_SITE_0_MUTATIONS, "nirsevimab"
             )
 
             # Palivizumab escape
             results["mab_escape"]["palivizumab"] = self._analyze_f_site(
-                sequences[RSVGene.F],
-                F_SITE_II_MUTATIONS,
-                "palivizumab"
+                sequences[RSVGene.F], F_SITE_II_MUTATIONS, "palivizumab"
             )
 
             # Fusion inhibitor resistance
             results["drug_resistance"]["fusion_inhibitors"] = self._analyze_f_site(
-                sequences[RSVGene.F],
-                F_FUSION_RESISTANCE,
-                "fusion_inhibitor"
+                sequences[RSVGene.F], F_FUSION_RESISTANCE, "fusion_inhibitor"
             )
 
         return results
@@ -224,13 +222,15 @@ class RSVAnalyzer(DiseaseAnalyzer):
                     effect_scores = {"high": 1.0, "moderate": 0.5, "low": 0.2}
                     score += effect_scores.get(effect, 0.3)
 
-                    mutations.append({
-                        "position": pos,
-                        "ref": ref_aa,
-                        "alt": seq_aa,
-                        "effect": effect,
-                        "notation": f"F:{ref_aa}{pos}{seq_aa}",
-                    })
+                    mutations.append(
+                        {
+                            "position": pos,
+                            "ref": ref_aa,
+                            "alt": seq_aa,
+                            "effect": effect,
+                            "notation": f"F:{ref_aa}{pos}{seq_aa}",
+                        }
+                    )
 
             normalized = min(score / 2.0, 1.0)
             results["scores"].append(normalized)
@@ -263,10 +263,7 @@ class RSVAnalyzer(DiseaseAnalyzer):
         """
         predictions = []
 
-        if mab == RSVDrug.NIRSEVIMAB:
-            mutation_db = F_SITE_0_MUTATIONS
-        else:
-            mutation_db = F_SITE_II_MUTATIONS
+        mutation_db = F_SITE_0_MUTATIONS if mab == RSVDrug.NIRSEVIMAB else F_SITE_II_MUTATIONS
 
         for i, seq in enumerate(f_sequences):
             total_impact = 0.0
@@ -285,15 +282,17 @@ class RSVAnalyzer(DiseaseAnalyzer):
 
             efficacy = max(0, 1.0 - total_impact)
 
-            predictions.append({
-                "sequence_index": i,
-                "mab": mab.value,
-                "predicted_efficacy": efficacy,
-                "escape_mutations": escape_mutations,
-                "recommendation": "effective" if efficacy > 0.7 else (
-                    "reduced_efficacy" if efficacy > 0.3 else "likely_ineffective"
-                ),
-            })
+            predictions.append(
+                {
+                    "sequence_index": i,
+                    "mab": mab.value,
+                    "predicted_efficacy": efficacy,
+                    "escape_mutations": escape_mutations,
+                    "recommendation": "effective"
+                    if efficacy > 0.7
+                    else ("reduced_efficacy" if efficacy > 0.3 else "likely_ineffective"),
+                }
+            )
 
         return predictions
 

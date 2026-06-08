@@ -39,11 +39,10 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 
 
 @dataclass
@@ -76,7 +75,7 @@ class ExperimentConfig:
     early_stopping_min_delta: float = 0.001
 
     # Model architecture
-    hidden_dims: Optional[List[int]] = None  # None = default [64, 32]
+    hidden_dims: list[int] | None = None  # None = default [64, 32]
     latent_dim: int = 16
 
     # Curriculum settings (if enabled)
@@ -93,7 +92,7 @@ class ExperimentConfig:
     radial_outer: float = 0.85
     radial_weight: float = 0.3
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {k: v for k, v in self.__dict__.items()}
 
@@ -124,9 +123,9 @@ class ExperimentResult:
     total_epochs_run: int = 0
     # Status
     completed: bool = False
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "name": self.name,
@@ -151,7 +150,7 @@ class ExperimentResult:
 
 
 # Define all experiments
-EXPERIMENTS: Dict[str, ExperimentConfig] = {
+EXPERIMENTS: dict[str, ExperimentConfig] = {
     # Baseline (v5.5 equivalent - no new features)
     "baseline": ExperimentConfig(
         name="baseline",
@@ -503,8 +502,8 @@ def run_single_experiment(config: ExperimentConfig) -> ExperimentResult:
 
 
 def run_experiments_parallel(
-    experiment_names: List[str], max_workers: Optional[int] = None
-) -> Dict[str, ExperimentResult]:
+    experiment_names: list[str], max_workers: int | None = None
+) -> dict[str, ExperimentResult]:
     """Run multiple experiments in parallel."""
     if max_workers is None:
         # Use half of available CPUs to leave room for GPU work
@@ -512,19 +511,16 @@ def run_experiments_parallel(
 
     configs = [EXPERIMENTS[name] for name in experiment_names]
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Running {len(configs)} experiments in parallel")
     print(f"Max workers: {max_workers}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     results = {}
 
     with mp.Pool(processes=max_workers) as pool:
         # Submit all experiments
-        async_results = {
-            config.name: pool.apply_async(run_single_experiment, (config,))
-            for config in configs
-        }
+        async_results = {config.name: pool.apply_async(run_single_experiment, (config,)) for config in configs}
 
         # Collect results with progress
         for name, async_result in async_results.items():
@@ -537,11 +533,11 @@ def run_experiments_parallel(
     return results
 
 
-def run_experiments_sequential(experiment_names: List[str]) -> Dict[str, ExperimentResult]:
+def run_experiments_sequential(experiment_names: list[str]) -> dict[str, ExperimentResult]:
     """Run experiments sequentially (for debugging)."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Running {len(experiment_names)} experiments sequentially")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     results = {}
     for name in experiment_names:
@@ -555,7 +551,7 @@ def run_experiments_sequential(experiment_names: List[str]) -> Dict[str, Experim
     return results
 
 
-def compare_results(results: Dict[str, ExperimentResult]) -> str:
+def compare_results(results: dict[str, ExperimentResult]) -> str:
     """Generate comparison report."""
     lines = []
     lines.append("\n" + "=" * 80)
@@ -581,7 +577,9 @@ def compare_results(results: Dict[str, ExperimentResult]) -> str:
 
     # Header
     lines.append("")
-    lines.append(f"{'Experiment':<25} {'Coverage':>10} {'d Cov':>10} {'Corr':>10} {'d Corr':>10} {'Spike':>6} {'EStop':>6} {'Best@':>6}")
+    lines.append(
+        f"{'Experiment':<25} {'Coverage':>10} {'d Cov':>10} {'Corr':>10} {'d Corr':>10} {'Spike':>6} {'EStop':>6} {'Best@':>6}"
+    )
     lines.append("-" * 95)
 
     for r in sorted_results:
@@ -675,7 +673,7 @@ def compare_results(results: Dict[str, ExperimentResult]) -> str:
     return "\n".join(lines)
 
 
-def save_results(results: Dict[str, ExperimentResult], output_dir: Path):
+def save_results(results: dict[str, ExperimentResult], output_dir: Path):
     """Save results to files."""
     output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

@@ -17,20 +17,15 @@ Features include:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Tuple
+from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
-import numpy as np
 
+from src.analysis.set_theory.lattice import ResistanceLattice, ResistanceLevel
 from src.analysis.set_theory.mutation_sets import (
-    Mutation,
     MutationSet,
-    ResistanceProfile,
-    MutationSetAlgebra,
 )
-from src.analysis.set_theory.lattice import ResistanceLevel, ResistanceLattice
 from src.analysis.set_theory.rough_sets import RoughClassifier
 
 
@@ -50,7 +45,7 @@ class SetFeatureConfig:
     """
 
     n_drugs: int = 18
-    drug_names: Optional[List[str]] = None
+    drug_names: list[str] | None = None
     use_jaccard: bool = True
     use_dice: bool = True
     use_cross_resistance: bool = True
@@ -77,9 +72,9 @@ class SetFeatureExtractor(nn.Module):
 
     def __init__(
         self,
-        config: Optional[SetFeatureConfig] = None,
-        rough_classifiers: Optional[Dict[str, RoughClassifier]] = None,
-        lattice: Optional[ResistanceLattice] = None,
+        config: SetFeatureConfig | None = None,
+        rough_classifiers: dict[str, RoughClassifier] | None = None,
+        lattice: ResistanceLattice | None = None,
     ):
         """Initialize feature extractor.
 
@@ -94,7 +89,7 @@ class SetFeatureExtractor(nn.Module):
         self.lattice = lattice or ResistanceLattice()
 
         # Reference patterns for similarity computation
-        self.reference_patterns: Dict[str, List[MutationSet]] = {}
+        self.reference_patterns: dict[str, list[MutationSet]] = {}
 
         # Compute feature dimension
         self._compute_feature_dim()
@@ -125,7 +120,7 @@ class SetFeatureExtractor(nn.Module):
     def register_reference_patterns(
         self,
         drug: str,
-        patterns: List[MutationSet],
+        patterns: list[MutationSet],
     ):
         """Register reference mutation patterns for a drug.
 
@@ -133,7 +128,7 @@ class SetFeatureExtractor(nn.Module):
             drug: Drug name
             patterns: Reference mutation sets (known resistance patterns)
         """
-        self.reference_patterns[drug] = patterns[:self.config.n_reference_patterns]
+        self.reference_patterns[drug] = patterns[: self.config.n_reference_patterns]
 
     def forward(
         self,
@@ -196,10 +191,7 @@ class SetFeatureExtractor(nn.Module):
             patterns = self.reference_patterns.get(drug, [])
 
             for i in range(n_ref):
-                if i < len(patterns):
-                    sim = mutations.jaccard_similarity(patterns[i])
-                else:
-                    sim = 0.0
+                sim = mutations.jaccard_similarity(patterns[i]) if i < len(patterns) else 0.0
                 features.append(sim)
 
         return torch.tensor(features, dtype=torch.float32)
@@ -224,10 +216,7 @@ class SetFeatureExtractor(nn.Module):
             patterns = self.reference_patterns.get(drug, [])
 
             for i in range(n_ref):
-                if i < len(patterns):
-                    sim = mutations.dice_similarity(patterns[i])
-                else:
-                    sim = 0.0
+                sim = mutations.dice_similarity(patterns[i]) if i < len(patterns) else 0.0
                 features.append(sim)
 
         return torch.tensor(features, dtype=torch.float32)
@@ -248,7 +237,7 @@ class SetFeatureExtractor(nn.Module):
         drugs = self.config.drug_names or list(self.reference_patterns.keys())
 
         for i, drug1 in enumerate(drugs):
-            for drug2 in drugs[i + 1:]:
+            for drug2 in drugs[i + 1 :]:
                 # Check if mutations overlap with both drug patterns
                 patterns1 = self.reference_patterns.get(drug1, [])
                 patterns2 = self.reference_patterns.get(drug2, [])
@@ -341,7 +330,7 @@ class SetFeatureExtractor(nn.Module):
 
     def extract_batch(
         self,
-        mutation_sets: List[MutationSet],
+        mutation_sets: list[MutationSet],
     ) -> torch.Tensor:
         """Extract features for a batch of mutation sets.
 
@@ -426,8 +415,8 @@ class SetEnhancedMTL(nn.Module):
     def forward(
         self,
         embeddings: torch.Tensor,
-        mutations: List[MutationSet],
-    ) -> Dict[str, torch.Tensor]:
+        mutations: list[MutationSet],
+    ) -> dict[str, torch.Tensor]:
         """Forward pass with combined features.
 
         Args:
@@ -480,7 +469,7 @@ class SetAwareTaskWeighting(nn.Module):
     def __init__(
         self,
         n_drugs: int,
-        cross_resistance_matrix: Optional[Dict[Tuple[str, str], float]] = None,
+        cross_resistance_matrix: dict[tuple[str, str], float] | None = None,
     ):
         """Initialize task weighting.
 

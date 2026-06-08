@@ -16,7 +16,6 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -29,8 +28,8 @@ class MultiTaskConfig:
 
     input_dim: int
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [128, 64, 32])
-    drug_names: List[str] = field(default_factory=list)
+    hidden_dims: list[int] = field(default_factory=lambda: [128, 64, 32])
+    drug_names: list[str] = field(default_factory=list)
     dropout: float = 0.1
     use_ranking_loss: bool = True
     ranking_weight: float = 0.3
@@ -60,7 +59,7 @@ class SharedEncoder(nn.Module):
         self.fc_mu = nn.Linear(in_dim, cfg.latent_dim)
         self.fc_logvar = nn.Linear(in_dim, cfg.latent_dim)
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         h = self.encoder(x)
         mu = self.fc_mu(h)
         logvar = self.fc_logvar(h)
@@ -122,7 +121,9 @@ class MultiTaskVAE(nn.Module):
         self.decoder = SharedDecoder(cfg)
 
         # Drug-specific heads
-        self.drug_heads = nn.ModuleDict({drug: DrugHead(cfg.latent_dim, dropout=cfg.dropout) for drug in cfg.drug_names})
+        self.drug_heads = nn.ModuleDict(
+            {drug: DrugHead(cfg.latent_dim, dropout=cfg.dropout) for drug in cfg.drug_names}
+        )
 
     def reparameterize(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
         std = torch.exp(0.5 * logvar)
@@ -132,8 +133,8 @@ class MultiTaskVAE(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        drug: Optional[str] = None,
-    ) -> Dict[str, torch.Tensor]:
+        drug: str | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Forward pass.
 
         Args:
@@ -175,7 +176,7 @@ class MultiTaskVAE(nn.Module):
         z = self.encode(x)
         return self.drug_heads[drug](z)
 
-    def predict_all(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def predict_all(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Predict resistance for all drugs."""
         z = self.encode(x)
         return {name: self.drug_heads[name](z) for name in self.drug_names}
@@ -183,11 +184,11 @@ class MultiTaskVAE(nn.Module):
 
 def compute_multi_task_loss(
     cfg: MultiTaskConfig,
-    out: Dict[str, torch.Tensor],
+    out: dict[str, torch.Tensor],
     x: torch.Tensor,
-    targets: Dict[str, torch.Tensor],
-    drug_weights: Optional[Dict[str, float]] = None,
-) -> Dict[str, torch.Tensor]:
+    targets: dict[str, torch.Tensor],
+    drug_weights: dict[str, float] | None = None,
+) -> dict[str, torch.Tensor]:
     """Compute multi-task loss.
 
     Args:
@@ -265,11 +266,9 @@ class GradientBalancedMultiTaskVAE(MultiTaskVAE):
 
         # Learnable task weights
         self.task_weights = nn.Parameter(torch.ones(len(cfg.drug_names)))
-        self.initial_losses: Optional[Dict[str, float]] = None
+        self.initial_losses: dict[str, float] | None = None
 
-    def get_balanced_weights(
-        self, current_losses: Dict[str, torch.Tensor]
-    ) -> Dict[str, torch.Tensor]:
+    def get_balanced_weights(self, current_losses: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         """Compute balanced weights based on relative loss progress."""
         if self.initial_losses is None:
             self.initial_losses = {k: v.item() for k, v in current_losses.items()}
@@ -278,7 +277,7 @@ class GradientBalancedMultiTaskVAE(MultiTaskVAE):
         # Compute relative inverse training rates
         weights = {}
         total = 0.0
-        for i, drug in enumerate(self.drug_names):
+        for _i, drug in enumerate(self.drug_names):
             key = f"{drug}_loss"
             if key in current_losses and key in self.initial_losses:
                 ratio = current_losses[key].item() / (self.initial_losses[key] + 1e-8)
@@ -310,9 +309,7 @@ class CrossDrugTransferVAE(MultiTaskVAE):
         self.drug_embeddings = nn.Embedding(self.n_drugs, cross_drug_dim)
 
         # Cross-drug attention
-        self.cross_attention = nn.MultiheadAttention(
-            cross_drug_dim, num_heads=4, batch_first=True
-        )
+        self.cross_attention = nn.MultiheadAttention(cross_drug_dim, num_heads=4, batch_first=True)
 
         # Modified heads that incorporate cross-drug info
         self.cross_heads = nn.ModuleDict(
@@ -329,8 +326,8 @@ class CrossDrugTransferVAE(MultiTaskVAE):
     def forward(
         self,
         x: torch.Tensor,
-        drug: Optional[str] = None,
-    ) -> Dict[str, torch.Tensor]:
+        drug: str | None = None,
+    ) -> dict[str, torch.Tensor]:
         batch_size = x.size(0)
 
         # Encode
@@ -370,7 +367,7 @@ class CrossDrugTransferVAE(MultiTaskVAE):
 
 def create_multi_task_vae(
     input_dim: int,
-    drug_names: List[str],
+    drug_names: list[str],
     variant: str = "standard",
 ) -> nn.Module:
     """Factory function to create multi-task VAE.

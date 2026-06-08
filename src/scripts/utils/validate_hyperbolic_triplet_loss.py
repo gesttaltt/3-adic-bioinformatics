@@ -10,11 +10,11 @@ Author: Claude Code
 Date: 2026-01-14
 """
 
-import torch
-import torch.nn as nn
-from pathlib import Path
 import sys
+from pathlib import Path
+
 import numpy as np
+import torch
 from scipy.stats import spearmanr
 
 # Add project root to path
@@ -22,13 +22,13 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.losses.hyperbolic_triplet_loss import (
-    HyperbolicTripletLoss,
-    EfficientHyperbolicTripletLoss,
     AdaptiveHyperbolicTripletLoss,
+    EfficientHyperbolicTripletLoss,
+    HyperbolicTripletLoss,
 )
+
+from src.geometry import poincare_distance
 from src.models.ternary_vae import TernaryVAEV5_11_PartialFreeze
-from src.geometry import poincare_distance, exp_map_zero
-from src.core.ternary import TERNARY
 
 
 def test_basic_triplet_loss():
@@ -52,7 +52,7 @@ def test_basic_triplet_loss():
 
     # Test loss computation
     result = triplet_loss(embeddings, labels)
-    loss = result['loss'] if isinstance(result, dict) else result
+    loss = result["loss"] if isinstance(result, dict) else result
 
     print(f"✅ Basic triplet loss: {loss.item():.6f}")
     assert loss >= 0, "Triplet loss should be non-negative"
@@ -61,7 +61,7 @@ def test_basic_triplet_loss():
     # Test gradients
     embeddings.requires_grad_(True)
     result = triplet_loss(embeddings, labels)
-    loss = result['loss'] if isinstance(result, dict) else result
+    loss = result["loss"] if isinstance(result, dict) else result
     loss.backward()
 
     assert embeddings.grad is not None, "Gradients should flow through embeddings"
@@ -72,13 +72,13 @@ def test_basic_triplet_loss():
     # Same class embeddings (should give lower loss)
     same_labels = torch.zeros(batch_size, dtype=torch.long)  # All same class
     same_result = triplet_loss(embeddings.detach(), same_labels)
-    same_loss = same_result['loss'] if isinstance(same_result, dict) else same_result
+    same_loss = same_result["loss"] if isinstance(same_result, dict) else same_result
     print(f"✅ Same class loss: {same_loss.item():.6f}")
 
     # Very different classes (should give higher loss with good separation)
     diff_labels = torch.arange(batch_size)  # All different classes
     diff_result = triplet_loss(embeddings.detach(), diff_labels)
-    diff_loss = diff_result['loss'] if isinstance(diff_result, dict) else diff_result
+    diff_loss = diff_result["loss"] if isinstance(diff_result, dict) else diff_result
     print(f"✅ Different class loss: {diff_loss.item():.6f}")
 
     # When there are positive pairs available, loss should be meaningful
@@ -95,9 +95,7 @@ def test_efficient_triplet_loss():
     curvature = 1.0
 
     # Create efficient triplet loss
-    triplet_loss = EfficientHyperbolicTripletLoss(
-        curvature=curvature, margin=0.1, num_triplets_per_anchor=16
-    )
+    triplet_loss = EfficientHyperbolicTripletLoss(curvature=curvature, margin=0.1, num_triplets_per_anchor=16)
 
     # Generate embeddings with different valuations
     embeddings = torch.randn(batch_size, latent_dim) * 0.4
@@ -108,7 +106,7 @@ def test_efficient_triplet_loss():
 
     # Test batch loss computation
     result = triplet_loss(embeddings, valuations)
-    loss = result['loss'] if isinstance(result, dict) else result
+    loss = result["loss"] if isinstance(result, dict) else result
 
     print(f"✅ Efficient triplet loss: {loss.item():.6f}")
     assert loss >= 0, "Efficient triplet loss should be non-negative"
@@ -118,13 +116,13 @@ def test_efficient_triplet_loss():
     small_embeddings = embeddings[:8]
     small_valuations = valuations[:8]
     small_result = triplet_loss(small_embeddings, small_valuations)
-    small_loss = small_result['loss'] if isinstance(small_result, dict) else small_result
+    small_loss = small_result["loss"] if isinstance(small_result, dict) else small_result
     print(f"✅ Small batch loss: {small_loss.item():.6f}")
 
     # Test gradient flow
     embeddings.requires_grad_(True)
     result = triplet_loss(embeddings, valuations)
-    loss = result['loss'] if isinstance(result, dict) else result
+    loss = result["loss"] if isinstance(result, dict) else result
     loss.backward()
 
     assert embeddings.grad is not None, "Gradients should flow through embeddings"
@@ -138,8 +136,8 @@ def test_efficient_triplet_loss():
     few_result = triplet_loss_few(embeddings.detach(), valuations)
     many_result = triplet_loss_many(embeddings.detach(), valuations)
 
-    few_loss = few_result['loss'] if isinstance(few_result, dict) else few_result
-    many_loss = many_result['loss'] if isinstance(many_result, dict) else many_result
+    few_loss = few_result["loss"] if isinstance(few_result, dict) else few_result
+    many_loss = many_result["loss"] if isinstance(many_result, dict) else many_result
 
     print(f"✅ Few triplets loss: {few_loss.item():.6f}")
     print(f"✅ Many triplets loss: {many_loss.item():.6f}")
@@ -157,8 +155,7 @@ def test_adaptive_triplet_loss():
 
     # Create adaptive triplet loss
     triplet_loss = AdaptiveHyperbolicTripletLoss(
-        curvature=curvature, initial_margin=0.05, final_margin=0.3,
-        warmup_epochs=5, total_epochs=15
+        curvature=curvature, initial_margin=0.05, final_margin=0.3, warmup_epochs=5, total_epochs=15
     )
 
     # Generate embeddings
@@ -174,16 +171,18 @@ def test_adaptive_triplet_loss():
 
     for epoch in range(15):
         result = triplet_loss(embeddings, valuations)
-        loss = result['loss'] if isinstance(result, dict) else result
+        loss = result["loss"] if isinstance(result, dict) else result
         losses.append(loss.item())
 
-        current_margin = result['current_margin'].item() if isinstance(result, dict) else 0.1
-        use_hard_mining = result['use_hard_mining'].item() if isinstance(result, dict) else False
+        current_margin = result["current_margin"].item() if isinstance(result, dict) else 0.1
+        use_hard_mining = result["use_hard_mining"].item() if isinstance(result, dict) else False
 
         margins.append(current_margin)
         mining_states.append(use_hard_mining)
 
-        print(f"   Epoch {epoch:2d}: loss={loss.item():.6f}, margin={current_margin:.6f}, hard_mining={use_hard_mining}")
+        print(
+            f"   Epoch {epoch:2d}: loss={loss.item():.6f}, margin={current_margin:.6f}, hard_mining={use_hard_mining}"
+        )
 
         # Step to next epoch
         triplet_loss.step_epoch()
@@ -194,13 +193,13 @@ def test_adaptive_triplet_loss():
     print(f"✅ Curriculum progression: {margins[0]:.3f} → {margins[-1]:.3f}")
 
     # Check that hard mining starts at the right time
-    hard_mining_started = any(mining_states[triplet_loss.hard_mining_start_epoch:])
+    hard_mining_started = any(mining_states[triplet_loss.hard_mining_start_epoch :])
     print(f"✅ Hard mining activation: {hard_mining_started}")
 
     # Test gradient flow with adaptation
     embeddings.requires_grad_(True)
     result = triplet_loss(embeddings, valuations)
-    loss = result['loss'] if isinstance(result, dict) else result
+    loss = result["loss"] if isinstance(result, dict) else result
     loss.backward()
 
     assert embeddings.grad is not None, "Gradients should flow through adaptive loss"
@@ -214,16 +213,11 @@ def test_ternary_vae_integration():
 
     # Create TernaryVAE model
     model = TernaryVAEV5_11_PartialFreeze(
-        latent_dim=16,
-        hidden_dim=64,
-        max_radius=0.99,
-        curvature=1.0,
-        use_controller=True,
-        use_dual_projection=True
+        latent_dim=16, hidden_dim=64, max_radius=0.99, curvature=1.0, use_controller=True, use_dual_projection=True
     )
 
     # Create triplet loss
-    triplet_loss = HyperbolicTripletLoss(curvature=1.0, margin=0.1)
+    HyperbolicTripletLoss(curvature=1.0, margin=0.1)
 
     # Generate test operations as ternary vectors (batch_size, 9)
     batch_size = 16
@@ -235,8 +229,8 @@ def test_ternary_vae_integration():
     with torch.no_grad():
         output = model(operations)
 
-    z_A = output['z_A_hyp']
-    z_B = output['z_B_hyp']
+    z_A = output["z_A_hyp"]
+    z_B = output["z_B_hyp"]
 
     # Verify embeddings are in Poincaré ball
     radii_A = torch.norm(z_A, dim=-1)
@@ -256,7 +250,7 @@ def test_ternary_vae_integration():
     # Use efficient triplet loss for realistic batch processing
     efficient_loss = EfficientHyperbolicTripletLoss(curvature=1.0, margin=0.1, num_triplets_per_anchor=8)
     result_B = efficient_loss(z_B, valuations)
-    loss_B = result_B['loss'] if isinstance(result_B, dict) else result_B
+    loss_B = result_B["loss"] if isinstance(result_B, dict) else result_B
 
     print(f"✅ VAE-B triplet loss: {loss_B.item():.6f}")
 
@@ -266,7 +260,7 @@ def test_ternary_vae_integration():
     z_B.requires_grad_(True)
 
     result = efficient_loss(z_B, valuations)
-    loss = result['loss'] if isinstance(result, dict) else result
+    loss = result["loss"] if isinstance(result, dict) else result
     loss.backward()
 
     assert z_B.grad is not None, "Gradients should flow to VAE-B embeddings"
@@ -280,8 +274,8 @@ def test_ternary_vae_integration():
     # For integration testing, use simple loss combination
     # (In real training, proper reconstruction loss would be used)
 
-    triplet_result = efficient_loss(output['z_B_hyp'], valuations)
-    triplet_loss_val = triplet_result['loss'] if isinstance(triplet_result, dict) else triplet_result
+    triplet_result = efficient_loss(output["z_B_hyp"], valuations)
+    triplet_loss_val = triplet_result["loss"] if isinstance(triplet_result, dict) else triplet_result
 
     # Use triplet loss as the primary loss for integration testing
     total_loss = triplet_loss_val
@@ -321,7 +315,9 @@ def test_hierarchy_improvement():
     print(f"✅ Initial hierarchy correlation: {initial_corr:.6f}")
 
     # Create triplet loss and optimizer
-    triplet_loss = AdaptiveHyperbolicTripletLoss(curvature=curvature, final_margin=0.15, warmup_epochs=5, total_epochs=50)
+    triplet_loss = AdaptiveHyperbolicTripletLoss(
+        curvature=curvature, final_margin=0.15, warmup_epochs=5, total_epochs=50
+    )
     optimizer = torch.optim.Adam([embeddings], lr=0.01)
 
     # Training loop to improve hierarchy
@@ -332,7 +328,7 @@ def test_hierarchy_improvement():
         optimizer.zero_grad()
 
         result = triplet_loss(embeddings, valuations)
-        loss = result['loss'] if isinstance(result, dict) else result
+        loss = result["loss"] if isinstance(result, dict) else result
         loss.backward()
 
         # Project gradients to stay in Poincaré ball
@@ -383,7 +379,7 @@ def test_performance_and_scaling():
     methods = {
         "Standard": HyperbolicTripletLoss(curvature=curvature),
         "Efficient": EfficientHyperbolicTripletLoss(curvature=curvature, num_triplets_per_anchor=32),
-        "Adaptive": AdaptiveHyperbolicTripletLoss(curvature=curvature, warmup_epochs=5, total_epochs=20)
+        "Adaptive": AdaptiveHyperbolicTripletLoss(curvature=curvature, warmup_epochs=5, total_epochs=20),
     }
 
     results = {}
@@ -413,7 +409,7 @@ def test_performance_and_scaling():
             for _ in range(10):
                 # All triplet loss implementations use embeddings and labels
                 result = loss_fn(embeddings, valuations)
-                loss = result['loss'] if isinstance(result, dict) else result
+                loss = result["loss"] if isinstance(result, dict) else result
 
             torch.cuda.synchronize() if torch.cuda.is_available() else None
             elapsed = (time.time() - start) / 10 * 1000  # Convert to ms
@@ -422,15 +418,15 @@ def test_performance_and_scaling():
             print(f"   Batch {batch_size:3d}: {elapsed:.2f} ms")
 
     # Compare scaling
-    print(f"\n📊 Scaling Analysis:")
-    for method_name in methods.keys():
+    print("\n📊 Scaling Analysis:")
+    for method_name in methods:
         small_time = results[method_name][16]
         large_time = results[method_name][128]
         scaling_factor = large_time / small_time
         print(f"   {method_name:8s}: {scaling_factor:.1f}x slower (16→128 batch)")
 
     # Memory usage test
-    print(f"\n💾 Memory Test (batch_size=64):")
+    print("\n💾 Memory Test (batch_size=64):")
     batch_size = 64
     embeddings = torch.randn(batch_size, latent_dim) * 0.4
     valuations = torch.randint(0, 10, (batch_size,))
@@ -441,7 +437,7 @@ def test_performance_and_scaling():
         try:
             # All triplet loss implementations use embeddings and labels
             result = loss_fn(embeddings_copy, valuations)
-            loss = result['loss'] if isinstance(result, dict) else result
+            loss = result["loss"] if isinstance(result, dict) else result
 
             loss.backward()
             print(f"   {method_name:8s}: ✅ Memory efficient")
@@ -512,8 +508,8 @@ def demonstrate_triplet_loss_benefits():
             centers = torch.stack(centers)
             inter_dists = []
             for i in range(n_vals):
-                for j in range(i+1, n_vals):
-                    dist = poincare_distance(centers[i:i+1], centers[j:j+1], c=curvature)
+                for j in range(i + 1, n_vals):
+                    dist = poincare_distance(centers[i : i + 1], centers[j : j + 1], c=curvature)
                     inter_dists.append(dist.item())
 
             inter_sep = np.mean(inter_dists)
@@ -525,22 +521,28 @@ def demonstrate_triplet_loss_benefits():
 
     print("📊 Embedding Quality Comparison:")
     print(f"   {'Metric':<20} {'Well-Separated':<15} {'Poorly-Separated':<15} {'Better':<10}")
-    print(f"   {'-'*20} {'-'*15} {'-'*15} {'-'*10}")
-    print(f"   {'Hierarchy Corr':<20} {well_hier:>+8.3f}      {poor_hier:>+8.3f}       {'Well' if abs(well_hier) > abs(poor_hier) else 'Poor'}")
-    print(f"   {'Intra-class Var':<20} {well_intra:>8.3f}      {poor_intra:>8.3f}       {'Well' if well_intra < poor_intra else 'Poor'}")
-    print(f"   {'Inter-class Sep':<20} {well_inter:>8.3f}      {poor_inter:>8.3f}       {'Well' if well_inter > poor_inter else 'Poor'}")
+    print(f"   {'-' * 20} {'-' * 15} {'-' * 15} {'-' * 10}")
+    print(
+        f"   {'Hierarchy Corr':<20} {well_hier:>+8.3f}      {poor_hier:>+8.3f}       {'Well' if abs(well_hier) > abs(poor_hier) else 'Poor'}"
+    )
+    print(
+        f"   {'Intra-class Var':<20} {well_intra:>8.3f}      {poor_intra:>8.3f}       {'Well' if well_intra < poor_intra else 'Poor'}"
+    )
+    print(
+        f"   {'Inter-class Sep':<20} {well_inter:>8.3f}      {poor_inter:>8.3f}       {'Well' if well_inter > poor_inter else 'Poor'}"
+    )
 
     # Demonstrate triplet loss computation on both
-    triplet_loss = HyperbolicTripletLoss(curvature=curvature, margin=0.1)
+    HyperbolicTripletLoss(curvature=curvature, margin=0.1)
     efficient_loss = EfficientHyperbolicTripletLoss(curvature=curvature, margin=0.1, num_triplets_per_anchor=20)
 
     well_result = efficient_loss(well_separated, well_separated_vals)
     poor_result = efficient_loss(poorly_separated, poorly_separated_vals)
 
-    well_loss = well_result['loss'] if isinstance(well_result, dict) else well_result
-    poor_loss = poor_result['loss'] if isinstance(poor_result, dict) else poor_result
+    well_loss = well_result["loss"] if isinstance(well_result, dict) else well_result
+    poor_loss = poor_result["loss"] if isinstance(poor_result, dict) else poor_result
 
-    print(f"\n🎯 Triplet Loss Values:")
+    print("\n🎯 Triplet Loss Values:")
     print(f"   Well-separated embeddings: {well_loss.item():.6f}")
     print(f"   Poorly-separated embeddings: {poor_loss.item():.6f}")
     print(f"   Improvement potential: {(poor_loss - well_loss).item():.6f}")
@@ -551,7 +553,7 @@ def demonstrate_triplet_loss_benefits():
 
     # Note: The actual direction depends on the synthetic data generation
     # In real training scenarios, triplet loss should help improve separation
-    print(f"✅ Triplet loss computation successful on both embedding sets")
+    print("✅ Triplet loss computation successful on both embedding sets")
 
 
 def main():
@@ -582,6 +584,7 @@ def main():
     except Exception as e:
         print(f"\n❌ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

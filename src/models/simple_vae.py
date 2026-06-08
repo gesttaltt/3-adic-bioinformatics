@@ -17,8 +17,6 @@ Usage:
 
 from __future__ import annotations
 
-from typing import List, Optional
-
 import torch
 import torch.nn as nn
 
@@ -30,7 +28,7 @@ class SimpleEncoder(nn.Module):
         self,
         input_dim: int,
         latent_dim: int,
-        hidden_dims: List[int],
+        hidden_dims: list[int],
         dropout: float = 0.0,
     ):
         super().__init__()
@@ -66,7 +64,7 @@ class SimpleDecoder(nn.Module):
         self,
         latent_dim: int,
         output_dim: int,
-        hidden_dims: List[int],
+        hidden_dims: list[int],
         dropout: float = 0.0,
     ):
         super().__init__()
@@ -111,7 +109,7 @@ class SimpleVAE(nn.Module):
         self,
         input_dim: int = 9,
         latent_dim: int = 16,
-        hidden_dims: Optional[List[int]] = None,
+        hidden_dims: list[int] | None = None,
         dropout: float = 0.0,
     ):
         super().__init__()
@@ -202,7 +200,7 @@ class SimpleVAEWithHyperbolic(SimpleVAE):
         self,
         input_dim: int = 9,
         latent_dim: int = 16,
-        hidden_dims: Optional[List[int]] = None,
+        hidden_dims: list[int] | None = None,
         dropout: float = 0.0,
         curvature: float = 1.0,
     ):
@@ -215,7 +213,7 @@ class SimpleVAEWithHyperbolic(SimpleVAE):
         Uses a softer projection that doesn't saturate to boundary.
         """
         c = self.curvature
-        sqrt_c = (c ** 0.5)
+        sqrt_c = c**0.5
         v_norm = torch.clamp(torch.norm(v, dim=-1, keepdim=True), min=1e-8)
 
         # Softer projection: scale norm to stay well within ball

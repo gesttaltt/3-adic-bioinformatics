@@ -32,9 +32,10 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from src.models.ternary_vae_v5_6 import DualNeuralVAEV5
+
 from src.config.paths import VIZ_DIR
 from src.data.generation import generate_all_ternary_operations
-from src.models.ternary_vae_v5_6 import DualNeuralVAEV5
 
 
 def load_embeddings(checkpoint_path, device="cuda"):
@@ -292,7 +293,7 @@ def create_static_visualizations(data, output_path):
     # Create comprehensive figure
     fig = plt.figure(figsize=(24, 20))
 
-    for idx, (name, proj_func, title) in enumerate(projections):
+    for idx, (_name, proj_func, title) in enumerate(projections):
         # VAE-A projection
         proj_A = proj_func(z_A)
         ax = fig.add_subplot(4, 5, idx + 1, projection="3d")
@@ -429,7 +430,7 @@ def create_static_visualizations(data, output_path):
         bbox_inches="tight",
     )
     plt.close()
-    print(f'Saved: {output_path / "calabi_yau_projections.png"}')
+    print(f"Saved: {output_path / 'calabi_yau_projections.png'}")
 
 
 def create_high_res_visualization(data, output_path):
@@ -482,7 +483,7 @@ def create_high_res_visualization(data, output_path):
         bbox_inches="tight",
     )
     plt.close()
-    print(f'Saved: {output_path / "calabi_yau_quintic_highres.png"}')
+    print(f"Saved: {output_path / 'calabi_yau_quintic_highres.png'}")
 
 
 def export_to_csv(data, output_path):
@@ -557,7 +558,7 @@ def export_to_csv(data, output_path):
     sample_idx = np.random.choice(len(z_A), size=5000, replace=False)
     df_A_sample = df_A.iloc[sample_idx].reset_index(drop=True)
     df_A_sample.to_csv(output_path / "calabi_yau_vae_a_sample.csv", index=False)
-    print(f'Saved: {output_path / "calabi_yau_vae_a_sample.csv"} (5000 points)')
+    print(f"Saved: {output_path / 'calabi_yau_vae_a_sample.csv'} (5000 points)")
 
     # Export metadata
     metadata = {
@@ -569,7 +570,7 @@ def export_to_csv(data, output_path):
     }
     with open(output_path / "calabi_yau_metadata.json", "w") as f:
         json.dump(metadata, f, indent=2)
-    print(f'Saved: {output_path / "calabi_yau_metadata.json"}')
+    print(f"Saved: {output_path / 'calabi_yau_metadata.json'}")
 
     return df_A, df_B
 
@@ -585,10 +586,11 @@ def main():
     # Note: This script expects checkpoint at default location or passed via import
     print("\nLoading v5.5 embeddings...")
     from src.config.paths import CHECKPOINTS_DIR
+
     data = load_embeddings(str(CHECKPOINTS_DIR / "v5_5" / "latest.pt"), device)
-    print(f'Loaded {len(data["z_A"])} embeddings, epoch {data["epoch"]}')
-    print(f'VAE-A mean accuracy: {data["acc_A"].mean()*100:.2f}%')
-    print(f'VAE-B mean accuracy: {data["acc_B"].mean()*100:.2f}%')
+    print(f"Loaded {len(data['z_A'])} embeddings, epoch {data['epoch']}")
+    print(f"VAE-A mean accuracy: {data['acc_A'].mean() * 100:.2f}%")
+    print(f"VAE-B mean accuracy: {data['acc_B'].mean() * 100:.2f}%")
 
     # Generate static visualizations
     print("\nGenerating static Calabi-Yau visualizations...")

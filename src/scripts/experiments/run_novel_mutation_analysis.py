@@ -11,9 +11,8 @@ These represent potential novel resistance-associated positions.
 from __future__ import annotations
 
 import sys
-from pathlib import Path
-from typing import Dict, List, Set, Tuple
 import warnings
+from pathlib import Path
 
 warnings.filterwarnings("ignore")
 
@@ -23,11 +22,38 @@ sys.path.insert(0, str(root))
 import numpy as np
 import pandas as pd
 
-
 # Known resistance mutations from Stanford HIVDB (comprehensive)
 KNOWN_MUTATIONS = {
     "pi": {
-        "major": {10, 20, 24, 30, 32, 33, 36, 46, 47, 48, 50, 53, 54, 58, 62, 64, 71, 73, 74, 76, 82, 83, 84, 85, 88, 89, 90},
+        "major": {
+            10,
+            20,
+            24,
+            30,
+            32,
+            33,
+            36,
+            46,
+            47,
+            48,
+            50,
+            53,
+            54,
+            58,
+            62,
+            64,
+            71,
+            73,
+            74,
+            76,
+            82,
+            83,
+            84,
+            85,
+            88,
+            89,
+            90,
+        },
         "accessory": {11, 13, 16, 23, 35, 37, 43, 60, 63, 66, 69, 72, 77, 79, 93},
     },
     "nrti": {
@@ -45,7 +71,7 @@ KNOWN_MUTATIONS = {
 }
 
 
-def get_all_known_positions(drug_class: str) -> Set[int]:
+def get_all_known_positions(drug_class: str) -> set[int]:
     """Get all known mutation positions for a drug class."""
     known = KNOWN_MUTATIONS.get(drug_class, {"major": set(), "accessory": set()})
     return known["major"] | known["accessory"]
@@ -84,10 +110,10 @@ def simulate_attention_analysis(drug_class: str, n_positions: int) -> np.ndarray
 
 def identify_novel_candidates(
     attention_weights: np.ndarray,
-    known_positions: Set[int],
+    known_positions: set[int],
     top_k: int = 20,
     significance_threshold: float = 0.8,
-) -> List[Tuple[int, float, str]]:
+) -> list[tuple[int, float, str]]:
     """Identify potential novel mutation positions.
 
     Args:
@@ -99,7 +125,7 @@ def identify_novel_candidates(
     Returns:
         List of (position, attention_score, status) tuples
     """
-    n_positions = len(attention_weights)
+    len(attention_weights)
     threshold = np.percentile(attention_weights, significance_threshold * 100)
 
     # Get top attended positions
@@ -161,9 +187,11 @@ def generate_investigation_report(results: pd.DataFrame) -> str:
         if len(novel_high) > 0:
             report.append(f"Novel high-attention positions ({len(novel_high)}):")
             for _, row in novel_high.iterrows():
-                report.append(f"  Position {int(row['position'])}: "
-                            f"attention={row['attention_score']:.4f}, "
-                            f"percentile={row['percentile']:.1%}")
+                report.append(
+                    f"  Position {int(row['position'])}: "
+                    f"attention={row['attention_score']:.4f}, "
+                    f"percentile={row['percentile']:.1%}"
+                )
 
             report.append("\nRecommended investigations:")
             report.append("  1. Check for structural significance in crystal structures")

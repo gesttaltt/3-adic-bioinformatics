@@ -37,7 +37,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -48,8 +48,8 @@ from .base import DiseaseAnalyzer, DiseaseConfig, DiseaseType, TaskType
 class EcoliGene(Enum):
     """E. coli genes associated with β-lactam resistance."""
 
-    BLA_TEM = "blaTEM"      # TEM β-lactamase (primary)
-    BLA_SHV = "blaSHV"      # SHV β-lactamase (similar mechanism)
+    BLA_TEM = "blaTEM"  # TEM β-lactamase (primary)
+    BLA_SHV = "blaSHV"  # SHV β-lactamase (similar mechanism)
     BLA_CTX_M = "blaCTX-M"  # CTX-M β-lactamase (cefotaximase)
 
 
@@ -61,10 +61,10 @@ class BetaLactam(Enum):
     AMOXICILLIN = "amoxicillin"
 
     # Cephalosporins (ESBL mutations required)
-    CEFTAZIDIME = "ceftazidime"      # 3rd gen - indicator for ESBL
-    CEFOTAXIME = "cefotaxime"        # 3rd gen
-    CEFTRIAXONE = "ceftriaxone"      # 3rd gen
-    CEFEPIME = "cefepime"            # 4th gen
+    CEFTAZIDIME = "ceftazidime"  # 3rd gen - indicator for ESBL
+    CEFOTAXIME = "cefotaxime"  # 3rd gen
+    CEFTRIAXONE = "ceftriaxone"  # 3rd gen
+    CEFEPIME = "cefepime"  # 4th gen
 
     # β-lactamase inhibitor combinations
     AMOX_CLAVULANATE = "amoxicillin_clavulanate"
@@ -74,10 +74,10 @@ class BetaLactam(Enum):
 class TEMVariant(Enum):
     """TEM β-lactamase variant classification."""
 
-    TEM_1 = "TEM-1"        # Original, penicillin only
-    ESBL = "ESBL"          # Extended-spectrum
-    IRT = "IRT"            # Inhibitor-resistant
-    CMT = "CMT"            # Complex mutant (ESBL + IRT)
+    TEM_1 = "TEM-1"  # Original, penicillin only
+    ESBL = "ESBL"  # Extended-spectrum
+    IRT = "IRT"  # Inhibitor-resistant
+    CMT = "CMT"  # Complex mutant (ESBL + IRT)
 
 
 @dataclass
@@ -89,12 +89,14 @@ class EcoliBetaLactamConfig(DiseaseConfig):
     disease_type: DiseaseType = DiseaseType.BACTERIAL
     tasks: list[TaskType] = field(default_factory=lambda: [TaskType.RESISTANCE])
 
-    data_sources: dict[str, str] = field(default_factory=lambda: {
-        "arcadia": "https://github.com/Arcadia-Science/2024-Ecoli-amr-genotype-phenotype_7000strains",
-        "card": "https://card.mcmaster.ca/",
-        "ncbi_amr": "https://www.ncbi.nlm.nih.gov/pathogens/antimicrobial-resistance/AMRFinder/",
-        "zenodo": "https://zenodo.org/records/12692732",
-    })
+    data_sources: dict[str, str] = field(
+        default_factory=lambda: {
+            "arcadia": "https://github.com/Arcadia-Science/2024-Ecoli-amr-genotype-phenotype_7000strains",
+            "card": "https://card.mcmaster.ca/",
+            "ncbi_amr": "https://www.ncbi.nlm.nih.gov/pathogens/antimicrobial-resistance/AMRFinder/",
+            "zenodo": "https://zenodo.org/records/12692732",
+        }
+    )
 
 
 # TEM β-lactamase mutation database
@@ -104,33 +106,47 @@ class EcoliBetaLactamConfig(DiseaseConfig):
 TEM_MUTATIONS = {
     # ESBL-conferring mutations (extend spectrum to cephalosporins)
     # These mutations widen the active site to accommodate bulky cephalosporins
-    104: {"E": {"mutations": ["K"], "effect": "high", "phenotype": "ESBL",
-               "note": "Widens active site entrance"}},
-    164: {"R": {"mutations": ["S", "H"], "effect": "high", "phenotype": "ESBL",
-               "note": "Omega loop flexibility"}},
-    238: {"G": {"mutations": ["S"], "effect": "high", "phenotype": "ESBL",
-               "note": "Key ESBL mutation, found in TEM-15"}},
-    240: {"E": {"mutations": ["K"], "effect": "high", "phenotype": "ESBL",
-               "note": "Often co-occurs with G238S"}},
-
+    104: {"E": {"mutations": ["K"], "effect": "high", "phenotype": "ESBL", "note": "Widens active site entrance"}},
+    164: {"R": {"mutations": ["S", "H"], "effect": "high", "phenotype": "ESBL", "note": "Omega loop flexibility"}},
+    238: {
+        "G": {"mutations": ["S"], "effect": "high", "phenotype": "ESBL", "note": "Key ESBL mutation, found in TEM-15"}
+    },
+    240: {"E": {"mutations": ["K"], "effect": "high", "phenotype": "ESBL", "note": "Often co-occurs with G238S"}},
     # Inhibitor resistance mutations (IRT - clavulanate resistance)
     # These mutations reduce binding of β-lactamase inhibitors
-    69: {"M": {"mutations": ["I", "L", "V"], "effect": "moderate", "phenotype": "IRT",
-              "note": "Reduces inhibitor binding"}},
-    130: {"S": {"mutations": ["G"], "effect": "moderate", "phenotype": "IRT",
-               "note": "Serine to glycine, IRT mechanism"}},
-    244: {"R": {"mutations": ["S", "C", "H"], "effect": "moderate", "phenotype": "IRT",
-               "note": "Common IRT mutation"}},
-    275: {"R": {"mutations": ["L", "Q"], "effect": "moderate", "phenotype": "IRT",
-               "note": "Reduces clavulanate efficacy"}},
-    276: {"N": {"mutations": ["D"], "effect": "moderate", "phenotype": "IRT",
-               "note": "Adjacent to active site"}},
-
+    69: {
+        "M": {
+            "mutations": ["I", "L", "V"],
+            "effect": "moderate",
+            "phenotype": "IRT",
+            "note": "Reduces inhibitor binding",
+        }
+    },
+    130: {
+        "S": {"mutations": ["G"], "effect": "moderate", "phenotype": "IRT", "note": "Serine to glycine, IRT mechanism"}
+    },
+    244: {"R": {"mutations": ["S", "C", "H"], "effect": "moderate", "phenotype": "IRT", "note": "Common IRT mutation"}},
+    275: {
+        "R": {"mutations": ["L", "Q"], "effect": "moderate", "phenotype": "IRT", "note": "Reduces clavulanate efficacy"}
+    },
+    276: {"N": {"mutations": ["D"], "effect": "moderate", "phenotype": "IRT", "note": "Adjacent to active site"}},
     # Stabilizing mutations (enable other mutations by restoring folding)
-    182: {"M": {"mutations": ["T"], "effect": "low", "phenotype": "stabilizer",
-               "note": "Global suppressor, restores stability"}},
-    39: {"Q": {"mutations": ["K"], "effect": "low", "phenotype": "stabilizer",
-              "note": "Enables acquisition of other mutations"}},
+    182: {
+        "M": {
+            "mutations": ["T"],
+            "effect": "low",
+            "phenotype": "stabilizer",
+            "note": "Global suppressor, restores stability",
+        }
+    },
+    39: {
+        "Q": {
+            "mutations": ["K"],
+            "effect": "low",
+            "phenotype": "stabilizer",
+            "note": "Enables acquisition of other mutations",
+        }
+    },
 }
 
 # Drug-phenotype mapping
@@ -171,7 +187,7 @@ class EcoliBetaLactamAnalyzer(DiseaseAnalyzer):
     - Mutation detection and scoring
     """
 
-    def __init__(self, config: Optional[EcoliBetaLactamConfig] = None):
+    def __init__(self, config: EcoliBetaLactamConfig | None = None):
         """Initialize analyzer.
 
         Args:
@@ -188,7 +204,7 @@ class EcoliBetaLactamAnalyzer(DiseaseAnalyzer):
         self,
         sequences: dict[EcoliGene, list[str]],
         drug: BetaLactam = BetaLactam.AMPICILLIN,
-        embeddings: Optional[torch.Tensor] = None,
+        embeddings: torch.Tensor | None = None,
         **kwargs,
     ) -> dict[str, Any]:
         """Analyze TEM sequences for β-lactam resistance.
@@ -218,14 +234,10 @@ class EcoliBetaLactamAnalyzer(DiseaseAnalyzer):
             results["resistance"] = self._predict_drug_resistance(tem_seqs, drug)
 
             # Classify variants
-            results["variant_classification"] = [
-                self._classify_tem_variant(seq) for seq in tem_seqs
-            ]
+            results["variant_classification"] = [self._classify_tem_variant(seq) for seq in tem_seqs]
 
             # Detect all mutations
-            results["mutations_detected"] = [
-                self._detect_mutations(seq) for seq in tem_seqs
-            ]
+            results["mutations_detected"] = [self._detect_mutations(seq) for seq in tem_seqs]
 
         return results
 
@@ -270,8 +282,7 @@ class EcoliBetaLactamAnalyzer(DiseaseAnalyzer):
                 phenotype = mut.get("phenotype", "unknown")
 
                 # Score mutations based on relevance to drug
-                if drug in [BetaLactam.CEFTAZIDIME, BetaLactam.CEFOTAXIME,
-                           BetaLactam.CEFTRIAXONE, BetaLactam.CEFEPIME]:
+                if drug in [BetaLactam.CEFTAZIDIME, BetaLactam.CEFOTAXIME, BetaLactam.CEFTRIAXONE, BetaLactam.CEFEPIME]:
                     if phenotype == "ESBL":
                         effect_scores = {"high": 0.3, "moderate": 0.15, "low": 0.05}
                         mutation_score += effect_scores.get(effect, 0.1)
@@ -355,15 +366,17 @@ class EcoliBetaLactamAnalyzer(DiseaseAnalyzer):
             seq_aa = sequence[pos - 1] if pos <= len(sequence) else "-"
 
             if seq_aa != ref_aa and seq_aa in info[ref_aa]["mutations"]:
-                mutations.append({
-                    "position": pos,
-                    "ref": ref_aa,
-                    "alt": seq_aa,
-                    "notation": f"{ref_aa}{pos}{seq_aa}",
-                    "effect": info[ref_aa]["effect"],
-                    "phenotype": info[ref_aa]["phenotype"],
-                    "note": info[ref_aa].get("note", ""),
-                })
+                mutations.append(
+                    {
+                        "position": pos,
+                        "ref": ref_aa,
+                        "alt": seq_aa,
+                        "notation": f"{ref_aa}{pos}{seq_aa}",
+                        "effect": info[ref_aa]["effect"],
+                        "phenotype": info[ref_aa]["phenotype"],
+                        "note": info[ref_aa].get("note", ""),
+                    }
+                )
 
         return mutations
 
@@ -455,18 +468,15 @@ def create_ecoli_synthetic_dataset(
     max_length = 300  # Slightly larger than TEM-1
 
     # Filter mutations based on drug
-    if drug in [BetaLactam.CEFTAZIDIME, BetaLactam.CEFOTAXIME,
-                BetaLactam.CEFTRIAXONE, BetaLactam.CEFEPIME]:
+    if drug in [BetaLactam.CEFTAZIDIME, BetaLactam.CEFOTAXIME, BetaLactam.CEFTRIAXONE, BetaLactam.CEFEPIME]:
         # Focus on ESBL mutations for cephalosporins
         mutation_db = {
-            pos: info for pos, info in TEM_MUTATIONS.items()
-            if list(info.values())[0].get("phenotype") == "ESBL"
+            pos: info for pos, info in TEM_MUTATIONS.items() if list(info.values())[0].get("phenotype") == "ESBL"
         }
     elif drug in [BetaLactam.AMOX_CLAVULANATE, BetaLactam.PIPERACILLIN_TAZO]:
         # Focus on IRT mutations for inhibitor combinations
         mutation_db = {
-            pos: info for pos, info in TEM_MUTATIONS.items()
-            if list(info.values())[0].get("phenotype") == "IRT"
+            pos: info for pos, info in TEM_MUTATIONS.items() if list(info.values())[0].get("phenotype") == "IRT"
         }
     else:
         # Penicillins - all mutations contribute

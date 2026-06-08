@@ -25,7 +25,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -45,7 +45,7 @@ class AblationConfig:
 
     input_dim: int = 9
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [64, 32])
+    hidden_dims: list[int] = field(default_factory=lambda: [64, 32])
     batch_size: int = 32
     epochs: int = 100
     learning_rate: float = 0.001
@@ -117,7 +117,7 @@ class AblationVAE(nn.Module):
 
         self.decoder = nn.Sequential(*decoder_layers)
 
-    def encode(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def encode(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         h = self.encoder(x)
         mu = self.fc_mu(h)
         logvar = self.fc_logvar(h)
@@ -143,7 +143,7 @@ class AblationVAE(nn.Module):
 
         return z
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
         x_recon = self.decoder(z)
@@ -157,8 +157,8 @@ class AblationLoss:
         self.config = config
 
     def compute(
-        self, output: Dict[str, torch.Tensor], x: torch.Tensor, fitness: torch.Tensor
-    ) -> Dict[str, torch.Tensor]:
+        self, output: dict[str, torch.Tensor], x: torch.Tensor, fitness: torch.Tensor
+    ) -> dict[str, torch.Tensor]:
         losses = {}
 
         # Reconstruction
@@ -231,7 +231,7 @@ class AblationLoss:
 
 def train_config(
     config: AblationConfig, train_x: torch.Tensor, train_labels: torch.Tensor, verbose: bool = False
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Train with specific configuration and return metrics."""
     device = torch.device(config.device)
 
@@ -298,12 +298,11 @@ def train_config(
     }
 
 
-def generate_test_data(n_samples: int = 1000) -> Tuple[torch.Tensor, torch.Tensor]:
+def generate_test_data(n_samples: int = 1000) -> tuple[torch.Tensor, torch.Tensor]:
     """Generate test data with known structure."""
     np.random.seed(42)
 
     # Create structured data with hierarchical patterns
-    n_codons = 3  # 9 positions
     sequences = np.zeros((n_samples, 9), dtype=np.float32)
 
     # Create clusters with fitness correlation
@@ -352,7 +351,7 @@ def run_ablation_study(epochs: int = 100, verbose: bool = True) -> pd.DataFrame:
         config = AblationConfig(epochs=epochs)
 
         # Set flags
-        for flag, value in zip(module_flags, combo):
+        for flag, value in zip(module_flags, combo, strict=False):
             setattr(config, flag, value)
 
         name = config.get_name()
@@ -375,16 +374,13 @@ def run_ablation_study(epochs: int = 100, verbose: bool = True) -> pd.DataFrame:
         results.append(result)
 
         if verbose:
-            print(
-                f"  Result: Acc={metrics['final_accuracy']:.1%}, "
-                f"Corr={metrics['best_correlation']:+.4f}"
-            )
+            print(f"  Result: Acc={metrics['final_accuracy']:.1%}, Corr={metrics['best_correlation']:+.4f}")
 
     df = pd.DataFrame(results)
     return df
 
 
-def analyze_synergies(df: pd.DataFrame) -> Dict[str, Any]:
+def analyze_synergies(df: pd.DataFrame) -> dict[str, Any]:
     """Analyze module synergies from ablation results."""
     analysis = {}
 
@@ -399,7 +395,7 @@ def analyze_synergies(df: pd.DataFrame) -> Dict[str, Any]:
     individual = {}
     for col in ["use_hyperbolic", "use_tropical", "use_padic_triplet", "use_padic_ranking", "use_contrastive"]:
         # Get experiments with only this module
-        single = df[(df[col] == True) & (df["n_modules"] == 1)]
+        single = df[(df[col]) & (df["n_modules"] == 1)]
         if len(single) > 0:
             module_name = col.replace("use_", "")
             individual[module_name] = {
@@ -426,19 +422,15 @@ def analyze_synergies(df: pd.DataFrame) -> Dict[str, Any]:
         col2 = f"use_{m2}"
 
         # Individual effects
-        single1 = df[(df[col1] == True) & (df["n_modules"] == 1)]
-        single2 = df[(df[col2] == True) & (df["n_modules"] == 1)]
+        single1 = df[(df[col1]) & (df["n_modules"] == 1)]
+        single2 = df[(df[col2]) & (df["n_modules"] == 1)]
 
         # Combined effect
-        combo = df[
-            (df[col1] == True) & (df[col2] == True) & (df["n_modules"] == 2)
-        ]
+        combo = df[(df[col1]) & (df[col2]) & (df["n_modules"] == 2)]
 
         if len(single1) > 0 and len(single2) > 0 and len(combo) > 0:
             expected = (
-                single1.iloc[0]["best_correlation"]
-                + single2.iloc[0]["best_correlation"]
-                - baseline["best_correlation"]
+                single1.iloc[0]["best_correlation"] + single2.iloc[0]["best_correlation"] - baseline["best_correlation"]
             )
             actual = combo.iloc[0]["best_correlation"]
             synergy = actual - expected
@@ -458,7 +450,7 @@ def analyze_synergies(df: pd.DataFrame) -> Dict[str, Any]:
     return analysis
 
 
-def print_analysis(df: pd.DataFrame, analysis: Dict[str, Any]):
+def print_analysis(df: pd.DataFrame, analysis: dict[str, Any]):
     """Print formatted analysis results."""
     print()
     print("=" * 70)
@@ -507,7 +499,9 @@ def print_analysis(df: pd.DataFrame, analysis: Dict[str, Any]):
 
     # Best individual
     best_individual = max(analysis["individual_contributions"].items(), key=lambda x: x[1]["correlation_delta"])
-    print(f"• Best individual module for correlation: {best_individual[0]} ({best_individual[1]['correlation_delta']:+.4f})")
+    print(
+        f"• Best individual module for correlation: {best_individual[0]} ({best_individual[1]['correlation_delta']:+.4f})"
+    )
 
     # Best synergy
     if analysis["synergies"]:

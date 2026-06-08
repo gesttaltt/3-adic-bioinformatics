@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -159,7 +158,7 @@ class FisherRaoDistance(nn.Module):
         b_ref = torch.exp(logb_ref).clamp(min=1e-8)
 
         # Mean term
-        mean_term = ((mu1 - mu2) ** 2) / (b_ref ** 2)
+        mean_term = ((mu1 - mu2) ** 2) / (b_ref**2)
 
         # Scale term
         scale_term = 2 * (logb1 - logb2) ** 2
@@ -183,7 +182,7 @@ class FisherRaoLoss(LossComponent):
 
     def __init__(
         self,
-        config: Optional[FisherRaoConfig] = None,
+        config: FisherRaoConfig | None = None,
         weight: float = 1.0,
         name: str = "fisher_rao",
     ):
@@ -197,9 +196,7 @@ class FisherRaoLoss(LossComponent):
         super().__init__(weight=weight, name=name)
         self.config = config or FisherRaoConfig()
 
-        self.distance_fn = FisherRaoDistance(
-            distribution=self.config.distance_type
-        )
+        self.distance_fn = FisherRaoDistance(distribution=self.config.distance_type)
 
         # Prior parameters (standard normal)
         self.register_buffer("prior_mu", torch.tensor(0.0))
@@ -207,7 +204,7 @@ class FisherRaoLoss(LossComponent):
 
     def forward(
         self,
-        outputs: Dict[str, torch.Tensor],
+        outputs: dict[str, torch.Tensor],
         targets: torch.Tensor,
         **kwargs,
     ) -> LossResult:
@@ -296,10 +293,7 @@ class FisherRaoLoss(LossComponent):
             return torch.tensor(0.0, device=mu.device)
 
         # Compute distances
-        distances = self.distance_fn(
-            mu[idx1], logvar[idx1],
-            mu[idx2], logvar[idx2]
-        )
+        distances = self.distance_fn(mu[idx1], logvar[idx1], mu[idx2], logvar[idx2])
 
         # Encourage moderate distances (not too large, not collapsed)
         # Target: distances should be around sqrt(latent_dim)
@@ -355,8 +349,8 @@ class FisherRaoKL(nn.Module):
         self,
         mu: torch.Tensor,
         logvar: torch.Tensor,
-        prior_mu: Optional[torch.Tensor] = None,
-        prior_logvar: Optional[torch.Tensor] = None,
+        prior_mu: torch.Tensor | None = None,
+        prior_logvar: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute Fisher-Rao weighted KL divergence.
 
@@ -378,12 +372,7 @@ class FisherRaoKL(nn.Module):
         prior_var = torch.exp(prior_logvar)
 
         # Standard KL
-        kl_standard = 0.5 * (
-            var / prior_var
-            + (prior_mu - mu) ** 2 / prior_var
-            - 1
-            + prior_logvar - logvar
-        )
+        kl_standard = 0.5 * (var / prior_var + (prior_mu - mu) ** 2 / prior_var - 1 + prior_logvar - logvar)
 
         if not self.use_fisher_weighting:
             return kl_standard.sum(dim=-1)
@@ -438,7 +427,7 @@ class NaturalGradientRegularizer(nn.Module):
         self,
         mu: torch.Tensor,
         logvar: torch.Tensor,
-    ) -> Tuple[torch.Tensor, Dict[str, float]]:
+    ) -> tuple[torch.Tensor, dict[str, float]]:
         """Compute natural gradient regularization.
 
         Args:

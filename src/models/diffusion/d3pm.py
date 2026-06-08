@@ -14,8 +14,7 @@ References:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Callable, Optional, Tuple
+from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
@@ -23,7 +22,6 @@ import torch.nn.functional as F
 
 from src.models.diffusion.noise_schedule import (
     CosineSchedule,
-    NoiseSchedule,
     PAdicNoiseSchedule,
 )
 
@@ -72,7 +70,7 @@ class D3PM(nn.Module):
 
     def __init__(
         self,
-        config: Optional[D3PMConfig] = None,
+        config: D3PMConfig | None = None,
     ):
         """Initialize D3PM.
 
@@ -103,6 +101,7 @@ class D3PM(nn.Module):
             )
         else:
             from src.models.diffusion.noise_schedule import LinearSchedule
+
             self.schedule = LinearSchedule(self.config.n_timesteps)
 
     def _init_transition_matrices(self):
@@ -131,9 +130,7 @@ class D3PM(nn.Module):
         )
 
         # Positional encoding
-        self.pos_encoding = nn.Parameter(
-            torch.randn(1, self.config.max_length, self.config.hidden_dim) * 0.02
-        )
+        self.pos_encoding = nn.Parameter(torch.randn(1, self.config.max_length, self.config.hidden_dim) * 0.02)
 
         # Time embedding
         self.time_embedding = nn.Sequential(
@@ -167,7 +164,7 @@ class D3PM(nn.Module):
         self,
         x_t: torch.Tensor,
         t: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
+        mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Predict clean token logits from noisy input.
 
@@ -192,10 +189,7 @@ class D3PM(nn.Module):
         h = h + t_emb.unsqueeze(1)
 
         # Create attention mask if provided
-        if mask is not None:
-            attn_mask = ~mask
-        else:
-            attn_mask = None
+        attn_mask = ~mask if mask is not None else None
 
         # Transformer
         h = self.transformer(h, src_key_padding_mask=attn_mask)
@@ -209,7 +203,7 @@ class D3PM(nn.Module):
         self,
         x_0: torch.Tensor,
         t: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Sample from forward diffusion process q(x_t | x_0).
 
         Args:
@@ -249,7 +243,7 @@ class D3PM(nn.Module):
     def compute_loss(
         self,
         x_0: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
+        mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute D3PM training loss.
 
@@ -265,7 +259,8 @@ class D3PM(nn.Module):
 
         # Sample random timesteps
         t = torch.randint(
-            0, self.config.n_timesteps,
+            0,
+            self.config.n_timesteps,
             (batch_size,),
             device=device,
         )
@@ -296,10 +291,10 @@ class D3PM(nn.Module):
     def sample(
         self,
         batch_size: int = 1,
-        seq_len: Optional[int] = None,
+        seq_len: int | None = None,
         temperature: float = 1.0,
         guidance_scale: float = 1.0,
-        condition: Optional[torch.Tensor] = None,
+        condition: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Generate samples via reverse diffusion.
 
@@ -327,7 +322,8 @@ class D3PM(nn.Module):
         else:
             # Random tokens
             x = torch.randint(
-                0, self.config.vocab_size,
+                0,
+                self.config.vocab_size,
                 (batch_size, seq_len),
                 device=device,
             )
@@ -399,9 +395,7 @@ class D3PM(nn.Module):
         prob_x0 = ((alpha_t_prev - alpha_t) / (1 - alpha_t + 1e-8)).item()
         prob_x0 = min(max(prob_x0, 0), 1)
 
-        mask = torch.bernoulli(
-            torch.full((batch_size, seq_len), prob_x0, device=device)
-        ).bool()
+        mask = torch.bernoulli(torch.full((batch_size, seq_len), prob_x0, device=device)).bool()
 
         x_t_prev = torch.where(mask, x_0_sample, x_t)
 
@@ -448,7 +442,7 @@ class ConditionalD3PM(D3PM):
 
     def __init__(
         self,
-        config: Optional[D3PMConfig] = None,
+        config: D3PMConfig | None = None,
         condition_dim: int = 64,
     ):
         """Initialize conditional D3PM.
@@ -468,16 +462,14 @@ class ConditionalD3PM(D3PM):
         )
 
         # Null condition for classifier-free guidance
-        self.null_condition = nn.Parameter(
-            torch.zeros(condition_dim)
-        )
+        self.null_condition = nn.Parameter(torch.zeros(condition_dim))
 
     def forward(
         self,
         x_t: torch.Tensor,
         t: torch.Tensor,
-        condition: Optional[torch.Tensor] = None,
-        mask: Optional[torch.Tensor] = None,
+        condition: torch.Tensor | None = None,
+        mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Forward with optional conditioning.
 
@@ -506,10 +498,7 @@ class ConditionalD3PM(D3PM):
             h = h + c_emb.unsqueeze(1)
 
         # Transformer
-        if mask is not None:
-            attn_mask = ~mask
-        else:
-            attn_mask = None
+        attn_mask = ~mask if mask is not None else None
 
         h = self.transformer(h, src_key_padding_mask=attn_mask)
         logits = self.output_proj(h)
@@ -520,8 +509,8 @@ class ConditionalD3PM(D3PM):
     def sample(
         self,
         batch_size: int = 1,
-        seq_len: Optional[int] = None,
-        condition: Optional[torch.Tensor] = None,
+        seq_len: int | None = None,
+        condition: torch.Tensor | None = None,
         guidance_scale: float = 2.0,
         temperature: float = 1.0,
     ) -> torch.Tensor:

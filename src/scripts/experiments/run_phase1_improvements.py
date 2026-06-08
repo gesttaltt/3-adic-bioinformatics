@@ -11,9 +11,7 @@ Run with: python src/scripts/experiments/run_phase1_improvements.py
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import pandas as pd
@@ -43,13 +41,28 @@ TAM_PATHWAYS = {
 NRTI_KEY_POSITIONS = [41, 44, 62, 65, 67, 69, 70, 74, 75, 77, 115, 116, 118, 151, 184, 210, 215, 219]
 
 REFERENCE_AA = {
-    41: "M", 44: "E", 62: "A", 65: "K", 67: "D", 69: "T", 70: "K", 74: "L",
-    75: "V", 77: "F", 115: "Y", 116: "F", 118: "V", 151: "Q", 184: "M",
-    210: "L", 215: "T", 219: "K",
+    41: "M",
+    44: "E",
+    62: "A",
+    65: "K",
+    67: "D",
+    69: "T",
+    70: "K",
+    74: "L",
+    75: "V",
+    77: "F",
+    115: "Y",
+    116: "F",
+    118: "V",
+    151: "Q",
+    184: "M",
+    210: "L",
+    215: "T",
+    219: "K",
 }
 
 
-def detect_mutations(row: pd.Series, position_cols: List[str]) -> Set[str]:
+def detect_mutations(row: pd.Series, position_cols: list[str]) -> set[str]:
     """Detect mutations from a data row."""
     mutations = set()
     for col in position_cols:
@@ -65,14 +78,14 @@ def detect_mutations(row: pd.Series, position_cols: List[str]) -> Set[str]:
     return mutations
 
 
-def extract_tam_features(row: pd.Series, position_cols: List[str]) -> np.ndarray:
+def extract_tam_features(row: pd.Series, position_cols: list[str]) -> np.ndarray:
     """Extract TAM pattern features from a row."""
     mutations = detect_mutations(row, position_cols)
 
     features = []
 
     # Pattern scores (6 patterns)
-    for pattern_name, pattern_info in TAM_PATHWAYS.items():
+    for _pattern_name, pattern_info in TAM_PATHWAYS.items():
         present = sum(1 for mut in pattern_info["mutations"] if mut in mutations)
         score = present / len(pattern_info["mutations"]) if pattern_info["mutations"] else 0
         features.append(score)
@@ -111,7 +124,7 @@ def extract_tam_features(row: pd.Series, position_cols: List[str]) -> np.ndarray
     return np.array(features, dtype=np.float32)
 
 
-def encode_with_tam(df: pd.DataFrame, position_cols: List[str]) -> np.ndarray:
+def encode_with_tam(df: pd.DataFrame, position_cols: list[str]) -> np.ndarray:
     """Encode sequences with both one-hot and TAM features."""
     aa_alphabet = "ACDEFGHIKLMNPQRSTVWY*-"
     aa_to_idx = {aa: i for i, aa in enumerate(aa_alphabet)}
@@ -146,6 +159,7 @@ def encode_with_tam(df: pd.DataFrame, position_cols: List[str]) -> np.ndarray:
 # =============================================================================
 # Stable Transformer for Long Sequences
 # =============================================================================
+
 
 class StableTransformer(nn.Module):
     """Numerically stable transformer for long sequences."""
@@ -193,7 +207,7 @@ class StableTransformer(nn.Module):
         self.fc_logvar = nn.Linear(d_model, 16)
         self.decoder = nn.Linear(16, n_positions * n_aa)
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         batch_size = x.size(0)
 
         # Handle TAM-enhanced input
@@ -249,6 +263,7 @@ class StableTransformer(nn.Module):
 # =============================================================================
 # MAML Implementation for Few-Shot
 # =============================================================================
+
 
 class MAMLVAE(nn.Module):
     """VAE for MAML meta-learning."""
@@ -309,13 +324,13 @@ def maml_inner_loop(
         grads = torch.autograd.grad(loss, adapted.parameters(), create_graph=False)
 
         with torch.no_grad():
-            for param, grad in zip(adapted.parameters(), grads):
+            for param, grad in zip(adapted.parameters(), grads, strict=False):
                 param.sub_(inner_lr * grad)
 
     return adapted
 
 
-def compute_maml_loss(out: Dict, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+def compute_maml_loss(out: dict, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     """Compute loss for MAML."""
     recon = F.mse_loss(out["x_recon"], x)
     kl = -0.5 * torch.mean(1 + out["logvar"] - out["mu"].pow(2) - out["logvar"].exp())
@@ -331,6 +346,7 @@ def compute_maml_loss(out: Dict, x: torch.Tensor, y: torch.Tensor) -> torch.Tens
 # =============================================================================
 # TAM-Specific Loss Function
 # =============================================================================
+
 
 class TAMSpecificLoss(nn.Module):
     """Loss function that incorporates TAM pathway knowledge."""
@@ -356,11 +372,11 @@ class TAMSpecificLoss(nn.Module):
 
     def forward(
         self,
-        out: Dict[str, torch.Tensor],
+        out: dict[str, torch.Tensor],
         x: torch.Tensor,
         y: torch.Tensor,
-        tam_features: Optional[torch.Tensor] = None,
-    ) -> Dict[str, torch.Tensor]:
+        tam_features: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor]:
         losses = {}
 
         # Weighted reconstruction (emphasize key positions)
@@ -387,7 +403,7 @@ class TAMSpecificLoss(nn.Module):
         # TAM consistency loss (if TAM features provided)
         if tam_features is not None:
             tam_pred = self.tam_predictor(out["z"])
-            tam_target = tam_features[:, :len(TAM_PATHWAYS)]  # First 6 features are pattern scores
+            tam_target = tam_features[:, : len(TAM_PATHWAYS)]  # First 6 features are pattern scores
             losses["tam"] = 0.1 * F.mse_loss(tam_pred, tam_target)
 
         losses["total"] = sum(losses.values())
@@ -398,7 +414,8 @@ class TAMSpecificLoss(nn.Module):
 # Data Loading
 # =============================================================================
 
-def load_data(drug_class: str) -> Tuple[pd.DataFrame, List[str], List[str]]:
+
+def load_data(drug_class: str) -> tuple[pd.DataFrame, list[str], list[str]]:
     """Load Stanford HIVDB data."""
     data_dir = project_root / "data" / "research"
 
@@ -422,14 +439,16 @@ def load_data(drug_class: str) -> Tuple[pd.DataFrame, List[str], List[str]]:
     # All Stanford HIVDB files use "P" prefix for position columns
     prefix = "P"
 
-    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix):].isdigit()]
-    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix):]))
+    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix) :].isdigit()]
+    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix) :]))
 
     # Verify positions are reasonable for the drug class
     expected_positions = {"pi": 99, "nrti": 240, "nnrti": 240, "ini": 288}
     if len(position_cols) == 0:
         raise ValueError(f"No position columns found for {drug_class}")
-    print(f"  Found {len(position_cols)} positions for {drug_class} (expected ~{expected_positions.get(drug_class, 'unknown')})")
+    print(
+        f"  Found {len(position_cols)} positions for {drug_class} (expected ~{expected_positions.get(drug_class, 'unknown')})"
+    )
 
     return df, position_cols, drug_columns[drug_class]
 
@@ -438,7 +457,7 @@ def prepare_data(
     drug_class: str,
     drug: str,
     use_tam: bool = False,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int, int]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int, int]:
     """Prepare data with optional TAM encoding."""
     df, position_cols, drugs = load_data(drug_class)
     df_valid = df[df[drug].notna() & (df[drug] > 0)].copy()
@@ -484,6 +503,7 @@ def prepare_data(
 # Training Functions
 # =============================================================================
 
+
 def train_with_tam_loss(
     model: nn.Module,
     loss_fn: TAMSpecificLoss,
@@ -493,7 +513,7 @@ def train_with_tam_loss(
     test_y: torch.Tensor,
     epochs: int = 50,
     device: str = "cpu",
-) -> Tuple[float, List[float]]:
+) -> tuple[float, list[float]]:
     """Train with TAM-specific loss."""
     model = model.to(device)
     loss_fn = loss_fn.to(device)
@@ -511,10 +531,7 @@ def train_with_tam_loss(
 
             # Extract TAM features if present
             n_onehot = loss_fn.n_positions * 22
-            if x.size(1) > n_onehot:
-                tam_features = x[:, n_onehot:]
-            else:
-                tam_features = None
+            tam_features = x[:, n_onehot:] if x.size(1) > n_onehot else None
 
             optimizer.zero_grad()
             out = model(x)
@@ -563,7 +580,7 @@ def train_standard(
             out = model(x)
 
             # Standard loss
-            recon = F.mse_loss(out["x_recon"], x[:, :out["x_recon"].size(1)])
+            recon = F.mse_loss(out["x_recon"], x[:, : out["x_recon"].size(1)])
             kl = -0.5 * torch.mean(1 + out["logvar"] - out["mu"].pow(2) - out["logvar"].exp())
 
             pred = out["prediction"]
@@ -595,14 +612,16 @@ def train_standard(
 
 
 def run_maml_evaluation(
-    train_drugs: List[str],
-    test_drugs: List[str],
+    train_drugs: list[str],
+    test_drugs: list[str],
     drug_class: str = "pi",
-    support_sizes: List[int] = [5, 10, 20, 50],
+    support_sizes: list[int] = None,
     epochs: int = 30,
     device: str = "cpu",
-) -> Dict:
+) -> dict:
     """Run MAML few-shot evaluation."""
+    if support_sizes is None:
+        support_sizes = [5, 10, 20, 50]
     print("\n" + "=" * 60)
     print("MAML FEW-SHOT EVALUATION")
     print("=" * 60)
@@ -707,13 +726,15 @@ def run_maml_evaluation(
 # Main Experiment Runner
 # =============================================================================
 
+
 def main():
     import argparse
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=50)
-    parser.add_argument("--experiment", type=str, default="all",
-                        choices=["tam", "transformer", "maml", "tam_loss", "multitask", "all"])
+    parser.add_argument(
+        "--experiment", type=str, default="all", choices=["tam", "transformer", "maml", "tam_loss", "multitask", "all"]
+    )
     args = parser.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -758,18 +779,24 @@ def main():
                 print(f"  Without TAM: {corr_no_tam:+.4f}")
 
                 # With TAM
-                train_x_tam, train_y_tam, test_x_tam, test_y_tam, input_dim_tam, _ = prepare_data("nrti", drug, use_tam=True)
+                train_x_tam, train_y_tam, test_x_tam, test_y_tam, input_dim_tam, _ = prepare_data(
+                    "nrti", drug, use_tam=True
+                )
                 model_with_tam = SimpleVAE(input_dim_tam)
-                corr_with_tam = train_standard(model_with_tam, train_x_tam, train_y_tam, test_x_tam, test_y_tam, args.epochs, device)
+                corr_with_tam = train_standard(
+                    model_with_tam, train_x_tam, train_y_tam, test_x_tam, test_y_tam, args.epochs, device
+                )
                 print(f"  With TAM:    {corr_with_tam:+.4f}")
                 print(f"  Improvement: {corr_with_tam - corr_no_tam:+.4f}")
 
-                results_tam.append({
-                    "drug": drug,
-                    "no_tam": corr_no_tam,
-                    "with_tam": corr_with_tam,
-                    "improvement": corr_with_tam - corr_no_tam,
-                })
+                results_tam.append(
+                    {
+                        "drug": drug,
+                        "no_tam": corr_no_tam,
+                        "with_tam": corr_with_tam,
+                        "improvement": corr_with_tam - corr_no_tam,
+                    }
+                )
 
             except Exception as e:
                 print(f"  Error: {e}")
@@ -811,6 +838,7 @@ def main():
                 except Exception as e:
                     print(f"  Error: {e}")
                     import traceback
+
                     traceback.print_exc()
 
         results_all["transformer"] = results_trans
@@ -828,9 +856,7 @@ def main():
         test_drugs = ["TPV", "DRV"]
 
         maml_results = run_maml_evaluation(
-            train_drugs, test_drugs, "pi",
-            support_sizes=[5, 10, 20, 50],
-            epochs=30, device=device
+            train_drugs, test_drugs, "pi", support_sizes=[5, 10, 20, 50], epochs=30, device=device
         )
         results_all["maml"] = maml_results
 
@@ -873,20 +899,25 @@ def main():
                 # TAM-specific loss
                 model_tam = SimpleVAE(input_dim, n_pos)
                 tam_loss = TAMSpecificLoss(n_positions=n_pos)
-                corr_tam, _ = train_with_tam_loss(model_tam, tam_loss, train_x, train_y, test_x, test_y, args.epochs, device)
+                corr_tam, _ = train_with_tam_loss(
+                    model_tam, tam_loss, train_x, train_y, test_x, test_y, args.epochs, device
+                )
                 print(f"  TAM loss:      {corr_tam:+.4f}")
                 print(f"  Improvement:   {corr_tam - corr_std:+.4f}")
 
-                results_tam_loss.append({
-                    "drug": drug,
-                    "standard": corr_std,
-                    "tam_loss": corr_tam,
-                    "improvement": corr_tam - corr_std,
-                })
+                results_tam_loss.append(
+                    {
+                        "drug": drug,
+                        "standard": corr_std,
+                        "tam_loss": corr_tam,
+                        "improvement": corr_tam - corr_std,
+                    }
+                )
 
             except Exception as e:
                 print(f"  Error: {e}")
                 import traceback
+
                 traceback.print_exc()
 
         results_all["tam_loss"] = results_tam_loss
@@ -973,15 +1004,17 @@ def main():
                 )
 
                 # Drug-specific prediction heads
-                self.drug_heads = nn.ModuleDict({
-                    drug: nn.Sequential(
-                        nn.Linear(16, 32),
-                        nn.GELU(),
-                        nn.Dropout(0.1),
-                        nn.Linear(32, 1),
-                    )
-                    for drug in drug_names
-                })
+                self.drug_heads = nn.ModuleDict(
+                    {
+                        drug: nn.Sequential(
+                            nn.Linear(16, 32),
+                            nn.GELU(),
+                            nn.Dropout(0.1),
+                            nn.Linear(32, 1),
+                        )
+                        for drug in drug_names
+                    }
+                )
 
             def forward(self, x, drug=None):
                 h = self.encoder(x)
@@ -995,10 +1028,7 @@ def main():
                 if drug is not None:
                     result["prediction"] = self.drug_heads[drug](z).squeeze(-1)
                 else:
-                    result["predictions"] = {
-                        name: self.drug_heads[name](z).squeeze(-1)
-                        for name in self.drug_names
-                    }
+                    result["predictions"] = {name: self.drug_heads[name](z).squeeze(-1) for name in self.drug_names}
 
                 return result
 
@@ -1024,8 +1054,9 @@ def main():
         for drug in all_drug_data:
             data = all_drug_data[drug]
             model = SimpleVAE(input_dim)
-            corr = train_standard(model, data["train_x"], data["train_y"],
-                                  data["test_x"], data["test_y"], args.epochs, device)
+            corr = train_standard(
+                model, data["train_x"], data["train_y"], data["test_x"], data["test_y"], args.epochs, device
+            )
             single_task_results[drug] = corr
             print(f"  {drug}: {corr:+.4f}")
 
@@ -1050,7 +1081,7 @@ def main():
             # Mini-batch training
             batch_size = 32
             for i in range(0, len(train_data), batch_size):
-                batch = train_data[i:i + batch_size]
+                batch = train_data[i : i + batch_size]
 
                 # Group by drug for efficient processing
                 drug_batches = {}
@@ -1076,8 +1107,9 @@ def main():
                     pred = out["prediction"]
                     p_c = pred - pred.mean()
                     y_c = y - y.mean()
-                    corr = torch.sum(p_c * y_c) / (torch.sqrt(torch.sum(p_c**2) + 1e-8) *
-                                                    torch.sqrt(torch.sum(y_c**2) + 1e-8))
+                    corr = torch.sum(p_c * y_c) / (
+                        torch.sqrt(torch.sum(p_c**2) + 1e-8) * torch.sqrt(torch.sum(y_c**2) + 1e-8)
+                    )
 
                     loss = recon + 0.001 * kl + 0.3 * (-corr)
                     batch_loss = batch_loss + loss
@@ -1115,12 +1147,14 @@ def main():
             multi = multi_task_results.get(drug, 0)
             diff = multi - single
             print(f"{drug:<8} {single:>+12.4f} {multi:>+12.4f} {diff:>+12.4f}")
-            results_multitask.append({
-                "drug": drug,
-                "single_task": single,
-                "multi_task": multi,
-                "improvement": diff,
-            })
+            results_multitask.append(
+                {
+                    "drug": drug,
+                    "single_task": single,
+                    "multi_task": multi,
+                    "improvement": diff,
+                }
+            )
 
         avg_single = np.mean(list(single_task_results.values()))
         avg_multi = np.mean(list(multi_task_results.values()))

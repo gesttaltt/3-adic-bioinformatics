@@ -12,26 +12,26 @@ Provides publication-quality visualizations for:
 - Integrated constraint maps
 """
 
-from .resistance_plots import (
-    plot_resistance_correlation,
-    plot_mutation_classification,
-    plot_cross_resistance_heatmap,
-    plot_drug_class_embeddings,
-)
 from .escape_plots import (
+    plot_epitope_conservation,
     plot_hla_escape_landscape,
     plot_protein_escape_velocity,
-    plot_epitope_conservation,
-)
-from .neutralization_plots import (
-    plot_bnab_sensitivity,
-    plot_breadth_potency,
-    plot_antibody_clusters,
 )
 from .integration_plots import (
     plot_constraint_landscape,
-    plot_vaccine_targets,
     plot_tradeoff_map,
+    plot_vaccine_targets,
+)
+from .neutralization_plots import (
+    plot_antibody_clusters,
+    plot_bnab_sensitivity,
+    plot_breadth_potency,
+)
+from .resistance_plots import (
+    plot_cross_resistance_heatmap,
+    plot_drug_class_embeddings,
+    plot_mutation_classification,
+    plot_resistance_correlation,
 )
 
 __all__ = [

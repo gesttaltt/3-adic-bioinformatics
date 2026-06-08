@@ -34,7 +34,13 @@ def check_prerequisites():
     """Check if codon encoder exists."""
     encoder_paths = [
         PROJECT_ROOT / "research" / "bioinformatics" / "genetic_code" / "data" / "codon_encoder_3adic.pt",
-        PROJECT_ROOT / "research" / "bioinformatics" / "codon_encoder_research" / "hiv" / "data" / "codon_encoder_3adic.pt",
+        PROJECT_ROOT
+        / "research"
+        / "bioinformatics"
+        / "codon_encoder_research"
+        / "hiv"
+        / "data"
+        / "codon_encoder_3adic.pt",
     ]
 
     for path in encoder_paths:
@@ -49,10 +55,10 @@ def check_prerequisites():
 
 def run_script(script_path, description):
     """Run a Python script and return success status."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Running: {description}")
     print(f"Script: {script_path.name}")
-    print("="*60)
+    print("=" * 60)
 
     try:
         result = subprocess.run(
@@ -164,7 +170,7 @@ Examples:
   python src/scripts/run_hiv_analysis.py --escape     # CTL escape only
   python src/scripts/run_hiv_analysis.py --all        # Run everything
   python src/scripts/run_hiv_analysis.py --visualize  # Run visualizations
-        """
+        """,
     )
 
     # Analysis options
@@ -187,15 +193,22 @@ Examples:
     print("=" * 70)
 
     # Check prerequisites
-    if not args.skip_check:
-        if not check_prerequisites():
-            return 1
+    if not args.skip_check and not check_prerequisites():
+        return 1
 
     # Determine what to run
-    run_all = args.all or not any([
-        args.escape, args.drug_resistance, args.handshake, args.hiding,
-        args.glycan, args.integrase, args.validations, args.visualize
-    ])
+    run_all = args.all or not any(
+        [
+            args.escape,
+            args.drug_resistance,
+            args.handshake,
+            args.hiding,
+            args.glycan,
+            args.integrase,
+            args.validations,
+            args.visualize,
+        ]
+    )
 
     results = []
 

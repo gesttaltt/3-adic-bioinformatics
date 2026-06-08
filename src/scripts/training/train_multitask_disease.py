@@ -54,7 +54,6 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -168,7 +167,7 @@ class SharedEncoder(nn.Module):
             nn.Linear(hidden_dim, hidden_dim),
         )
 
-    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
         """Encode sequence to representation."""
         batch_size, seq_len = x.shape
 
@@ -267,14 +266,14 @@ class MultiTaskPredictor(nn.Module):
         if config.use_gradnorm:
             n_task_combos = sum(len(DISEASE_TASKS.get(d, [])) for d in config.diseases)
             self.task_weights = nn.Parameter(torch.ones(n_task_combos))
-            self.initial_losses: Optional[dict] = None
+            self.initial_losses: dict | None = None
 
     def forward(
         self,
         x: torch.Tensor,
         disease: str,
-        tasks: Optional[list[str]] = None,
-        mask: Optional[torch.Tensor] = None,
+        tasks: list[str] | None = None,
+        mask: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         """Forward pass for specific disease and tasks."""
         # Encode
@@ -502,7 +501,7 @@ def train_epoch(
     model: MultiTaskPredictor,
     dataloader: DataLoader,
     optimizer: torch.optim.Optimizer,
-    gradnorm: Optional[GradNorm],
+    gradnorm: GradNorm | None,
     scaler: torch.amp.GradScaler,
     device: torch.device,
     config: MultiTaskConfig,
@@ -522,7 +521,7 @@ def train_epoch(
 
         with torch.amp.autocast("cuda", enabled=config.use_amp):
             # Process each sample (diseases may differ within batch)
-            for i, (disease, sample_labels) in enumerate(zip(diseases, labels)):
+            for i, (disease, sample_labels) in enumerate(zip(diseases, labels, strict=False)):
                 seq = sequences[i : i + 1]
                 mask = masks[i : i + 1]
 
@@ -583,7 +582,7 @@ def evaluate(
         labels = batch["labels"]
 
         with torch.amp.autocast("cuda", enabled=config.use_amp):
-            for i, (disease, sample_labels) in enumerate(zip(diseases, labels)):
+            for i, (disease, sample_labels) in enumerate(zip(diseases, labels, strict=False)):
                 seq = sequences[i : i + 1]
                 mask = masks[i : i + 1]
 
@@ -607,14 +606,14 @@ def evaluate(
 
 def main():
     parser = argparse.ArgumentParser(description="Multi-Task Disease Predictor Training")
-    parser.add_argument(
-        "--diseases", nargs="+", default=["hiv", "cancer", "ra", "neuro"], help="Diseases to train on"
-    )
+    parser.add_argument("--diseases", nargs="+", default=["hiv", "cancer", "ra", "neuro"], help="Diseases to train on")
     parser.add_argument("--tasks", nargs="+", default=TASK_TYPES, help="Tasks to train")
     parser.add_argument("--epochs", type=int, default=100, help="Number of epochs")
     parser.add_argument("--batch-size", type=int, default=32, help="Batch size")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--weight-decay", type=float, default=0.01, help="Weight decay (default: 0.01, try 0.1 for less overfitting)")
+    parser.add_argument(
+        "--weight-decay", type=float, default=0.01, help="Weight decay (default: 0.01, try 0.1 for less overfitting)"
+    )
     parser.add_argument("--dropout", type=float, default=0.1, help="Dropout rate (default: 0.1)")
     parser.add_argument("--no-gradnorm", action="store_true", help="Disable GradNorm")
     parser.add_argument("--quick", action="store_true", help="Quick test mode")

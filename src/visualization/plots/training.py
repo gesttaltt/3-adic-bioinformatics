@@ -26,8 +26,6 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple, Union
-
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
@@ -38,15 +36,15 @@ from src.visualization.styles.palettes import SEMANTIC, TOLVIBRANT
 
 
 def plot_training_curves(
-    history: Dict[str, List[float]],
-    metrics: Optional[List[str]] = None,
+    history: dict[str, list[float]],
+    metrics: list[str] | None = None,
     title: str = "Training Progress",
-    ax: Optional[Axes] = None,
-    figsize: Tuple[float, float] = (12, 6),
+    ax: Axes | None = None,
+    figsize: tuple[float, float] = (12, 6),
     show_best: bool = True,
     smooth_factor: float = 0.0,
     log_scale: bool = False,
-) -> Tuple[Figure, Axes]:
+) -> tuple[Figure, Axes]:
     """Plot training curves for multiple metrics.
 
     Args:
@@ -93,7 +91,9 @@ def plot_training_curves(
         # Mark best value
         if show_best:
             best_idx = np.argmin(values) if "loss" in metric.lower() else np.argmax(values)
-            ax.scatter(epochs[best_idx], values[best_idx], color=colors[i], s=100, zorder=5, marker="*", edgecolors="black")
+            ax.scatter(
+                epochs[best_idx], values[best_idx], color=colors[i], s=100, zorder=5, marker="*", edgecolors="black"
+            )
 
     if log_scale:
         ax.set_yscale("log")
@@ -109,11 +109,11 @@ def plot_training_curves(
 
 
 def plot_loss_components(
-    loss_history: Dict[str, List[float]],
+    loss_history: dict[str, list[float]],
     title: str = "Loss Component Breakdown",
-    figsize: Tuple[float, float] = (12, 6),
+    figsize: tuple[float, float] = (12, 6),
     stacked: bool = False,
-) -> Tuple[Figure, Axes]:
+) -> tuple[Figure, Axes]:
     """Plot stacked or overlaid loss components.
 
     Args:
@@ -151,12 +151,12 @@ def plot_loss_components(
 
 
 def plot_gradient_norms(
-    gradient_history: Dict[str, List[float]],
+    gradient_history: dict[str, list[float]],
     title: str = "Gradient Norm Evolution",
-    ax: Optional[Axes] = None,
-    figsize: Tuple[float, float] = (12, 6),
-    clip_threshold: Optional[float] = None,
-) -> Tuple[Figure, Axes]:
+    ax: Axes | None = None,
+    figsize: tuple[float, float] = (12, 6),
+    clip_threshold: float | None = None,
+) -> tuple[Figure, Axes]:
     """Plot gradient norm evolution during training.
 
     Args:
@@ -183,7 +183,9 @@ def plot_gradient_norms(
         ax.plot(steps, norms, color=colors[i], alpha=0.7, linewidth=1.5, label=layer)
 
     if clip_threshold is not None:
-        ax.axhline(y=clip_threshold, color="red", linestyle="--", linewidth=2, label=f"Clip threshold ({clip_threshold})")
+        ax.axhline(
+            y=clip_threshold, color="red", linestyle="--", linewidth=2, label=f"Clip threshold ({clip_threshold})"
+        )
 
     ax.set_xlabel("Step")
     ax.set_ylabel("Gradient Norm")
@@ -197,11 +199,11 @@ def plot_gradient_norms(
 
 
 def plot_learning_rate(
-    lr_history: Union[List[float], Dict[str, List[float]]],
+    lr_history: list[float] | dict[str, list[float]],
     title: str = "Learning Rate Schedule",
-    ax: Optional[Axes] = None,
-    figsize: Tuple[float, float] = (10, 5),
-) -> Tuple[Figure, Axes]:
+    ax: Axes | None = None,
+    figsize: tuple[float, float] = (10, 5),
+) -> tuple[Figure, Axes]:
     """Plot learning rate schedule.
 
     Args:
@@ -239,13 +241,13 @@ def plot_learning_rate(
 
 
 def plot_train_val_comparison(
-    train_metrics: Dict[str, List[float]],
-    val_metrics: Dict[str, List[float]],
+    train_metrics: dict[str, list[float]],
+    val_metrics: dict[str, list[float]],
     metric_name: str = "loss",
-    title: Optional[str] = None,
-    ax: Optional[Axes] = None,
-    figsize: Tuple[float, float] = (10, 6),
-) -> Tuple[Figure, Axes]:
+    title: str | None = None,
+    ax: Axes | None = None,
+    figsize: tuple[float, float] = (10, 6),
+) -> tuple[Figure, Axes]:
     """Plot training vs validation metric comparison.
 
     Args:
@@ -304,9 +306,9 @@ def plot_train_val_comparison(
 
 
 def plot_parameter_histogram(
-    parameters: Dict[str, np.ndarray],
+    parameters: dict[str, np.ndarray],
     title: str = "Parameter Distribution",
-    figsize: Tuple[float, float] = (12, 8),
+    figsize: tuple[float, float] = (12, 8),
     n_cols: int = 3,
     n_bins: int = 50,
 ) -> Figure:
@@ -352,8 +354,8 @@ def plot_parameter_histogram(
 
 
 def create_training_dashboard(
-    history: Dict[str, List[float]],
-    figsize: Tuple[float, float] = (16, 12),
+    history: dict[str, list[float]],
+    figsize: tuple[float, float] = (16, 12),
 ) -> Figure:
     """Create comprehensive training dashboard.
 
@@ -370,19 +372,19 @@ def create_training_dashboard(
 
     # 1. Main loss curve
     ax1 = fig.add_subplot(gs[0, 0])
-    loss_keys = [k for k in history.keys() if "loss" in k.lower()]
+    loss_keys = [k for k in history if "loss" in k.lower()]
     if loss_keys:
         plot_training_curves(history, metrics=loss_keys, ax=ax1, title="Loss Curves")
 
     # 2. Non-loss metrics
     ax2 = fig.add_subplot(gs[0, 1])
-    other_keys = [k for k in history.keys() if "loss" not in k.lower() and "lr" not in k.lower()]
+    other_keys = [k for k in history if "loss" not in k.lower() and "lr" not in k.lower()]
     if other_keys:
         plot_training_curves(history, metrics=other_keys, ax=ax2, title="Other Metrics")
 
     # 3. Learning rate
     ax3 = fig.add_subplot(gs[1, 0])
-    lr_keys = [k for k in history.keys() if "lr" in k.lower()]
+    lr_keys = [k for k in history if "lr" in k.lower()]
     if lr_keys:
         lr_dict = {k: history[k] for k in lr_keys}
         plot_learning_rate(lr_dict, ax=ax3)

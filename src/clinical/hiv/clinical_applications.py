@@ -14,10 +14,10 @@ These tools translate research findings into practical clinical applications.
 
 import json
 import sys
+import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
-import warnings
+
 warnings.filterwarnings("ignore")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -27,6 +27,7 @@ import numpy as np
 
 try:
     import pandas as pd
+
     HAS_PANDAS = True
 except ImportError:
     print("ERROR: pandas required")
@@ -34,20 +35,15 @@ except ImportError:
 
 try:
     import pyarrow.parquet as pq
+
     HAS_PARQUET = True
 except ImportError:
     HAS_PARQUET = False
 
-from scipy import stats
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score, accuracy_score, precision_recall_fscore_support
-from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-
-import torch
-import torch.nn as nn
-
 
 # =============================================================================
 # CONSTANTS
@@ -104,6 +100,7 @@ AA_GROUPS = {
 # TOOL 1: VACCINE CANDIDATE PRIORITIZATION
 # =============================================================================
 
+
 class VaccinePrioritizer:
     """Prioritize vaccine candidates based on multiple criteria."""
 
@@ -134,11 +131,6 @@ class VaccinePrioritizer:
     def compute_population_coverage(self, epitope_row) -> float:
         """Estimate population coverage based on HLA restrictions."""
         # Common HLA frequencies in global population
-        HLA_FREQUENCIES = {
-            "A*02": 0.29, "A*03": 0.14, "A*11": 0.12, "A*24": 0.11,
-            "B*07": 0.12, "B*08": 0.09, "B*35": 0.11, "B*44": 0.08,
-            "B*57": 0.05, "B*58": 0.04, "B*27": 0.06, "B*51": 0.07,
-        }
 
         n_hla = epitope_row.get("n_hla_restrictions", epitope_row.get("hla_count", 5))
         # Estimate coverage based on number of HLA restrictions
@@ -172,9 +164,8 @@ class VaccinePrioritizer:
 
     def prioritize(self, top_n: int = 50) -> pd.DataFrame:
         """Generate prioritized vaccine candidate list."""
-        if self.candidates is None:
-            if not self.load_data():
-                return pd.DataFrame()
+        if self.candidates is None and not self.load_data():
+            return pd.DataFrame()
 
         df = self.candidates.copy()
 
@@ -190,9 +181,9 @@ class VaccinePrioritizer:
 
         # Compute composite priority score
         df["priority_score"] = (
-            0.4 * df["stability_score"] / df["stability_score"].max() +
-            0.3 * df["population_coverage"] +
-            0.3 * df["manufacturability"]
+            0.4 * df["stability_score"] / df["stability_score"].max()
+            + 0.3 * df["population_coverage"]
+            + 0.3 * df["manufacturability"]
         )
 
         # Rank
@@ -216,14 +207,16 @@ class VaccinePrioritizer:
         protein_col = "protein" if "protein" in prioritized.columns else "Protein"
 
         for _, row in prioritized.head(10).iterrows():
-            report["top_candidates"].append({
-                "epitope": str(row[epitope_col]),
-                "protein": str(row[protein_col]),
-                "priority_score": float(row["priority_score"]),
-                "stability_score": float(row.get("stability_score", 0)),
-                "population_coverage": float(row["population_coverage"]),
-                "manufacturability": float(row["manufacturability"]),
-            })
+            report["top_candidates"].append(
+                {
+                    "epitope": str(row[epitope_col]),
+                    "protein": str(row[protein_col]),
+                    "priority_score": float(row["priority_score"]),
+                    "stability_score": float(row.get("stability_score", 0)),
+                    "population_coverage": float(row["population_coverage"]),
+                    "manufacturability": float(row["manufacturability"]),
+                }
+            )
 
         # Protein distribution
         if protein_col in prioritized.columns:
@@ -236,7 +229,7 @@ class VaccinePrioritizer:
                 f"Primary candidate: {top['epitope']} from {top['protein']} (score: {top['priority_score']:.3f})"
             )
             report["recommendations"].append(
-                f"Recommended combination: Include epitopes from Gag, Nef, and Pol for broad coverage"
+                "Recommended combination: Include epitopes from Gag, Nef, and Pol for broad coverage"
             )
 
         return report
@@ -245,6 +238,7 @@ class VaccinePrioritizer:
 # =============================================================================
 # TOOL 2: MDR EARLY WARNING SCREENER
 # =============================================================================
+
 
 class MDRScreener:
     """Screen sequences for multi-drug resistance risk."""
@@ -369,18 +363,21 @@ class MDRScreener:
         # High risk sequences
         high_risk = results[results["risk_level"] == "HIGH"].head(20)
         for _, row in high_risk.iterrows():
-            report["high_risk_sequences"].append({
-                "sequence_id": int(row["sequence_id"]),
-                "risk_score": float(row["risk_score"]),
-                "n_markers": int(row["n_markers"]),
-                "markers": row["detected_markers"],
-            })
+            report["high_risk_sequences"].append(
+                {
+                    "sequence_id": int(row["sequence_id"]),
+                    "risk_score": float(row["risk_score"]),
+                    "n_markers": int(row["n_markers"]),
+                    "markers": row["detected_markers"],
+                }
+            )
 
         # Mutation frequency in high-risk
         all_markers = []
         for markers in results[results["risk_level"] == "HIGH"]["detected_markers"]:
             all_markers.extend(markers)
         from collections import Counter
+
         report["mutation_frequency"] = dict(Counter(all_markers).most_common(10))
 
         return report
@@ -389,6 +386,7 @@ class MDRScreener:
 # =============================================================================
 # TOOL 3: TAT-TARGETING DRUG ANALYZER
 # =============================================================================
+
 
 class TatDrugAnalyzer:
     """Analyze Tat-targeting drug opportunities."""
@@ -400,15 +398,15 @@ class TatDrugAnalyzer:
 
     def load_data(self):
         """Load PPI data."""
-        ppi_path = self.data_dir / "external" / "huggingface" / "human_hiv_ppi" / "data" / "train-00000-of-00001.parquet"
+        ppi_path = (
+            self.data_dir / "external" / "huggingface" / "human_hiv_ppi" / "data" / "train-00000-of-00001.parquet"
+        )
 
         if not ppi_path.exists() or not HAS_PARQUET:
             return False
 
         self.ppi_data = pq.read_table(ppi_path).to_pandas()
-        self.tat_interactions = self.ppi_data[
-            self.ppi_data["hiv_protein_name"] == "Tat"
-        ]
+        self.tat_interactions = self.ppi_data[self.ppi_data["hiv_protein_name"] == "Tat"]
         return True
 
     def classify_druggability(self, protein_name: str) -> dict:
@@ -432,34 +430,41 @@ class TatDrugAnalyzer:
 
     def analyze_tat_targets(self) -> pd.DataFrame:
         """Analyze Tat interaction targets."""
-        if self.tat_interactions is None:
-            if not self.load_data():
-                return pd.DataFrame()
+        if self.tat_interactions is None and not self.load_data():
+            return pd.DataFrame()
 
         results = []
         for _, row in self.tat_interactions.iterrows():
             human_protein = row["human_protein_name"]
             druggability = self.classify_druggability(human_protein)
 
-            results.append({
-                "human_protein": human_protein,
-                "interaction_type": row.get("interaction_type", "unknown"),
-                "description": row.get("description", "")[:200],
-                "family": druggability["family"],
-                "druggability": druggability["druggability"],
-                "druggability_score": druggability["score"],
-            })
+            results.append(
+                {
+                    "human_protein": human_protein,
+                    "interaction_type": row.get("interaction_type", "unknown"),
+                    "description": row.get("description", "")[:200],
+                    "family": druggability["family"],
+                    "druggability": druggability["druggability"],
+                    "druggability_score": druggability["score"],
+                }
+            )
 
         df = pd.DataFrame(results)
 
         # Aggregate by protein (may have multiple interaction types)
         if len(df) > 0:
-            agg_df = df.groupby("human_protein").agg({
-                "interaction_type": lambda x: ", ".join(set(x)),
-                "family": "first",
-                "druggability": "first",
-                "druggability_score": "first",
-            }).reset_index()
+            agg_df = (
+                df.groupby("human_protein")
+                .agg(
+                    {
+                        "interaction_type": lambda x: ", ".join(set(x)),
+                        "family": "first",
+                        "druggability": "first",
+                        "druggability_score": "first",
+                    }
+                )
+                .reset_index()
+            )
             return agg_df.sort_values("druggability_score", ascending=False)
 
         return df
@@ -520,12 +525,14 @@ class TatDrugAnalyzer:
 
         # Top targets
         for _, row in targets.head(15).iterrows():
-            report["top_druggable_targets"].append({
-                "protein": row["human_protein"],
-                "family": row["family"],
-                "druggability": row["druggability"],
-                "score": float(row["druggability_score"]),
-            })
+            report["top_druggable_targets"].append(
+                {
+                    "protein": row["human_protein"],
+                    "family": row["family"],
+                    "druggability": row["druggability"],
+                    "score": float(row["druggability_score"]),
+                }
+            )
 
         # Recommendations
         n_kinases = len(opportunities["kinase_inhibitors"])
@@ -540,9 +547,7 @@ class TatDrugAnalyzer:
                 f"Receptor-based therapies promising - {n_receptors} receptor targets identified"
             )
 
-        report["recommendations"].append(
-            "Host-directed therapy via Tat targets avoids viral resistance evolution"
-        )
+        report["recommendations"].append("Host-directed therapy via Tat targets avoids viral resistance evolution")
 
         return report
 
@@ -550,6 +555,7 @@ class TatDrugAnalyzer:
 # =============================================================================
 # TOOL 4: UNIFIED PREDICTION PIPELINE
 # =============================================================================
+
 
 class UnifiedPredictor:
     """Unified prediction pipeline with p-adic encoding."""
@@ -567,7 +573,7 @@ class UnifiedPredictor:
             if aa == "-" or aa not in "ACDEFGHIKLMNPQRSTVWY":
                 continue
 
-            for g_idx, (group_name, group_aas) in enumerate(AA_GROUPS.items()):
+            for g_idx, (_group_name, group_aas) in enumerate(AA_GROUPS.items()):
                 if aa in group_aas:
                     encoding[i, 0] = g_idx / 6
                     encoding[i, 1] = group_aas.index(aa) / len(group_aas)
@@ -605,17 +611,13 @@ class UnifiedPredictor:
         X = np.array([self.combined_encode(s) for s in df["sequence"]])
         y = df["CXCR4"].astype(int).values
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42, stratify=y
-        )
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
         self.scaler.fit(X_train)
         X_train_scaled = self.scaler.transform(X_train)
         X_test_scaled = self.scaler.transform(X_test)
 
-        self.tropism_model = GradientBoostingClassifier(
-            n_estimators=100, max_depth=5, random_state=42
-        )
+        self.tropism_model = GradientBoostingClassifier(n_estimators=100, max_depth=5, random_state=42)
         self.tropism_model.fit(X_train_scaled, y_train)
 
         y_pred = self.tropism_model.predict_proba(X_test_scaled)[:, 1]
@@ -651,6 +653,7 @@ class UnifiedPredictor:
 # =============================================================================
 # TOOL 5: CLINICAL DECISION SUPPORT
 # =============================================================================
+
 
 class ClinicalDecisionSupport:
     """Generate clinical decision support reports."""
@@ -688,12 +691,8 @@ class ClinicalDecisionSupport:
                 "resistance_monitoring": mdr_report,
                 "host_directed_therapy": tat_report,
             },
-            "executive_summary": self._generate_executive_summary(
-                vaccine_report, mdr_report, tat_report
-            ),
-            "action_items": self._generate_action_items(
-                vaccine_report, mdr_report, tat_report
-            ),
+            "executive_summary": self._generate_executive_summary(vaccine_report, mdr_report, tat_report),
+            "action_items": self._generate_action_items(vaccine_report, mdr_report, tat_report),
         }
 
         return report
@@ -735,31 +734,37 @@ class ClinicalDecisionSupport:
 
         # High priority: MDR screening
         if mdr.get("screening_summary", {}).get("high_risk", 0) > 0:
-            actions.append({
-                "priority": "HIGH",
-                "category": "Resistance Monitoring",
-                "action": "Implement L63P/L90M screening in clinical genotyping",
-                "rationale": "79.5% of MDR cases carry L63P mutation",
-            })
+            actions.append(
+                {
+                    "priority": "HIGH",
+                    "category": "Resistance Monitoring",
+                    "action": "Implement L63P/L90M screening in clinical genotyping",
+                    "rationale": "79.5% of MDR cases carry L63P mutation",
+                }
+            )
 
         # Medium priority: Vaccine development
         if vaccine.get("top_candidates"):
-            actions.append({
-                "priority": "MEDIUM",
-                "category": "Vaccine Development",
-                "action": f"Advance {vaccine['top_candidates'][0]['epitope']} to preclinical",
-                "rationale": "Highest stability score + population coverage",
-            })
+            actions.append(
+                {
+                    "priority": "MEDIUM",
+                    "category": "Vaccine Development",
+                    "action": f"Advance {vaccine['top_candidates'][0]['epitope']} to preclinical",
+                    "rationale": "Highest stability score + population coverage",
+                }
+            )
 
         # Research priority: Host-directed therapy
         if tat.get("drug_opportunities", {}).get("kinase_inhibitors"):
             n_kinases = len(tat["drug_opportunities"]["kinase_inhibitors"])
-            actions.append({
-                "priority": "RESEARCH",
-                "category": "Drug Development",
-                "action": f"Screen {n_kinases} kinase inhibitors for Tat disruption",
-                "rationale": "Host-directed approach avoids resistance",
-            })
+            actions.append(
+                {
+                    "priority": "RESEARCH",
+                    "category": "Drug Development",
+                    "action": f"Screen {n_kinases} kinase inhibitors for Tat disruption",
+                    "rationale": "Host-directed approach avoids resistance",
+                }
+            )
 
         return actions
 
@@ -767,6 +772,7 @@ class ClinicalDecisionSupport:
 # =============================================================================
 # MAIN
 # =============================================================================
+
 
 def main():
     print("=" * 70)

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterator, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -29,7 +28,7 @@ class MAMLConfig:
 
     input_dim: int
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [128, 64, 32])
+    hidden_dims: list[int] = field(default_factory=lambda: [128, 64, 32])
     inner_lr: float = 0.01  # Learning rate for task adaptation
     outer_lr: float = 0.001  # Learning rate for meta-update
     inner_steps: int = 5  # Gradient steps for adaptation
@@ -42,7 +41,7 @@ class MAMLConfig:
 class MAMLEncoder(nn.Module):
     """Encoder for MAML VAE."""
 
-    def __init__(self, input_dim: int, hidden_dims: List[int], latent_dim: int):
+    def __init__(self, input_dim: int, hidden_dims: list[int], latent_dim: int):
         super().__init__()
 
         layers = []
@@ -61,7 +60,7 @@ class MAMLEncoder(nn.Module):
         self.fc_mu = nn.Linear(in_dim, latent_dim)
         self.fc_logvar = nn.Linear(in_dim, latent_dim)
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         h = self.encoder(x)
         return self.fc_mu(h), self.fc_logvar(h)
 
@@ -69,7 +68,7 @@ class MAMLEncoder(nn.Module):
 class MAMLDecoder(nn.Module):
     """Decoder for MAML VAE."""
 
-    def __init__(self, latent_dim: int, hidden_dims: List[int], output_dim: int):
+    def __init__(self, latent_dim: int, hidden_dims: list[int], output_dim: int):
         super().__init__()
 
         layers = []
@@ -101,7 +100,7 @@ class MAMLVAE(nn.Module):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         mu, logvar = self.encoder(x)
         z = self.reparameterize(mu, logvar)
         x_recon = self.decoder(z)
@@ -180,7 +179,7 @@ def adapt_model(
 
         # Update parameters
         with torch.no_grad():
-            for param, grad in zip(adapted.parameters(), grads):
+            for param, grad in zip(adapted.parameters(), grads, strict=False):
                 param.sub_(cfg.inner_lr * grad)
 
     return adapted
@@ -204,8 +203,8 @@ class MAMLTrainer:
 
     def meta_train_step(
         self,
-        tasks: List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]],
-    ) -> Dict[str, float]:
+        tasks: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]],
+    ) -> dict[str, float]:
         """Perform one meta-training step.
 
         Args:
@@ -249,7 +248,7 @@ class MAMLTrainer:
         self,
         support_x: torch.Tensor,
         support_y: torch.Tensor,
-        n_steps: Optional[int] = None,
+        n_steps: int | None = None,
     ) -> nn.Module:
         """Adapt model to a new drug with few examples.
 
@@ -277,7 +276,7 @@ class TaskSampler:
 
     def __init__(
         self,
-        drug_data: Dict[str, Tuple[torch.Tensor, torch.Tensor]],
+        drug_data: dict[str, tuple[torch.Tensor, torch.Tensor]],
         n_support: int = 10,
         n_query: int = 20,
     ):
@@ -293,7 +292,7 @@ class TaskSampler:
         self.n_support = n_support
         self.n_query = n_query
 
-    def sample_task(self, drug: Optional[str] = None) -> Tuple[torch.Tensor, ...]:
+    def sample_task(self, drug: str | None = None) -> tuple[torch.Tensor, ...]:
         """Sample a single task.
 
         Returns:
@@ -317,7 +316,7 @@ class TaskSampler:
             y[query_idx],
         )
 
-    def sample_batch(self, batch_size: int) -> List[Tuple[torch.Tensor, ...]]:
+    def sample_batch(self, batch_size: int) -> list[tuple[torch.Tensor, ...]]:
         """Sample a batch of tasks."""
         return [self.sample_task() for _ in range(batch_size)]
 
@@ -355,7 +354,7 @@ class ProtoMAMLVAE(nn.Module):
         self,
         x: torch.Tensor,
         drug_idx: int,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         mu, logvar = self.encoder(x)
         z = self.reparameterize(mu, logvar)
         x_recon = self.decoder(z)

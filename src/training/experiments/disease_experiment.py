@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional, Type
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -71,7 +71,7 @@ class DiseaseExperiment(BaseExperiment):
     def __init__(
         self,
         config: DiseaseExperimentConfig,
-        model_class: Optional[Type[nn.Module]] = None,
+        model_class: type[nn.Module] | None = None,
     ):
         """Initialize disease experiment.
 
@@ -83,10 +83,11 @@ class DiseaseExperiment(BaseExperiment):
         self.config: DiseaseExperimentConfig = config
         self.model_class = model_class or self._get_default_model_class()
 
-    def _get_default_model_class(self) -> Type[nn.Module]:
+    def _get_default_model_class(self) -> type[nn.Module]:
         """Get default model class for the disease."""
         # Import here to avoid circular imports
         from src.models import TernaryVAE
+
         return TernaryVAE
 
     def create_model(self) -> nn.Module:
@@ -186,9 +187,7 @@ class DiseaseExperiment(BaseExperiment):
 
         # KL divergence
         if "mu" in output and "logvar" in output:
-            kl = -0.5 * torch.sum(
-                1 + output["logvar"] - output["mu"].pow(2) - output["logvar"].exp()
-            )
+            kl = -0.5 * torch.sum(1 + output["logvar"] - output["mu"].pow(2) - output["logvar"].exp())
             losses["kl"] = 0.001 * kl / x.size(0)
 
         # Ranking loss (correlation with fitness)
@@ -240,8 +239,8 @@ class CrossDiseaseExperiment:
     def __init__(
         self,
         diseases: list[str],
-        base_config: Optional[ExperimentConfig] = None,
-        model_class: Optional[Type[nn.Module]] = None,
+        base_config: ExperimentConfig | None = None,
+        model_class: type[nn.Module] | None = None,
     ):
         """Initialize cross-disease experiment.
 
@@ -288,8 +287,7 @@ class CrossDiseaseExperiment:
         config = DiseaseExperimentConfig(
             name=f"{disease}_experiment",
             disease=disease,
-            **{k: v for k, v in self.base_config.to_dict().items()
-               if k not in ["name"]},
+            **{k: v for k, v in self.base_config.to_dict().items() if k not in ["name"]},
         )
 
         # Load data
@@ -300,9 +298,7 @@ class CrossDiseaseExperiment:
         experiment._input_dim = X.shape[1]
         return experiment.run(X, y)
 
-    def _load_disease_data(
-        self, disease: str, config: DiseaseExperimentConfig
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def _load_disease_data(self, disease: str, config: DiseaseExperimentConfig) -> tuple[np.ndarray, np.ndarray]:
         """Load data for a disease.
 
         This method should be extended for each new disease.
@@ -320,22 +316,38 @@ class CrossDiseaseExperiment:
 
         return loader(config)
 
-    def _load_hiv_data(
-        self, config: DiseaseExperimentConfig
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def _load_hiv_data(self, config: DiseaseExperimentConfig) -> tuple[np.ndarray, np.ndarray]:
         """Load HIV drug resistance data."""
         data_dir = Path(config.data_dir)
         target = config.target or "DRV"  # Default to Darunavir
 
         # Determine file based on drug
         drug_to_gene = {
-            "FPV": "pi", "ATV": "pi", "IDV": "pi", "LPV": "pi",
-            "NFV": "pi", "SQV": "pi", "TPV": "pi", "DRV": "pi",
-            "ABC": "nrti", "AZT": "nrti", "D4T": "nrti", "DDI": "nrti",
-            "FTC": "nrti", "3TC": "nrti", "TDF": "nrti",
-            "DOR": "nnrti", "EFV": "nnrti", "ETR": "nnrti",
-            "NVP": "nnrti", "RPV": "nnrti",
-            "BIC": "ini", "CAB": "ini", "DTG": "ini", "EVG": "ini", "RAL": "ini",
+            "FPV": "pi",
+            "ATV": "pi",
+            "IDV": "pi",
+            "LPV": "pi",
+            "NFV": "pi",
+            "SQV": "pi",
+            "TPV": "pi",
+            "DRV": "pi",
+            "ABC": "nrti",
+            "AZT": "nrti",
+            "D4T": "nrti",
+            "DDI": "nrti",
+            "FTC": "nrti",
+            "3TC": "nrti",
+            "TDF": "nrti",
+            "DOR": "nnrti",
+            "EFV": "nnrti",
+            "ETR": "nnrti",
+            "NVP": "nnrti",
+            "RPV": "nnrti",
+            "BIC": "ini",
+            "CAB": "ini",
+            "DTG": "ini",
+            "EVG": "ini",
+            "RAL": "ini",
         }
 
         gene = drug_to_gene.get(target, "pi")
@@ -361,9 +373,7 @@ class CrossDiseaseExperiment:
         X, y = self._encode_hiv_sequences(df, drug_col)
         return X, y
 
-    def _encode_hiv_sequences(
-        self, df: pd.DataFrame, drug_col: str
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def _encode_hiv_sequences(self, df: pd.DataFrame, drug_col: str) -> tuple[np.ndarray, np.ndarray]:
         """One-hot encode HIV sequences."""
         # Filter valid data
         df = df[[col for col in df.columns if col.startswith("P")] + [drug_col]]
@@ -391,9 +401,7 @@ class CrossDiseaseExperiment:
         y = df[drug_col].values.astype(np.float32)
         return X, y
 
-    def _load_sars_cov_2_data(
-        self, config: DiseaseExperimentConfig
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def _load_sars_cov_2_data(self, config: DiseaseExperimentConfig) -> tuple[np.ndarray, np.ndarray]:
         """Load SARS-CoV-2 data.
 
         Uses synthetic data from disease analyzer for testing.
@@ -421,9 +429,7 @@ class CrossDiseaseExperiment:
         )
         return X, y
 
-    def _load_tb_data(
-        self, config: DiseaseExperimentConfig
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def _load_tb_data(self, config: DiseaseExperimentConfig) -> tuple[np.ndarray, np.ndarray]:
         """Load Tuberculosis data.
 
         Uses synthetic data from disease analyzer for testing.
@@ -460,9 +466,7 @@ class CrossDiseaseExperiment:
         )
         return X, y
 
-    def _load_influenza_data(
-        self, config: DiseaseExperimentConfig
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def _load_influenza_data(self, config: DiseaseExperimentConfig) -> tuple[np.ndarray, np.ndarray]:
         """Load Influenza data.
 
         Uses synthetic data from disease analyzer for testing.
@@ -537,11 +541,13 @@ class CrossDiseaseExperiment:
 
             lines.append(f"| {disease} | {spearman} | {rmse} | {n_samples} |")
 
-        lines.extend([
-            "",
-            "## Per-Disease Details",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Per-Disease Details",
+                "",
+            ]
+        )
 
         for disease, result in self.results.items():
             lines.append(f"### {disease.upper()}")
@@ -568,12 +574,14 @@ class SimpleVAE(nn.Module):
         encoder_layers = []
         in_dim = input_dim
         for h_dim in hidden_dims:
-            encoder_layers.extend([
-                nn.Linear(in_dim, h_dim),
-                nn.ReLU(),
-                nn.BatchNorm1d(h_dim),
-                nn.Dropout(0.1),
-            ])
+            encoder_layers.extend(
+                [
+                    nn.Linear(in_dim, h_dim),
+                    nn.ReLU(),
+                    nn.BatchNorm1d(h_dim),
+                    nn.Dropout(0.1),
+                ]
+            )
             in_dim = h_dim
         self.encoder = nn.Sequential(*encoder_layers)
 
@@ -584,12 +592,14 @@ class SimpleVAE(nn.Module):
         decoder_layers = []
         in_dim = latent_dim
         for h_dim in reversed(hidden_dims):
-            decoder_layers.extend([
-                nn.Linear(in_dim, h_dim),
-                nn.ReLU(),
-                nn.BatchNorm1d(h_dim),
-                nn.Dropout(0.1),
-            ])
+            decoder_layers.extend(
+                [
+                    nn.Linear(in_dim, h_dim),
+                    nn.ReLU(),
+                    nn.BatchNorm1d(h_dim),
+                    nn.Dropout(0.1),
+                ]
+            )
             in_dim = h_dim
         decoder_layers.append(nn.Linear(in_dim, input_dim))
         self.decoder = nn.Sequential(*decoder_layers)

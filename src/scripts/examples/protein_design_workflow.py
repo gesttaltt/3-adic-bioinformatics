@@ -20,10 +20,8 @@ Usage:
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 import torch
-import torch.nn as nn
 
 
 def create_example_structure(n_residues: int = 50) -> tuple:
@@ -74,7 +72,7 @@ def compute_topological_features(coords: torch.Tensor) -> dict:
     Returns:
         Dictionary with topological features
     """
-    from src.topology import RipsFiltration, PersistenceVectorizer
+    from src.topology import PersistenceVectorizer, RipsFiltration
 
     # Compute persistent homology
     filtration = RipsFiltration(max_dimension=1, max_edge_length=15.0)
@@ -177,7 +175,7 @@ def analyze_embeddings(embeddings: torch.Tensor) -> dict:
     distances = torch.zeros(n, n)
     for i in range(n):
         dist = poincare.distance(
-            embeddings_normalized[i:i+1].expand(n, -1),
+            embeddings_normalized[i : i + 1].expand(n, -1),
             embeddings_normalized,
         )
         # Handle different return shapes
@@ -264,7 +262,7 @@ def main():
     for i, seq in enumerate(nucleotide_seqs):
         # Show first 10 codons
         codons = seq.split("-")[:10]
-        print(f"   Design {i+1}: {'-'.join(codons)}...")
+        print(f"   Design {i + 1}: {'-'.join(codons)}...")
 
     print("\n" + "=" * 60)
     print("Workflow complete!")

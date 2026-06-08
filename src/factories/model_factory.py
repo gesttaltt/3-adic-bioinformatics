@@ -3,14 +3,18 @@
 # Licensed under the PolyForm Noncommercial License 1.0.0
 # See LICENSE file in the repository root for full license text.
 
-from typing import Any, Dict
+from typing import Any
 
 import torch.nn as nn
 
-from src.models.ternary_vae import (DifferentiableController,
-                                    DualHyperbolicProjection, FrozenDecoder,
-                                    FrozenEncoder, HyperbolicProjection,
-                                    TernaryVAEV5_11)
+from src.models.ternary_vae import (
+    DifferentiableController,
+    DualHyperbolicProjection,
+    FrozenDecoder,
+    FrozenEncoder,
+    HyperbolicProjection,
+    TernaryVAEV5_11,
+)
 
 
 class TernaryModelFactory:
@@ -21,7 +25,7 @@ class TernaryModelFactory:
     """
 
     @staticmethod
-    def create_components(config: Dict[str, Any]) -> Dict[str, nn.Module]:
+    def create_components(config: dict[str, Any]) -> dict[str, nn.Module]:
         """Create individual components based on config."""
         latent_dim = config.get("latent_dim", 16)
         hidden_dim = config.get("hidden_dim", 64)
@@ -69,7 +73,7 @@ class TernaryModelFactory:
         }
 
     @staticmethod
-    def create_model(config: Dict[str, Any]) -> TernaryVAEV5_11:
+    def create_model(config: dict[str, Any]) -> TernaryVAEV5_11:
         """Create a fully assembled TernaryVAEV5_11 model."""
         # This uses the standard constructor (which we will refactor to accept injections)
         # For now, relying on kwargs pass-through if the model supports it,

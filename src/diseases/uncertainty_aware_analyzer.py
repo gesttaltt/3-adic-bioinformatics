@@ -34,18 +34,18 @@ Usage:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any
 
 import numpy as np
 import torch
 import torch.nn as nn
 
-from src.diseases.base import DiseaseAnalyzer, DiseaseConfig
+from src.diseases.base import DiseaseAnalyzer
 from src.models.uncertainty import (
     DeepEnsemble,
-    EvidentialPredictor,
     MCDropoutWrapper,
 )
 
@@ -67,11 +67,11 @@ class UncertaintyEstimate:
     std: torch.Tensor
     lower: torch.Tensor
     upper: torch.Tensor
-    epistemic: Optional[torch.Tensor] = None
-    aleatoric: Optional[torch.Tensor] = None
+    epistemic: torch.Tensor | None = None
+    aleatoric: torch.Tensor | None = None
 
     @classmethod
-    def from_dict(cls, d: dict[str, torch.Tensor]) -> "UncertaintyEstimate":
+    def from_dict(cls, d: dict[str, torch.Tensor]) -> UncertaintyEstimate:
         """Create from dictionary of tensors."""
         return cls(
             mean=d.get("mean", d.get("prediction", torch.tensor([]))),
@@ -143,6 +143,7 @@ def evaluate_uncertainty(
         # Spearman correlation between uncertainty and error
         try:
             from scipy.stats import spearmanr
+
             corr, _ = spearmanr(uncertainties.cpu().numpy().flatten(), errors.cpu().numpy().flatten())
         except Exception:
             corr = 0.0
@@ -203,11 +204,11 @@ class UncertaintyResult:
     std: np.ndarray
     lower: np.ndarray
     upper: np.ndarray
-    epistemic: Optional[np.ndarray] = None
-    aleatoric: Optional[np.ndarray] = None
+    epistemic: np.ndarray | None = None
+    aleatoric: np.ndarray | None = None
     calibrated: bool = False
     confidence_level: float = 0.95
-    raw_samples: Optional[np.ndarray] = None
+    raw_samples: np.ndarray | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -241,10 +242,12 @@ class MCDropoutUncertainty(UncertaintyWrapper):
 
     def predict_with_uncertainty(self, x: torch.Tensor) -> UncertaintyEstimate:
         result = self.wrapper.predict_with_uncertainty(x, n_samples=self.n_samples)
-        return UncertaintyEstimate.from_dict({
-            "mean": result[0] if isinstance(result, tuple) else result.get("mean", x),
-            "std": result[1] if isinstance(result, tuple) else result.get("std", torch.zeros_like(x)),
-        })
+        return UncertaintyEstimate.from_dict(
+            {
+                "mean": result[0] if isinstance(result, tuple) else result.get("mean", x),
+                "std": result[1] if isinstance(result, tuple) else result.get("std", torch.zeros_like(x)),
+            }
+        )
 
 
 class EnsembleUncertainty(UncertaintyWrapper):
@@ -280,9 +283,9 @@ class UncertaintyAwareAnalyzer:
     def __init__(
         self,
         base_analyzer: DiseaseAnalyzer,
-        config: Optional[UncertaintyConfig] = None,
-        model: Optional[nn.Module] = None,
-        model_fn: Optional[Callable[[], nn.Module]] = None,
+        config: UncertaintyConfig | None = None,
+        model: nn.Module | None = None,
+        model_fn: Callable[[], nn.Module] | None = None,
     ):
         """Initialize uncertainty-aware analyzer.
 
@@ -302,9 +305,9 @@ class UncertaintyAwareAnalyzer:
 
     def _create_uncertainty_wrapper(
         self,
-        model: Optional[nn.Module],
-        model_fn: Optional[Callable[[], nn.Module]],
-    ) -> Optional[UncertaintyWrapper]:
+        model: nn.Module | None,
+        model_fn: Callable[[], nn.Module] | None,
+    ) -> UncertaintyWrapper | None:
         """Create appropriate uncertainty wrapper."""
         method = self.config.method
 
@@ -340,7 +343,7 @@ class UncertaintyAwareAnalyzer:
     def analyze_with_uncertainty(
         self,
         sequences: Any,
-        encodings: Optional[torch.Tensor] = None,
+        encodings: torch.Tensor | None = None,
         **kwargs,
     ) -> dict[str, Any]:
         """Run analysis with uncertainty quantification.
@@ -388,12 +391,12 @@ class UncertaintyAwareAnalyzer:
     ) -> dict[str, Any]:
         """Add uncertainty estimates to drug resistance results."""
         # Convert tensors to numpy
-        mean = uncertainty.mean.cpu().numpy() if torch.is_tensor(uncertainty.mean) else uncertainty.mean
+        uncertainty.mean.cpu().numpy() if torch.is_tensor(uncertainty.mean) else uncertainty.mean
         std = uncertainty.std.cpu().numpy() if torch.is_tensor(uncertainty.std) else uncertainty.std
         lower = uncertainty.lower.cpu().numpy() if torch.is_tensor(uncertainty.lower) else uncertainty.lower
         upper = uncertainty.upper.cpu().numpy() if torch.is_tensor(uncertainty.upper) else uncertainty.upper
 
-        for drug, data in results["drug_resistance"].items():
+        for _drug, data in results["drug_resistance"].items():
             # Add uncertainty metrics
             data["uncertainty"] = {
                 "std": float(std.mean()) if len(std) > 1 else float(std),
@@ -412,7 +415,9 @@ class UncertaintyAwareAnalyzer:
                         if torch.is_tensor(uncertainty.epistemic)
                         else uncertainty.epistemic
                     )
-                    data["uncertainty"]["epistemic"] = float(epistemic.mean()) if len(epistemic) > 1 else float(epistemic)
+                    data["uncertainty"]["epistemic"] = (
+                        float(epistemic.mean()) if len(epistemic) > 1 else float(epistemic)
+                    )
 
                 if uncertainty.aleatoric is not None:
                     aleatoric = (
@@ -420,7 +425,9 @@ class UncertaintyAwareAnalyzer:
                         if torch.is_tensor(uncertainty.aleatoric)
                         else uncertainty.aleatoric
                     )
-                    data["uncertainty"]["aleatoric"] = float(aleatoric.mean()) if len(aleatoric) > 1 else float(aleatoric)
+                    data["uncertainty"]["aleatoric"] = (
+                        float(aleatoric.mean()) if len(aleatoric) > 1 else float(aleatoric)
+                    )
 
             # Add calibration status
             data["uncertainty"]["calibrated"] = self.is_calibrated
@@ -508,7 +515,7 @@ class UncertaintyAwareAnalyzer:
 def create_uncertainty_analyzer(
     disease_name: str,
     method: str = "evidential",
-    model: Optional[nn.Module] = None,
+    model: nn.Module | None = None,
     **kwargs,
 ) -> UncertaintyAwareAnalyzer:
     """Factory function to create uncertainty-aware analyzers.

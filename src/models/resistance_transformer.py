@@ -17,8 +17,7 @@ References:
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
@@ -92,9 +91,9 @@ class ResistanceTransformer(nn.Module):
         self.fc = nn.Linear(cfg.d_model, 1)
 
         # For attention visualization
-        self.attention_weights: Optional[torch.Tensor] = None
+        self.attention_weights: torch.Tensor | None = None
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward pass.
 
         Args:
@@ -126,7 +125,7 @@ class ResistanceTransformer(nn.Module):
 
         return {"prediction": prediction, "embedding": x}
 
-    def get_attention_maps(self, x: torch.Tensor) -> List[torch.Tensor]:
+    def get_attention_maps(self, x: torch.Tensor) -> list[torch.Tensor]:
         """Extract attention weights from all layers."""
         batch_size = x.size(0)
         x = x.view(batch_size, self.cfg.n_positions, self.cfg.n_aa)
@@ -185,7 +184,7 @@ class ResistanceTransformerWithVAE(nn.Module):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         batch_size = x.size(0)
 
         # Reshape and embed
@@ -221,10 +220,10 @@ class ResistanceTransformerWithVAE(nn.Module):
 
 def compute_transformer_loss(
     cfg: TransformerConfig,
-    out: Dict[str, torch.Tensor],
+    out: dict[str, torch.Tensor],
     x: torch.Tensor,
     fitness: torch.Tensor,
-) -> Dict[str, torch.Tensor]:
+) -> dict[str, torch.Tensor]:
     """Compute losses for transformer training."""
     losses = {}
 
@@ -255,7 +254,7 @@ def compute_transformer_loss(
 class MultiHeadResistanceTransformer(nn.Module):
     """Transformer with multiple drug prediction heads (multi-task)."""
 
-    def __init__(self, cfg: TransformerConfig, drug_names: List[str]):
+    def __init__(self, cfg: TransformerConfig, drug_names: list[str]):
         super().__init__()
         self.cfg = cfg
         self.drug_names = drug_names
@@ -280,7 +279,7 @@ class MultiHeadResistanceTransformer(nn.Module):
 
         self.norm = nn.LayerNorm(cfg.d_model)
 
-    def forward(self, x: torch.Tensor, drug: Optional[str] = None) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, drug: str | None = None) -> dict[str, torch.Tensor]:
         batch_size = x.size(0)
 
         # Shared encoding
@@ -339,7 +338,7 @@ if __name__ == "__main__":
     # Test VAE variant
     model_vae = ResistanceTransformerWithVAE(cfg)
     out_vae = model_vae(x)
-    print(f"\nVAE variant:")
+    print("\nVAE variant:")
     print(f"  z shape: {out_vae['z'].shape}")
     print(f"  prediction shape: {out_vae['prediction'].shape}")
 
@@ -347,7 +346,7 @@ if __name__ == "__main__":
     drugs = ["LPV", "DRV", "ATV"]
     model_multi = MultiHeadResistanceTransformer(cfg, drugs)
     out_multi = model_multi(x)
-    print(f"\nMulti-head variant:")
+    print("\nMulti-head variant:")
     for drug, pred in out_multi["predictions"].items():
         print(f"  {drug}: {pred.shape}")
 

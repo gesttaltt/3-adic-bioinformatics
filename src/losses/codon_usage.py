@@ -24,7 +24,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -47,73 +46,159 @@ class Organism(Enum):
 # Simplified - in production, load from Kazusa or GenScript databases
 CODON_USAGE_HUMAN = {
     # Phe (F)
-    "TTT": 17.6, "TTC": 20.3,
+    "TTT": 17.6,
+    "TTC": 20.3,
     # Leu (L)
-    "TTA": 7.7, "TTG": 12.9, "CTT": 13.2, "CTC": 19.6, "CTA": 7.2, "CTG": 39.6,
+    "TTA": 7.7,
+    "TTG": 12.9,
+    "CTT": 13.2,
+    "CTC": 19.6,
+    "CTA": 7.2,
+    "CTG": 39.6,
     # Ile (I)
-    "ATT": 16.0, "ATC": 20.8, "ATA": 7.5,
+    "ATT": 16.0,
+    "ATC": 20.8,
+    "ATA": 7.5,
     # Met (M) - Start
     "ATG": 22.0,
     # Val (V)
-    "GTT": 11.0, "GTC": 14.5, "GTA": 7.1, "GTG": 28.1,
+    "GTT": 11.0,
+    "GTC": 14.5,
+    "GTA": 7.1,
+    "GTG": 28.1,
     # Ser (S)
-    "TCT": 15.2, "TCC": 17.7, "TCA": 12.2, "TCG": 4.4, "AGT": 12.1, "AGC": 19.5,
+    "TCT": 15.2,
+    "TCC": 17.7,
+    "TCA": 12.2,
+    "TCG": 4.4,
+    "AGT": 12.1,
+    "AGC": 19.5,
     # Pro (P)
-    "CCT": 17.5, "CCC": 19.8, "CCA": 16.9, "CCG": 6.9,
+    "CCT": 17.5,
+    "CCC": 19.8,
+    "CCA": 16.9,
+    "CCG": 6.9,
     # Thr (T)
-    "ACT": 13.1, "ACC": 18.9, "ACA": 15.1, "ACG": 6.1,
+    "ACT": 13.1,
+    "ACC": 18.9,
+    "ACA": 15.1,
+    "ACG": 6.1,
     # Ala (A)
-    "GCT": 18.4, "GCC": 27.7, "GCA": 15.8, "GCG": 7.4,
+    "GCT": 18.4,
+    "GCC": 27.7,
+    "GCA": 15.8,
+    "GCG": 7.4,
     # Tyr (Y)
-    "TAT": 12.2, "TAC": 15.3,
+    "TAT": 12.2,
+    "TAC": 15.3,
     # Stop
-    "TAA": 1.0, "TAG": 0.8, "TGA": 1.6,
+    "TAA": 1.0,
+    "TAG": 0.8,
+    "TGA": 1.6,
     # His (H)
-    "CAT": 10.9, "CAC": 15.1,
+    "CAT": 10.9,
+    "CAC": 15.1,
     # Gln (Q)
-    "CAA": 12.3, "CAG": 34.2,
+    "CAA": 12.3,
+    "CAG": 34.2,
     # Asn (N)
-    "AAT": 17.0, "AAC": 19.1,
+    "AAT": 17.0,
+    "AAC": 19.1,
     # Lys (K)
-    "AAA": 24.4, "AAG": 31.9,
+    "AAA": 24.4,
+    "AAG": 31.9,
     # Asp (D)
-    "GAT": 21.8, "GAC": 25.1,
+    "GAT": 21.8,
+    "GAC": 25.1,
     # Glu (E)
-    "GAA": 29.0, "GAG": 39.6,
+    "GAA": 29.0,
+    "GAG": 39.6,
     # Cys (C)
-    "TGT": 10.6, "TGC": 12.6,
+    "TGT": 10.6,
+    "TGC": 12.6,
     # Trp (W)
     "TGG": 13.2,
     # Arg (R)
-    "CGT": 4.5, "CGC": 10.4, "CGA": 6.2, "CGG": 11.4, "AGA": 12.2, "AGG": 12.0,
+    "CGT": 4.5,
+    "CGC": 10.4,
+    "CGA": 6.2,
+    "CGG": 11.4,
+    "AGA": 12.2,
+    "AGG": 12.0,
     # Gly (G)
-    "GGT": 10.8, "GGC": 22.2, "GGA": 16.5, "GGG": 16.5,
+    "GGT": 10.8,
+    "GGC": 22.2,
+    "GGA": 16.5,
+    "GGG": 16.5,
 }
 
 # tRNA gene copy numbers (proxy for tRNA abundance) - simplified for human
 TRNA_COPY_NUMBERS_HUMAN = {
     # Higher copy number = more abundant tRNA = faster translation
-    "TTT": 7, "TTC": 10,
-    "TTA": 2, "TTG": 4, "CTT": 5, "CTC": 8, "CTA": 2, "CTG": 12,
-    "ATT": 6, "ATC": 8, "ATA": 3,
+    "TTT": 7,
+    "TTC": 10,
+    "TTA": 2,
+    "TTG": 4,
+    "CTT": 5,
+    "CTC": 8,
+    "CTA": 2,
+    "CTG": 12,
+    "ATT": 6,
+    "ATC": 8,
+    "ATA": 3,
     "ATG": 10,
-    "GTT": 4, "GTC": 6, "GTA": 3, "GTG": 10,
-    "TCT": 5, "TCC": 7, "TCA": 4, "TCG": 2, "AGT": 4, "AGC": 8,
-    "CCT": 6, "CCC": 8, "CCA": 6, "CCG": 2,
-    "ACT": 5, "ACC": 8, "ACA": 5, "ACG": 2,
-    "GCT": 7, "GCC": 10, "GCA": 5, "GCG": 3,
-    "TAT": 5, "TAC": 7,
-    "TAA": 0, "TAG": 0, "TGA": 0,
-    "CAT": 4, "CAC": 6,
-    "CAA": 5, "CAG": 10,
-    "AAT": 6, "AAC": 8,
-    "AAA": 8, "AAG": 10,
-    "GAT": 8, "GAC": 10,
-    "GAA": 10, "GAG": 12,
-    "TGT": 4, "TGC": 5,
+    "GTT": 4,
+    "GTC": 6,
+    "GTA": 3,
+    "GTG": 10,
+    "TCT": 5,
+    "TCC": 7,
+    "TCA": 4,
+    "TCG": 2,
+    "AGT": 4,
+    "AGC": 8,
+    "CCT": 6,
+    "CCC": 8,
+    "CCA": 6,
+    "CCG": 2,
+    "ACT": 5,
+    "ACC": 8,
+    "ACA": 5,
+    "ACG": 2,
+    "GCT": 7,
+    "GCC": 10,
+    "GCA": 5,
+    "GCG": 3,
+    "TAT": 5,
+    "TAC": 7,
+    "TAA": 0,
+    "TAG": 0,
+    "TGA": 0,
+    "CAT": 4,
+    "CAC": 6,
+    "CAA": 5,
+    "CAG": 10,
+    "AAT": 6,
+    "AAC": 8,
+    "AAA": 8,
+    "AAG": 10,
+    "GAT": 8,
+    "GAC": 10,
+    "GAA": 10,
+    "GAG": 12,
+    "TGT": 4,
+    "TGC": 5,
     "TGG": 5,
-    "CGT": 2, "CGC": 4, "CGA": 2, "CGG": 4, "AGA": 5, "AGG": 5,
-    "GGT": 4, "GGC": 8, "GGA": 6, "GGG": 6,
+    "CGT": 2,
+    "CGC": 4,
+    "CGA": 2,
+    "CGG": 4,
+    "AGA": 5,
+    "AGG": 5,
+    "GGT": 4,
+    "GGC": 8,
+    "GGA": 6,
+    "GGG": 6,
 }
 
 
@@ -126,7 +211,7 @@ def get_codon_triplet(idx: int) -> str:
     return b1 + b2 + b3
 
 
-def create_codon_usage_tensor(usage_dict: Dict[str, float], device: torch.device) -> torch.Tensor:
+def create_codon_usage_tensor(usage_dict: dict[str, float], device: torch.device) -> torch.Tensor:
     """Create tensor of codon usage frequencies."""
     freqs = torch.zeros(64, device=device)
     for idx in range(64):
@@ -135,7 +220,7 @@ def create_codon_usage_tensor(usage_dict: Dict[str, float], device: torch.device
     return freqs
 
 
-def create_tai_tensor(trna_dict: Dict[str, int], device: torch.device) -> torch.Tensor:
+def create_tai_tensor(trna_dict: dict[str, int], device: torch.device) -> torch.Tensor:
     """Create tensor of tAI weights from tRNA copy numbers."""
     weights = torch.zeros(64, device=device)
     for idx in range(64):
@@ -175,8 +260,8 @@ class CodonUsageLoss(LossComponent):
     def __init__(
         self,
         weight: float = 0.1,
-        config: Optional[CodonUsageConfig] = None,
-        name: Optional[str] = None,
+        config: CodonUsageConfig | None = None,
+        name: str | None = None,
     ):
         """Initialize CodonUsageLoss.
 
@@ -205,8 +290,13 @@ class CodonUsageLoss(LossComponent):
             trna_dict = TRNA_COPY_NUMBERS_HUMAN
 
         # These will be moved to device on first forward
-        self.register_buffer("_usage_freqs_cpu", torch.tensor([usage_dict.get(get_codon_triplet(i), 1.0) for i in range(64)]))
-        self.register_buffer("_tai_weights_cpu", torch.tensor([trna_dict.get(get_codon_triplet(i), 1) for i in range(64)], dtype=torch.float32))
+        self.register_buffer(
+            "_usage_freqs_cpu", torch.tensor([usage_dict.get(get_codon_triplet(i), 1.0) for i in range(64)])
+        )
+        self.register_buffer(
+            "_tai_weights_cpu",
+            torch.tensor([trna_dict.get(get_codon_triplet(i), 1) for i in range(64)], dtype=torch.float32),
+        )
 
         # Normalize
         self._tai_weights_cpu = self._tai_weights_cpu / self._tai_weights_cpu.max()
@@ -309,7 +399,6 @@ class CodonUsageLoss(LossComponent):
         Returns:
             CpG density penalty
         """
-        device = codon_indices.device
         batch_size, seq_len = codon_indices.shape
 
         # Convert codons to nucleotides
@@ -323,8 +412,8 @@ class CodonUsageLoss(LossComponent):
         nt_seq = torch.stack(nucleotides, dim=2).reshape(batch_size, seq_len * 3)
 
         # Find CpG: C (index 1) followed by G (index 2)
-        is_c = (nt_seq[:, :-1] == 1)
-        is_g = (nt_seq[:, 1:] == 2)
+        is_c = nt_seq[:, :-1] == 1
+        is_g = nt_seq[:, 1:] == 2
         is_cpg = (is_c & is_g).float()
 
         # CpG density
@@ -367,7 +456,7 @@ class CodonUsageLoss(LossComponent):
 
     def forward(
         self,
-        outputs: Dict[str, torch.Tensor],
+        outputs: dict[str, torch.Tensor],
         targets: torch.Tensor,
         **kwargs,
     ) -> LossResult:
@@ -474,7 +563,7 @@ class CodonOptimalityScore(nn.Module):
         cai = torch.exp(log_rel.mean(dim=-1))
         return cai
 
-    def forward(self, codon_indices: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, codon_indices: torch.Tensor) -> dict[str, torch.Tensor]:
         """Compute all optimality scores.
 
         Args:

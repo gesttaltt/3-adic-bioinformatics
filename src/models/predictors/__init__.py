@@ -15,9 +15,9 @@ All predictors use p-adic hyperbolic features as inputs.
 """
 
 from .base_predictor import BasePredictor, HyperbolicFeatureExtractor
-from .resistance_predictor import ResistancePredictor
 from .escape_predictor import EscapePredictor
 from .neutralization_predictor import NeutralizationPredictor
+from .resistance_predictor import ResistancePredictor
 from .tropism_classifier import TropismClassifier
 
 __all__ = [

@@ -39,7 +39,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -58,9 +58,9 @@ class HIVGene(Enum):
 class HIVDrugClass(Enum):
     """HIV drug classes."""
 
-    NRTI = "NRTI"    # Nucleoside RT Inhibitors
+    NRTI = "NRTI"  # Nucleoside RT Inhibitors
     NNRTI = "NNRTI"  # Non-nucleoside RT Inhibitors
-    PI = "PI"        # Protease Inhibitors
+    PI = "PI"  # Protease Inhibitors
     INSTI = "INSTI"  # Integrase Strand Transfer Inhibitors
 
 
@@ -68,37 +68,37 @@ class HIVDrug(Enum):
     """HIV antiretroviral drugs (23 drugs across 4 classes)."""
 
     # NRTI (7 drugs)
-    ABC = "ABC"   # Abacavir
-    AZT = "AZT"   # Zidovudine
-    D4T = "D4T"   # Stavudine
-    DDI = "DDI"   # Didanosine
-    FTC = "FTC"   # Emtricitabine
-    LAM = "3TC"   # Lamivudine (3TC)
-    TDF = "TDF"   # Tenofovir DF
+    ABC = "ABC"  # Abacavir
+    AZT = "AZT"  # Zidovudine
+    D4T = "D4T"  # Stavudine
+    DDI = "DDI"  # Didanosine
+    FTC = "FTC"  # Emtricitabine
+    LAM = "3TC"  # Lamivudine (3TC)
+    TDF = "TDF"  # Tenofovir DF
 
     # NNRTI (5 drugs)
-    DOR = "DOR"   # Doravirine
-    EFV = "EFV"   # Efavirenz
-    ETR = "ETR"   # Etravirine
-    NVP = "NVP"   # Nevirapine
-    RPV = "RPV"   # Rilpivirine
+    DOR = "DOR"  # Doravirine
+    EFV = "EFV"  # Efavirenz
+    ETR = "ETR"  # Etravirine
+    NVP = "NVP"  # Nevirapine
+    RPV = "RPV"  # Rilpivirine
 
     # PI (8 drugs)
-    ATV = "ATV"   # Atazanavir
-    DRV = "DRV"   # Darunavir
-    FPV = "FPV"   # Fosamprenavir
-    IDV = "IDV"   # Indinavir
-    LPV = "LPV"   # Lopinavir
-    NFV = "NFV"   # Nelfinavir
-    SQV = "SQV"   # Saquinavir
-    TPV = "TPV"   # Tipranavir
+    ATV = "ATV"  # Atazanavir
+    DRV = "DRV"  # Darunavir
+    FPV = "FPV"  # Fosamprenavir
+    IDV = "IDV"  # Indinavir
+    LPV = "LPV"  # Lopinavir
+    NFV = "NFV"  # Nelfinavir
+    SQV = "SQV"  # Saquinavir
+    TPV = "TPV"  # Tipranavir
 
     # INSTI (5 drugs)
-    BIC = "BIC"   # Bictegravir
-    CAB = "CAB"   # Cabotegravir
-    DTG = "DTG"   # Dolutegravir
-    EVG = "EVG"   # Elvitegravir
-    RAL = "RAL"   # Raltegravir
+    BIC = "BIC"  # Bictegravir
+    CAB = "CAB"  # Cabotegravir
+    DTG = "DTG"  # Dolutegravir
+    EVG = "EVG"  # Elvitegravir
+    RAL = "RAL"  # Raltegravir
 
 
 # Drug to class mapping
@@ -145,16 +145,20 @@ class HIVConfig(DiseaseConfig):
     name: str = "hiv"
     display_name: str = "Human Immunodeficiency Virus"
     disease_type: DiseaseType = DiseaseType.VIRAL
-    tasks: list[TaskType] = field(default_factory=lambda: [
-        TaskType.RESISTANCE,
-        TaskType.ESCAPE,
-    ])
+    tasks: list[TaskType] = field(
+        default_factory=lambda: [
+            TaskType.RESISTANCE,
+            TaskType.ESCAPE,
+        ]
+    )
 
-    data_sources: dict[str, str] = field(default_factory=lambda: {
-        "hivdb": "https://hivdb.stanford.edu/",
-        "lanl": "https://www.hiv.lanl.gov/",
-        "who_hiv": "https://www.who.int/teams/global-hiv-hepatitis-and-stis-programmes",
-    })
+    data_sources: dict[str, str] = field(
+        default_factory=lambda: {
+            "hivdb": "https://hivdb.stanford.edu/",
+            "lanl": "https://www.hiv.lanl.gov/",
+            "who_hiv": "https://www.who.int/teams/global-hiv-hepatitis-and-stis-programmes",
+        }
+    )
 
 
 # Reference sequences (HXB2 strain)
@@ -187,7 +191,6 @@ RT_MUTATIONS = {
     210: {"L": {"mutations": ["W"], "effect": "moderate", "drugs": ["AZT", "D4T"]}},
     215: {"T": {"mutations": ["Y", "F"], "effect": "high", "drugs": ["AZT", "D4T"]}},
     219: {"K": {"mutations": ["Q", "E", "N", "R"], "effect": "moderate", "drugs": ["AZT", "D4T"]}},
-
     # NNRTI Resistance Mutations
     # K103N/S - Major EFV/NVP resistance
     103: {"K": {"mutations": ["N", "S"], "effect": "high", "drugs": ["EFV", "NVP", "DOR"]}},
@@ -205,52 +208,37 @@ RT_MUTATIONS = {
     101: {"K": {"mutations": ["E", "P", "H"], "effect": "moderate", "drugs": ["NVP", "EFV", "RPV"]}},
     # P225H - ETR resistance
     225: {"P": {"mutations": ["H"], "effect": "moderate", "drugs": ["ETR", "RPV"]}},
-
     # Additional NRTI mutations (IAS-USA 2023)
     # K65E - Alternative to K65R
     # Already covered above with K65R/E/N
-
     # T69 insertion complex (multi-NRTI resistance)
     69: {"T": {"mutations": ["D", "N", "S"], "effect": "high", "drugs": ["AZT", "D4T", "ABC", "DDI", "TDF"]}},
-
     # A62V - Accessory NRTI mutation
     62: {"A": {"mutations": ["V"], "effect": "low", "drugs": ["TDF", "DDI"]}},
-
     # V75T/M/A - D4T/DDI resistance
     75: {"V": {"mutations": ["T", "M", "A"], "effect": "moderate", "drugs": ["D4T", "DDI"]}},
-
     # F77L - TAM accessory
     77: {"F": {"mutations": ["L"], "effect": "low", "drugs": ["AZT", "D4T"]}},
-
     # F116Y - TAM accessory
     116: {"F": {"mutations": ["Y"], "effect": "low", "drugs": ["AZT", "D4T", "ABC"]}},
-
     # Additional NNRTI mutations
     # A98G - NNRTI accessory
     98: {"A": {"mutations": ["G", "S"], "effect": "low", "drugs": ["NVP", "EFV", "DOR"]}},
-
     # K100I - DOR resistance
     100: {"K": {"mutations": ["I"], "effect": "moderate", "drugs": ["DOR", "EFV"]}},
-
     # V108I - NNRTI accessory
     108: {"V": {"mutations": ["I"], "effect": "low", "drugs": ["NVP", "EFV"]}},
-
     # E138A/G/K/Q/R - Second-gen NNRTI (multiple already covered)
     # V179D/E/F/T - ETR/RPV accessory
     179: {"V": {"mutations": ["D", "E", "F", "T", "L"], "effect": "moderate", "drugs": ["ETR", "RPV", "DOR"]}},
-
     # Y318F - NNRTI resistance
     318: {"Y": {"mutations": ["F"], "effect": "moderate", "drugs": ["NVP", "DOR"]}},
-
     # H221Y - RPV/ETR resistance
     221: {"H": {"mutations": ["Y"], "effect": "moderate", "drugs": ["RPV", "ETR"]}},
-
     # F227L/C - ETR/RPV resistance
     227: {"F": {"mutations": ["L", "C"], "effect": "moderate", "drugs": ["ETR", "RPV"]}},
-
     # M230L - NNRTI resistance
     230: {"M": {"mutations": ["L", "I"], "effect": "high", "drugs": ["ETR", "RPV", "DOR"]}},
-
     # L234I - DOR-specific
     234: {"L": {"mutations": ["I"], "effect": "moderate", "drugs": ["DOR"]}},
 }
@@ -272,18 +260,25 @@ PR_MUTATIONS = {
     # I50V/L - DRV/ATV
     50: {"I": {"mutations": ["V", "L"], "effect": "high", "drugs": ["DRV", "ATV", "LPV"]}},
     # I54V/L/M - Multiple PIs
-    54: {"I": {"mutations": ["V", "L", "M", "A", "T", "S"], "effect": "moderate", "drugs": ["DRV", "ATV", "LPV", "FPV"]}},
+    54: {
+        "I": {"mutations": ["V", "L", "M", "A", "T", "S"], "effect": "moderate", "drugs": ["DRV", "ATV", "LPV", "FPV"]}
+    },
     # L76V - DRV/LPV
     76: {"L": {"mutations": ["V"], "effect": "moderate", "drugs": ["DRV", "LPV", "FPV"]}},
     # V82A/T/F/S - Multiple PIs
     82: {"V": {"mutations": ["A", "T", "F", "S", "L", "M"], "effect": "high", "drugs": ["IDV", "LPV", "ATV"]}},
     # I84V - Multiple PIs
-    84: {"I": {"mutations": ["V", "A", "C"], "effect": "high", "drugs": ["DRV", "ATV", "LPV", "SQV", "IDV", "NFV", "FPV", "TPV"]}},
+    84: {
+        "I": {
+            "mutations": ["V", "A", "C"],
+            "effect": "high",
+            "drugs": ["DRV", "ATV", "LPV", "SQV", "IDV", "NFV", "FPV", "TPV"],
+        }
+    },
     # N88S - ATV/NFV
     88: {"N": {"mutations": ["S", "D"], "effect": "high", "drugs": ["ATV", "NFV"]}},
     # L90M - Multiple PIs
     90: {"L": {"mutations": ["M"], "effect": "high", "drugs": ["SQV", "NFV", "IDV", "ATV"]}},
-
     # Minor/accessory mutations
     10: {"L": {"mutations": ["I", "V", "F", "R"], "effect": "low", "drugs": ["DRV", "LPV", "ATV"]}},
     20: {"K": {"mutations": ["R", "I", "M", "T", "V"], "effect": "low", "drugs": ["LPV", "ATV"]}},
@@ -318,7 +313,6 @@ IN_MUTATIONS = {
     155: {"N": {"mutations": ["H", "S"], "effect": "high", "drugs": ["RAL", "EVG"]}},
     # R263K - DTG
     263: {"R": {"mutations": ["K"], "effect": "moderate", "drugs": ["DTG", "BIC"]}},
-
     # Accessory mutations
     74: {"L": {"mutations": ["M", "I"], "effect": "low", "drugs": ["EVG"]}},
     97: {"T": {"mutations": ["A"], "effect": "low", "drugs": ["RAL", "EVG"]}},
@@ -346,7 +340,7 @@ class HIVAnalyzer(DiseaseAnalyzer):
     - Cross-resistance patterns
     """
 
-    def __init__(self, config: Optional[HIVConfig] = None):
+    def __init__(self, config: HIVConfig | None = None):
         """Initialize analyzer."""
         self.config = config or HIVConfig()
         super().__init__(self.config)
@@ -357,7 +351,7 @@ class HIVAnalyzer(DiseaseAnalyzer):
     def analyze(
         self,
         sequences: dict[HIVGene, list[str]],
-        embeddings: Optional[torch.Tensor] = None,
+        embeddings: torch.Tensor | None = None,
         **kwargs,
     ) -> dict[str, Any]:
         """Analyze HIV sequences for drug resistance.
@@ -371,7 +365,7 @@ class HIVAnalyzer(DiseaseAnalyzer):
         """
         results = {
             "n_sequences": sum(len(s) for s in sequences.values()),
-            "genes_analyzed": [g.value for g in sequences.keys()],
+            "genes_analyzed": [g.value for g in sequences],
             "drug_resistance": {},
             "mutations_detected": {},
             "drug_class_summary": {},
@@ -389,15 +383,11 @@ class HIVAnalyzer(DiseaseAnalyzer):
 
             # Predict resistance for each drug
             for drug in drugs:
-                drug_results = self._predict_drug_resistance(
-                    seqs, gene_mutations, drug.value
-                )
+                drug_results = self._predict_drug_resistance(seqs, gene_mutations, drug.value)
                 results["drug_resistance"][drug.value] = drug_results
 
             # Detect all mutations
-            results["mutations_detected"][gene.value] = self._detect_mutations(
-                seqs, gene_mutations
-            )
+            results["mutations_detected"][gene.value] = self._detect_mutations(seqs, gene_mutations)
 
         # Summarize by drug class
         for drug_class in HIVDrugClass:
@@ -448,13 +438,15 @@ class HIVAnalyzer(DiseaseAnalyzer):
                         effect_scores = {"high": 1.0, "moderate": 0.5, "low": 0.2}
                         score += effect_scores.get(effect, 0.3)
 
-                        mutations.append({
-                            "position": pos,
-                            "ref": ref_aa,
-                            "alt": seq_aa,
-                            "effect": effect,
-                            "notation": f"{ref_aa}{pos}{seq_aa}",
-                        })
+                        mutations.append(
+                            {
+                                "position": pos,
+                                "ref": ref_aa,
+                                "alt": seq_aa,
+                                "effect": effect,
+                                "notation": f"{ref_aa}{pos}{seq_aa}",
+                            }
+                        )
 
             # Normalize (max theoretical score ~5-6 for heavily resistant)
             max_score = 4.0
@@ -497,13 +489,15 @@ class HIVAnalyzer(DiseaseAnalyzer):
                 ref_aa = list(info.keys())[0]
 
                 if seq_aa != ref_aa:
-                    seq_mutations.append({
-                        "position": pos,
-                        "ref": ref_aa,
-                        "alt": seq_aa,
-                        "is_known_drm": seq_aa in info[ref_aa]["mutations"],
-                        "notation": f"{ref_aa}{pos}{seq_aa}",
-                    })
+                    seq_mutations.append(
+                        {
+                            "position": pos,
+                            "ref": ref_aa,
+                            "alt": seq_aa,
+                            "is_known_drm": seq_aa in info[ref_aa]["mutations"],
+                            "notation": f"{ref_aa}{pos}{seq_aa}",
+                        }
+                    )
 
             all_mutations.append(seq_mutations)
 
@@ -548,7 +542,7 @@ class HIVAnalyzer(DiseaseAnalyzer):
 
 def create_hiv_synthetic_dataset(
     gene: HIVGene = HIVGene.RT,
-    drug_class: Optional[HIVDrugClass] = None,
+    drug_class: HIVDrugClass | None = None,
     min_samples: int = 50,
 ) -> tuple[np.ndarray, np.ndarray, list[str]]:
     """Create synthetic HIV dataset for testing.

@@ -15,8 +15,6 @@ References:
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Tuple
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -67,8 +65,8 @@ class StructureEncoder(nn.Module):
     def forward(
         self,
         coords: Tensor,
-        mask: Optional[Tensor] = None,
-    ) -> Tuple[Tensor, Tensor]:
+        mask: Tensor | None = None,
+    ) -> tuple[Tensor, Tensor]:
         """Encode backbone structure.
 
         Args:
@@ -110,7 +108,7 @@ class StructureEncoder(nn.Module):
         dist: Tensor,
         coords: Tensor,
         mask: Tensor,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor]:
         """Build k-NN spatial graph.
 
         Args:
@@ -365,8 +363,8 @@ class StructureConditionedGen(nn.Module):
         self,
         coords: Tensor,
         codons: Tensor,
-        mask: Optional[Tensor] = None,
-    ) -> Dict[str, Tensor]:
+        mask: Tensor | None = None,
+    ) -> dict[str, Tensor]:
         """Training forward pass.
 
         Args:
@@ -393,7 +391,7 @@ class StructureConditionedGen(nn.Module):
     def design(
         self,
         coords: Tensor,
-        mask: Optional[Tensor] = None,
+        mask: Tensor | None = None,
         n_designs: int = 10,
         temperature: float = 1.0,
     ) -> Tensor:
@@ -432,7 +430,7 @@ class StructureConditionedGen(nn.Module):
     def sample(
         self,
         coords: Tensor,
-        mask: Optional[Tensor] = None,
+        mask: Tensor | None = None,
         n_samples: int = 1,
         **kwargs,
     ) -> Tensor:
@@ -493,9 +491,9 @@ class MultiObjectiveDesigner(nn.Module):
         self,
         coords: Tensor,
         codons: Tensor,
-        mask: Optional[Tensor] = None,
-        weights: Optional[Dict[str, float]] = None,
-    ) -> Dict[str, Tensor]:
+        mask: Tensor | None = None,
+        weights: dict[str, float] | None = None,
+    ) -> dict[str, Tensor]:
         """Multi-objective training.
 
         Args:
@@ -528,7 +526,7 @@ class MultiObjectiveDesigner(nn.Module):
     def design_optimized(
         self,
         coords: Tensor,
-        mask: Optional[Tensor] = None,
+        mask: Tensor | None = None,
         n_candidates: int = 100,
         n_select: int = 10,
         **kwargs,

@@ -13,15 +13,15 @@ This module provides:
 - preprocessing utilities
 """
 
-from src.bioinformatics.data.protherm_loader import ProThermLoader, ProThermDataset
-from src.bioinformatics.data.s669_loader import S669Loader, S669Dataset
-from src.bioinformatics.data.proteingym_loader import ProteinGymLoader, ProteinGymDataset
 from src.bioinformatics.data.dataset_registry import DatasetRegistry
 from src.bioinformatics.data.preprocessing import (
     MutationFeatures,
     compute_features,
     compute_hyperbolic_features,
 )
+from src.bioinformatics.data.proteingym_loader import ProteinGymDataset, ProteinGymLoader
+from src.bioinformatics.data.protherm_loader import ProThermDataset, ProThermLoader
+from src.bioinformatics.data.s669_loader import S669Dataset, S669Loader
 
 __all__ = [
     "ProThermLoader",

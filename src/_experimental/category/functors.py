@@ -38,12 +38,12 @@ References:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Generic, List, Optional, Tuple, TypeVar
+from typing import Generic, TypeVar
 
 import torch
 import torch.nn as nn
-
 
 # Type variables for categorical generics
 Obj = TypeVar("Obj")  # Object type
@@ -58,7 +58,7 @@ class CategoryObject:
 
     name: str
     data: any = None
-    properties: Dict[str, any] = field(default_factory=dict)
+    properties: dict[str, any] = field(default_factory=dict)
 
 
 @dataclass
@@ -71,7 +71,7 @@ class Morphism(Generic[A, B]):
     source: A
     target: B
     name: str = ""
-    map_fn: Optional[Callable[[A], B]] = None
+    map_fn: Callable[[A], B] | None = None
 
     def apply(self, x: A) -> B:
         """Apply morphism to object."""
@@ -91,12 +91,12 @@ class Category(ABC):
     """
 
     @abstractmethod
-    def objects(self) -> List[CategoryObject]:
+    def objects(self) -> list[CategoryObject]:
         """Return all objects in the category."""
         pass
 
     @abstractmethod
-    def morphisms(self, source: CategoryObject, target: CategoryObject) -> List[Morphism]:
+    def morphisms(self, source: CategoryObject, target: CategoryObject) -> list[Morphism]:
         """Return all morphisms between two objects."""
         pass
 
@@ -125,8 +125,8 @@ class SequenceCategory(Category):
             sequence_type: Type of sequences ('dna', 'rna', 'protein')
         """
         self.sequence_type = sequence_type
-        self._objects: Dict[str, CategoryObject] = {}
-        self._morphisms: Dict[Tuple[str, str], List[Morphism]] = {}
+        self._objects: dict[str, CategoryObject] = {}
+        self._morphisms: dict[tuple[str, str], list[Morphism]] = {}
 
         # Define alphabet
         if sequence_type == "protein":
@@ -188,10 +188,10 @@ class SequenceCategory(Category):
 
         return mor
 
-    def objects(self) -> List[CategoryObject]:
+    def objects(self) -> list[CategoryObject]:
         return list(self._objects.values())
 
-    def morphisms(self, source: CategoryObject, target: CategoryObject) -> List[Morphism]:
+    def morphisms(self, source: CategoryObject, target: CategoryObject) -> list[Morphism]:
         key = (source.name, target.name)
         return self._morphisms.get(key, [])
 
@@ -395,22 +395,70 @@ class CodonToProteinFunctor(CategoricalFunctor):
 
     # Standard genetic code
     CODON_TABLE = {
-        "TTT": "F", "TTC": "F", "TTA": "L", "TTG": "L",
-        "CTT": "L", "CTC": "L", "CTA": "L", "CTG": "L",
-        "ATT": "I", "ATC": "I", "ATA": "I", "ATG": "M",
-        "GTT": "V", "GTC": "V", "GTA": "V", "GTG": "V",
-        "TCT": "S", "TCC": "S", "TCA": "S", "TCG": "S",
-        "CCT": "P", "CCC": "P", "CCA": "P", "CCG": "P",
-        "ACT": "T", "ACC": "T", "ACA": "T", "ACG": "T",
-        "GCT": "A", "GCC": "A", "GCA": "A", "GCG": "A",
-        "TAT": "Y", "TAC": "Y", "TAA": "*", "TAG": "*",
-        "CAT": "H", "CAC": "H", "CAA": "Q", "CAG": "Q",
-        "AAT": "N", "AAC": "N", "AAA": "K", "AAG": "K",
-        "GAT": "D", "GAC": "D", "GAA": "E", "GAG": "E",
-        "TGT": "C", "TGC": "C", "TGA": "*", "TGG": "W",
-        "CGT": "R", "CGC": "R", "CGA": "R", "CGG": "R",
-        "AGT": "S", "AGC": "S", "AGA": "R", "AGG": "R",
-        "GGT": "G", "GGC": "G", "GGA": "G", "GGG": "G",
+        "TTT": "F",
+        "TTC": "F",
+        "TTA": "L",
+        "TTG": "L",
+        "CTT": "L",
+        "CTC": "L",
+        "CTA": "L",
+        "CTG": "L",
+        "ATT": "I",
+        "ATC": "I",
+        "ATA": "I",
+        "ATG": "M",
+        "GTT": "V",
+        "GTC": "V",
+        "GTA": "V",
+        "GTG": "V",
+        "TCT": "S",
+        "TCC": "S",
+        "TCA": "S",
+        "TCG": "S",
+        "CCT": "P",
+        "CCC": "P",
+        "CCA": "P",
+        "CCG": "P",
+        "ACT": "T",
+        "ACC": "T",
+        "ACA": "T",
+        "ACG": "T",
+        "GCT": "A",
+        "GCC": "A",
+        "GCA": "A",
+        "GCG": "A",
+        "TAT": "Y",
+        "TAC": "Y",
+        "TAA": "*",
+        "TAG": "*",
+        "CAT": "H",
+        "CAC": "H",
+        "CAA": "Q",
+        "CAG": "Q",
+        "AAT": "N",
+        "AAC": "N",
+        "AAA": "K",
+        "AAG": "K",
+        "GAT": "D",
+        "GAC": "D",
+        "GAA": "E",
+        "GAG": "E",
+        "TGT": "C",
+        "TGC": "C",
+        "TGA": "*",
+        "TGG": "W",
+        "CGT": "R",
+        "CGC": "R",
+        "CGA": "R",
+        "CGG": "R",
+        "AGT": "S",
+        "AGC": "S",
+        "AGA": "R",
+        "AGG": "R",
+        "GGT": "G",
+        "GGC": "G",
+        "GGA": "G",
+        "GGG": "G",
     }
 
     def __init__(self):
@@ -430,7 +478,7 @@ class CodonToProteinFunctor(CategoricalFunctor):
         """
         protein = []
         for i in range(0, len(dna_sequence) - 2, 3):
-            codon = dna_sequence[i:i + 3].upper()
+            codon = dna_sequence[i : i + 3].upper()
             aa = self.CODON_TABLE.get(codon, "X")
             if aa == "*":  # Stop codon
                 break
@@ -462,6 +510,7 @@ class CodonToProteinFunctor(CategoricalFunctor):
         Returns:
             Protein morphism (amino acid change)
         """
+
         def protein_transform(dna_seq):
             # Apply DNA transformation then translate
             mutated = mor.apply(dna_seq)

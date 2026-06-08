@@ -13,7 +13,7 @@ to bind to target molecules (receptors, antibodies, etc.).
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import torch
 
@@ -32,7 +32,7 @@ class BindingObjective(Objective):
 
     def __init__(
         self,
-        target_profile: Optional[torch.Tensor] = None,
+        target_profile: torch.Tensor | None = None,
         hidden_dim: int = 64,
         temperature: float = 1.0,
         weight: float = 1.0,
@@ -51,7 +51,7 @@ class BindingObjective(Objective):
         self.temperature = temperature
 
         # Simple binding prediction network (can be replaced with learned model)
-        self.binding_predictor: Optional[torch.nn.Module] = None
+        self.binding_predictor: torch.nn.Module | None = None
 
     def _compute_binding_score(
         self,
@@ -91,8 +91,8 @@ class BindingObjective(Objective):
     def evaluate(
         self,
         latent: torch.Tensor,
-        decoded: Optional[torch.Tensor] = None,
-        target_profile: Optional[torch.Tensor] = None,
+        decoded: torch.Tensor | None = None,
+        target_profile: torch.Tensor | None = None,
         **kwargs: Any,
     ) -> ObjectiveResult:
         """Evaluate binding affinity objective.
@@ -135,7 +135,7 @@ class EpitopeBindingObjective(Objective):
 
     def __init__(
         self,
-        epitope_embeddings: Optional[torch.Tensor] = None,
+        epitope_embeddings: torch.Tensor | None = None,
         num_epitopes: int = 10,
         min_binding_threshold: float = 0.5,
         weight: float = 1.0,
@@ -156,7 +156,7 @@ class EpitopeBindingObjective(Objective):
     def evaluate(
         self,
         latent: torch.Tensor,
-        decoded: Optional[torch.Tensor] = None,
+        decoded: torch.Tensor | None = None,
         **kwargs: Any,
     ) -> ObjectiveResult:
         """Evaluate epitope binding coverage.

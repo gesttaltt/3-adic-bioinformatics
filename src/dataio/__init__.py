@@ -25,15 +25,12 @@ HIV data (src.data.hiv):
 """
 
 from .dataset import TernaryOperationDataset
-from .generation import (count_ternary_operations,
-                         generate_all_ternary_operations,
-                         generate_ternary_operation_by_index)
-from .gpu_resident import (GPUBatchIterator, GPUResidentTernaryDataset,
-                           create_gpu_resident_loaders)
+from .generation import count_ternary_operations, generate_all_ternary_operations, generate_ternary_operation_by_index
+from .gpu_resident import GPUBatchIterator, GPUResidentTernaryDataset, create_gpu_resident_loaders
 from .loaders import create_ternary_data_loaders, get_data_loader_info
 from .stratified import (
-    TernaryDataset,
     StratifiedBatchSampler,
+    TernaryDataset,
     create_stratified_batches,
     get_valuation_distribution,
 )

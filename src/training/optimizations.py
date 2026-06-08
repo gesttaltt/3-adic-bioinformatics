@@ -21,9 +21,10 @@ References:
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -79,7 +80,7 @@ class MixedPrecisionTrainer:
         ...     mp_trainer.step(optimizer)
     """
 
-    def __init__(self, config: Optional[MixedPrecisionConfig] = None):
+    def __init__(self, config: MixedPrecisionConfig | None = None):
         """Initialize mixed precision trainer.
 
         Args:
@@ -135,9 +136,9 @@ class MixedPrecisionTrainer:
     def step(
         self,
         optimizer: Optimizer,
-        clip_grad_norm: Optional[float] = None,
-        parameters: Optional[Iterator[Tensor]] = None,
-    ) -> Optional[float]:
+        clip_grad_norm: float | None = None,
+        parameters: Iterator[Tensor] | None = None,
+    ) -> float | None:
         """Optimizer step with optional gradient clipping.
 
         Args:
@@ -155,18 +156,14 @@ class MixedPrecisionTrainer:
             self.scaler.unscale_(optimizer)
 
             if clip_grad_norm is not None and parameters is not None:
-                grad_norm = torch.nn.utils.clip_grad_norm_(
-                    parameters, clip_grad_norm
-                ).item()
+                grad_norm = torch.nn.utils.clip_grad_norm_(parameters, clip_grad_norm).item()
 
             # Step optimizer with scaler
             self.scaler.step(optimizer)
             self.scaler.update()
         else:
             if clip_grad_norm is not None and parameters is not None:
-                grad_norm = torch.nn.utils.clip_grad_norm_(
-                    parameters, clip_grad_norm
-                ).item()
+                grad_norm = torch.nn.utils.clip_grad_norm_(parameters, clip_grad_norm).item()
 
             optimizer.step()
 
@@ -178,13 +175,13 @@ class MixedPrecisionTrainer:
             return self.scaler.get_scale()
         return 1.0
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         """Get state dict for checkpointing."""
         if self.scaler is not None:
             return {"scaler": self.scaler.state_dict()}
         return {}
 
-    def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
+    def load_state_dict(self, state_dict: dict[str, Any]) -> None:
         """Load state from checkpoint."""
         if self.scaler is not None and "scaler" in state_dict:
             self.scaler.load_state_dict(state_dict["scaler"])
@@ -265,7 +262,7 @@ class CheckpointedModule(nn.Module):
 
 def apply_gradient_checkpointing(
     model: nn.Module,
-    checkpoint_layers: Optional[List[str]] = None,
+    checkpoint_layers: list[str] | None = None,
     num_segments: int = 2,
 ) -> nn.Module:
     """Apply gradient checkpointing to model layers.
@@ -344,7 +341,7 @@ class SWAWrapper:
         self,
         model: nn.Module,
         optimizer: Optimizer,
-        config: Optional[SWAConfig] = None,
+        config: SWAConfig | None = None,
         device: str = "cuda",
     ):
         """Initialize SWA wrapper.
@@ -424,7 +421,7 @@ class SWAWrapper:
         """Check if SWA is currently active."""
         return self._swa_active
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         """Get state dict for checkpointing."""
         return {
             "swa_model": self.swa_model.state_dict(),
@@ -433,7 +430,7 @@ class SWAWrapper:
             "swa_active": self._swa_active,
         }
 
-    def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
+    def load_state_dict(self, state_dict: dict[str, Any]) -> None:
         """Load state from checkpoint."""
         self.swa_model.load_state_dict(state_dict["swa_model"])
         self.swa_scheduler.load_state_dict(state_dict["swa_scheduler"])
@@ -518,7 +515,7 @@ class DynamicBatchSampler:
         self,
         dataset: Dataset,
         max_tokens: int,
-        length_fn: Optional[Callable[[Any], int]] = None,
+        length_fn: Callable[[Any], int] | None = None,
         shuffle: bool = True,
         drop_last: bool = False,
     ):
@@ -588,11 +585,10 @@ class DynamicBatchSampler:
                 current_max_len = new_max_len
 
         # Handle last batch
-        if current_batch:
-            if not self.drop_last or len(current_batch) > 0:
-                self.batches.append(current_batch)
+        if current_batch and (not self.drop_last or len(current_batch) > 0):
+            self.batches.append(current_batch)
 
-    def __iter__(self) -> Iterator[List[int]]:
+    def __iter__(self) -> Iterator[list[int]]:
         """Iterate over batches.
 
         Yields:
@@ -600,10 +596,10 @@ class DynamicBatchSampler:
         """
         if self.shuffle:
             import random
+
             random.shuffle(self.batches)
 
-        for batch in self.batches:
-            yield batch
+        yield from self.batches
 
     def __len__(self) -> int:
         """Number of batches."""
@@ -620,7 +616,7 @@ def estimate_memory_usage(
     batch_size: int,
     seq_length: int,
     dtype: torch.dtype = torch.float32,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Estimate memory usage for training.
 
     Args:
@@ -758,10 +754,7 @@ class EarlyStopping:
         Returns:
             True if training should stop
         """
-        if self.mode == "min":
-            improved = metric < self.best - self.min_delta
-        else:
-            improved = metric > self.best + self.min_delta
+        improved = metric < self.best - self.min_delta if self.mode == "min" else metric > self.best + self.min_delta
 
         if improved:
             self.best = metric

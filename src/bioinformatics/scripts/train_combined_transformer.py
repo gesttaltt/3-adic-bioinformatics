@@ -23,32 +23,34 @@ Usage:
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parents[3]))
 
 import argparse
 import json
-from datetime import datetime
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, Tuple, List
+from datetime import datetime
+from typing import Any
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader, random_split, ConcatDataset
+from scipy.stats import pearsonr, spearmanr
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import CosineAnnealingLR, OneCycleLR
-from scipy.stats import spearmanr, pearsonr
-import numpy as np
+from torch.optim.lr_scheduler import OneCycleLR
+from torch.utils.data import DataLoader, Dataset, random_split
 
+from src.bioinformatics.data.proteingym_loader import ProteinGymLoader
 from src.bioinformatics.data.protherm_loader import ProThermLoader
 from src.bioinformatics.data.s669_loader import S669Loader
-from src.bioinformatics.data.proteingym_loader import ProteinGymLoader
 from src.bioinformatics.training.deterministic import set_deterministic_mode
 
 
 @dataclass
 class CombinedTransformerConfig:
     """Configuration for Combined Transformer."""
+
     d_model: int = 128
     n_heads: int = 8
     n_layers: int = 6
@@ -144,8 +146,8 @@ class CombinedTransformer(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        source_ids: Optional[torch.Tensor] = None,
-    ) -> Dict[str, torch.Tensor]:
+        source_ids: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Forward pass.
 
         Args:
@@ -169,7 +171,7 @@ class CombinedTransformer(nn.Module):
         x = torch.cat([cls_tokens, x], dim=1)  # (batch, 1+input_dim, d_model)
 
         # Add positional encoding
-        x = x + self.pos_enc[:, :x.size(1)]
+        x = x + self.pos_enc[:, : x.size(1)]
 
         # Add source embedding to CLS token
         if self.config.use_source_embedding and source_ids is not None:
@@ -199,9 +201,9 @@ class CombinedTransformer(nn.Module):
         self,
         x: torch.Tensor,
         y: torch.Tensor,
-        source_ids: Optional[torch.Tensor] = None,
+        source_ids: torch.Tensor | None = None,
         reduction: str = "mean",
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Compute loss.
 
         Args:
@@ -232,9 +234,9 @@ class CombinedFilteredDataset(Dataset):
 
     def __init__(
         self,
-        s669_records: List,
-        protherm_db: List,
-        proteingym_samples: Optional[List] = None,
+        s669_records: list,
+        protherm_db: list,
+        proteingym_samples: list | None = None,
         max_proteingym: int = 10000,
     ):
         """Initialize combined dataset.
@@ -271,7 +273,7 @@ class CombinedFilteredDataset(Dataset):
         if proteingym_samples:
             n_samples = min(len(proteingym_samples), max_proteingym)
             print(f"  Processing ProteinGym ({n_samples} samples)...")
-            for i, sample in enumerate(proteingym_samples[:n_samples]):
+            for _i, sample in enumerate(proteingym_samples[:n_samples]):
                 if sample is not None:
                     feat = compute_features(sample["wild_type"], sample["mutant"])
                     self.features.append(feat.tensor)
@@ -320,7 +322,7 @@ def compute_qa_metrics(
     model: CombinedTransformer,
     dataset: Dataset,
     device: str = "cuda",
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Compute QA metrics."""
     model.eval()
     model.to(device)
@@ -345,7 +347,7 @@ def compute_qa_metrics(
             all_labels.extend(y.numpy())
 
             # Per-source tracking
-            for i, (p, l, s) in enumerate(zip(pred.cpu().numpy(), y.numpy(), source_ids.cpu().numpy())):
+            for _i, (p, l, s) in enumerate(zip(pred.cpu().numpy(), y.numpy(), source_ids.cpu().numpy(), strict=False)):
                 per_source_preds[s].append(p)
                 per_source_labels[s].append(l)
 
@@ -382,7 +384,7 @@ def compute_qa_metrics(
     return result
 
 
-def print_qa_report(name: str, metrics: Dict[str, float]):
+def print_qa_report(name: str, metrics: dict[str, float]):
     """Print formatted QA report."""
     print(f"\n{'=' * 60}")
     print(f"QA REPORT: {name}")
@@ -394,13 +396,12 @@ def print_qa_report(name: str, metrics: Dict[str, float]):
     print(f"  RMSE:           {metrics['rmse']:.4f}")
 
     # Per-source breakdown
-    print(f"\n  Per-Source Breakdown:")
+    print("\n  Per-Source Breakdown:")
     for source in ["s669", "protherm", "proteingym"]:
         if f"{source}_spearman" in metrics:
             print(f"    {source:12s}: ρ={metrics[f'{source}_spearman']:.4f} (n={metrics[f'{source}_n']})")
 
-    quality = "EXCELLENT" if metrics['spearman'] > 0.7 else \
-              "GOOD" if metrics['spearman'] > 0.5 else "MODERATE"
+    quality = "EXCELLENT" if metrics["spearman"] > 0.7 else "GOOD" if metrics["spearman"] > 0.5 else "MODERATE"
     print(f"\n  Quality:        {quality}")
     print(f"{'=' * 60}")
 
@@ -409,20 +410,20 @@ def train_combined_transformer(
     train_dataset: Dataset,
     val_dataset: Dataset,
     output_dir: Path,
-    config: Optional[CombinedTransformerConfig] = None,
+    config: CombinedTransformerConfig | None = None,
     epochs: int = 100,
     batch_size: int = 64,
     lr: float = 1e-4,
     patience: int = 30,
     device: str = "cuda",
     verbose: bool = True,
-) -> Tuple[CombinedTransformer, Dict[str, Any]]:
+) -> tuple[CombinedTransformer, dict[str, Any]]:
     """Train Combined Transformer."""
 
     if config is None:
         config = CombinedTransformerConfig()
 
-    input_dim = train_dataset.dataset.input_dim if hasattr(train_dataset, 'dataset') else train_dataset.input_dim
+    input_dim = train_dataset.dataset.input_dim if hasattr(train_dataset, "dataset") else train_dataset.input_dim
     output_dir.mkdir(parents=True, exist_ok=True)
 
     model = CombinedTransformer(config, input_dim).to(device)
@@ -513,12 +514,15 @@ def train_combined_transformer(
             best_spearman = val_spearman
             best_epoch = epoch
             no_improve = 0
-            torch.save({
-                "model_state_dict": model.state_dict(),
-                "config": config,
-                "epoch": epoch,
-                "spearman": val_spearman,
-            }, output_dir / "best.pt")
+            torch.save(
+                {
+                    "model_state_dict": model.state_dict(),
+                    "config": config,
+                    "epoch": epoch,
+                    "spearman": val_spearman,
+                },
+                output_dir / "best.pt",
+            )
         else:
             no_improve += 1
             if no_improve >= patience:
@@ -526,11 +530,14 @@ def train_combined_transformer(
                 break
 
     # Save final
-    torch.save({
-        "model_state_dict": model.state_dict(),
-        "config": config,
-        "history": history,
-    }, output_dir / "final.pt")
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "config": config,
+            "history": history,
+        },
+        output_dir / "final.pt",
+    )
 
     with open(output_dir / "training_history.json", "w") as f:
         json.dump(history, f, indent=2)
@@ -539,7 +546,7 @@ def train_combined_transformer(
     ckpt = torch.load(output_dir / "best.pt", map_location=device, weights_only=False)
     model.load_state_dict(ckpt["model_state_dict"])
 
-    print(f"\n  Training complete!")
+    print("\n  Training complete!")
     print(f"  Best epoch: {best_epoch}")
     print(f"  Best Spearman: {best_spearman:.4f}")
 
@@ -622,10 +629,12 @@ def main():
         # Extract samples with their raw features
         for i in range(min(len(proteingym_dataset), max_proteingym)):
             x, y = proteingym_dataset[i]
-            proteingym_samples.append({
-                "features": x,
-                "fitness": float(y),
-            })
+            proteingym_samples.append(
+                {
+                    "features": x,
+                    "fitness": float(y),
+                }
+            )
         print(f"    ProteinGym: {len(proteingym_samples)} samples loaded")
     except FileNotFoundError:
         print("    ProteinGym data not found, continuing without it")
@@ -656,7 +665,7 @@ def main():
 
     # ProTherm (records can be objects or dicts)
     for record in protherm_db:
-        if hasattr(record, 'wild_type'):
+        if hasattr(record, "wild_type"):
             wt, mut, ddg = record.wild_type, record.mutant, record.ddg
         else:
             wt, mut, ddg = record["wild_type"], record["mutant"], record["ddg"]
@@ -719,10 +728,7 @@ def main():
     n_val = int(len(full_dataset) * 0.15)
     n_train = len(full_dataset) - n_val
 
-    train_ds, val_ds = random_split(
-        full_dataset, [n_train, n_val],
-        generator=torch.Generator().manual_seed(42)
-    )
+    train_ds, val_ds = random_split(full_dataset, [n_train, n_val], generator=torch.Generator().manual_seed(42))
 
     train_ds = SubsetWrapper(train_ds, full_dataset)
     val_ds = SubsetWrapper(val_ds, full_dataset)
@@ -744,7 +750,8 @@ def main():
     )
 
     model, history = train_combined_transformer(
-        train_ds, val_ds,
+        train_ds,
+        val_ds,
         output_dir=output_dir,
         config=config,
         epochs=epochs,
@@ -772,7 +779,7 @@ def main():
     print("TRAINING COMPLETE - SUMMARY")
     print("=" * 70)
     print(f"  Overall Spearman: {qa_metrics['spearman']:.4f}")
-    print(f"  Per-source performance:")
+    print("  Per-source performance:")
     for source in ["s669", "protherm", "proteingym"]:
         if f"{source}_spearman" in qa_metrics:
             print(f"    {source}: {qa_metrics[f'{source}_spearman']:.4f}")

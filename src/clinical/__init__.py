@@ -1,34 +1,34 @@
 """Clinical decision support module."""
 
 from .decision_support import (
+    ClinicalAlert,
     ClinicalDecisionSupport,
     ClinicalReport,
-    ClinicalAlert,
-    DrugResistanceResult,
-    TreatmentRecommendation,
-    ResistanceLevel,
     DrugClass,
+    DrugResistanceResult,
+    ResistanceLevel,
+    TreatmentRecommendation,
+)
+from .drug_interactions import (
+    DrugCategory,
+    DrugInfo,
+    DrugInteractionChecker,
+    Interaction,
+    InteractionMechanism,
+    InteractionSeverity,
+    RegimenReport,
 )
 from .report_generator import (
-    ReportFormat,
-    ReportLanguage,
     DrugPrediction,
-    ReportConfig,
-    ResistanceReport,
-    ReportGenerator,
-    ReportArchive,
     HTMLReportRenderer,
     JSONReportRenderer,
     PDFReportRenderer,
-)
-from .drug_interactions import (
-    DrugInteractionChecker,
-    Interaction,
-    RegimenReport,
-    DrugInfo,
-    DrugCategory,
-    InteractionSeverity,
-    InteractionMechanism,
+    ReportArchive,
+    ReportConfig,
+    ReportFormat,
+    ReportGenerator,
+    ReportLanguage,
+    ResistanceReport,
 )
 
 __all__ = [

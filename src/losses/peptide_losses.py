@@ -34,8 +34,7 @@ Usage:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
@@ -44,7 +43,6 @@ from torch import Tensor
 
 from src.geometry import poincare_distance
 from src.losses.base import LossComponent, LossResult
-
 
 # =============================================================================
 # Reconstruction Loss
@@ -77,12 +75,12 @@ class ReconstructionLoss(LossComponent):
         self.criterion = nn.CrossEntropyLoss(
             ignore_index=ignore_index,
             label_smoothing=label_smoothing,
-            reduction='mean',
+            reduction="mean",
         )
 
     def forward(
         self,
-        outputs: Dict[str, Tensor],
+        outputs: dict[str, Tensor],
         targets: Tensor,
         **kwargs,
     ) -> LossResult:
@@ -95,7 +93,7 @@ class ReconstructionLoss(LossComponent):
         Returns:
             LossResult with cross-entropy loss
         """
-        logits = outputs['logits']
+        logits = outputs["logits"]
 
         # Flatten for cross-entropy
         batch_size, seq_len, vocab_size = logits.shape
@@ -114,8 +112,8 @@ class ReconstructionLoss(LossComponent):
         return LossResult(
             loss=loss,
             metrics={
-                'recon_ce': loss.item(),
-                'recon_accuracy': accuracy.item(),
+                "recon_ce": loss.item(),
+                "recon_accuracy": accuracy.item(),
             },
             weight=self.weight,
         )
@@ -149,9 +147,9 @@ class MICPredictionLoss(LossComponent):
 
     def forward(
         self,
-        outputs: Dict[str, Tensor],
+        outputs: dict[str, Tensor],
         targets: Tensor,
-        mic_targets: Optional[Tensor] = None,
+        mic_targets: Tensor | None = None,
         **kwargs,
     ) -> LossResult:
         """Compute MIC prediction loss.
@@ -166,12 +164,12 @@ class MICPredictionLoss(LossComponent):
         """
         if mic_targets is None:
             return LossResult(
-                loss=torch.tensor(0.0, device=outputs['mic_pred'].device),
-                metrics={'mic_loss': 0.0, 'mic_mae': 0.0},
+                loss=torch.tensor(0.0, device=outputs["mic_pred"].device),
+                metrics={"mic_loss": 0.0, "mic_mae": 0.0},
                 weight=self.weight,
             )
 
-        mic_pred = outputs['mic_pred'].squeeze(-1)
+        mic_pred = outputs["mic_pred"].squeeze(-1)
         mic_targets = mic_targets.squeeze(-1) if mic_targets.dim() > 1 else mic_targets
 
         loss = F.smooth_l1_loss(mic_pred, mic_targets, beta=self.beta)
@@ -183,8 +181,8 @@ class MICPredictionLoss(LossComponent):
         return LossResult(
             loss=loss,
             metrics={
-                'mic_loss': loss.item(),
-                'mic_mae': mae.item(),
+                "mic_loss": loss.item(),
+                "mic_mae": mae.item(),
             },
             weight=self.weight,
         )
@@ -243,9 +241,9 @@ class PropertyAlignmentLoss(LossComponent):
 
     def forward(
         self,
-        outputs: Dict[str, Tensor],
+        outputs: dict[str, Tensor],
         targets: Tensor,
-        peptide_properties: Optional[Tensor] = None,
+        peptide_properties: Tensor | None = None,
         **kwargs,
     ) -> LossResult:
         """Compute property alignment loss.
@@ -260,18 +258,18 @@ class PropertyAlignmentLoss(LossComponent):
         """
         if peptide_properties is None:
             return LossResult(
-                loss=torch.tensor(0.0, device=outputs['z_hyp'].device),
-                metrics={'property_loss': 0.0, 'property_corr': 0.0},
+                loss=torch.tensor(0.0, device=outputs["z_hyp"].device),
+                metrics={"property_loss": 0.0, "property_corr": 0.0},
                 weight=self.weight,
             )
 
-        z_hyp = outputs['z_hyp']
+        z_hyp = outputs["z_hyp"]
         batch_size = z_hyp.shape[0]
 
         if batch_size < 2:
             return LossResult(
                 loss=torch.tensor(0.0, device=z_hyp.device),
-                metrics={'property_loss': 0.0, 'property_corr': 0.0},
+                metrics={"property_loss": 0.0, "property_corr": 0.0},
                 weight=self.weight,
             )
 
@@ -295,9 +293,7 @@ class PropertyAlignmentLoss(LossComponent):
         prop_centered = prop_dists - prop_dists.mean()
 
         numerator = (hyp_centered * prop_centered).sum()
-        denominator = torch.sqrt(
-            (hyp_centered ** 2).sum() * (prop_centered ** 2).sum() + 1e-8
-        )
+        denominator = torch.sqrt((hyp_centered**2).sum() * (prop_centered**2).sum() + 1e-8)
         correlation = numerator / denominator
 
         loss = 1.0 - correlation
@@ -305,8 +301,8 @@ class PropertyAlignmentLoss(LossComponent):
         return LossResult(
             loss=loss,
             metrics={
-                'property_loss': loss.item(),
-                'property_corr': correlation.item(),
+                "property_loss": loss.item(),
+                "property_corr": correlation.item(),
             },
             weight=self.weight,
         )
@@ -331,7 +327,7 @@ class RadialHierarchyLoss(LossComponent):
         weight: float = 0.5,
         max_radius: float = 0.95,
         min_radius: float = 0.1,
-        mic_range: Tuple[float, float] = (-1.0, 3.0),  # log10(MIC) range
+        mic_range: tuple[float, float] = (-1.0, 3.0),  # log10(MIC) range
         curvature: float = 1.0,
     ):
         """Initialize radial hierarchy loss.
@@ -370,9 +366,9 @@ class RadialHierarchyLoss(LossComponent):
 
     def forward(
         self,
-        outputs: Dict[str, Tensor],
+        outputs: dict[str, Tensor],
         targets: Tensor,
-        mic_targets: Optional[Tensor] = None,
+        mic_targets: Tensor | None = None,
         **kwargs,
     ) -> LossResult:
         """Compute radial hierarchy loss.
@@ -387,12 +383,12 @@ class RadialHierarchyLoss(LossComponent):
         """
         if mic_targets is None:
             return LossResult(
-                loss=torch.tensor(0.0, device=outputs['z_hyp'].device),
-                metrics={'radial_loss': 0.0, 'radius_mean': 0.0},
+                loss=torch.tensor(0.0, device=outputs["z_hyp"].device),
+                metrics={"radial_loss": 0.0, "radius_mean": 0.0},
                 weight=self.weight,
             )
 
-        z_hyp = outputs['z_hyp']
+        z_hyp = outputs["z_hyp"]
         mic_targets = mic_targets.squeeze(-1) if mic_targets.dim() > 1 else mic_targets
 
         # Get actual radii from hyperbolic embeddings
@@ -408,10 +404,10 @@ class RadialHierarchyLoss(LossComponent):
         return LossResult(
             loss=loss,
             metrics={
-                'radial_loss': loss.item(),
-                'radius_mean': actual_radii.mean().item(),
-                'radius_std': actual_radii.std().item(),
-                'target_radius_mean': target_radii.mean().item(),
+                "radial_loss": loss.item(),
+                "radius_mean": actual_radii.mean().item(),
+                "radius_std": actual_radii.std().item(),
+                "target_radius_mean": target_radii.mean().item(),
             },
             weight=self.weight,
         )
@@ -445,9 +441,9 @@ class CohesionLoss(LossComponent):
 
     def forward(
         self,
-        outputs: Dict[str, Tensor],
+        outputs: dict[str, Tensor],
         targets: Tensor,
-        pathogen_labels: Optional[Tensor] = None,
+        pathogen_labels: Tensor | None = None,
         **kwargs,
     ) -> LossResult:
         """Compute cohesion loss.
@@ -462,18 +458,18 @@ class CohesionLoss(LossComponent):
         """
         if pathogen_labels is None:
             return LossResult(
-                loss=torch.tensor(0.0, device=outputs['z_hyp'].device),
-                metrics={'cohesion_loss': 0.0},
+                loss=torch.tensor(0.0, device=outputs["z_hyp"].device),
+                metrics={"cohesion_loss": 0.0},
                 weight=self.weight,
             )
 
-        z_hyp = outputs['z_hyp']
+        z_hyp = outputs["z_hyp"]
         batch_size = z_hyp.shape[0]
 
         if batch_size < 2:
             return LossResult(
                 loss=torch.tensor(0.0, device=z_hyp.device),
-                metrics={'cohesion_loss': 0.0},
+                metrics={"cohesion_loss": 0.0},
                 weight=self.weight,
             )
 
@@ -494,9 +490,7 @@ class CohesionLoss(LossComponent):
             n = group_z.shape[0]
             for i in range(n):
                 for j in range(i + 1, n):
-                    dist = poincare_distance(
-                        group_z[i:i+1], group_z[j:j+1], c=self.curvature
-                    )
+                    dist = poincare_distance(group_z[i : i + 1], group_z[j : j + 1], c=self.curvature)
                     total_loss = total_loss + dist
 
             n_groups += n * (n - 1) // 2
@@ -504,7 +498,7 @@ class CohesionLoss(LossComponent):
         if n_groups == 0:
             return LossResult(
                 loss=torch.tensor(0.0, device=z_hyp.device),
-                metrics={'cohesion_loss': 0.0},
+                metrics={"cohesion_loss": 0.0},
                 weight=self.weight,
             )
 
@@ -513,8 +507,8 @@ class CohesionLoss(LossComponent):
         return LossResult(
             loss=avg_loss,
             metrics={
-                'cohesion_loss': avg_loss.item(),
-                'n_intra_pairs': n_groups,
+                "cohesion_loss": avg_loss.item(),
+                "n_intra_pairs": n_groups,
             },
             weight=self.weight,
         )
@@ -551,9 +545,9 @@ class SeparationLoss(LossComponent):
 
     def forward(
         self,
-        outputs: Dict[str, Tensor],
+        outputs: dict[str, Tensor],
         targets: Tensor,
-        pathogen_labels: Optional[Tensor] = None,
+        pathogen_labels: Tensor | None = None,
         **kwargs,
     ) -> LossResult:
         """Compute separation loss.
@@ -568,18 +562,18 @@ class SeparationLoss(LossComponent):
         """
         if pathogen_labels is None:
             return LossResult(
-                loss=torch.tensor(0.0, device=outputs['z_hyp'].device),
-                metrics={'separation_loss': 0.0},
+                loss=torch.tensor(0.0, device=outputs["z_hyp"].device),
+                metrics={"separation_loss": 0.0},
                 weight=self.weight,
             )
 
-        z_hyp = outputs['z_hyp']
+        z_hyp = outputs["z_hyp"]
         batch_size = z_hyp.shape[0]
 
         if batch_size < 2:
             return LossResult(
                 loss=torch.tensor(0.0, device=z_hyp.device),
-                metrics={'separation_loss': 0.0},
+                metrics={"separation_loss": 0.0},
                 weight=self.weight,
             )
 
@@ -590,7 +584,7 @@ class SeparationLoss(LossComponent):
         if n_pathogens < 2:
             return LossResult(
                 loss=torch.tensor(0.0, device=z_hyp.device),
-                metrics={'separation_loss': 0.0},
+                metrics={"separation_loss": 0.0},
                 weight=self.weight,
             )
 
@@ -608,9 +602,7 @@ class SeparationLoss(LossComponent):
 
         for i in range(n_pathogens):
             for j in range(i + 1, n_pathogens):
-                dist = poincare_distance(
-                    centroids[i:i+1], centroids[j:j+1], c=self.curvature
-                )
+                dist = poincare_distance(centroids[i : i + 1], centroids[j : j + 1], c=self.curvature)
                 # Penalize if distance < margin
                 loss = F.relu(self.margin - dist)
                 total_loss = total_loss + loss
@@ -619,7 +611,7 @@ class SeparationLoss(LossComponent):
         if n_pairs == 0:
             return LossResult(
                 loss=torch.tensor(0.0, device=z_hyp.device),
-                metrics={'separation_loss': 0.0},
+                metrics={"separation_loss": 0.0},
                 weight=self.weight,
             )
 
@@ -630,17 +622,15 @@ class SeparationLoss(LossComponent):
             avg_dist = 0.0
             for i in range(n_pathogens):
                 for j in range(i + 1, n_pathogens):
-                    avg_dist += poincare_distance(
-                        centroids[i:i+1], centroids[j:j+1], c=self.curvature
-                    ).item()
+                    avg_dist += poincare_distance(centroids[i : i + 1], centroids[j : j + 1], c=self.curvature).item()
             avg_dist /= max(n_pairs, 1)
 
         return LossResult(
             loss=avg_loss,
             metrics={
-                'separation_loss': avg_loss.item(),
-                'avg_inter_dist': avg_dist,
-                'n_pathogens': n_pathogens,
+                "separation_loss": avg_loss.item(),
+                "avg_inter_dist": avg_dist,
+                "n_pathogens": n_pathogens,
             },
             weight=self.weight,
         )
@@ -658,6 +648,7 @@ class CurriculumSchedule:
     Defines when each loss component becomes active and how its weight
     changes during training.
     """
+
     reconstruction_start: int = 0
     reconstruction_ramp: int = 10
     mic_start: int = 10
@@ -688,7 +679,7 @@ class PeptideLossManager(nn.Module):
         cohesion_weight: float = 0.3,
         separation_weight: float = 0.3,
         use_curriculum: bool = True,
-        curriculum: Optional[CurriculumSchedule] = None,
+        curriculum: CurriculumSchedule | None = None,
     ):
         """Initialize loss manager.
 
@@ -709,12 +700,12 @@ class PeptideLossManager(nn.Module):
 
         # Store base weights
         self.base_weights = {
-            'reconstruction': reconstruction_weight,
-            'mic': mic_weight,
-            'property': property_weight,
-            'radial': radial_weight,
-            'cohesion': cohesion_weight,
-            'separation': separation_weight,
+            "reconstruction": reconstruction_weight,
+            "mic": mic_weight,
+            "property": property_weight,
+            "radial": radial_weight,
+            "cohesion": cohesion_weight,
+            "separation": separation_weight,
         }
 
         # Initialize loss components
@@ -747,13 +738,13 @@ class PeptideLossManager(nn.Module):
 
     def compute_total_loss(
         self,
-        outputs: Dict[str, Tensor],
+        outputs: dict[str, Tensor],
         target_tokens: Tensor,
-        mic_targets: Optional[Tensor] = None,
-        pathogen_labels: Optional[Tensor] = None,
-        peptide_properties: Optional[Tensor] = None,
+        mic_targets: Tensor | None = None,
+        pathogen_labels: Tensor | None = None,
+        peptide_properties: Tensor | None = None,
         epoch: int = 0,
-    ) -> Tuple[Tensor, Dict[str, float]]:
+    ) -> tuple[Tensor, dict[str, float]]:
         """Compute total loss with all components.
 
         Args:
@@ -768,27 +759,23 @@ class PeptideLossManager(nn.Module):
             Tuple of (total_loss, metrics_dict)
         """
         all_metrics = {}
-        total_loss = torch.tensor(0.0, device=outputs['z_hyp'].device)
+        total_loss = torch.tensor(0.0, device=outputs["z_hyp"].device)
 
         # Get curriculum weights
         if self.use_curriculum:
             weights = {
-                'reconstruction': self.get_curriculum_weight(
+                "reconstruction": self.get_curriculum_weight(
                     epoch, self.curriculum.reconstruction_start, self.curriculum.reconstruction_ramp
                 ),
-                'mic': self.get_curriculum_weight(
-                    epoch, self.curriculum.mic_start, self.curriculum.mic_ramp
-                ),
-                'property': self.get_curriculum_weight(
+                "mic": self.get_curriculum_weight(epoch, self.curriculum.mic_start, self.curriculum.mic_ramp),
+                "property": self.get_curriculum_weight(
                     epoch, self.curriculum.property_start, self.curriculum.property_ramp
                 ),
-                'radial': self.get_curriculum_weight(
-                    epoch, self.curriculum.radial_start, self.curriculum.radial_ramp
-                ),
-                'cohesion': self.get_curriculum_weight(
+                "radial": self.get_curriculum_weight(epoch, self.curriculum.radial_start, self.curriculum.radial_ramp),
+                "cohesion": self.get_curriculum_weight(
                     epoch, self.curriculum.cohesion_start, self.curriculum.cohesion_ramp
                 ),
-                'separation': self.get_curriculum_weight(
+                "separation": self.get_curriculum_weight(
                     epoch, self.curriculum.separation_start, self.curriculum.separation_ramp
                 ),
             }
@@ -796,52 +783,46 @@ class PeptideLossManager(nn.Module):
             weights = {k: 1.0 for k in self.base_weights}
 
         # 1. Reconstruction Loss
-        if weights['reconstruction'] > 0:
+        if weights["reconstruction"] > 0:
             recon_result = self.reconstruction_loss(outputs, target_tokens)
-            total_loss = total_loss + weights['reconstruction'] * recon_result.weighted_loss
-            all_metrics.update(recon_result.to_dict('recon'))
+            total_loss = total_loss + weights["reconstruction"] * recon_result.weighted_loss
+            all_metrics.update(recon_result.to_dict("recon"))
 
         # 2. MIC Prediction Loss
-        if weights['mic'] > 0 and mic_targets is not None:
+        if weights["mic"] > 0 and mic_targets is not None:
             mic_result = self.mic_loss(outputs, target_tokens, mic_targets=mic_targets)
-            total_loss = total_loss + weights['mic'] * mic_result.weighted_loss
-            all_metrics.update(mic_result.to_dict('mic'))
+            total_loss = total_loss + weights["mic"] * mic_result.weighted_loss
+            all_metrics.update(mic_result.to_dict("mic"))
 
         # 3. Property Alignment Loss
-        if weights['property'] > 0 and peptide_properties is not None:
-            prop_result = self.property_loss(
-                outputs, target_tokens, peptide_properties=peptide_properties
-            )
-            total_loss = total_loss + weights['property'] * prop_result.weighted_loss
-            all_metrics.update(prop_result.to_dict('property'))
+        if weights["property"] > 0 and peptide_properties is not None:
+            prop_result = self.property_loss(outputs, target_tokens, peptide_properties=peptide_properties)
+            total_loss = total_loss + weights["property"] * prop_result.weighted_loss
+            all_metrics.update(prop_result.to_dict("property"))
 
         # 4. Radial Hierarchy Loss
-        if weights['radial'] > 0 and mic_targets is not None:
+        if weights["radial"] > 0 and mic_targets is not None:
             radial_result = self.radial_loss(outputs, target_tokens, mic_targets=mic_targets)
-            total_loss = total_loss + weights['radial'] * radial_result.weighted_loss
-            all_metrics.update(radial_result.to_dict('radial'))
+            total_loss = total_loss + weights["radial"] * radial_result.weighted_loss
+            all_metrics.update(radial_result.to_dict("radial"))
 
         # 5. Cohesion Loss
-        if weights['cohesion'] > 0 and pathogen_labels is not None:
-            cohesion_result = self.cohesion_loss(
-                outputs, target_tokens, pathogen_labels=pathogen_labels
-            )
-            total_loss = total_loss + weights['cohesion'] * cohesion_result.weighted_loss
-            all_metrics.update(cohesion_result.to_dict('cohesion'))
+        if weights["cohesion"] > 0 and pathogen_labels is not None:
+            cohesion_result = self.cohesion_loss(outputs, target_tokens, pathogen_labels=pathogen_labels)
+            total_loss = total_loss + weights["cohesion"] * cohesion_result.weighted_loss
+            all_metrics.update(cohesion_result.to_dict("cohesion"))
 
         # 6. Separation Loss
-        if weights['separation'] > 0 and pathogen_labels is not None:
-            sep_result = self.separation_loss(
-                outputs, target_tokens, pathogen_labels=pathogen_labels
-            )
-            total_loss = total_loss + weights['separation'] * sep_result.weighted_loss
-            all_metrics.update(sep_result.to_dict('separation'))
+        if weights["separation"] > 0 and pathogen_labels is not None:
+            sep_result = self.separation_loss(outputs, target_tokens, pathogen_labels=pathogen_labels)
+            total_loss = total_loss + weights["separation"] * sep_result.weighted_loss
+            all_metrics.update(sep_result.to_dict("separation"))
 
         # Add curriculum weights to metrics
         for name, w in weights.items():
-            all_metrics[f'curriculum_{name}'] = w
+            all_metrics[f"curriculum_{name}"] = w
 
-        all_metrics['total_loss'] = total_loss.item()
+        all_metrics["total_loss"] = total_loss.item()
 
         return total_loss, all_metrics
 
@@ -851,12 +832,12 @@ class PeptideLossManager(nn.Module):
 # =============================================================================
 
 __all__ = [
-    'ReconstructionLoss',
-    'MICPredictionLoss',
-    'PropertyAlignmentLoss',
-    'RadialHierarchyLoss',
-    'CohesionLoss',
-    'SeparationLoss',
-    'CurriculumSchedule',
-    'PeptideLossManager',
+    "ReconstructionLoss",
+    "MICPredictionLoss",
+    "PropertyAlignmentLoss",
+    "RadialHierarchyLoss",
+    "CohesionLoss",
+    "SeparationLoss",
+    "CurriculumSchedule",
+    "PeptideLossManager",
 ]

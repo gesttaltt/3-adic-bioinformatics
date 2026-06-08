@@ -11,7 +11,9 @@ Target: Spearman > 0.80 on ProTherm validation set.
 from __future__ import annotations
 
 import json
-import math
+
+# Add project root to path
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -23,18 +25,16 @@ import torch.nn.functional as F
 from scipy.stats import spearmanr
 from torch.utils.data import DataLoader, Dataset
 
-# Add project root to path
-import sys
 sys.path.insert(0, str(Path(__file__).parents[3]))
 
-from src.bioinformatics.models.ddg_vae import DDGVAE
 from src.bioinformatics.data.protherm_loader import ProThermLoader
-from src.bioinformatics.data.s669_loader import S669Loader
+from src.bioinformatics.models.ddg_vae import DDGVAE
 
 
 @dataclass
 class FusionConfig:
     """Configuration for multimodal fusion."""
+
     # VAE latent dimensions
     s669_dim: int = 16
     protherm_dim: int = 32
@@ -68,21 +68,14 @@ class CrossModalAttention(nn.Module):
         self.fusion_dim = fusion_dim
 
         # Project each modality to fusion dimension
-        self.projections = nn.ModuleList([
-            nn.Linear(d, fusion_dim) for d in dims
-        ])
+        self.projections = nn.ModuleList([nn.Linear(d, fusion_dim) for d in dims])
 
         # Learnable modality embeddings
-        self.modality_embeddings = nn.Parameter(
-            torch.randn(self.n_modalities, fusion_dim) * 0.02
-        )
+        self.modality_embeddings = nn.Parameter(torch.randn(self.n_modalities, fusion_dim) * 0.02)
 
         # Cross-modal attention
         self.cross_attention = nn.MultiheadAttention(
-            embed_dim=fusion_dim,
-            num_heads=n_heads,
-            dropout=dropout,
-            batch_first=True
+            embed_dim=fusion_dim, num_heads=n_heads, dropout=dropout, batch_first=True
         )
 
         # Layer norm
@@ -97,11 +90,11 @@ class CrossModalAttention(nn.Module):
         Returns:
             Fused embedding [batch, fusion_dim]
         """
-        batch_size = embeddings[0].shape[0]
+        embeddings[0].shape[0]
 
         # Project each modality and add modality embedding
         projected = []
-        for i, (proj, emb) in enumerate(zip(self.projections, embeddings)):
+        for i, (proj, emb) in enumerate(zip(self.projections, embeddings, strict=False)):
             x = proj(emb)  # [batch, fusion_dim]
             x = x + self.modality_embeddings[i]  # Add modality identity
             projected.append(x)
@@ -131,9 +124,7 @@ class SimpleFusion(nn.Module):
         total_dim = sum(dims)
 
         # Learned importance weights per modality
-        self.modality_gates = nn.ParameterList([
-            nn.Parameter(torch.ones(1)) for _ in dims
-        ])
+        self.modality_gates = nn.ParameterList([nn.Parameter(torch.ones(1)) for _ in dims])
 
         # Compression to fusion dimension
         self.compress = nn.Sequential(
@@ -146,7 +137,7 @@ class SimpleFusion(nn.Module):
     def forward(self, embeddings: list[torch.Tensor]) -> torch.Tensor:
         # Apply learned gates
         gated = []
-        for emb, gate in zip(embeddings, self.modality_gates):
+        for emb, gate in zip(embeddings, self.modality_gates, strict=False):
             gated.append(emb * torch.sigmoid(gate))
 
         # Concatenate and compress
@@ -256,7 +247,7 @@ class MultimodalDataset(Dataset):
 
     def __init__(self, records: list, include_hyperbolic: bool = False):
         """Initialize with ProTherm records."""
-        from src.bioinformatics.data.preprocessing import compute_features, add_hyperbolic_features
+        from src.bioinformatics.data.preprocessing import add_hyperbolic_features, compute_features
 
         self.records = records
         self.features_s669 = []  # 14-dim (basic)
@@ -275,7 +266,7 @@ class MultimodalDataset(Dataset):
                 extended_array = extended.to_array(include_hyperbolic=True)
             else:
                 # Pad to 20 dims for ProTherm encoder
-                extended_array = np.pad(basic_array, (0, 6), mode='constant')
+                extended_array = np.pad(basic_array, (0, 6), mode="constant")
 
             self.features_s669.append(basic_array)
             self.features_protherm.append(extended_array)
@@ -302,7 +293,7 @@ class MultimodalDataset(Dataset):
 def gaussian_nll_loss(pred: torch.Tensor, target: torch.Tensor, uncertainty: torch.Tensor) -> torch.Tensor:
     """Gaussian negative log-likelihood loss with learned uncertainty."""
     uncertainty = uncertainty.clamp(min=0.01, max=10.0)
-    loss = 0.5 * (torch.log(uncertainty**2) + ((pred - target)**2) / (uncertainty**2))
+    loss = 0.5 * (torch.log(uncertainty**2) + ((pred - target) ** 2) / (uncertainty**2))
     return loss.mean()
 
 
@@ -359,17 +350,17 @@ def train_multimodal_fusion():
     vae_s669 = DDGVAE.create_s669_variant(use_hyperbolic=False)
     ckpt = torch.load(config.s669_checkpoint, map_location=device, weights_only=False)
     vae_s669.load_state_dict(ckpt["model_state_dict"])
-    print(f"  Loaded VAE-S669")
+    print("  Loaded VAE-S669")
 
     vae_protherm = DDGVAE.create_protherm_variant(use_hyperbolic=False)
     ckpt = torch.load(config.protherm_checkpoint, map_location=device, weights_only=False)
     vae_protherm.load_state_dict(ckpt["model_state_dict"])
-    print(f"  Loaded VAE-ProTherm")
+    print("  Loaded VAE-ProTherm")
 
     vae_wide = DDGVAE.create_wide_variant(use_hyperbolic=False)
     ckpt = torch.load(config.wide_checkpoint, map_location=device, weights_only=False)
     vae_wide.load_state_dict(ckpt["model_state_dict"])
-    print(f"  Loaded VAE-Wide")
+    print("  Loaded VAE-Wide")
 
     # Create fusion model
     print("\n[2] Creating multimodal fusion model...")
@@ -414,9 +405,7 @@ def train_multimodal_fusion():
         weight_decay=config.weight_decay,
     )
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=config.epochs, eta_min=1e-6
-    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.epochs, eta_min=1e-6)
 
     # Training loop
     print("\n" + "=" * 70)
@@ -494,22 +483,27 @@ def train_multimodal_fusion():
 
         # Logging
         if epoch % 10 == 0 or val_spearman > best_spearman:
-            print(f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
-                  f"spearman={val_spearman:.4f} uncertainty={val_uncertainty:.3f}")
+            print(
+                f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
+                f"spearman={val_spearman:.4f} uncertainty={val_uncertainty:.3f}"
+            )
 
         # Best model checkpoint
         if val_spearman > best_spearman:
             best_spearman = val_spearman
             patience_counter = 0
 
-            torch.save({
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "epoch": epoch,
-                "val_spearman": val_spearman,
-                "val_loss": val_loss,
-                "config": config.__dict__,
-            }, output_dir / "best.pt")
+            torch.save(
+                {
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "epoch": epoch,
+                    "val_spearman": val_spearman,
+                    "val_loss": val_loss,
+                    "config": config.__dict__,
+                },
+                output_dir / "best.pt",
+            )
         else:
             patience_counter += 1
             if patience_counter >= config.patience:
@@ -517,16 +511,17 @@ def train_multimodal_fusion():
                 break
 
     # Final checkpoint
-    torch.save({
-        "model_state_dict": model.state_dict(),
-        "epoch": epoch,
-        "val_spearman": val_spearman,
-    }, output_dir / "final.pt")
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "epoch": epoch,
+            "val_spearman": val_spearman,
+        },
+        output_dir / "final.pt",
+    )
 
     # Save history (convert numpy types)
-    history_serializable = {
-        k: [float(v) for v in vals] for k, vals in history.items()
-    }
+    history_serializable = {k: [float(v) for v in vals] for k, vals in history.items()}
     with open(output_dir / "training_history.json", "w") as f:
         json.dump(history_serializable, f, indent=2)
 
@@ -540,8 +535,8 @@ def train_multimodal_fusion():
     print("\n" + "=" * 70)
     print("Results Comparison")
     print("=" * 70)
-    print(f"  VAE-ProTherm alone: 0.64")
-    print(f"  MLP Refiner:        0.78")
+    print("  VAE-ProTherm alone: 0.64")
+    print("  MLP Refiner:        0.78")
     print(f"  Multimodal Fusion:  {best_spearman:.2f}")
 
     improvement = (best_spearman - 0.64) / 0.64 * 100

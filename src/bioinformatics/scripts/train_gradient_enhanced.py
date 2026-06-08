@@ -12,6 +12,7 @@ use this direction as a strong feature.
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -20,20 +21,20 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from scipy.stats import spearmanr, pearsonr
+from scipy.stats import pearsonr, spearmanr
 from torch.utils.data import DataLoader, Dataset
 
-import sys
 sys.path.insert(0, str(Path(__file__).parents[3]))
 
-from src.bioinformatics.models.ddg_vae import DDGVAE
-from src.bioinformatics.data.protherm_loader import ProThermLoader
 from src.bioinformatics.data.preprocessing import compute_features
+from src.bioinformatics.data.protherm_loader import ProThermLoader
+from src.bioinformatics.models.ddg_vae import DDGVAE
 
 
 @dataclass
 class GradientConfig:
     """Configuration for gradient-enhanced prediction."""
+
     epochs: int = 200
     batch_size: int = 8
     learning_rate: float = 1e-4
@@ -121,7 +122,7 @@ class GradientDataset(Dataset):
             feat = compute_features(record.wild_type, record.mutant)
             # Pad to 20 dims for ProTherm encoder
             arr = feat.to_array(include_hyperbolic=False)
-            arr = np.pad(arr, (0, 6), mode='constant')
+            arr = np.pad(arr, (0, 6), mode="constant")
 
             self.features.append(arr)
             self.ddg_values.append(record.ddg)
@@ -160,8 +161,7 @@ def train_gradient_enhanced():
         gradient_results = json.load(f)
 
     gradient_direction = torch.tensor(
-        gradient_results["gradient_analysis"]["gradient_direction"],
-        dtype=torch.float32
+        gradient_results["gradient_analysis"]["gradient_direction"], dtype=torch.float32
     ).to(device)
     gradient_corr = gradient_results["gradient_analysis"]["ddg_correlation"]
     print(f"  Gradient correlation: {gradient_corr:.4f}")
@@ -210,9 +210,7 @@ def train_gradient_enhanced():
         weight_decay=config.weight_decay,
     )
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=config.epochs, eta_min=1e-6
-    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.epochs, eta_min=1e-6)
 
     # Training
     print("\n" + "=" * 70)
@@ -282,9 +280,11 @@ def train_gradient_enhanced():
 
         # Logging
         if epoch % 10 == 0 or val_spearman > best_spearman:
-            print(f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
-                  f"spearman={val_spearman:.4f} pearson={val_pearson:.4f} "
-                  f"grad_only={gradient_only_spearman:.4f} weight={weight:.3f}")
+            print(
+                f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
+                f"spearman={val_spearman:.4f} pearson={val_pearson:.4f} "
+                f"grad_only={gradient_only_spearman:.4f} weight={weight:.3f}"
+            )
 
         # Best checkpoint
         if val_spearman > best_spearman:
@@ -292,14 +292,17 @@ def train_gradient_enhanced():
             best_pearson = val_pearson
             patience_counter = 0
 
-            torch.save({
-                "model_state_dict": model.state_dict(),
-                "epoch": epoch,
-                "val_spearman": val_spearman,
-                "val_pearson": val_pearson,
-                "gradient_direction": gradient_direction.cpu().numpy().tolist(),
-                "config": config.__dict__,
-            }, output_dir / "best.pt")
+            torch.save(
+                {
+                    "model_state_dict": model.state_dict(),
+                    "epoch": epoch,
+                    "val_spearman": val_spearman,
+                    "val_pearson": val_pearson,
+                    "gradient_direction": gradient_direction.cpu().numpy().tolist(),
+                    "config": config.__dict__,
+                },
+                output_dir / "best.pt",
+            )
         else:
             patience_counter += 1
             if patience_counter >= config.patience:
@@ -321,9 +324,9 @@ def train_gradient_enhanced():
     print("\n" + "=" * 70)
     print("Results Comparison")
     print("=" * 70)
-    print(f"  VAE-ProTherm alone:      0.64")
-    print(f"  MLP Refiner:             0.78")
-    print(f"  Gradient direction only: 0.95 (on full data)")
+    print("  VAE-ProTherm alone:      0.64")
+    print("  MLP Refiner:             0.78")
+    print("  Gradient direction only: 0.95 (on full data)")
     print(f"  Gradient-Enhanced:       {best_spearman:.2f}")
 
     improvement = (best_spearman - 0.64) / 0.64 * 100

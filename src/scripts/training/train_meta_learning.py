@@ -53,12 +53,10 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
 
 # Add project root
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -173,10 +171,7 @@ class FewShotClassifier(nn.Module):
 
         for c in range(self.n_classes):
             mask = support_y == c
-            if mask.any():
-                prototype = embeddings[mask].mean(dim=0)
-            else:
-                prototype = torch.zeros_like(embeddings[0])
+            prototype = embeddings[mask].mean(dim=0) if mask.any() else torch.zeros_like(embeddings[0])
             prototypes.append(prototype)
 
         return torch.stack(prototypes)
@@ -236,10 +231,7 @@ class VariantTaskSampler:
 
     def _generate_synthetic_variants(self):
         """Generate synthetic variant data."""
-        variant_names = [
-            f"{self.disease}_variant_{i}"
-            for i in range(10)
-        ]
+        variant_names = [f"{self.disease}_variant_{i}" for i in range(10)]
 
         for name in variant_names:
             n_samples = 100
@@ -251,7 +243,7 @@ class VariantTaskSampler:
                 "labels": labels,
             }
 
-    def sample_task(self, variant_name: Optional[str] = None) -> Task:
+    def sample_task(self, variant_name: str | None = None) -> Task:
         """Sample a task (episode) from a variant."""
         if variant_name is None:
             variant_name = list(self.variants.keys())[torch.randint(0, len(self.variants), (1,)).item()]
@@ -329,7 +321,7 @@ class MAML:
             )
 
             # Manual SGD step
-            for param, grad in zip(adapted_model.parameters(), grads):
+            for param, grad in zip(adapted_model.parameters(), grads, strict=False):
                 param.data = param.data - self.inner_lr * grad
 
         # Compute query loss
@@ -414,7 +406,7 @@ class Reptile:
 
         # Average adapted weights
         avg_weights = {}
-        for name in adapted_weights_list[0].keys():
+        for name in adapted_weights_list[0]:
             avg_weights[name] = torch.stack([w[name] for w in adapted_weights_list]).mean(dim=0)
 
         # Reptile update: move towards averaged adapted weights
@@ -668,7 +660,7 @@ def main():
 
         with torch.no_grad():
             # Encode sequences
-            support_emb = model.encoder(support_x)
+            model.encoder(support_x)
             query_emb = model.encoder(query_x)
 
             # Get escape predictions

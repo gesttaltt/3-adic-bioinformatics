@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -30,7 +29,7 @@ class TemporalSplit:
     n_test: int
 
 
-def parse_date(date_str: str) -> Optional[datetime]:
+def parse_date(date_str: str) -> datetime | None:
     """Parse date string to datetime."""
     if pd.isna(date_str):
         return None
@@ -87,10 +86,9 @@ def temporal_split(
     dates = df[date_column].apply(parse_date)
     valid_dates = dates.notna()
 
-    if valid_dates.sum() < len(df) * 0.5:
-        if fallback_random:
-            print(f"  Warning: Only {valid_dates.sum()}/{len(df)} valid dates, using random split")
-            return random_split_as_temporal(df, test_size, random_state)
+    if valid_dates.sum() < len(df) * 0.5 and fallback_random:
+        print(f"  Warning: Only {valid_dates.sum()}/{len(df)} valid dates, using random split")
+        return random_split_as_temporal(df, test_size, random_state)
 
     # Split by cutoff date
     cutoff = datetime(test_year, 1, 1)
@@ -155,7 +153,7 @@ def sequence_similarity_split(
     test_size: float = 0.2,
     min_distance: float = 0.1,
     random_state: int = 42,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Split ensuring minimum sequence distance between train and test.
 
     This prevents data leakage from near-identical sequences.
@@ -214,7 +212,7 @@ def cross_validation_temporal(
     date_column: str = "IsolateDate",
     n_splits: int = 5,
     gap_years: int = 1,
-) -> List[Tuple[np.ndarray, np.ndarray]]:
+) -> list[tuple[np.ndarray, np.ndarray]]:
     """Time-series cross-validation with gap.
 
     Creates expanding window splits where training always
@@ -307,20 +305,18 @@ if __name__ == "__main__":
     np.random.seed(42)
 
     # Simulate dates from 2010 to 2023
-    dates = pd.to_datetime(
-        np.random.choice(pd.date_range("2010-01-01", "2023-12-31"), n)
-    )
+    dates = pd.to_datetime(np.random.choice(pd.date_range("2010-01-01", "2023-12-31"), n))
     df = pd.DataFrame({"IsolateDate": dates, "value": np.random.randn(n)})
 
     # Test temporal split
     split = temporal_split(df, test_year=2020)
-    print(f"Temporal split:")
+    print("Temporal split:")
     print(f"  Train: {split.n_train}, Test: {split.n_test}")
     print(f"  Cutoff: {split.cutoff_date}")
 
     # Test distribution analysis
     analysis = analyze_temporal_distribution(df)
-    print(f"\nTemporal distribution:")
+    print("\nTemporal distribution:")
     print(f"  Date range: {analysis['min_date']} to {analysis['max_date']}")
     print(f"  Median year: {analysis['median_year']}")
 

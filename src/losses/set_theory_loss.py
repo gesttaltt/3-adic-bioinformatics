@@ -15,17 +15,16 @@ Provides loss functions that incorporate set-theoretic constraints:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.geometry import poincare_distance
-from src.analysis.set_theory.mutation_sets import MutationSet
+from src.analysis.set_theory.formal_concepts import ConceptLattice
 from src.analysis.set_theory.lattice import ResistanceLattice, ResistanceLevel
-from src.analysis.set_theory.formal_concepts import ConceptLattice, FormalConcept
+from src.analysis.set_theory.mutation_sets import MutationSet
 from src.analysis.set_theory.rough_sets import RoughClassifier
+from src.geometry import poincare_distance
 
 
 @dataclass
@@ -83,7 +82,7 @@ class LatticeOrderingLoss(nn.Module):
     def forward(
         self,
         embeddings: torch.Tensor,
-        mutation_sets: List[MutationSet],
+        mutation_sets: list[MutationSet],
     ) -> torch.Tensor:
         """Compute lattice ordering loss.
 
@@ -168,7 +167,7 @@ class HierarchicalResistanceLoss(nn.Module):
     def forward(
         self,
         predictions: torch.Tensor,
-        mutation_sets: List[MutationSet],
+        mutation_sets: list[MutationSet],
         targets: torch.Tensor,
     ) -> torch.Tensor:
         """Compute hierarchical resistance loss.
@@ -230,7 +229,7 @@ class ConceptConsistencyLoss(nn.Module):
 
     def _build_concept_membership(self):
         """Build mapping from samples to concepts."""
-        self.sample_to_concepts: Dict[str, List[int]] = {}
+        self.sample_to_concepts: dict[str, list[int]] = {}
 
         for idx, concept in enumerate(self.concept_lattice.concepts):
             for sample in concept.extent:
@@ -241,7 +240,7 @@ class ConceptConsistencyLoss(nn.Module):
     def forward(
         self,
         embeddings: torch.Tensor,
-        sample_ids: List[str],
+        sample_ids: list[str],
     ) -> torch.Tensor:
         """Compute concept consistency loss.
 
@@ -296,7 +295,7 @@ class RoughBoundaryLoss(nn.Module):
 
     def __init__(
         self,
-        rough_classifiers: Dict[str, RoughClassifier],
+        rough_classifiers: dict[str, RoughClassifier],
         entropy_target: float = 0.5,
     ):
         """Initialize rough boundary loss.
@@ -312,7 +311,7 @@ class RoughBoundaryLoss(nn.Module):
     def forward(
         self,
         predictions: torch.Tensor,
-        mutation_sets: List[MutationSet],
+        mutation_sets: list[MutationSet],
         drug_idx: int,
         drug_name: str,
     ) -> torch.Tensor:
@@ -328,7 +327,7 @@ class RoughBoundaryLoss(nn.Module):
             Boundary-aware loss
         """
         device = predictions.device
-        batch_size = len(mutation_sets)
+        len(mutation_sets)
 
         if drug_name not in self.rough_classifiers:
             return torch.tensor(0.0, device=device)
@@ -339,10 +338,7 @@ class RoughBoundaryLoss(nn.Module):
 
         for i, mutations in enumerate(mutation_sets):
             # Check if any mutation is in boundary
-            is_boundary = any(
-                classifier.positive_mutations.uncertain(mut)
-                for mut in mutations
-            )
+            is_boundary = any(classifier.positive_mutations.uncertain(mut) for mut in mutations)
 
             if is_boundary:
                 # For boundary samples, encourage uncertain predictions
@@ -368,8 +364,8 @@ class CrossResistanceLoss(nn.Module):
 
     def __init__(
         self,
-        cross_resistance_matrix: Dict[Tuple[str, str], float],
-        drug_names: List[str],
+        cross_resistance_matrix: dict[tuple[str, str], float],
+        drug_names: list[str],
         threshold: float = 0.3,
     ):
         """Initialize cross-resistance loss.
@@ -445,12 +441,12 @@ class SetTheoryAwareLoss(nn.Module):
 
     def __init__(
         self,
-        config: Optional[SetLossConfig] = None,
-        lattice: Optional[ResistanceLattice] = None,
-        concept_lattice: Optional[ConceptLattice] = None,
-        rough_classifiers: Optional[Dict[str, RoughClassifier]] = None,
-        cross_resistance_matrix: Optional[Dict[Tuple[str, str], float]] = None,
-        drug_names: Optional[List[str]] = None,
+        config: SetLossConfig | None = None,
+        lattice: ResistanceLattice | None = None,
+        concept_lattice: ConceptLattice | None = None,
+        rough_classifiers: dict[str, RoughClassifier] | None = None,
+        cross_resistance_matrix: dict[tuple[str, str], float] | None = None,
+        drug_names: list[str] | None = None,
     ):
         """Initialize combined set-aware loss.
 
@@ -476,9 +472,7 @@ class SetTheoryAwareLoss(nn.Module):
 
         self.concept_loss = None
         if concept_lattice:
-            self.concept_loss = ConceptConsistencyLoss(
-                concept_lattice, self.config.temperature
-            )
+            self.concept_loss = ConceptConsistencyLoss(concept_lattice, self.config.temperature)
 
         self.rough_loss = None
         if rough_classifiers:
@@ -487,9 +481,7 @@ class SetTheoryAwareLoss(nn.Module):
 
         self.cross_loss = None
         if cross_resistance_matrix and drug_names:
-            self.cross_loss = CrossResistanceLoss(
-                cross_resistance_matrix, drug_names
-            )
+            self.cross_loss = CrossResistanceLoss(cross_resistance_matrix, drug_names)
 
         self.drug_names = drug_names or []
 
@@ -497,11 +489,11 @@ class SetTheoryAwareLoss(nn.Module):
         self,
         predictions: torch.Tensor,
         targets: torch.Tensor,
-        embeddings: Optional[torch.Tensor] = None,
-        mutation_sets: Optional[List[MutationSet]] = None,
-        sample_ids: Optional[List[str]] = None,
-        resistance_levels: Optional[torch.Tensor] = None,
-    ) -> Dict[str, torch.Tensor]:
+        embeddings: torch.Tensor | None = None,
+        mutation_sets: list[MutationSet] | None = None,
+        sample_ids: list[str] | None = None,
+        resistance_levels: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Compute combined loss.
 
         Args:
@@ -540,9 +532,7 @@ class SetTheoryAwareLoss(nn.Module):
             rough_total = torch.tensor(0.0, device=device)
             for idx, drug in enumerate(self.drug_names):
                 if idx < predictions.size(1):
-                    rough_loss = self.rough_loss(
-                        predictions[:, idx], mutation_sets, idx, drug
-                    )
+                    rough_loss = self.rough_loss(predictions[:, idx], mutation_sets, idx, drug)
                     rough_total = rough_total + rough_loss
             losses["rough"] = rough_total
             total_loss = total_loss + self.config.rough_weight * rough_total

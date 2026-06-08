@@ -15,8 +15,6 @@ References:
 
 from __future__ import annotations
 
-from typing import Tuple
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -79,9 +77,9 @@ class EvidentialLoss(nn.Module):
         """
         # Unpack NIG parameters
         gamma = predictions[:, 0:1]  # Mean
-        nu = predictions[:, 1:2]     # Precision factor
+        nu = predictions[:, 1:2]  # Precision factor
         alpha = predictions[:, 2:3]  # Shape
-        beta = predictions[:, 3:4]   # Rate
+        beta = predictions[:, 3:4]  # Rate
 
         # Ensure positive parameters
         nu = F.softplus(nu) + 1e-6
@@ -129,7 +127,7 @@ class EvidentialLoss(nn.Module):
         targets_onehot = F.one_hot(targets.long(), n_classes).float()
 
         # Expected probability
-        p = alpha / S
+        alpha / S
 
         # Type II Maximum Likelihood loss
         loss = (targets_onehot * (torch.digamma(S) - torch.digamma(alpha))).sum(dim=-1)
@@ -175,7 +173,7 @@ class EvidentialPredictor(nn.Module):
         self,
         input_dim: int,
         output_dim: int = 1,
-        hidden_dims: list[int] = [256, 128],
+        hidden_dims: list[int] = None,
         task: str = "regression",
     ):
         """Initialize evidential predictor.
@@ -186,6 +184,8 @@ class EvidentialPredictor(nn.Module):
             hidden_dims: Hidden layer dimensions
             task: 'regression' or 'classification'
         """
+        if hidden_dims is None:
+            hidden_dims = [256, 128]
         super().__init__()
         self.output_dim = output_dim
         self.task = task
@@ -195,11 +195,13 @@ class EvidentialPredictor(nn.Module):
         prev_dim = input_dim
 
         for hidden_dim in hidden_dims:
-            layers.extend([
-                nn.Linear(prev_dim, hidden_dim),
-                nn.LayerNorm(hidden_dim),
-                nn.SiLU(),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(prev_dim, hidden_dim),
+                    nn.LayerNorm(hidden_dim),
+                    nn.SiLU(),
+                ]
+            )
             prev_dim = hidden_dim
 
         self.backbone = nn.Sequential(*layers)
@@ -370,10 +372,7 @@ class EvidentialEnsemble(nn.Module):
         """
         super().__init__()
 
-        self.models = nn.ModuleList([
-            EvidentialPredictor(input_dim, output_dim, **kwargs)
-            for _ in range(n_models)
-        ])
+        self.models = nn.ModuleList([EvidentialPredictor(input_dim, output_dim, **kwargs) for _ in range(n_models)])
 
     def forward(self, x: torch.Tensor) -> dict:
         """Ensemble prediction with aggregated uncertainty.

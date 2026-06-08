@@ -22,14 +22,15 @@ Modules:
     - immune_validation: Immune validation (consolidated from validation/)
 """
 
-from .extremophile_codons import ExtremophileCategory, ExtremophileCodonAnalyzer
-from .extraterrestrial_aminoacids import (
-    AminoAcidSource,
-    AsteroidAminoAcidAnalyzer,
-    CompatibilityResult,
-    ExtraterrestrialSample,
+# Ancestral sequence reconstruction
+from .ancestry import (
+    AncestralNode,
+    AncestralState,
+    GeodesicInterpolator,
+    PhylogeneticReconstructor,
+    ReconstructionConfig,
+    TreeNode,
 )
-from .geometry import compute_delta_hyperbolicity, compute_pairwise_distances
 
 # P-adic classifiers (consolidated from classifiers/)
 from .classifiers import (
@@ -39,6 +40,27 @@ from .classifiers import (
     PAdicClassifierBase,
     PAdicHierarchicalClassifier,
     PAdicKNN,
+)
+
+# Codon optimization (consolidated from optimization/)
+from .codon_optimization import (
+    CitrullinationBoundaryOptimizer,
+    CodonChoice,
+    CodonContextOptimizer,
+    OptimizationResult,
+    PAdicBoundaryAnalyzer,
+)
+
+# CRISPR off-target landscape analysis
+from .crispr_offtarget import (
+    CRISPROfftargetAnalyzer,
+    GuideDesignOptimizer,
+    GuideSafetyProfile,
+    HyperbolicOfftargetEmbedder,
+    MismatchType,
+    OfftargetActivityPredictor,
+    OffTargetSite,
+    PAdicSequenceDistance,
 )
 
 # Viral evolution prediction (consolidated from evolution/)
@@ -55,25 +77,14 @@ from .evolution import (
     TransmissibilityRadiusMapper,
     ViralEvolutionPredictor,
 )
-
-# Codon optimization (consolidated from optimization/)
-from .codon_optimization import (
-    CitrullinationBoundaryOptimizer,
-    CodonChoice,
-    CodonContextOptimizer,
-    OptimizationResult,
-    PAdicBoundaryAnalyzer,
+from .extraterrestrial_aminoacids import (
+    AminoAcidSource,
+    AsteroidAminoAcidAnalyzer,
+    CompatibilityResult,
+    ExtraterrestrialSample,
 )
-
-# mRNA stability prediction (consolidated from stability/)
-from .mrna_stability import (
-    CODON_STABILITY_SCORES,
-    MFEEstimator,
-    mRNAStabilityPredictor,
-    SecondaryStructurePredictor,
-    StabilityPrediction,
-    UTROptimizer,
-)
+from .extremophile_codons import ExtremophileCategory, ExtremophileCodonAnalyzer
+from .geometry import compute_delta_hyperbolicity, compute_pairwise_distances
 
 # Immune validation (consolidated from validation/)
 from .immune_validation import (
@@ -83,6 +94,29 @@ from .immune_validation import (
     MHCClass,
     NobelImmuneValidator,
     ValidationResult,
+)
+
+# Interpretability analysis
+from .interpretability import (
+    AttentionAnalyzer,
+    FeatureImportance,
+    GradientSHAP,
+    IntegratedGradients,
+    LatentSpaceAnalyzer,
+    ResistanceMutationValidator,
+    compute_feature_importance,
+    compute_position_importance,
+    extract_top_mutations,
+)
+
+# mRNA stability prediction (consolidated from stability/)
+from .mrna_stability import (
+    CODON_STABILITY_SCORES,
+    MFEEstimator,
+    SecondaryStructurePredictor,
+    StabilityPrediction,
+    UTROptimizer,
+    mRNAStabilityPredictor,
 )
 
 # Protein energy landscape analysis
@@ -95,41 +129,6 @@ from .protein_landscape import (
     TransitionPath,
     TransitionStateAnalyzer,
     UltrametricDistanceMatrix,
-)
-
-# CRISPR off-target landscape analysis
-from .crispr_offtarget import (
-    CRISPROfftargetAnalyzer,
-    GuideDesignOptimizer,
-    GuideSafetyProfile,
-    HyperbolicOfftargetEmbedder,
-    MismatchType,
-    OffTargetSite,
-    OfftargetActivityPredictor,
-    PAdicSequenceDistance,
-)
-
-# Ancestral sequence reconstruction
-from .ancestry import (
-    AncestralNode,
-    AncestralState,
-    GeodesicInterpolator,
-    PhylogeneticReconstructor,
-    ReconstructionConfig,
-    TreeNode,
-)
-
-# Interpretability analysis
-from .interpretability import (
-    FeatureImportance,
-    IntegratedGradients,
-    GradientSHAP,
-    AttentionAnalyzer,
-    ResistanceMutationValidator,
-    LatentSpaceAnalyzer,
-    compute_feature_importance,
-    compute_position_importance,
-    extract_top_mutations,
 )
 
 __all__ = [

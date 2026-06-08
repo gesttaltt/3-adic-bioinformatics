@@ -22,9 +22,7 @@ Usage:
 """
 
 import argparse
-import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import torch
@@ -41,7 +39,6 @@ from src.core import TERNARY
 from src.losses import GlobalRankLoss, PAdicGeodesicLoss, RadialHierarchyLoss
 from src.models import TernaryVAEV5_11_PartialFreeze
 from src.models.epsilon_statenet import (
-    EpsilonStateNet,
     EpsilonStateNetLoss,
     create_epsilon_statenet,
 )
@@ -57,45 +54,40 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=512, help="Batch size")
 
     # Checkpoints
-    parser.add_argument("--v5_5_checkpoint", type=str,
-                        default=str(CHECKPOINTS_DIR / "v5_5" / "latest.pt"),
-                        help="Path to v5.5 base checkpoint")
-    parser.add_argument("--epsilon_checkpoint", type=str, default=None,
-                        help="Path to pretrained Epsilon-VAE (optional)")
-    parser.add_argument("--save_dir", type=str,
-                        default=str(CHECKPOINTS_DIR / "v5_11_epsilon_coupled"),
-                        help="Directory to save checkpoints")
+    parser.add_argument(
+        "--v5_5_checkpoint",
+        type=str,
+        default=str(CHECKPOINTS_DIR / "v5_5" / "latest.pt"),
+        help="Path to v5.5 base checkpoint",
+    )
+    parser.add_argument(
+        "--epsilon_checkpoint", type=str, default=None, help="Path to pretrained Epsilon-VAE (optional)"
+    )
+    parser.add_argument(
+        "--save_dir",
+        type=str,
+        default=str(CHECKPOINTS_DIR / "v5_11_epsilon_coupled"),
+        help="Directory to save checkpoints",
+    )
 
     # Controller settings
-    parser.add_argument("--controller_lr", type=float, default=1e-4,
-                        help="Learning rate for EpsilonStateNet")
-    parser.add_argument("--controller_update_freq", type=int, default=5,
-                        help="Update controller every N batches")
-    parser.add_argument("--coverage_target", type=float, default=0.995,
-                        help="Target coverage for controller")
-    parser.add_argument("--hierarchy_target", type=float, default=-0.85,
-                        help="Target hierarchy for controller")
+    parser.add_argument("--controller_lr", type=float, default=1e-4, help="Learning rate for EpsilonStateNet")
+    parser.add_argument("--controller_update_freq", type=int, default=5, help="Update controller every N batches")
+    parser.add_argument("--coverage_target", type=float, default=0.995, help="Target coverage for controller")
+    parser.add_argument("--hierarchy_target", type=float, default=-0.85, help="Target hierarchy for controller")
 
     # Model settings
-    parser.add_argument("--dual_projection", action="store_true", default=True,
-                        help="Use dual projection")
-    parser.add_argument("--projection_hidden_dim", type=int, default=64,
-                        help="Projection hidden dimension")
-    parser.add_argument("--projection_layers", type=int, default=1,
-                        help="Number of projection layers")
-    parser.add_argument("--projection_dropout", type=float, default=0.1,
-                        help="Projection dropout")
+    parser.add_argument("--dual_projection", action="store_true", default=True, help="Use dual projection")
+    parser.add_argument("--projection_hidden_dim", type=int, default=64, help="Projection hidden dimension")
+    parser.add_argument("--projection_layers", type=int, default=1, help="Number of projection layers")
+    parser.add_argument("--projection_dropout", type=float, default=0.1, help="Projection dropout")
 
     # Loss weights (base values, controller can adjust)
-    parser.add_argument("--radial_weight", type=float, default=2.0,
-                        help="Base radial loss weight")
-    parser.add_argument("--margin_weight", type=float, default=1.0,
-                        help="Base margin weight")
-    parser.add_argument("--rank_loss_weight", type=float, default=1.0,
-                        help="Base rank loss weight")
+    parser.add_argument("--radial_weight", type=float, default=2.0, help="Base radial loss weight")
+    parser.add_argument("--margin_weight", type=float, default=1.0, help="Base margin weight")
+    parser.add_argument("--rank_loss_weight", type=float, default=1.0, help="Base rank loss weight")
 
-    parser.add_argument("--device", type=str, default="cuda",
-                        help="Device to use")
+    parser.add_argument("--device", type=str, default="cuda", help="Device to use")
 
     return parser.parse_args()
 
@@ -111,8 +103,8 @@ def compute_metrics(model, all_ops, device) -> dict:
     model.eval()
     with torch.no_grad():
         out = model(all_ops.to(device), compute_control=False)
-        z_A = out['z_A_hyp']
-        z_B = out['z_B_hyp']
+        z_A = out["z_A_hyp"]
+        z_B = out["z_B_hyp"]
 
         # Convert {0, 1, 2} to {-1, 0, 1} for TERNARY.from_ternary
         ternary_ops = (all_ops - 1).long()
@@ -154,8 +146,9 @@ def compute_metrics(model, all_ops, device) -> dict:
             corr_B = 0.0
 
         # Coverage (unique embeddings)
-        from scipy.spatial.distance import pdist
         import numpy as np
+        from scipy.spatial.distance import pdist
+
         z_np = z_A.cpu().numpy()
         sample_idx = np.random.choice(len(z_np), min(2000, len(z_np)), replace=False)
         dists = pdist(z_np[sample_idx])
@@ -164,10 +157,7 @@ def compute_metrics(model, all_ops, device) -> dict:
         # Distance correlation
         pairwise_dists = torch.cdist(z_A[:1000], z_A[:1000])
         val_diffs = (valuations[:1000].unsqueeze(1) - valuations[:1000].unsqueeze(0)).abs()
-        dist_corr = torch.corrcoef(torch.stack([
-            pairwise_dists.flatten(),
-            val_diffs.float().flatten()
-        ]))[0, 1].item()
+        dist_corr = torch.corrcoef(torch.stack([pairwise_dists.flatten(), val_diffs.float().flatten()]))[0, 1].item()
 
         # Radius by valuation (3-adic: v=0 for indices not divisible by 3, v=9 for index 0)
         # Low valuation (v=0) should be at outer radius, high valuation (v=9) at inner
@@ -181,34 +171,38 @@ def compute_metrics(model, all_ops, device) -> dict:
 
     model.train()
     return {
-        'coverage': coverage,
-        'hierarchy_A': corr_A,
-        'hierarchy_B': corr_B,
-        'dist_corr_A': dist_corr,
-        'r_v0': r_v0,
-        'r_v9': r_v9,
-        'Q': Q,
+        "coverage": coverage,
+        "hierarchy_A": corr_A,
+        "hierarchy_B": corr_B,
+        "dist_corr_A": dist_corr,
+        "r_v0": r_v0,
+        "r_v9": r_v9,
+        "Q": Q,
     }
 
 
 def metrics_to_tensor(metrics: dict, device) -> torch.Tensor:
     """Convert metrics dict to tensor for StateNet input."""
-    return torch.tensor([
-        metrics['coverage'],
-        metrics['hierarchy_A'],
-        metrics['hierarchy_B'],
-        metrics['dist_corr_A'],
-        0.0,  # dist_corr_B placeholder
-        metrics['r_v0'],
-        metrics['r_v9'],
-        metrics['Q'],
-    ], dtype=torch.float32, device=device)
+    return torch.tensor(
+        [
+            metrics["coverage"],
+            metrics["hierarchy_A"],
+            metrics["hierarchy_B"],
+            metrics["dist_corr_A"],
+            0.0,  # dist_corr_B placeholder
+            metrics["r_v0"],
+            metrics["r_v9"],
+            metrics["Q"],
+        ],
+        dtype=torch.float32,
+        device=device,
+    )
 
 
 def main():
     args = parse_args()
 
-    device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
     # Create save directory
@@ -301,8 +295,8 @@ def main():
     # =====================
     # Model optimizer with parameter groups
     param_groups = [
-        {'params': model.projection.parameters(), 'lr': args.lr, 'name': 'projection'},
-        {'params': model.encoder_B.parameters(), 'lr': args.lr * 0.1, 'name': 'encoder_B'},
+        {"params": model.projection.parameters(), "lr": args.lr, "name": "projection"},
+        {"params": model.encoder_B.parameters(), "lr": args.lr * 0.1, "name": "encoder_B"},
     ]
     model_optimizer = optim.AdamW(param_groups, weight_decay=0.001)
     model_scheduler = optim.lr_scheduler.CosineAnnealingLR(model_optimizer, T_max=args.epochs)
@@ -313,7 +307,7 @@ def main():
     # =====================
     # Training state
     # =====================
-    best_composite = float('-inf')
+    best_composite = float("-inf")
     best_coverage = 0.0
     best_hierarchy = 0.0
 
@@ -326,8 +320,11 @@ def main():
         controller.train()
 
         epoch_losses = {
-            'geo': 0, 'rad': 0, 'rank': 0, 'total': 0,
-            'controller': 0,
+            "geo": 0,
+            "rad": 0,
+            "rank": 0,
+            "total": 0,
+            "controller": 0,
         }
         n_batches = 0
 
@@ -351,14 +348,14 @@ def main():
                 controls = controller(weight_blocks, metrics_tensor)
 
                 # Apply control signals
-                lr_scales = controls['lr_scales'].detach()
-                freeze_probs = controls['freeze_probs'].detach()
-                loss_weights = controls['loss_weights'].detach()
+                lr_scales = controls["lr_scales"].detach()
+                freeze_probs = controls["freeze_probs"].detach()
+                loss_weights = controls["loss_weights"].detach()
 
                 # Update learning rates
                 for i, pg in enumerate(model_optimizer.param_groups):
                     if i < len(lr_scales):
-                        pg['lr'] = args.lr * lr_scales[i].item()
+                        pg["lr"] = args.lr * lr_scales[i].item()
 
                 # Update freeze states (soft freeze via gradient scaling)
                 # encoder_A always frozen, encoder_B controlled
@@ -366,15 +363,15 @@ def main():
 
                 # Update loss weights
                 radial_weight = args.radial_weight * loss_weights[0].item()
-                margin_weight = args.margin_weight * loss_weights[1].item()
+                args.margin_weight * loss_weights[1].item()
                 rank_weight = args.rank_loss_weight * loss_weights[2].item()
 
             # =====================
             # Forward pass
             # =====================
             out = model(ops, compute_control=False)
-            z_A = out['z_A_hyp']
-            z_B = out['z_B_hyp']
+            z_A = out["z_A_hyp"]
+            z_B = out["z_B_hyp"]
 
             # =====================
             # Compute losses
@@ -425,20 +422,20 @@ def main():
                 # Compute controller loss based on achieved metrics
                 ctrl_loss = controller_loss_fn(
                     controls,
-                    current_metrics['coverage'],
-                    current_metrics['hierarchy_A'],
+                    current_metrics["coverage"],
+                    current_metrics["hierarchy_A"],
                 )
 
-                ctrl_loss['total'].backward()
+                ctrl_loss["total"].backward()
                 controller_optimizer.step()
 
-                epoch_losses['controller'] += ctrl_loss['total'].item()
+                epoch_losses["controller"] += ctrl_loss["total"].item()
 
             # Track losses
-            epoch_losses['geo'] += geo_loss.item()
-            epoch_losses['rad'] += rad_loss.item()
-            epoch_losses['rank'] += rank_loss.item()
-            epoch_losses['total'] += total_loss.item()
+            epoch_losses["geo"] += geo_loss.item()
+            epoch_losses["rad"] += rad_loss.item()
+            epoch_losses["rank"] += rank_loss.item()
+            epoch_losses["total"] += total_loss.item()
             n_batches += 1
 
         # Average losses
@@ -453,21 +450,23 @@ def main():
         metrics = compute_metrics(model, all_ops, device)
 
         # Composite score
-        composite = metrics['coverage'] + abs(metrics['hierarchy_A'])
+        composite = metrics["coverage"] + abs(metrics["hierarchy_A"])
 
         # Print progress
         if epoch % 5 == 0 or epoch == args.epochs - 1:
             print(f"\nEpoch {epoch}/{args.epochs}")
-            print(f"  Loss: {epoch_losses['total']:.4f} (geo: {epoch_losses['geo']:.4f}, "
-                  f"rad: {epoch_losses['rad']:.4f}, rank: {epoch_losses['rank']:.4f})")
-            print(f"  Coverage: {metrics['coverage']*100:.2f}%")
+            print(
+                f"  Loss: {epoch_losses['total']:.4f} (geo: {epoch_losses['geo']:.4f}, "
+                f"rad: {epoch_losses['rad']:.4f}, rank: {epoch_losses['rank']:.4f})"
+            )
+            print(f"  Coverage: {metrics['coverage'] * 100:.2f}%")
             print(f"  Hierarchy: A={metrics['hierarchy_A']:.4f}, B={metrics['hierarchy_B']:.4f}")
             print(f"  Radius: v0={metrics['r_v0']:.4f}, v9={metrics['r_v9']:.4f}")
             print(f"  Q: {metrics['Q']:.4f}")
             print(f"  Controller Loss: {epoch_losses['controller']:.4f}")
 
             # Show current control signals
-            if 'lr_scales' in dir():
+            if "lr_scales" in dir():
                 print(f"  LR Scales: {lr_scales.cpu().numpy()}")
                 print(f"  Freeze Probs: {freeze_probs.cpu().numpy()}")
 
@@ -477,37 +476,39 @@ def main():
         is_best = composite > best_composite
         if is_best:
             best_composite = composite
-            best_coverage = metrics['coverage']
-            best_hierarchy = metrics['hierarchy_A']
-            print(f"  [NEW BEST] Composite: {composite:.4f} "
-                  f"(coverage: {best_coverage*100:.2f}%, hierarchy: {best_hierarchy:.4f})")
+            best_coverage = metrics["coverage"]
+            best_hierarchy = metrics["hierarchy_A"]
+            print(
+                f"  [NEW BEST] Composite: {composite:.4f} "
+                f"(coverage: {best_coverage * 100:.2f}%, hierarchy: {best_hierarchy:.4f})"
+            )
 
         # Save checkpoint
         checkpoint = {
-            'epoch': epoch,
-            'model_state': model.state_dict(),
-            'controller_state': controller.state_dict(),
-            'model_optimizer_state': model_optimizer.state_dict(),
-            'controller_optimizer_state': controller_optimizer.state_dict(),
-            'metrics': metrics,
-            'config': vars(args),
-            'composite_score': composite,
+            "epoch": epoch,
+            "model_state": model.state_dict(),
+            "controller_state": controller.state_dict(),
+            "model_optimizer_state": model_optimizer.state_dict(),
+            "controller_optimizer_state": controller_optimizer.state_dict(),
+            "metrics": metrics,
+            "config": vars(args),
+            "composite_score": composite,
         }
 
         if is_best:
-            torch.save(checkpoint, save_dir / 'best.pt')
+            torch.save(checkpoint, save_dir / "best.pt")
 
         if epoch % 20 == 0:
-            torch.save(checkpoint, save_dir / f'epoch_{epoch}.pt')
+            torch.save(checkpoint, save_dir / f"epoch_{epoch}.pt")
 
-        torch.save(checkpoint, save_dir / 'latest.pt')
+        torch.save(checkpoint, save_dir / "latest.pt")
 
     print("\n=== Training Complete ===")
     print(f"Best Composite: {best_composite:.4f}")
-    print(f"Best Coverage: {best_coverage*100:.2f}%")
+    print(f"Best Coverage: {best_coverage * 100:.2f}%")
     print(f"Best Hierarchy: {best_hierarchy:.4f}")
     print(f"Checkpoints saved to: {save_dir}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

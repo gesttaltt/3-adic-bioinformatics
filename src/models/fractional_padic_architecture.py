@@ -45,7 +45,6 @@ import json
 import math
 import sys
 from pathlib import Path
-from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -73,12 +72,12 @@ def compute_padic_dimensions(p: float) -> dict:
     # Full operation table: (p^2)^(p^2) but we use p^9 for 3-input functions
 
     # Number of operations (continuous extension)
-    n_operations = p ** 9
+    n_operations = p**9
 
     # Input dimension for encoding operations
     # For p=3: 9 (3x3 truth table flattened)
     # For fractional p: interpolate
-    input_dim_exact = p ** 2
+    input_dim_exact = p**2
     input_dim = int(np.ceil(input_dim_exact))
 
     # Required information capacity (bits)
@@ -125,7 +124,7 @@ def interpolate_operation_space(p: float, base_ops_3: np.ndarray) -> np.ndarray:
 
     # Number of additional "fractional" operations
     n_base = len(base_ops_3)  # 19683
-    n_target = int(np.floor(p ** 9))
+    n_target = int(np.floor(p**9))
     n_additional = n_target - n_base
 
     if n_additional <= 0:
@@ -212,7 +211,7 @@ class FractionalPadicEncoder(nn.Module):
         # Store dimensions for reference
         self.dims = dims
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Encode operations to latent distribution.
 
         Args:
@@ -234,7 +233,7 @@ class FractionalPadicEncoder(nn.Module):
 
 
 def analyze_p_interpolation_path(
-    p_values: List[float],
+    p_values: list[float],
     output_dir: Path,
 ):
     """Analyze the interpolation path from p=3 to target.
@@ -247,24 +246,28 @@ def analyze_p_interpolation_path(
 
     results = []
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("FRACTIONAL P-ADIC DIMENSION ANALYSIS")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
-    print(f"\n{'p':>6} | {'Operations':>12} | {'Input Dim':>10} | {'Bits Req':>10} | {'First Layer':>12} | {'Latent':>8}")
+    print(
+        f"\n{'p':>6} | {'Operations':>12} | {'Input Dim':>10} | {'Bits Req':>10} | {'First Layer':>12} | {'Latent':>8}"
+    )
     print("-" * 70)
 
     for p in p_values:
         dims = compute_padic_dimensions(p)
         results.append(dims)
 
-        print(f"{p:>6.2f} | {dims['n_operations_int']:>12,} | {dims['input_dim']:>10} | "
-              f"{dims['required_bits']:>10.1f} | {dims['first_layer_width']:>12} | {dims['recommended_latent_dim']:>8}")
+        print(
+            f"{p:>6.2f} | {dims['n_operations_int']:>12,} | {dims['input_dim']:>10} | "
+            f"{dims['required_bits']:>10.1f} | {dims['first_layer_width']:>12} | {dims['recommended_latent_dim']:>8}"
+        )
 
     # Key milestones
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("KEY MILESTONES")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     milestones = {
         3.0: "Pure ternary (3-adic) - current system",
@@ -288,10 +291,10 @@ def analyze_p_interpolation_path(
     # Plot 1: Operations vs p
     ax1 = axes[0, 0]
     ops = [p**9 for p in p_range]
-    ax1.semilogy(p_range, ops, 'b-', linewidth=2)
+    ax1.semilogy(p_range, ops, "b-", linewidth=2)
     for p in [3, 4, 5, 6]:
-        ax1.axvline(x=p, color='gray', linestyle='--', alpha=0.5)
-        ax1.annotate(f'p={p}', (p, p**9), textcoords="offset points", xytext=(5, 5))
+        ax1.axvline(x=p, color="gray", linestyle="--", alpha=0.5)
+        ax1.annotate(f"p={p}", (p, p**9), textcoords="offset points", xytext=(5, 5))
     ax1.set_xlabel("p")
     ax1.set_ylabel("Number of Operations (p^9)")
     ax1.set_title("Operation Space Size")
@@ -300,10 +303,9 @@ def analyze_p_interpolation_path(
     # Plot 2: Required bits vs p
     ax2 = axes[0, 1]
     bits = [9 * np.log2(p) for p in p_range]
-    ax2.plot(p_range, bits, 'r-', linewidth=2)
-    ax2.axhline(y=14.3, color='blue', linestyle='--', label='Current capacity (p=3)')
-    ax2.fill_between(p_range, 14.3, bits, where=[b > 14.3 for b in bits],
-                     alpha=0.3, color='red', label='Capacity gap')
+    ax2.plot(p_range, bits, "r-", linewidth=2)
+    ax2.axhline(y=14.3, color="blue", linestyle="--", label="Current capacity (p=3)")
+    ax2.fill_between(p_range, 14.3, bits, where=[b > 14.3 for b in bits], alpha=0.3, color="red", label="Capacity gap")
     ax2.set_xlabel("p")
     ax2.set_ylabel("Required Information Capacity (bits)")
     ax2.set_title("Information Requirements")
@@ -313,8 +315,8 @@ def analyze_p_interpolation_path(
     # Plot 3: Input dimension vs p
     ax3 = axes[1, 0]
     input_dims = [int(np.ceil(p**2)) for p in p_range]
-    ax3.plot(p_range, input_dims, 'g-', linewidth=2)
-    ax3.axhline(y=9, color='blue', linestyle='--', label='Current (p=3)')
+    ax3.plot(p_range, input_dims, "g-", linewidth=2)
+    ax3.axhline(y=9, color="blue", linestyle="--", label="Current (p=3)")
     ax3.set_xlabel("p")
     ax3.set_ylabel("Input Dimension (ceil(p^2))")
     ax3.set_title("Input Layer Scaling")
@@ -323,7 +325,7 @@ def analyze_p_interpolation_path(
 
     # Plot 4: Interpolation strategy
     ax4 = axes[1, 1]
-    ax4.axis('off')
+    ax4.axis("off")
 
     strategy_text = """
 FRACTIONAL P-ADIC INTERPOLATION STRATEGY
@@ -360,8 +362,9 @@ Key Property at p=6:
   Since 6 = 2×3, this subsumes both binary and ternary.
 """
 
-    ax4.text(0.05, 0.95, strategy_text, transform=ax4.transAxes,
-            fontsize=10, verticalalignment='top', fontfamily='monospace')
+    ax4.text(
+        0.05, 0.95, strategy_text, transform=ax4.transAxes, fontsize=10, verticalalignment="top", fontfamily="monospace"
+    )
 
     plt.tight_layout()
     plt.savefig(output_dir / "fractional_padic_analysis.png", dpi=150)
@@ -381,7 +384,7 @@ def create_interpolation_schedule(
     p_end: float = 6.0,
     n_steps: int = 30,
     schedule_type: str = "logarithmic",
-) -> List[float]:
+) -> list[float]:
     """Create a schedule for p-value interpolation.
 
     Args:
@@ -405,14 +408,18 @@ def create_interpolation_schedule(
     elif schedule_type == "milestone":
         # Focus on key algebraic milestones
         milestones = [
-            3.0,   # Start (ternary)
-            3.1, 3.2, 3.3, 3.4, 3.5,  # Fine steps to mid-point
+            3.0,  # Start (ternary)
+            3.1,
+            3.2,
+            3.3,
+            3.4,
+            3.5,  # Fine steps to mid-point
             3.75,  # 3/4 toward 4
-            4.0,   # Quaternary (binary-compatible)
-            4.5,   # Mid toward pentary
-            5.0,   # Pentary
-            5.5,   # Mid toward senary
-            6.0,   # Senary (full closure)
+            4.0,  # Quaternary (binary-compatible)
+            4.5,  # Mid toward pentary
+            5.0,  # Pentary
+            5.5,  # Mid toward senary
+            6.0,  # Senary (full closure)
         ]
         return [m for m in milestones if p_start <= m <= p_end]
 
@@ -422,44 +429,52 @@ def create_interpolation_schedule(
 
 def main():
     parser = argparse.ArgumentParser(description="Fractional p-adic architecture analysis")
-    parser.add_argument("--p_values", nargs="+", type=float,
-                       default=[3.0, 3.1, 3.25, 3.5, 4.0, 5.0, 6.0],
-                       help="P values to analyze")
-    parser.add_argument("--output_dir", type=str,
-                       default=str(OUTPUT_DIR / "epsilon_vae_analysis" / "fractional_padic"),
-                       help="Output directory")
+    parser.add_argument(
+        "--p_values", nargs="+", type=float, default=[3.0, 3.1, 3.25, 3.5, 4.0, 5.0, 6.0], help="P values to analyze"
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default=str(OUTPUT_DIR / "epsilon_vae_analysis" / "fractional_padic"),
+        help="Output directory",
+    )
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
 
     # Analyze interpolation path
-    results = analyze_p_interpolation_path(args.p_values, output_dir)
+    analyze_p_interpolation_path(args.p_values, output_dir)
 
     # Create interpolation schedule
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("RECOMMENDED INTERPOLATION SCHEDULE")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     schedule = create_interpolation_schedule(3.0, 6.0, schedule_type="milestone")
     print("\nMilestone schedule (p=3 → p=6):")
     for i, p in enumerate(schedule):
         dims = compute_padic_dimensions(p)
         capacity_ratio = dims["required_bits"] / 14.3
-        print(f"  Step {i+1:2d}: p={p:.2f} → {dims['n_operations_int']:>10,} ops, "
-              f"capacity ratio: {capacity_ratio:.2f}x")
+        print(
+            f"  Step {i + 1:2d}: p={p:.2f} → {dims['n_operations_int']:>10,} ops, capacity ratio: {capacity_ratio:.2f}x"
+        )
 
     # Save schedule
     with open(output_dir / "interpolation_schedule.json", "w") as f:
-        json.dump({
-            "schedule": schedule,
-            "schedule_type": "milestone",
-            "p_start": 3.0,
-            "p_end": 6.0,
-        }, f, indent=2)
+        json.dump(
+            {
+                "schedule": schedule,
+                "schedule_type": "milestone",
+                "p_start": 3.0,
+                "p_end": 6.0,
+            },
+            f,
+            indent=2,
+        )
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"Results saved to {output_dir}")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
 
 if __name__ == "__main__":

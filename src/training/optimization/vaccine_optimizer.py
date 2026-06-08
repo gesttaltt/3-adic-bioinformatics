@@ -26,18 +26,15 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.physics.statistical_physics import (
-    SpinGlassLandscape,
-    ReplicaExchange,
-    EnergyState,
-)
 from src.core.padic_math import compute_goldilocks_score
+from src.physics.statistical_physics import (
+    ReplicaExchange,
+)
 
 
 class ObjectiveType(Enum):
@@ -66,15 +63,15 @@ class VaccineCandidate:
     """
 
     sequence: torch.Tensor
-    epitopes: List[Tuple[int, int]] = field(default_factory=list)
+    epitopes: list[tuple[int, int]] = field(default_factory=list)
     energy: float = float("inf")
-    component_energies: Dict[ObjectiveType, float] = field(default_factory=dict)
+    component_energies: dict[ObjectiveType, float] = field(default_factory=dict)
     escape_risk: float = 0.0
     autoimmune_score: float = 0.0
     breadth_score: float = 0.0
-    metadata: Dict = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
 
-    def to_amino_acids(self, vocab: Optional[List[str]] = None) -> str:
+    def to_amino_acids(self, vocab: list[str] | None = None) -> str:
         """Convert sequence tensor to amino acid string."""
         if vocab is None:
             vocab = list("ACDEFGHIKLMNPQRSTVWY-")
@@ -132,11 +129,11 @@ class OptimizationResult:
     """
 
     best_candidate: VaccineCandidate
-    all_candidates: List[VaccineCandidate]
-    optimization_trajectory: List[float]
-    acceptance_rates: Dict[float, float]
-    exchange_rates: List[float]
-    pareto_front: List[VaccineCandidate] = field(default_factory=list)
+    all_candidates: list[VaccineCandidate]
+    optimization_trajectory: list[float]
+    acceptance_rates: dict[float, float]
+    exchange_rates: list[float]
+    pareto_front: list[VaccineCandidate] = field(default_factory=list)
 
 
 class ImmunogenicityLandscape(nn.Module):
@@ -149,8 +146,8 @@ class ImmunogenicityLandscape(nn.Module):
     def __init__(
         self,
         config: VaccineOptimizerConfig,
-        variant_profiles: Optional[torch.Tensor] = None,
-        escape_predictor: Optional[nn.Module] = None,
+        variant_profiles: torch.Tensor | None = None,
+        escape_predictor: nn.Module | None = None,
     ):
         """Initialize immunogenicity landscape.
 
@@ -177,19 +174,13 @@ class ImmunogenicityLandscape(nn.Module):
 
         # Manufacturing cost model (based on amino acid properties)
         # Some amino acids are harder to synthesize
-        self.manufacturing_costs = nn.Parameter(
-            torch.rand(config.n_states) * 0.5, requires_grad=False
-        )
+        self.manufacturing_costs = nn.Parameter(torch.rand(config.n_states) * 0.5, requires_grad=False)
 
         # Position-specific conservation (high = important for stability)
-        self.conservation = nn.Parameter(
-            torch.rand(config.n_sites), requires_grad=False
-        )
+        self.conservation = nn.Parameter(torch.rand(config.n_sites), requires_grad=False)
 
         # Known immunogenic positions
-        self.immunogenic_positions = nn.Parameter(
-            torch.zeros(config.n_sites), requires_grad=False
-        )
+        self.immunogenic_positions = nn.Parameter(torch.zeros(config.n_sites), requires_grad=False)
 
     def energy(self, sequence: torch.Tensor) -> torch.Tensor:
         """Compute total energy for vaccine sequence.
@@ -230,7 +221,7 @@ class ImmunogenicityLandscape(nn.Module):
         Returns:
             Escape energy (batch,)
         """
-        batch_size = sequence.size(0)
+        sequence.size(0)
 
         if self.escape_predictor is not None:
             # Use learned predictor
@@ -242,9 +233,7 @@ class ImmunogenicityLandscape(nn.Module):
         one_hot = F.one_hot(sequence.long(), self.config.n_states).float()
 
         # Compare to variants
-        variant_one_hot = F.one_hot(
-            self.variant_profiles.long(), self.config.n_states
-        ).float()
+        variant_one_hot = F.one_hot(self.variant_profiles.long(), self.config.n_states).float()
 
         # Coverage: how many variants are "covered" by vaccine
         # Higher similarity to variants = better coverage
@@ -287,7 +276,7 @@ class ImmunogenicityLandscape(nn.Module):
         Returns:
             Autoimmune energy (batch,)
         """
-        batch_size = sequence.size(0)
+        sequence.size(0)
 
         # Compute self-similarity (placeholder: conservation-based)
         one_hot = F.one_hot(sequence.long(), self.config.n_states).float()
@@ -316,14 +305,12 @@ class ImmunogenicityLandscape(nn.Module):
         Returns:
             Breadth energy (batch,)
         """
-        batch_size = sequence.size(0)
+        sequence.size(0)
         n_variants = self.variant_profiles.size(0)
 
         # Count variants with high coverage
         one_hot = F.one_hot(sequence.long(), self.config.n_states).float()
-        variant_one_hot = F.one_hot(
-            self.variant_profiles.long(), self.config.n_states
-        ).float()
+        variant_one_hot = F.one_hot(self.variant_profiles.long(), self.config.n_states).float()
 
         variants_covered = []
         for v in range(n_variants):
@@ -335,9 +322,7 @@ class ImmunogenicityLandscape(nn.Module):
         # Energy: inverse of breadth
         return 1 - breadth
 
-    def compute_all_components(
-        self, sequence: torch.Tensor
-    ) -> Dict[ObjectiveType, torch.Tensor]:
+    def compute_all_components(self, sequence: torch.Tensor) -> dict[ObjectiveType, torch.Tensor]:
         """Compute all energy components separately.
 
         Args:
@@ -372,8 +357,8 @@ class VaccineOptimizer:
 
     def __init__(
         self,
-        config: Optional[VaccineOptimizerConfig] = None,
-        escape_predictor: Optional[nn.Module] = None,
+        config: VaccineOptimizerConfig | None = None,
+        escape_predictor: nn.Module | None = None,
     ):
         """Initialize vaccine optimizer.
 
@@ -395,9 +380,9 @@ class VaccineOptimizer:
 
     def optimize(
         self,
-        variant_profiles: Optional[torch.Tensor] = None,
-        initial_sequence: Optional[torch.Tensor] = None,
-        constraints: Optional[Dict] = None,
+        variant_profiles: torch.Tensor | None = None,
+        initial_sequence: torch.Tensor | None = None,
+        constraints: dict | None = None,
     ) -> OptimizationResult:
         """Run vaccine optimization.
 
@@ -418,24 +403,18 @@ class VaccineOptimizer:
 
         # Initialize sequences for each replica
         if initial_sequence is not None:
-            initial_configs = [
-                initial_sequence.clone() for _ in range(self.config.n_replicas)
-            ]
+            initial_configs = [initial_sequence.clone() for _ in range(self.config.n_replicas)]
             # Add noise to non-lowest temperature replicas
             for i in range(1, self.config.n_replicas):
                 noise_fraction = 0.1 * i / self.config.n_replicas
                 n_noisy = int(self.config.n_sites * noise_fraction)
                 positions = torch.randperm(self.config.n_sites)[:n_noisy]
-                initial_configs[i][positions] = torch.randint(
-                    self.config.n_states, (n_noisy,)
-                )
+                initial_configs[i][positions] = torch.randint(self.config.n_states, (n_noisy,))
         else:
             initial_configs = None
 
         # Run optimization
-        candidates, trajectory, stats = self._run_optimization(
-            landscape, initial_configs, constraints
-        )
+        candidates, trajectory, stats = self._run_optimization(landscape, initial_configs, constraints)
 
         # Select best candidates
         candidates.sort(key=lambda c: c.energy)
@@ -457,9 +436,9 @@ class VaccineOptimizer:
     def _run_optimization(
         self,
         landscape: ImmunogenicityLandscape,
-        initial_configs: Optional[List[torch.Tensor]],
-        constraints: Optional[Dict],
-    ) -> Tuple[List[VaccineCandidate], List[float], Dict]:
+        initial_configs: list[torch.Tensor] | None,
+        constraints: dict | None,
+    ) -> tuple[list[VaccineCandidate], list[float], dict]:
         """Run the optimization loop.
 
         Args:
@@ -475,10 +454,7 @@ class VaccineOptimizer:
 
         # Initialize configurations
         if initial_configs is None:
-            configs = [
-                torch.randint(n_states, (n_sites,))
-                for _ in range(self.config.n_replicas)
-            ]
+            configs = [torch.randint(n_states, (n_sites,)) for _ in range(self.config.n_replicas)]
         else:
             configs = [c.clone() for c in initial_configs]
 
@@ -502,9 +478,7 @@ class VaccineOptimizer:
             # Metropolis sweeps at each temperature
             for rep in range(self.config.n_replicas):
                 temp = self.sampler.temperatures[rep].item()
-                config, n_accepted = self._metropolis_sweep(
-                    landscape, configs[rep], temp, fixed_positions
-                )
+                config, n_accepted = self._metropolis_sweep(landscape, configs[rep], temp, fixed_positions)
                 configs[rep] = config
                 acceptance_counts[temp] += n_accepted
                 total_moves[temp] += n_sites
@@ -518,9 +492,7 @@ class VaccineOptimizer:
                 exchange_rates.append(n_exchanges / (self.config.n_replicas - 1))
 
             # Record best energy
-            energies = [
-                landscape.energy(c.unsqueeze(0)).item() for c in configs
-            ]
+            energies = [landscape.energy(c.unsqueeze(0)).item() for c in configs]
             trajectory.append(min(energies))
 
             # Collect candidate from lowest temperature
@@ -536,9 +508,7 @@ class VaccineOptimizer:
                 candidate = VaccineCandidate(
                     sequence=best_config.clone(),
                     energy=energy,
-                    component_energies={
-                        k: v.item() for k, v in components.items()
-                    },
+                    component_energies={k: v.item() for k, v in components.items()},
                     escape_risk=components[ObjectiveType.ESCAPE].item(),
                     autoimmune_score=1 - components[ObjectiveType.AUTOIMMUNE].item(),
                     breadth_score=1 - components[ObjectiveType.BREADTH].item(),
@@ -547,10 +517,7 @@ class VaccineOptimizer:
                 candidates.append(candidate)
 
         # Compute acceptance rates
-        acceptance_rates = {
-            t: acceptance_counts[t] / max(1, total_moves[t])
-            for t in acceptance_counts
-        }
+        acceptance_rates = {t: acceptance_counts[t] / max(1, total_moves[t]) for t in acceptance_counts}
 
         stats = {
             "acceptance_rates": acceptance_rates,
@@ -564,8 +531,8 @@ class VaccineOptimizer:
         landscape: ImmunogenicityLandscape,
         configuration: torch.Tensor,
         temperature: float,
-        fixed_positions: List[int],
-    ) -> Tuple[torch.Tensor, int]:
+        fixed_positions: list[int],
+    ) -> tuple[torch.Tensor, int]:
         """Perform one Metropolis sweep.
 
         Args:
@@ -608,7 +575,7 @@ class VaccineOptimizer:
     def _attempt_exchange(
         self,
         landscape: ImmunogenicityLandscape,
-        configs: List[torch.Tensor],
+        configs: list[torch.Tensor],
         i: int,
         j: int,
     ) -> bool:
@@ -635,9 +602,7 @@ class VaccineOptimizer:
             return True
         return False
 
-    def _compute_pareto_front(
-        self, candidates: List[VaccineCandidate]
-    ) -> List[VaccineCandidate]:
+    def _compute_pareto_front(self, candidates: list[VaccineCandidate]) -> list[VaccineCandidate]:
         """Compute Pareto-optimal candidates.
 
         A candidate is Pareto-optimal if no other candidate
@@ -689,9 +654,9 @@ class VaccineOptimizer:
 
     def optimize_with_parisi_analysis(
         self,
-        variant_profiles: Optional[torch.Tensor] = None,
+        variant_profiles: torch.Tensor | None = None,
         n_samples: int = 100,
-    ) -> Tuple[OptimizationResult, Dict]:
+    ) -> tuple[OptimizationResult, dict]:
         """Optimize with Parisi overlap analysis.
 
         Uses replica symmetry breaking analysis to identify
@@ -720,9 +685,7 @@ class VaccineOptimizer:
             # Cool down from high temperature
             for temp in [10.0, 5.0, 2.0, 1.0, 0.5, 0.1]:
                 for _ in range(50):
-                    init, _ = self._metropolis_sweep(
-                        landscape, init, temp, []
-                    )
+                    init, _ = self._metropolis_sweep(landscape, init, temp, [])
             samples.append(init)
 
         # Compute overlap distribution
@@ -734,6 +697,7 @@ class VaccineOptimizer:
 
         # Analyze overlap distribution
         import numpy as np
+
         overlaps = np.array(overlaps)
 
         parisi_analysis = {

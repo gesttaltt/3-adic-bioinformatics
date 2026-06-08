@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -125,7 +125,7 @@ MTRR_MUTATIONS = {
 RRL_23S_MUTATIONS = {
     GCDrug.AZITHROMYCIN: {
         2059: {"A": 1.0, "G": 256.0},  # A2059G - high-level resistance
-        2611: {"C": 1.0, "T": 64.0},   # C2611T - high-level resistance
+        2611: {"C": 1.0, "T": 64.0},  # C2611T - high-level resistance
     },
 }
 
@@ -163,17 +163,21 @@ class GonorrhoeaeConfig(DiseaseConfig):
     name: str = "gonorrhoeae"
     display_name: str = "Neisseria gonorrhoeae (Gonorrhea)"
     disease_type: DiseaseType = DiseaseType.BACTERIAL
-    tasks: list[TaskType] = field(default_factory=lambda: [
-        TaskType.RESISTANCE,
-        TaskType.FITNESS,
-    ])
+    tasks: list[TaskType] = field(
+        default_factory=lambda: [
+            TaskType.RESISTANCE,
+            TaskType.FITNESS,
+        ]
+    )
 
     # Data sources
-    data_sources: dict[str, str] = field(default_factory=lambda: {
-        "pubmlst": "https://pubmlst.org/organisms/neisseria-spp",
-        "pathogenwatch": "https://pathogen.watch/genomes/all?genusId=482",
-        "ncbi_pathogen": "https://www.ncbi.nlm.nih.gov/pathogens/",
-    })
+    data_sources: dict[str, str] = field(
+        default_factory=lambda: {
+            "pubmlst": "https://pubmlst.org/organisms/neisseria-spp",
+            "pathogenwatch": "https://pathogen.watch/genomes/all?genusId=482",
+            "ncbi_pathogen": "https://www.ncbi.nlm.nih.gov/pathogens/",
+        }
+    )
 
     # N. gonorrhoeae-specific settings
     predict_mdr: bool = True
@@ -183,9 +187,7 @@ class GonorrhoeaeConfig(DiseaseConfig):
     # Sequence settings
     min_sequence_length: int = 50
 
-    genes: list[str] = field(
-        default_factory=lambda: [g.value for g in GCGene]
-    )
+    genes: list[str] = field(default_factory=lambda: [g.value for g in GCGene])
 
 
 class GonorrhoeaeAnalyzer(DiseaseAnalyzer):
@@ -200,7 +202,7 @@ class GonorrhoeaeAnalyzer(DiseaseAnalyzer):
     - Treatment option assessment
     """
 
-    def __init__(self, config: Optional[GonorrhoeaeConfig] = None):
+    def __init__(self, config: GonorrhoeaeConfig | None = None):
         """Initialize N. gonorrhoeae analyzer.
 
         Args:
@@ -212,7 +214,7 @@ class GonorrhoeaeAnalyzer(DiseaseAnalyzer):
     def analyze(
         self,
         sequences: dict[GCGene, list[str]],
-        sequence_type: Optional[GCSequenceType] = None,
+        sequence_type: GCSequenceType | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Analyze N. gonorrhoeae sequences for resistance.
@@ -227,7 +229,7 @@ class GonorrhoeaeAnalyzer(DiseaseAnalyzer):
         """
         results = {
             "n_sequences": len(next(iter(sequences.values()), [])),
-            "genes_analyzed": [g.value for g in sequences.keys()],
+            "genes_analyzed": [g.value for g in sequences],
             "sequence_type": sequence_type.value if sequence_type else None,
         }
 
@@ -313,11 +315,13 @@ class GonorrhoeaeAnalyzer(DiseaseAnalyzer):
                         if fold_change > 1.0:
                             resistance_score += np.log2(fold_change) / 10
                             fold_changes.append(fold_change)
-                            detected_mutations.append({
-                                "position": pos,
-                                "amino_acid": aa,
-                                "fold_change": fold_change,
-                            })
+                            detected_mutations.append(
+                                {
+                                    "position": pos,
+                                    "amino_acid": aa,
+                                    "fold_change": fold_change,
+                                }
+                            )
 
             results["scores"].append(min(resistance_score, 1.0))
             results["mutations"].append(detected_mutations)
@@ -412,11 +416,13 @@ class GonorrhoeaeAnalyzer(DiseaseAnalyzer):
                         fold_effect = aa_effects[aa]
                         if fold_effect > 1.0:
                             risk_score += np.log2(fold_effect) / 5
-                            mutations.append({
-                                "position": pos,
-                                "amino_acid": aa,
-                                "effect": fold_effect,
-                            })
+                            mutations.append(
+                                {
+                                    "position": pos,
+                                    "amino_acid": aa,
+                                    "effect": fold_effect,
+                                }
+                            )
 
             results["mutations_detected"].append(mutations)
 

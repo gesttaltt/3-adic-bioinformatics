@@ -32,7 +32,6 @@ import os
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 from .constants import (
     DEFAULT_CHECKPOINT_DIR,
@@ -76,7 +75,7 @@ class EnvConfig:
     profile_mode: bool = False
 
     # Derived paths (created in __post_init__)
-    _experiment_dir: Optional[Path] = field(default=None, repr=False)
+    _experiment_dir: Path | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         """Validate and create directories if needed."""
@@ -208,7 +207,7 @@ class EnvConfig:
 
 
 # Module-level singleton
-_env_config: Optional[EnvConfig] = None
+_env_config: EnvConfig | None = None
 
 
 def get_env_config() -> EnvConfig:

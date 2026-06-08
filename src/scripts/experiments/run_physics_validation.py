@@ -26,10 +26,10 @@ import json
 import logging
 import sys
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 from scipy import stats
@@ -152,44 +152,50 @@ class AggregatedPhysicsResult:
                 f"{thermo_kinetics} |"
             )
 
-        lines.extend([
-            "",
-            "## 6-Level Physics Hierarchy",
-            "",
-            "The hierarchy validates p-adic encoding at multiple scales:",
-            "",
-            "1. **Atomic**: Bond lengths, angles",
-            "2. **Residue**: Amino acid properties",
-            "3. **Secondary**: α-helix, β-sheet stability",
-            "4. **Tertiary**: Fold thermodynamics",
-            "5. **Quaternary**: Complex assembly",
-            "6. **Evolutionary**: Conservation patterns",
-            "",
-            "## Thermodynamics vs Kinetics Separation",
-            "",
-            "P-adic encoding captures **thermodynamic** (equilibrium) properties",
-            "but NOT **kinetic** (rate) properties. This is a fundamental validation",
-            "of the underlying physics.",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                "## 6-Level Physics Hierarchy",
+                "",
+                "The hierarchy validates p-adic encoding at multiple scales:",
+                "",
+                "1. **Atomic**: Bond lengths, angles",
+                "2. **Residue**: Amino acid properties",
+                "3. **Secondary**: α-helix, β-sheet stability",
+                "4. **Tertiary**: Fold thermodynamics",
+                "5. **Quaternary**: Complex assembly",
+                "6. **Evolutionary**: Conservation patterns",
+                "",
+                "## Thermodynamics vs Kinetics Separation",
+                "",
+                "P-adic encoding captures **thermodynamic** (equilibrium) properties",
+                "but NOT **kinetic** (rate) properties. This is a fundamental validation",
+                "of the underlying physics.",
+                "",
+            ]
+        )
 
         for r in self.results:
             sep_status = "CONFIRMED" if r.separation_achieved else "NOT CONFIRMED"
-            lines.extend([
-                f"### {r.disease.upper()}",
-                f"- Thermodynamic correlation: {r.thermo_correlation:.4f}",
-                f"- Kinetic correlation: {r.kinetics_correlation:.4f}",
-                f"- Separation: {sep_status}",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"### {r.disease.upper()}",
+                    f"- Thermodynamic correlation: {r.thermo_correlation:.4f}",
+                    f"- Kinetic correlation: {r.kinetics_correlation:.4f}",
+                    f"- Separation: {sep_status}",
+                    "",
+                ]
+            )
 
-        lines.extend([
-            "## Conclusion",
-            "",
-            f"{'P-adic encoding universally captures protein thermodynamics.' if self.universality_confirmed else 'Further validation needed.'}",
-            "",
-            f"Total runtime: {self.total_runtime_seconds:.2f}s",
-        ])
+        lines.extend(
+            [
+                "## Conclusion",
+                "",
+                f"{'P-adic encoding universally captures protein thermodynamics.' if self.universality_confirmed else 'Further validation needed.'}",
+                "",
+                f"Total runtime: {self.total_runtime_seconds:.2f}s",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -374,10 +380,10 @@ def run_physics_validation(
 
 
 def run_physics_validation_all(
-    diseases: Optional[list[str]] = None,
+    diseases: list[str] | None = None,
     n_samples: int = 200,
     seed: int = 42,
-    output_dir: Optional[Path] = None,
+    output_dir: Path | None = None,
 ) -> AggregatedPhysicsResult:
     """Run physics validation across all diseases.
 
@@ -391,8 +397,17 @@ def run_physics_validation_all(
         AggregatedPhysicsResult
     """
     default_diseases = [
-        "hiv", "sars_cov_2", "tuberculosis", "influenza",
-        "hcv", "hbv", "malaria", "mrsa", "candida", "rsv", "cancer"
+        "hiv",
+        "sars_cov_2",
+        "tuberculosis",
+        "influenza",
+        "hcv",
+        "hbv",
+        "malaria",
+        "mrsa",
+        "candida",
+        "rsv",
+        "cancer",
     ]
     diseases = diseases or default_diseases
     output_dir = output_dir or Path("results/physics_validation")
@@ -466,9 +481,7 @@ def run_physics_validation_all(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Run physics validation for p-adic thermodynamics"
-    )
+    parser = argparse.ArgumentParser(description="Run physics validation for p-adic thermodynamics")
     parser.add_argument(
         "--diseases",
         nargs="+",

@@ -14,20 +14,20 @@ Key components:
 - SequenceAugmentations: Augmentation strategies for sequences
 """
 
+from src.models.contrastive.augmentations import (
+    CropAugmentation,
+    MaskingAugmentation,
+    MutationAugmentation,
+    SequenceAugmentations,
+)
 from src.models.contrastive.byol import (
     BYOL,
     BYOLConfig,
     MomentumEncoder,
 )
-from src.models.contrastive.augmentations import (
-    SequenceAugmentations,
-    MutationAugmentation,
-    MaskingAugmentation,
-    CropAugmentation,
-)
 from src.models.contrastive.simclr import (
-    SimCLR,
     NTXentLoss,
+    SimCLR,
 )
 
 __all__ = [

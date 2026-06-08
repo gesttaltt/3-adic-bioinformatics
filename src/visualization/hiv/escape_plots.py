@@ -8,19 +8,20 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
 
 try:
     import matplotlib.pyplot as plt
+
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
 
 try:
     import seaborn  # noqa: F401
+
     HAS_SEABORN = True
 except ImportError:
     HAS_SEABORN = False
@@ -34,7 +35,7 @@ def _check_matplotlib():
 def plot_hla_escape_landscape(
     df: pd.DataFrame,
     top_n: int = 15,
-    save_path: Optional[Union[str, Path]] = None,
+    save_path: str | Path | None = None,
     figsize: tuple = (12, 6),
 ) -> plt.Figure:
     """Plot HLA-stratified escape landscapes.
@@ -94,7 +95,7 @@ def plot_hla_escape_landscape(
 
 def plot_protein_escape_velocity(
     df: pd.DataFrame,
-    save_path: Optional[Union[str, Path]] = None,
+    save_path: str | Path | None = None,
     figsize: tuple = (10, 6),
 ) -> plt.Figure:
     """Plot escape velocity by HIV protein.
@@ -112,8 +113,7 @@ def plot_protein_escape_velocity(
     fig, ax = plt.subplots(figsize=figsize)
 
     if "protein" not in df.columns:
-        ax.text(0.5, 0.5, "No protein data available",
-                ha="center", va="center", transform=ax.transAxes)
+        ax.text(0.5, 0.5, "No protein data available", ha="center", va="center", transform=ax.transAxes)
         return fig
 
     # Sort by mean radial position (escape velocity proxy)
@@ -155,8 +155,7 @@ def plot_protein_escape_velocity(
     # Add epitope counts as text
     if "n_epitopes" in df_sorted.columns:
         for i, (_, row) in enumerate(df_sorted.iterrows()):
-            ax.text(i, row["mean_radial_position"] + 0.02,
-                    f"n={row['n_epitopes']}", ha="center", fontsize=8)
+            ax.text(i, row["mean_radial_position"] + 0.02, f"n={row['n_epitopes']}", ha="center", fontsize=8)
 
     plt.tight_layout()
 
@@ -169,7 +168,7 @@ def plot_protein_escape_velocity(
 def plot_epitope_conservation(
     df: pd.DataFrame,
     top_n: int = 20,
-    save_path: Optional[Union[str, Path]] = None,
+    save_path: str | Path | None = None,
     figsize: tuple = (12, 8),
 ) -> plt.Figure:
     """Plot epitope conservation vs radial position.
@@ -188,8 +187,7 @@ def plot_epitope_conservation(
     fig, ax = plt.subplots(figsize=figsize)
 
     if "conservation_score" not in df.columns or "mean_radial" not in df.columns:
-        ax.text(0.5, 0.5, "Required columns not found",
-                ha="center", va="center", transform=ax.transAxes)
+        ax.text(0.5, 0.5, "Required columns not found", ha="center", va="center", transform=ax.transAxes)
         return fig
 
     # Color by protein if available
@@ -239,10 +237,8 @@ def plot_epitope_conservation(
     ax.axhline(y=0.5, color="gray", linestyle="--", alpha=0.5)
     ax.axvline(x=0.5, color="gray", linestyle="--", alpha=0.5)
 
-    ax.text(0.25, 0.95, "Central\n(Conserved)",
-            transform=ax.transAxes, ha="center", fontsize=9, alpha=0.7)
-    ax.text(0.75, 0.95, "Peripheral\n(Variable)",
-            transform=ax.transAxes, ha="center", fontsize=9, alpha=0.7)
+    ax.text(0.25, 0.95, "Central\n(Conserved)", transform=ax.transAxes, ha="center", fontsize=9, alpha=0.7)
+    ax.text(0.75, 0.95, "Peripheral\n(Variable)", transform=ax.transAxes, ha="center", fontsize=9, alpha=0.7)
 
     plt.tight_layout()
 

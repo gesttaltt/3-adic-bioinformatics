@@ -29,8 +29,6 @@ References:
 
 from __future__ import annotations
 
-from typing import Dict, Optional
-
 import torch
 import torch.nn as nn
 
@@ -116,7 +114,7 @@ HUMAN_CODON_RSCU = {
 }
 
 
-def _get_human_rscu_tensor(n_codons: int = 64, device: Optional[torch.device] = None) -> torch.Tensor:
+def _get_human_rscu_tensor(n_codons: int = 64, device: torch.device | None = None) -> torch.Tensor:
     """Get human RSCU values as a tensor."""
     rscu = torch.zeros(n_codons, device=device)
     for idx, value in HUMAN_CODON_RSCU.items():
@@ -235,9 +233,9 @@ class AutoimmuneCodonRegularizer(nn.Module):
     def forward(
         self,
         codon_indices: torch.Tensor,
-        codon_logits: Optional[torch.Tensor] = None,
+        codon_logits: torch.Tensor | None = None,
         return_components: bool = False,
-    ) -> torch.Tensor | Dict[str, torch.Tensor]:
+    ) -> torch.Tensor | dict[str, torch.Tensor]:
         """Compute combined autoimmune regularization loss.
 
         Args:
@@ -300,7 +298,7 @@ class CD4CD8AwareRegularizer(nn.Module):
 
     def __init__(
         self,
-        base_regularizer: Optional[AutoimmuneCodonRegularizer] = None,
+        base_regularizer: AutoimmuneCodonRegularizer | None = None,
         sensitivity_scale: float = 2.0,
     ):
         """Initialize CD4/CD8-aware regularizer.
@@ -340,7 +338,7 @@ class CD4CD8AwareRegularizer(nn.Module):
         self,
         codon_indices: torch.Tensor,
         cd4_cd8_ratio: float = 1.5,
-        codon_logits: Optional[torch.Tensor] = None,
+        codon_logits: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute immune-state-aware regularization loss.
 

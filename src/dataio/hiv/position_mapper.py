@@ -26,12 +26,12 @@ Reference: HXB2 (K03455) nucleotide positions:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Tuple
 
 
 @dataclass
 class HXB2Region:
     """HXB2 reference region definition."""
+
     name: str
     nt_start: int
     nt_end: int
@@ -94,8 +94,7 @@ class PositionMapper:
         region = self.regions[protein]
         if aa_position < region.aa_start or aa_position > region.aa_end:
             raise ValueError(
-                f"Position {aa_position} out of range for {region.name} "
-                f"(valid: {region.aa_start}-{region.aa_end})"
+                f"Position {aa_position} out of range for {region.name} (valid: {region.aa_start}-{region.aa_end})"
             )
 
         # Calculate nucleotide position
@@ -104,7 +103,7 @@ class PositionMapper:
 
         return nt_position
 
-    def hxb2_to_protein(self, nt_position: int) -> Tuple[str, int]:
+    def hxb2_to_protein(self, nt_position: int) -> tuple[str, int]:
         """
         Convert HXB2 nucleotide position to protein and amino acid position.
 
@@ -161,7 +160,7 @@ class PositionMapper:
 _mapper = PositionMapper()
 
 
-def hxb2_to_protein_position(nt_position: int) -> Tuple[str, int]:
+def hxb2_to_protein_position(nt_position: int) -> tuple[str, int]:
     """
     Convert HXB2 nucleotide position to protein and amino acid position.
 
@@ -214,13 +213,13 @@ def codon_position_to_hxb2(protein: str, codon_index: int) -> int:
     return _mapper.codon_to_hxb2(protein, codon_index)
 
 
-def get_v3_positions() -> Tuple[int, int]:
+def get_v3_positions() -> tuple[int, int]:
     """Get HXB2 nucleotide positions for V3 loop."""
     region = _mapper.get_region_info("v3")
     return region.nt_start, region.nt_end
 
 
-def get_drug_target_positions(drug_class: str) -> Tuple[str, int, int]:
+def get_drug_target_positions(drug_class: str) -> tuple[str, int, int]:
     """
     Get protein and position range for a drug class.
 

@@ -27,13 +27,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
-import pandas as pd
 import torch
-import torch.nn as nn
 
 from .base import DiseaseAnalyzer, DiseaseConfig, DiseaseType, TaskType
 from .utils.synthetic_data import ensure_minimum_samples
@@ -74,31 +71,37 @@ class SARSCoV2Config(DiseaseConfig):
     name: str = "sars_cov_2"
     display_name: str = "SARS-CoV-2"
     disease_type: DiseaseType = DiseaseType.VIRAL
-    tasks: list[TaskType] = field(default_factory=lambda: [
-        TaskType.RESISTANCE,  # Drug resistance (Paxlovid)
-        TaskType.ESCAPE,      # Immune escape
-        TaskType.BINDING,     # ACE2 binding
-    ])
+    tasks: list[TaskType] = field(
+        default_factory=lambda: [
+            TaskType.RESISTANCE,  # Drug resistance (Paxlovid)
+            TaskType.ESCAPE,  # Immune escape
+            TaskType.BINDING,  # ACE2 binding
+        ]
+    )
 
     # Protein-specific settings
     target_gene: SARSCoV2Gene = SARSCoV2Gene.SPIKE
     reference_variant: SARSCoV2Variant = SARSCoV2Variant.WILD_TYPE
 
     # Data sources
-    data_sources: dict[str, str] = field(default_factory=lambda: {
-        "gisaid": "https://gisaid.org/",  # Requires registration
-        "cov_rdb": "https://covdb.stanford.edu/",
-        "cov_lineages": "https://cov-lineages.org/",
-        "pdb": "https://www.rcsb.org/",
-    })
+    data_sources: dict[str, str] = field(
+        default_factory=lambda: {
+            "gisaid": "https://gisaid.org/",  # Requires registration
+            "cov_rdb": "https://covdb.stanford.edu/",
+            "cov_lineages": "https://cov-lineages.org/",
+            "pdb": "https://www.rcsb.org/",
+        }
+    )
 
     # Drug-specific
-    drugs: list[str] = field(default_factory=lambda: [
-        "nirmatrelvir",  # Paxlovid component (Mpro inhibitor)
-        "ritonavir",     # Paxlovid booster
-        "remdesivir",    # RdRp inhibitor
-        "molnupiravir",  # Mutagenic nucleoside analog
-    ])
+    drugs: list[str] = field(
+        default_factory=lambda: [
+            "nirmatrelvir",  # Paxlovid component (Mpro inhibitor)
+            "ritonavir",  # Paxlovid booster
+            "remdesivir",  # RdRp inhibitor
+            "molnupiravir",  # Mutagenic nucleoside analog
+        ]
+    )
 
 
 # Reference sequences (Wuhan-Hu-1)
@@ -131,16 +134,13 @@ MPRO_RESISTANCE_POSITIONS = {
     144: {"ref": "S", "mutations": ["A", "G"], "effect": "S1_subsite"},
     163: {"ref": "H", "mutations": ["Q", "Y"], "effect": "oxyanion_hole"},
     166: {"ref": "E", "mutations": ["V", "A", "Q"], "effect": "primary_resistance"},
-
     # S4 pocket (nirmatrelvir binding)
     167: {"ref": "L", "mutations": ["F"], "effect": "S4_pocket"},
     168: {"ref": "P", "mutations": ["S", "T"], "effect": "S4_pocket"},
     169: {"ref": "H", "mutations": ["Q", "Y"], "effect": "S4_pocket"},
-
     # Compensatory mutations
     46: {"ref": "S", "mutations": ["L"], "effect": "compensatory"},
     50: {"ref": "A", "mutations": ["V"], "effect": "compensatory"},
-
     # Emerging resistance
     21: {"ref": "T", "mutations": ["I"], "effect": "emerging"},
     132: {"ref": "L", "mutations": ["I"], "effect": "emerging"},
@@ -152,13 +152,11 @@ SPIKE_RBD_MUTATIONS = {
     417: {"ref": "K", "mutations": ["N", "T"], "effect": "ace2_binding"},
     484: {"ref": "E", "mutations": ["K", "Q", "A"], "effect": "antibody_escape"},
     501: {"ref": "N", "mutations": ["Y"], "effect": "ace2_binding+escape"},
-
     # Major escape mutations
     452: {"ref": "L", "mutations": ["R", "Q"], "effect": "antibody_escape"},
     486: {"ref": "F", "mutations": ["V", "S", "P"], "effect": "antibody_escape"},
     493: {"ref": "Q", "mutations": ["R"], "effect": "ace2_binding"},
     498: {"ref": "Q", "mutations": ["R"], "effect": "ace2_binding"},
-
     # Omicron-specific
     339: {"ref": "G", "mutations": ["D"], "effect": "antibody_escape"},
     346: {"ref": "R", "mutations": ["K"], "effect": "antibody_escape"},
@@ -184,7 +182,7 @@ class SARSCoV2Analyzer(DiseaseAnalyzer):
     - Variant classification
     """
 
-    def __init__(self, config: Optional[SARSCoV2Config] = None):
+    def __init__(self, config: SARSCoV2Config | None = None):
         """Initialize analyzer.
 
         Args:
@@ -200,7 +198,7 @@ class SARSCoV2Analyzer(DiseaseAnalyzer):
     def analyze(
         self,
         sequences: list[str],
-        embeddings: Optional[torch.Tensor] = None,
+        embeddings: torch.Tensor | None = None,
         gene: SARSCoV2Gene = SARSCoV2Gene.NSP5,
         **kwargs,
     ) -> dict[str, Any]:
@@ -232,9 +230,7 @@ class SARSCoV2Analyzer(DiseaseAnalyzer):
 
         # Drug resistance (for Mpro)
         if gene == SARSCoV2Gene.NSP5:
-            results["drug_resistance"] = self._predict_drug_resistance(
-                sequences, "nirmatrelvir"
-            )
+            results["drug_resistance"] = self._predict_drug_resistance(sequences, "nirmatrelvir")
 
         # Antibody escape (for Spike)
         if gene == SARSCoV2Gene.SPIKE:
@@ -251,9 +247,7 @@ class SARSCoV2Analyzer(DiseaseAnalyzer):
         }
         return references.get(gene, "")
 
-    def _detect_mutations(
-        self, sequence: str, reference: str
-    ) -> list[dict[str, Any]]:
+    def _detect_mutations(self, sequence: str, reference: str) -> list[dict[str, Any]]:
         """Detect mutations compared to reference.
 
         Returns list of mutation dicts with position, ref, alt, and annotations.
@@ -267,7 +261,7 @@ class SARSCoV2Analyzer(DiseaseAnalyzer):
                     "position": i + 1,  # 1-indexed
                     "reference": reference[i],
                     "alternate": sequence[i],
-                    "notation": f"{reference[i]}{i+1}{sequence[i]}",
+                    "notation": f"{reference[i]}{i + 1}{sequence[i]}",
                 }
 
                 # Add annotations if known
@@ -343,9 +337,7 @@ class SARSCoV2Analyzer(DiseaseAnalyzer):
 
         return results
 
-    def _predict_antibody_escape(
-        self, sequences: list[str]
-    ) -> dict[str, Any]:
+    def _predict_antibody_escape(self, sequences: list[str]) -> dict[str, Any]:
         """Predict antibody escape potential for Spike sequences."""
         results = {
             "scores": [],
@@ -375,17 +367,14 @@ class SARSCoV2Analyzer(DiseaseAnalyzer):
 
         return results
 
-    def _predict_ace2_binding(
-        self, sequences: list[str]
-    ) -> dict[str, Any]:
+    def _predict_ace2_binding(self, sequences: list[str]) -> dict[str, Any]:
         """Predict ACE2 binding affinity changes."""
         results = {
             "scores": [],  # Relative to WT (>1 = enhanced, <1 = reduced)
             "binding_mutations": [],
         }
 
-        ace2_positions = {k: v for k, v in SPIKE_RBD_MUTATIONS.items()
-                         if "ace2" in v["effect"]}
+        ace2_positions = {k: v for k, v in SPIKE_RBD_MUTATIONS.items() if "ace2" in v["effect"]}
 
         for seq in sequences:
             score = 1.0  # Start at WT level
@@ -440,7 +429,7 @@ class SARSCoV2Analyzer(DiseaseAnalyzer):
     def encode_sequences(
         self,
         sequences: list[str],
-        max_length: Optional[int] = None,
+        max_length: int | None = None,
     ) -> np.ndarray:
         """One-hot encode sequences.
 

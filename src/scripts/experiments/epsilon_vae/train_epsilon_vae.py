@@ -32,11 +32,10 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config.paths import OUTPUT_DIR
 from src.models.epsilon_vae import (
-    EpsilonVAE,
     epsilon_vae_loss,
     extract_key_weights,
 )
-from src.utils.checkpoint import load_checkpoint_compat, get_model_state_dict
+from src.utils.checkpoint import get_model_state_dict, load_checkpoint_compat
 
 
 class CheckpointDataset(Dataset):
@@ -62,18 +61,23 @@ class CheckpointDataset(Dataset):
                     # Flatten weights for consistent handling
                     flat_weights = torch.cat([w.flatten() for w in weights])
 
-                    metrics = torch.tensor([
-                        item["coverage"],
-                        item["dist_corr"],
-                        item["rad_hier"],
-                    ], dtype=torch.float32)
+                    metrics = torch.tensor(
+                        [
+                            item["coverage"],
+                            item["dist_corr"],
+                            item["rad_hier"],
+                        ],
+                        dtype=torch.float32,
+                    )
 
-                    self.samples.append({
-                        "weights": flat_weights,
-                        "weight_blocks": weights,
-                        "metrics": metrics,
-                        "path": item["path"],
-                    })
+                    self.samples.append(
+                        {
+                            "weights": flat_weights,
+                            "weight_blocks": weights,
+                            "metrics": metrics,
+                            "path": item["path"],
+                        }
+                    )
 
                 if (i + 1) % 100 == 0:
                     print(f"  Loaded {i + 1}/{len(self.metadata)}")
@@ -223,7 +227,7 @@ class EpsilonVAEFlat(nn.Module):
         )
 
         # Create reparameterize as standalone
-        self.encoder = type('Encoder', (), {'reparameterize': self._reparameterize})()
+        self.encoder = type("Encoder", (), {"reparameterize": self._reparameterize})()
 
     def _reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
@@ -280,12 +284,12 @@ def main():
     weight_dim = train_dataset[0]["weights"].shape[0]
     print(f"\nWeight dimension: {weight_dim}")
 
-    train_loader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
+    val_loader = (
+        DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
+        if len(val_dataset) > 0
+        else None
     )
-    val_loader = DataLoader(
-        val_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn
-    ) if len(val_dataset) > 0 else None
 
     # Create model
     print("\n" + "=" * 60)
@@ -327,32 +331,40 @@ def main():
         if epoch % 10 == 0 or epoch == args.epochs - 1:
             print(log)
 
-        history.append({
-            "epoch": epoch,
-            "train_loss": train_metrics["loss"],
-            "train_metric_loss": train_metrics["metric_loss"],
-            "val_mae": val_metrics["total_mae"] if val_metrics else None,
-        })
+        history.append(
+            {
+                "epoch": epoch,
+                "train_loss": train_metrics["loss"],
+                "train_metric_loss": train_metrics["metric_loss"],
+                "val_mae": val_metrics["total_mae"] if val_metrics else None,
+            }
+        )
 
         # Save best
         if val_metrics and val_metrics["total_mae"] < best_val_mae:
             best_val_mae = val_metrics["total_mae"]
-            torch.save({
-                "epoch": epoch,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "val_mae": best_val_mae,
-                "config": vars(args),
-            }, save_dir / "best.pt")
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "val_mae": best_val_mae,
+                    "config": vars(args),
+                },
+                save_dir / "best.pt",
+            )
 
     # Save final
-    torch.save({
-        "epoch": args.epochs - 1,
-        "model_state_dict": model.state_dict(),
-        "optimizer_state_dict": optimizer.state_dict(),
-        "history": history,
-        "config": vars(args),
-    }, save_dir / "final.pt")
+    torch.save(
+        {
+            "epoch": args.epochs - 1,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "history": history,
+            "config": vars(args),
+        },
+        save_dir / "final.pt",
+    )
 
     # Final validation report
     if val_loader:
@@ -371,8 +383,8 @@ def main():
         preds = val_metrics["preds"]
         targets = val_metrics["targets"]
         for i in range(min(10, len(preds))):
-            print(f"  [{i}] Pred: cov={preds[i,0]:.3f}, dist={preds[i,1]:.3f}, rad={preds[i,2]:.3f}")
-            print(f"       True: cov={targets[i,0]:.3f}, dist={targets[i,1]:.3f}, rad={targets[i,2]:.3f}")
+            print(f"  [{i}] Pred: cov={preds[i, 0]:.3f}, dist={preds[i, 1]:.3f}, rad={preds[i, 2]:.3f}")
+            print(f"       True: cov={targets[i, 0]:.3f}, dist={targets[i, 1]:.3f}, rad={targets[i, 2]:.3f}")
 
     print(f"\nModels saved to {save_dir}")
 

@@ -11,29 +11,28 @@ combines embeddings from all three specialist VAEs.
 
 from __future__ import annotations
 
+import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Callable
-import json
 
+import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from scipy.stats import pearsonr, spearmanr
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from scipy.stats import spearmanr, pearsonr
-import numpy as np
+from torch.utils.data import Dataset
 
 from src.bioinformatics.models.ddg_vae import DDGVAE
 from src.bioinformatics.models.multimodal_ddg_vae import (
-    MultimodalDDGVAE,
     MultimodalConfig,
+    MultimodalDDGVAE,
 )
 from src.bioinformatics.training.deterministic import (
-    DeterministicTrainer,
     DeterministicConfig,
+    DeterministicTrainer,
 )
-from src.bioinformatics.training.train_ddg_vae import TrainingConfig
 
 
 @dataclass
@@ -126,11 +125,11 @@ class MultimodalTrainer(DeterministicTrainer):
         vae_protherm: DDGVAE,
         vae_wide: DDGVAE,
         train_dataset: Dataset,
-        val_dataset: Optional[Dataset] = None,
-        config: Optional[MultimodalTrainingConfig] = None,
-        multimodal_config: Optional[MultimodalConfig] = None,
+        val_dataset: Dataset | None = None,
+        config: MultimodalTrainingConfig | None = None,
+        multimodal_config: MultimodalConfig | None = None,
         device: str = "cuda",
-        output_dir: Optional[Path] = None,
+        output_dir: Path | None = None,
     ):
         """Initialize multimodal trainer.
 
@@ -180,19 +179,13 @@ class MultimodalTrainer(DeterministicTrainer):
         self.setup_determinism()
 
         # Create data loaders
-        self.train_loader = self.create_dataloader(
-            train_dataset, config.batch_size, shuffle=True
-        )
+        self.train_loader = self.create_dataloader(train_dataset, config.batch_size, shuffle=True)
         self.val_loader = None
         if val_dataset is not None:
-            self.val_loader = self.create_dataloader(
-                val_dataset, config.batch_size, shuffle=False
-            )
+            self.val_loader = self.create_dataloader(val_dataset, config.batch_size, shuffle=False)
 
         # Optimizer (only fusion and decoder parameters)
-        trainable_params = [
-            p for p in self.model.parameters() if p.requires_grad
-        ]
+        trainable_params = [p for p in self.model.parameters() if p.requires_grad]
         self.optimizer = AdamW(
             trainable_params,
             lr=config.learning_rate,
@@ -255,9 +248,7 @@ class MultimodalTrainer(DeterministicTrainer):
             loss.backward()
 
             if self.config.grad_clip > 0:
-                nn.utils.clip_grad_norm_(
-                    self.model.parameters(), self.config.grad_clip
-                )
+                nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_clip)
 
             self.optimizer.step()
 
@@ -304,7 +295,7 @@ class MultimodalTrainer(DeterministicTrainer):
 
     def train(
         self,
-        callback: Optional[Callable[[int, dict], None]] = None,
+        callback: Callable[[int, dict], None] | None = None,
     ) -> dict:
         """Run full training loop."""
         for epoch in range(self.config.epochs):
@@ -354,13 +345,16 @@ class MultimodalTrainer(DeterministicTrainer):
     def _save_best(self, epoch: int, train_metrics: dict, val_metrics: dict) -> None:
         """Save best model."""
         path = self.output_dir / "best.pt"
-        torch.save({
-            "epoch": epoch,
-            "model_state_dict": self.model.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict(),
-            "metrics": {**train_metrics, **val_metrics},
-            "best_metric": self.best_metric,
-        }, path)
+        torch.save(
+            {
+                "epoch": epoch,
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "metrics": {**train_metrics, **val_metrics},
+                "best_metric": self.best_metric,
+            },
+            path,
+        )
 
     def _save_final(self) -> None:
         """Save final state."""
@@ -369,11 +363,14 @@ class MultimodalTrainer(DeterministicTrainer):
             json.dump(self.history, f, indent=2)
 
         path = self.output_dir / "final.pt"
-        torch.save({
-            "epoch": self.epoch,
-            "model_state_dict": self.model.state_dict(),
-            "best_metric": self.best_metric,
-        }, path)
+        torch.save(
+            {
+                "epoch": self.epoch,
+                "model_state_dict": self.model.state_dict(),
+                "best_metric": self.best_metric,
+            },
+            path,
+        )
 
 
 __all__ = [

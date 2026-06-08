@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
 
@@ -18,6 +18,7 @@ from src.core.padic_math import padic_valuation as core_padic_valuation
 
 try:
     import joblib
+
     HAS_JOBLIB = True
 except ImportError:
     HAS_JOBLIB = False
@@ -41,6 +42,7 @@ class HyperbolicFeatureExtractor:
     def _load_codon_mappings(self) -> None:
         """Load codon to amino acid mappings."""
         from src.biology.codons import AMINO_ACID_TO_CODONS, codon_to_index
+
         self.aa_to_codons = AMINO_ACID_TO_CODONS
         self.codon_to_index = codon_to_index
 
@@ -89,14 +91,16 @@ class HyperbolicFeatureExtractor:
 
         arr = np.array(radials)
 
-        features = np.array([
-            np.mean(arr),
-            np.std(arr),
-            np.min(arr),
-            np.max(arr),
-            np.max(arr) - np.min(arr),
-            self._skewness(arr),
-        ])
+        features = np.array(
+            [
+                np.mean(arr),
+                np.std(arr),
+                np.min(arr),
+                np.max(arr),
+                np.max(arr) - np.min(arr),
+                self._skewness(arr),
+            ]
+        )
 
         return features
 
@@ -143,7 +147,7 @@ class BasePredictor(ABC):
         self.is_fitted = model is not None
 
     @abstractmethod
-    def fit(self, X: np.ndarray, y: np.ndarray, **kwargs) -> "BasePredictor":
+    def fit(self, X: np.ndarray, y: np.ndarray, **kwargs) -> BasePredictor:
         """Train the predictor.
 
         Args:
@@ -172,7 +176,7 @@ class BasePredictor(ABC):
         sequences: list[str],
         targets: np.ndarray,
         **kwargs,
-    ) -> "BasePredictor":
+    ) -> BasePredictor:
         """Fit predictor from raw sequences.
 
         Args:
@@ -197,7 +201,7 @@ class BasePredictor(ABC):
         X = np.array([self.feature_extractor.sequence_features(s) for s in sequences])
         return self.predict(X)
 
-    def save(self, path: Union[str, Path]) -> None:
+    def save(self, path: str | Path) -> None:
         """Save model to file.
 
         Args:
@@ -209,13 +213,16 @@ class BasePredictor(ABC):
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        joblib.dump({
-            "model": self.model,
-            "is_fitted": self.is_fitted,
-        }, path)
+        joblib.dump(
+            {
+                "model": self.model,
+                "is_fitted": self.is_fitted,
+            },
+            path,
+        )
 
     @classmethod
-    def load(cls, path: Union[str, Path]) -> "BasePredictor":
+    def load(cls, path: str | Path) -> BasePredictor:
         """Load model from file.
 
         Args:

@@ -33,7 +33,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config.paths import OUTPUT_DIR
 from src.models.epsilon_vae import extract_key_weights
-from src.utils.checkpoint import load_checkpoint_compat, get_model_state_dict
+from src.utils.checkpoint import get_model_state_dict, load_checkpoint_compat
 
 
 class EnhancedCheckpointDataset(Dataset):
@@ -63,18 +63,23 @@ class EnhancedCheckpointDataset(Dataset):
                     features = torch.tensor(item["features"], dtype=torch.float32)
 
                     # Target metrics
-                    metrics = torch.tensor([
-                        item["metrics"]["coverage"],
-                        item["metrics"]["distance_corr_A"],
-                        item["metrics"]["radial_corr_A"],
-                    ], dtype=torch.float32)
+                    metrics = torch.tensor(
+                        [
+                            item["metrics"]["coverage"],
+                            item["metrics"]["distance_corr_A"],
+                            item["metrics"]["radial_corr_A"],
+                        ],
+                        dtype=torch.float32,
+                    )
 
-                    self.samples.append({
-                        "weights": flat_weights,
-                        "features": features,
-                        "metrics": metrics,
-                        "path": item["path"],
-                    })
+                    self.samples.append(
+                        {
+                            "weights": flat_weights,
+                            "features": features,
+                            "metrics": metrics,
+                            "path": item["path"],
+                        }
+                    )
 
                 if (i + 1) % 100 == 0:
                     print(f"  Loaded {i + 1}/{len(self.metadata)}")
@@ -345,12 +350,12 @@ def main():
     print(f"\nWeight dimension: {weight_dim}")
     print(f"Feature dimension: {feature_dim}")
 
-    train_loader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)
+    val_loader = (
+        DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
+        if len(val_dataset) > 0
+        else None
     )
-    val_loader = DataLoader(
-        val_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn
-    ) if len(val_dataset) > 0 else None
 
     # Create model
     print("\n" + "=" * 70)
@@ -365,7 +370,7 @@ def main():
     ).to(device)
 
     print(f"Parameters: {sum(p.numel() for p in model.parameters()):,}")
-    print(f"Architecture:")
+    print("Architecture:")
     print(f"  Weight encoder: {weight_dim} -> {args.hidden_dim}")
     print(f"  Feature encoder: {feature_dim} -> 64")
     print(f"  Fusion: {args.hidden_dim + 64} -> {args.latent_dim}")
@@ -396,42 +401,50 @@ def main():
         if epoch % 10 == 0 or epoch == args.epochs - 1:
             print(log)
 
-        history.append({
-            "epoch": epoch,
-            "train_loss": train_metrics["loss"],
-            "train_metric_loss": train_metrics["metric_loss"],
-            "val_mae": val_metrics["total_mae"] if val_metrics else None,
-        })
+        history.append(
+            {
+                "epoch": epoch,
+                "train_loss": train_metrics["loss"],
+                "train_metric_loss": train_metrics["metric_loss"],
+                "val_mae": val_metrics["total_mae"] if val_metrics else None,
+            }
+        )
 
         # Save best
         if val_metrics and val_metrics["total_mae"] < best_val_mae:
             best_val_mae = val_metrics["total_mae"]
-            torch.save({
-                "epoch": epoch,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "val_mae": best_val_mae,
-                "config": {
-                    "weight_dim": weight_dim,
-                    "feature_dim": feature_dim,
-                    "latent_dim": args.latent_dim,
-                    "hidden_dim": args.hidden_dim,
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "val_mae": best_val_mae,
+                    "config": {
+                        "weight_dim": weight_dim,
+                        "feature_dim": feature_dim,
+                        "latent_dim": args.latent_dim,
+                        "hidden_dim": args.hidden_dim,
+                    },
                 },
-            }, save_dir / "best.pt")
+                save_dir / "best.pt",
+            )
 
     # Save final
-    torch.save({
-        "epoch": args.epochs - 1,
-        "model_state_dict": model.state_dict(),
-        "optimizer_state_dict": optimizer.state_dict(),
-        "history": history,
-        "config": {
-            "weight_dim": weight_dim,
-            "feature_dim": feature_dim,
-            "latent_dim": args.latent_dim,
-            "hidden_dim": args.hidden_dim,
+    torch.save(
+        {
+            "epoch": args.epochs - 1,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "history": history,
+            "config": {
+                "weight_dim": weight_dim,
+                "feature_dim": feature_dim,
+                "latent_dim": args.latent_dim,
+                "hidden_dim": args.hidden_dim,
+            },
         },
-    }, save_dir / "final.pt")
+        save_dir / "final.pt",
+    )
 
     # Final validation report
     if val_loader:
@@ -452,9 +465,11 @@ def main():
         preds = val_metrics["preds"]
         targets = val_metrics["targets"]
         for i in range(min(10, len(preds))):
-            print(f"  [{i}] Pred: cov={preds[i,0]:.3f}, dist={preds[i,1]:.3f}, rad={preds[i,2]:.3f}")
-            print(f"       True: cov={targets[i,0]:.3f}, dist={targets[i,1]:.3f}, rad={targets[i,2]:.3f}")
-            print(f"       Error: cov={abs(preds[i,0]-targets[i,0]):.3f}, dist={abs(preds[i,1]-targets[i,1]):.3f}, rad={abs(preds[i,2]-targets[i,2]):.3f}")
+            print(f"  [{i}] Pred: cov={preds[i, 0]:.3f}, dist={preds[i, 1]:.3f}, rad={preds[i, 2]:.3f}")
+            print(f"       True: cov={targets[i, 0]:.3f}, dist={targets[i, 1]:.3f}, rad={targets[i, 2]:.3f}")
+            print(
+                f"       Error: cov={abs(preds[i, 0] - targets[i, 0]):.3f}, dist={abs(preds[i, 1] - targets[i, 1]):.3f}, rad={abs(preds[i, 2] - targets[i, 2]):.3f}"
+            )
 
     print(f"\nModels saved to {save_dir}")
 

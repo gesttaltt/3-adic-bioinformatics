@@ -13,10 +13,9 @@ Validates:
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 import warnings
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from pathlib import Path
 
 warnings.filterwarnings("ignore")
 
@@ -30,7 +29,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from scipy.stats import pearsonr
-
 
 # =============================================================================
 # Cross-Resistance Knowledge Base (embedded to avoid import issues)
@@ -49,10 +47,11 @@ CROSS_RESISTANCE_MATRIX = {
 @dataclass
 class CrossResistanceConfig:
     """Configuration for cross-resistance VAE."""
+
     input_dim: int
     latent_dim: int = 32
-    hidden_dims: List[int] = field(default_factory=lambda: [256, 128, 64])
-    drug_names: List[str] = field(default_factory=lambda: ["AZT", "D4T", "ABC", "TDF", "DDI", "3TC"])
+    hidden_dims: list[int] = field(default_factory=lambda: [256, 128, 64])
+    drug_names: list[str] = field(default_factory=lambda: ["AZT", "D4T", "ABC", "TDF", "DDI", "3TC"])
     n_positions: int = 240
     dropout: float = 0.1
     use_cross_attention: bool = True
@@ -94,12 +93,14 @@ class CrossResistanceVAE(nn.Module):
         layers = []
         in_dim = cfg.input_dim
         for h in cfg.hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, h),
-                nn.GELU(),
-                nn.LayerNorm(h),
-                nn.Dropout(cfg.dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, h),
+                    nn.GELU(),
+                    nn.LayerNorm(h),
+                    nn.Dropout(cfg.dropout),
+                ]
+            )
             in_dim = h
         self.encoder = nn.Sequential(*layers)
 
@@ -122,15 +123,17 @@ class CrossResistanceVAE(nn.Module):
             self.cross_attention = None
 
         # Drug-specific prediction heads
-        self.drug_heads = nn.ModuleDict({
-            drug: nn.Sequential(
-                nn.Linear(cfg.latent_dim, 32),
-                nn.GELU(),
-                nn.Dropout(cfg.dropout),
-                nn.Linear(32, 1),
-            )
-            for drug in cfg.drug_names
-        })
+        self.drug_heads = nn.ModuleDict(
+            {
+                drug: nn.Sequential(
+                    nn.Linear(cfg.latent_dim, 32),
+                    nn.GELU(),
+                    nn.Dropout(cfg.dropout),
+                    nn.Linear(32, 1),
+                )
+                for drug in cfg.drug_names
+            }
+        )
 
         # Cross-resistance matrix as buffer
         self.register_buffer("cross_resistance_matrix", self._build_cross_resistance_tensor())
@@ -149,7 +152,7 @@ class CrossResistanceVAE(nn.Module):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         h = self.encoder(x)
         mu = self.fc_mu(h)
         logvar = self.fc_logvar(h)
@@ -370,7 +373,7 @@ def train_individual_vaes(data: dict, input_dim: int, epochs: int = 50, device: 
         optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
         model.train()
-        for epoch in range(epochs):
+        for _epoch in range(epochs):
             optimizer.zero_grad()
             out = model(X_train)
 
@@ -445,7 +448,9 @@ def load_aligned_nrti_data(data_dir: Path) -> tuple:
     return X, targets, n_positions
 
 
-def train_cross_resistance_vae(data: dict, input_dim: int, n_positions: int, epochs: int = 50, device: str = "cuda") -> dict:
+def train_cross_resistance_vae(
+    data: dict, input_dim: int, n_positions: int, epochs: int = 50, device: str = "cuda"
+) -> dict:
     """Train cross-resistance VAE for joint prediction using aligned samples."""
     print("\n  Training Cross-Resistance VAE (aligned samples)...")
 
@@ -595,10 +600,16 @@ def main():
     print("  - 3TC/AZT: Negative (M184V resensitizes)")
     print("  - K65R/TAM: Antagonism")
 
-    results_df = pd.DataFrame([
-        {"drug": drug, "individual": individual_results.get(drug, {}).get("correlation", 0), "cross_resistance": cross_results.get(drug, {}).get("correlation", 0)}
-        for drug in aligned_data.keys()
-    ])
+    results_df = pd.DataFrame(
+        [
+            {
+                "drug": drug,
+                "individual": individual_results.get(drug, {}).get("correlation", 0),
+                "cross_resistance": cross_results.get(drug, {}).get("correlation", 0),
+            }
+            for drug in aligned_data
+        ]
+    )
 
     out_path = root / "results" / "cross_resistance_comparison.csv"
     out_path.parent.mkdir(parents=True, exist_ok=True)

@@ -52,6 +52,8 @@ def load_checkpoint_compat(path, map_location="cpu"):
                 unpickler = NumpyBackwardsCompatUnpickler(f)
                 return unpickler.load()
         raise
+
+
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -65,7 +67,6 @@ from src.core import TERNARY
 from src.data.generation import generate_all_ternary_operations
 from src.geometry import poincare_distance
 from src.models.ternary_vae import TernaryVAEV5_11_PartialFreeze
-
 
 # =============================================================================
 # CONFIGURATION
@@ -84,22 +85,70 @@ HIV_DATA_DIR = PROJECT_ROOT / "research" / "bioinformatics" / "codon_encoder_res
 
 # Genetic code
 GENETIC_CODE = {
-    "TTT": "F", "TTC": "F", "TTA": "L", "TTG": "L",
-    "TCT": "S", "TCC": "S", "TCA": "S", "TCG": "S",
-    "TAT": "Y", "TAC": "Y", "TAA": "*", "TAG": "*",
-    "TGT": "C", "TGC": "C", "TGA": "*", "TGG": "W",
-    "CTT": "L", "CTC": "L", "CTA": "L", "CTG": "L",
-    "CCT": "P", "CCC": "P", "CCA": "P", "CCG": "P",
-    "CAT": "H", "CAC": "H", "CAA": "Q", "CAG": "Q",
-    "CGT": "R", "CGC": "R", "CGA": "R", "CGG": "R",
-    "ATT": "I", "ATC": "I", "ATA": "I", "ATG": "M",
-    "ACT": "T", "ACC": "T", "ACA": "T", "ACG": "T",
-    "AAT": "N", "AAC": "N", "AAA": "K", "AAG": "K",
-    "AGT": "S", "AGC": "S", "AGA": "R", "AGG": "R",
-    "GTT": "V", "GTC": "V", "GTA": "V", "GTG": "V",
-    "GCT": "A", "GCC": "A", "GCA": "A", "GCG": "A",
-    "GAT": "D", "GAC": "D", "GAA": "E", "GAG": "E",
-    "GGT": "G", "GGC": "G", "GGA": "G", "GGG": "G",
+    "TTT": "F",
+    "TTC": "F",
+    "TTA": "L",
+    "TTG": "L",
+    "TCT": "S",
+    "TCC": "S",
+    "TCA": "S",
+    "TCG": "S",
+    "TAT": "Y",
+    "TAC": "Y",
+    "TAA": "*",
+    "TAG": "*",
+    "TGT": "C",
+    "TGC": "C",
+    "TGA": "*",
+    "TGG": "W",
+    "CTT": "L",
+    "CTC": "L",
+    "CTA": "L",
+    "CTG": "L",
+    "CCT": "P",
+    "CCC": "P",
+    "CCA": "P",
+    "CCG": "P",
+    "CAT": "H",
+    "CAC": "H",
+    "CAA": "Q",
+    "CAG": "Q",
+    "CGT": "R",
+    "CGC": "R",
+    "CGA": "R",
+    "CGG": "R",
+    "ATT": "I",
+    "ATC": "I",
+    "ATA": "I",
+    "ATG": "M",
+    "ACT": "T",
+    "ACC": "T",
+    "ACA": "T",
+    "ACG": "T",
+    "AAT": "N",
+    "AAC": "N",
+    "AAA": "K",
+    "AAG": "K",
+    "AGT": "S",
+    "AGC": "S",
+    "AGA": "R",
+    "AGG": "R",
+    "GTT": "V",
+    "GTC": "V",
+    "GTA": "V",
+    "GTG": "V",
+    "GCT": "A",
+    "GCC": "A",
+    "GCA": "A",
+    "GCG": "A",
+    "GAT": "D",
+    "GAC": "D",
+    "GAA": "E",
+    "GAG": "E",
+    "GGT": "G",
+    "GGC": "G",
+    "GGA": "G",
+    "GGG": "G",
 }
 
 CLUSTER_SIZES = [6, 6, 6, 4, 4, 4, 4, 4, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1]
@@ -207,7 +256,7 @@ def extract_embeddings(checkpoints, device="cpu", force=False):
     if checkpoints["v5_11"] != checkpoints["v5_5"]:
         checkpoint = load_checkpoint_compat(checkpoints["v5_11"], map_location=device)
         state = checkpoint.get("model_state", checkpoint)
-        trainable_keys = [k for k in state.keys() if "projection" in k or "encoder_B" in k]
+        trainable_keys = [k for k in state if "projection" in k or "encoder_B" in k]
         trainable_state = {k: v for k, v in state.items() if k in trainable_keys}
         model.load_state_dict(trainable_state, strict=False)
 
@@ -333,7 +382,7 @@ def find_natural_positions(embeddings, force=False):
 
     # Compute cluster statistics
     cluster_to_positions = defaultdict(list)
-    for pos, label in zip(positions, labels):
+    for pos, label in zip(positions, labels, strict=False):
         cluster_to_positions[label].append(pos)
 
     # Compute separation ratio
@@ -341,7 +390,7 @@ def find_natural_positions(embeddings, force=False):
     between_dists = []
 
     for i, pos_i in enumerate(positions):
-        for j, pos_j in enumerate(positions[i+1:], i+1):
+        for j, pos_j in enumerate(positions[i + 1 :], i + 1):
             d = poincare_distance(z_B_hyp[pos_i], z_B_hyp[pos_j]).item()
             if labels[i] == labels[j]:
                 within_dists.append(d)
@@ -491,13 +540,13 @@ def train_codon_encoder(embeddings, positions_data, force=False):
         # Simplified contrastive loss with clamping for stability
         loss_contrastive = torch.tensor(0.0)
         for i, j in positive_pairs:
-            d = poincare_distance(embeddings_out[i:i+1], embeddings_out[j:j+1])
+            d = poincare_distance(embeddings_out[i : i + 1], embeddings_out[j : j + 1])
             d = torch.clamp(d, 0, 10)  # Clamp for stability
             loss_contrastive = loss_contrastive + d.pow(2)
 
         n_neg = min(len(negative_pairs), len(positive_pairs) * 2)
         for i, j in negative_pairs[:n_neg]:
-            d = poincare_distance(embeddings_out[i:i+1], embeddings_out[j:j+1])
+            d = poincare_distance(embeddings_out[i : i + 1], embeddings_out[j : j + 1])
             d = torch.clamp(d, 0, 10)  # Clamp for stability
             loss_contrastive = loss_contrastive + F.relu(2.0 - d).pow(2)
 
@@ -507,7 +556,7 @@ def train_codon_encoder(embeddings, positions_data, force=False):
         loss_center = torch.tensor(0.0)
         for i, cluster_id in enumerate(codon_clusters):
             center = model.cluster_centers[cluster_id]
-            d = poincare_distance(embeddings_out[i:i+1], center.unsqueeze(0))
+            d = poincare_distance(embeddings_out[i : i + 1], center.unsqueeze(0))
             loss_center = loss_center + d.pow(2)
         loss_center = loss_center / len(codon_clusters)
 
@@ -535,12 +584,12 @@ def train_codon_encoder(embeddings, positions_data, force=False):
             best_state = {k: v.clone() for k, v in model.state_dict().items()}
 
         if epoch % 50 == 0 or epoch == 299:
-            print(f"    Epoch {epoch:3d}: loss={loss.item():.4f}, acc={acc*100:.1f}%")
+            print(f"    Epoch {epoch:3d}: loss={loss.item():.4f}, acc={acc * 100:.1f}%")
 
     # Restore best model
     if best_state is not None:
         model.load_state_dict(best_state)
-        print(f"  Restored best model with accuracy: {best_acc*100:.1f}%")
+        print(f"  Restored best model with accuracy: {best_acc * 100:.1f}%")
 
     # Evaluate
     model.eval()
@@ -586,8 +635,8 @@ def train_codon_encoder(embeddings, positions_data, force=False):
     }
 
     torch.save(output, encoder_path)
-    print(f"\n  Cluster accuracy: {cluster_acc*100:.1f}%")
-    print(f"  Synonymous accuracy: {synonymous_acc*100:.1f}%")
+    print(f"\n  Cluster accuracy: {cluster_acc * 100:.1f}%")
+    print(f"  Synonymous accuracy: {synonymous_acc * 100:.1f}%")
     print(f"  Saved: {encoder_path}")
 
     # Also save to HIV data directory

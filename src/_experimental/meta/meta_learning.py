@@ -22,8 +22,8 @@ References:
 from __future__ import annotations
 
 import copy
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -38,8 +38,8 @@ class Task:
     support_y: torch.Tensor
     query_x: torch.Tensor
     query_y: torch.Tensor
-    task_id: Optional[int] = None
-    metadata: Dict = field(default_factory=dict)
+    task_id: int | None = None
+    metadata: dict = field(default_factory=dict)
 
     @property
     def n_support(self) -> int:
@@ -49,7 +49,7 @@ class Task:
     def n_query(self) -> int:
         return len(self.query_x)
 
-    def to(self, device: torch.device) -> "Task":
+    def to(self, device: torch.device) -> Task:
         """Move task data to device."""
         return Task(
             support_x=self.support_x.to(device),
@@ -102,7 +102,7 @@ class MAML(nn.Module):
         self,
         support_x: torch.Tensor,
         support_y: torch.Tensor,
-        loss_fn: Optional[Callable] = None,
+        loss_fn: Callable | None = None,
     ) -> nn.Module:
         """Adapt model to task using support set.
 
@@ -133,7 +133,7 @@ class MAML(nn.Module):
             )
 
             # Update parameters
-            for param, grad in zip(adapted_model.parameters(), grads):
+            for param, grad in zip(adapted_model.parameters(), grads, strict=False):
                 param.data = param.data - self.inner_lr * grad
 
         return adapted_model
@@ -141,8 +141,8 @@ class MAML(nn.Module):
     def forward(
         self,
         task: Task,
-        loss_fn: Optional[Callable] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        loss_fn: Callable | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass for a single task.
 
         Args:
@@ -166,10 +166,10 @@ class MAML(nn.Module):
 
     def meta_train_step(
         self,
-        tasks: List[Task],
+        tasks: list[Task],
         meta_optimizer: torch.optim.Optimizer,
-        loss_fn: Optional[Callable] = None,
-    ) -> Dict[str, float]:
+        loss_fn: Callable | None = None,
+    ) -> dict[str, float]:
         """Perform one meta-training step.
 
         Args:
@@ -314,7 +314,7 @@ class PAdicTaskSampler:
             metadata={"anchor_padic_idx": self.padic_indices[anchor_idx].item()},
         )
 
-    def sample_batch(self, n_tasks: int) -> List[Task]:
+    def sample_batch(self, n_tasks: int) -> list[Task]:
         """Sample a batch of tasks."""
         return [self.sample_task() for _ in range(n_tasks)]
 
@@ -425,7 +425,7 @@ class FewShotAdapter(nn.Module):
 
             # Update adaptation layer
             grad = torch.autograd.grad(loss, self.adapt_layer.parameters())
-            for param, g in zip(self.adapt_layer.parameters(), grad):
+            for param, g in zip(self.adapt_layer.parameters(), grad, strict=False):
                 param.data = param.data - self.adapt_lr * g
 
         # Predict on query set
@@ -472,8 +472,8 @@ class Reptile(nn.Module):
     def train_on_task(
         self,
         task: Task,
-        loss_fn: Optional[Callable] = None,
-    ) -> Dict[str, torch.Tensor]:
+        loss_fn: Callable | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Train model on a single task.
 
         Returns the difference between initial and final parameters.
@@ -508,9 +508,9 @@ class Reptile(nn.Module):
 
     def meta_step(
         self,
-        tasks: List[Task],
-        loss_fn: Optional[Callable] = None,
-    ) -> Dict[str, float]:
+        tasks: list[Task],
+        loss_fn: Callable | None = None,
+    ) -> dict[str, float]:
         """Perform meta-update on batch of tasks."""
         if loss_fn is None:
             loss_fn = F.cross_entropy

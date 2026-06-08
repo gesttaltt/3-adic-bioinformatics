@@ -19,7 +19,7 @@ import logging
 import queue
 import threading
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import torch
 
@@ -44,13 +44,13 @@ class AsyncCheckpointSaver:
         Args:
             max_queue_size: Max pending saves before blocking
         """
-        self._queue: queue.Queue[Tuple[Dict[str, Any], Path]] = queue.Queue(maxsize=max_queue_size)
+        self._queue: queue.Queue[tuple[dict[str, Any], Path]] = queue.Queue(maxsize=max_queue_size)
         self._running = True
         self._thread = threading.Thread(target=self._save_loop, daemon=True)
         self._thread.start()
         self._saves_completed = 0
 
-    def save_async(self, checkpoint: Dict[str, Any], path: Path) -> None:
+    def save_async(self, checkpoint: dict[str, Any], path: Path) -> None:
         """Queue a checkpoint for async saving.
 
         Args:
@@ -66,7 +66,7 @@ class AsyncCheckpointSaver:
         checkpoint_copy = self._deep_copy_checkpoint(checkpoint)
         self._queue.put((checkpoint_copy, path))
 
-    def _deep_copy_checkpoint(self, checkpoint: Dict[str, Any]) -> Dict[str, Any]:
+    def _deep_copy_checkpoint(self, checkpoint: dict[str, Any]) -> dict[str, Any]:
         """Deep copy checkpoint, handling tensor state dicts specially."""
         result = {}
         for key, value in checkpoint.items():
@@ -142,7 +142,7 @@ class CheckpointManager:
         epoch: int,
         model: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         is_best: bool = False,
     ) -> None:
         """Save checkpoint with model, optimizer, and metadata.
@@ -177,11 +177,11 @@ class CheckpointManager:
         if epoch % self.checkpoint_freq == 0:
             save_fn(checkpoint, self.checkpoint_dir / f"epoch_{epoch}.pt")
 
-    def _save_sync(self, checkpoint: Dict[str, Any], path: Path) -> None:
+    def _save_sync(self, checkpoint: dict[str, Any], path: Path) -> None:
         """Synchronous (blocking) save."""
         torch.save(checkpoint, path)
 
-    def _save_async(self, checkpoint: Dict[str, Any], path: Path) -> None:
+    def _save_async(self, checkpoint: dict[str, Any], path: Path) -> None:
         """Asynchronous (non-blocking) save."""
         assert self._async_saver is not None, "Async saver not initialized"
         self._async_saver.save_async(checkpoint, path)
@@ -194,10 +194,10 @@ class CheckpointManager:
     def load_checkpoint(
         self,
         model: torch.nn.Module,
-        optimizer: Optional[torch.optim.Optimizer] = None,
+        optimizer: torch.optim.Optimizer | None = None,
         checkpoint_name: str = "latest",
         device: str = "cuda",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Load checkpoint and restore model/optimizer state.
 
         Args:
@@ -234,7 +234,7 @@ class CheckpointManager:
 
         return checkpoint
 
-    def list_checkpoints(self) -> Dict[str, list]:
+    def list_checkpoints(self) -> dict[str, list]:
         """List all available checkpoints.
 
         Returns:
@@ -255,7 +255,7 @@ class CheckpointManager:
             "epochs": sorted(epochs, key=lambda x: int(x.split("_")[1])),
         }
 
-    def get_latest_epoch(self) -> Optional[int]:
+    def get_latest_epoch(self) -> int | None:
         """Get the latest saved epoch number.
 
         Returns:

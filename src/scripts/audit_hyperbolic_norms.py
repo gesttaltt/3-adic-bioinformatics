@@ -7,16 +7,14 @@ categorizes them, and outputs a detailed report.
 """
 
 import ast
-import os
-import sys
-from pathlib import Path
 from dataclasses import dataclass, field
-from typing import List, Dict, Set
-from collections import defaultdict
+from pathlib import Path
+
 
 @dataclass
 class NormUsage:
     """A single norm usage found in code."""
+
     file: str
     line: int
     col: int
@@ -25,24 +23,27 @@ class NormUsage:
     norm_type: str  # 'torch.norm', 'np.linalg.norm', '.norm()'
     likely_category: str  # 'needs_review', 'likely_correct', 'in_helper'
 
+
 @dataclass
 class FileAnalysis:
     """Analysis results for a single file."""
+
     filepath: str
     has_hyperbolic_helper: bool = False
     has_poincare_distance: bool = False
-    norm_usages: List[NormUsage] = field(default_factory=list)
+    norm_usages: list[NormUsage] = field(default_factory=list)
     total_norms: int = 0
     in_helper_count: int = 0
     needs_review_count: int = 0
 
+
 class NormVisitor(ast.NodeVisitor):
     """AST visitor to find norm usages."""
 
-    def __init__(self, source_lines: List[str], filepath: str):
+    def __init__(self, source_lines: list[str], filepath: str):
         self.source_lines = source_lines
         self.filepath = filepath
-        self.usages: List[NormUsage] = []
+        self.usages: list[NormUsage] = []
         self.current_context = "module"
         self.has_hyperbolic_helper = False
         self.has_poincare_distance = False
@@ -52,11 +53,16 @@ class NormVisitor(ast.NodeVisitor):
         self.current_context = f"def {node.name}"
 
         # Check if this is a hyperbolic helper function
-        if node.name in ('hyperbolic_radius', 'hyperbolic_radii', 'poincare_distance',
-                         'poincare_distance_np', 'compute_poincare_distance'):
-            if 'hyperbolic' in node.name:
+        if node.name in (
+            "hyperbolic_radius",
+            "hyperbolic_radii",
+            "poincare_distance",
+            "poincare_distance_np",
+            "compute_poincare_distance",
+        ):
+            if "hyperbolic" in node.name:
                 self.has_hyperbolic_helper = True
-            if 'poincare' in node.name:
+            if "poincare" in node.name:
                 self.has_poincare_distance = True
 
         self.generic_visit(node)
@@ -76,27 +82,28 @@ class NormVisitor(ast.NodeVisitor):
         norm_type = None
 
         # Check for .norm() method call
-        if isinstance(node.func, ast.Attribute) and node.func.attr == 'norm':
-            norm_type = '.norm()'
+        if isinstance(node.func, ast.Attribute) and node.func.attr == "norm":
+            norm_type = ".norm()"
 
         # Check for torch.norm()
         elif isinstance(node.func, ast.Attribute):
-            if isinstance(node.func.value, ast.Name) and node.func.value.id == 'torch':
-                if node.func.attr == 'norm':
-                    norm_type = 'torch.norm'
+            if isinstance(node.func.value, ast.Name) and node.func.value.id == "torch":
+                if node.func.attr == "norm":
+                    norm_type = "torch.norm"
 
         # Check for np.linalg.norm
         elif isinstance(node.func, ast.Attribute):
-            if isinstance(node.func.value, ast.Attribute):
-                if (isinstance(node.func.value.value, ast.Name) and
-                    node.func.value.value.id == 'np' and
-                    node.func.value.attr == 'linalg' and
-                    node.func.attr == 'norm'):
-                    norm_type = 'np.linalg.norm'
+            if isinstance(node.func.value, ast.Attribute) and (
+                isinstance(node.func.value.value, ast.Name)
+                and node.func.value.value.id == "np"
+                and node.func.value.attr == "linalg"
+                and node.func.attr == "norm"
+            ):
+                norm_type = "np.linalg.norm"
 
         # Check for F.normalize or similar
-        elif isinstance(node.func, ast.Attribute) and node.func.attr == 'normalize':
-            norm_type = 'F.normalize'
+        elif isinstance(node.func, ast.Attribute) and node.func.attr == "normalize":
+            norm_type = "F.normalize"
 
         if norm_type:
             line_no = node.lineno
@@ -112,7 +119,7 @@ class NormVisitor(ast.NodeVisitor):
                 code_snippet=code_snippet[:100],
                 context=self.current_context,
                 norm_type=norm_type,
-                likely_category=category
+                likely_category=category,
             )
             self.usages.append(usage)
 
@@ -124,47 +131,47 @@ class NormVisitor(ast.NodeVisitor):
         context_lower = context.lower()
 
         # In helper function - likely correct
-        if any(h in context_lower for h in ('hyperbolic_radi', 'poincare_distance', 'geodesic')):
-            return 'in_helper'
+        if any(h in context_lower for h in ("hyperbolic_radi", "poincare_distance", "geodesic")):
+            return "in_helper"
 
         # Direction normalization - correct
-        if '/' in code and 'norm' in code_lower:
-            if any(x in code_lower for x in ('direction', 'unit', 'normalize')):
-                return 'likely_correct'
+        if "/" in code and "norm" in code_lower:
+            if any(x in code_lower for x in ("direction", "unit", "normalize")):
+                return "likely_correct"
 
         # Clamping/boundary check - correct
-        if any(x in code_lower for x in ('clamp', 'clip', '< 0.9', '> 0.9', 'max_radius')):
-            return 'likely_correct'
+        if any(x in code_lower for x in ("clamp", "clip", "< 0.9", "> 0.9", "max_radius")):
+            return "likely_correct"
 
         # Convergence check - correct
-        if any(x in code_lower for x in ('tol', 'eps', 'converge', 'update')):
-            return 'likely_correct'
+        if any(x in code_lower for x in ("tol", "eps", "converge", "update")):
+            return "likely_correct"
 
         # Euclidean explicitly mentioned - intentional
-        if 'euc' in code_lower or 'euclidean' in context_lower:
-            return 'likely_correct'
+        if "euc" in code_lower or "euclidean" in context_lower:
+            return "likely_correct"
 
         # Radii computation - NEEDS REVIEW
-        if 'radi' in code_lower:
-            return 'needs_review'
+        if "radi" in code_lower:
+            return "needs_review"
 
         # Distance computation without poincare - NEEDS REVIEW
-        if 'dist' in code_lower and 'poincare' not in code_lower:
-            return 'needs_review'
+        if "dist" in code_lower and "poincare" not in code_lower:
+            return "needs_review"
 
         # Embedding norms - NEEDS REVIEW
-        if any(x in code_lower for x in ('emb', 'latent', 'z_')):
-            return 'needs_review'
+        if any(x in code_lower for x in ("emb", "latent", "z_")):
+            return "needs_review"
 
-        return 'needs_review'
+        return "needs_review"
 
 
 def analyze_file(filepath: Path) -> FileAnalysis:
     """Analyze a single Python file."""
     try:
-        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+        with open(filepath, encoding="utf-8", errors="ignore") as f:
             source = f.read()
-            source_lines = source.split('\n')
+            source_lines = source.split("\n")
 
         tree = ast.parse(source)
         visitor = NormVisitor(source_lines, str(filepath))
@@ -176,8 +183,8 @@ def analyze_file(filepath: Path) -> FileAnalysis:
             has_poincare_distance=visitor.has_poincare_distance,
             norm_usages=visitor.usages,
             total_norms=len(visitor.usages),
-            in_helper_count=sum(1 for u in visitor.usages if u.likely_category == 'in_helper'),
-            needs_review_count=sum(1 for u in visitor.usages if u.likely_category == 'needs_review')
+            in_helper_count=sum(1 for u in visitor.usages if u.likely_category == "in_helper"),
+            needs_review_count=sum(1 for u in visitor.usages if u.likely_category == "needs_review"),
         )
         return analysis
 
@@ -202,7 +209,7 @@ def main():
     print(f"\nFound {len(all_files)} Python files in src/")
 
     # Analyze each file
-    results: List[FileAnalysis] = []
+    results: list[FileAnalysis] = []
     files_with_norms = []
 
     print("\nAnalyzing files...")
@@ -239,7 +246,7 @@ def main():
         print(f"    Total norms: {analysis.total_norms}, Needs review: {analysis.needs_review_count}")
 
         for usage in analysis.norm_usages:
-            if usage.likely_category == 'needs_review':
+            if usage.likely_category == "needs_review":
                 print(f"    L{usage.line}: [{usage.norm_type}] {usage.code_snippet[:70]}")
                 print(f"           Context: {usage.context}")
 
@@ -260,9 +267,9 @@ def main():
 
     # Generate markdown report
     report_path = project_root / "V5.12.2_DETAILED_AUDIT.md"
-    with open(report_path, 'w') as f:
+    with open(report_path, "w") as f:
         f.write("# V5.12.2 Detailed Hyperbolic Audit Report\n\n")
-        f.write(f"**Generated:** 2025-12-29\n")
+        f.write("**Generated:** 2025-12-29\n")
         f.write(f"**Total Files Scanned:** {len(all_files)}\n")
         f.write(f"**Files with norm():** {len(files_with_norms)}\n")
         f.write(f"**Files needing review:** {len(files_needing_review)}\n\n")

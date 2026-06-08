@@ -17,7 +17,7 @@ This is the canonical location for:
 
 from __future__ import annotations
 
-from typing import Callable, Iterator, List, Optional
+from collections.abc import Callable, Iterator
 
 import torch
 from torch.utils.data import Dataset, Sampler
@@ -41,8 +41,8 @@ class TernaryDataset(Dataset):
         self,
         operations: torch.Tensor,
         indices: torch.Tensor,
-        valuations: Optional[torch.Tensor] = None,
-        valuation_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
+        valuations: torch.Tensor | None = None,
+        valuation_fn: Callable[[torch.Tensor], torch.Tensor] | None = None,
     ):
         self.operations = operations
         self.indices = indices
@@ -115,19 +115,13 @@ class StratifiedBatchSampler(Sampler):
 
         # Convert to tensors
         for v in self.valuation_groups:
-            self.valuation_groups[v] = torch.tensor(
-                self.valuation_groups[v], dtype=torch.long
-            )
+            self.valuation_groups[v] = torch.tensor(self.valuation_groups[v], dtype=torch.long)
 
         # Separate high and low valuation levels
-        self.high_v_levels = [
-            v for v in self.valuation_groups if v >= self.high_v_threshold
-        ]
-        self.low_v_levels = [
-            v for v in self.valuation_groups if v < self.high_v_threshold
-        ]
+        self.high_v_levels = [v for v in self.valuation_groups if v >= self.high_v_threshold]
+        self.low_v_levels = [v for v in self.valuation_groups if v < self.high_v_threshold]
 
-    def __iter__(self) -> Iterator[List[int]]:
+    def __iter__(self) -> Iterator[list[int]]:
         """Generate stratified batch indices."""
         high_v_budget = int(self.batch_size * self.high_v_budget_ratio)
         low_v_budget = self.batch_size - high_v_budget
@@ -148,9 +142,7 @@ class StratifiedBatchSampler(Sampler):
 
             # Sample from low-valuation levels (proportional to size)
             if self.low_v_levels:
-                total_low = sum(
-                    len(self.valuation_groups[v]) for v in self.low_v_levels
-                )
+                total_low = sum(len(self.valuation_groups[v]) for v in self.low_v_levels)
                 for v in self.low_v_levels:
                     group = self.valuation_groups[v]
                     n_to_sample = max(1, int(low_v_budget * len(group) / total_low))
@@ -163,9 +155,7 @@ class StratifiedBatchSampler(Sampler):
                 batch_indices = [batch_indices[i] for i in indices.tolist()]
             elif len(batch_indices) < self.batch_size:
                 # Pad with random samples
-                extra = torch.randint(
-                    0, self.n_samples, (self.batch_size - len(batch_indices),)
-                )
+                extra = torch.randint(0, self.n_samples, (self.batch_size - len(batch_indices),))
                 batch_indices.extend(extra.tolist())
 
             yield batch_indices
@@ -183,7 +173,7 @@ def create_stratified_batches(
     device: str = "cpu",
     high_valuation_fraction: float = 0.2,
     high_valuation_threshold: int = 4,
-) -> List[torch.Tensor]:
+) -> list[torch.Tensor]:
     """Create stratified batch indices ensuring all valuation levels represented.
 
     High-valuation points are extremely rare (v>=7 is ~9 out of 19683).

@@ -7,8 +7,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from src.diseases.base import DiseaseConfig, DiseaseType, TaskType
 
 
@@ -376,11 +374,7 @@ class DiseaseRegistry:
     def list_by_type(cls, disease_type: DiseaseType) -> list[str]:
         """List diseases of a specific type."""
         cls._initialize()
-        return [
-            name
-            for name, config in cls._diseases.items()
-            if config.disease_type == disease_type
-        ]
+        return [name for name, config in cls._diseases.items() if config.disease_type == disease_type]
 
     @classmethod
     def register(cls, config: DiseaseConfig) -> None:
@@ -405,11 +399,7 @@ class DiseaseRegistry:
     def get_diseases_for_task(cls, task: TaskType) -> list[str]:
         """Get diseases that have a specific task."""
         cls._initialize()
-        return [
-            name
-            for name, config in cls._diseases.items()
-            if task in config.tasks
-        ]
+        return [name for name, config in cls._diseases.items() if task in config.tasks]
 
 
 def get_disease_config(name: str) -> DiseaseConfig:

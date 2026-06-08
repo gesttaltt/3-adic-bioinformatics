@@ -22,7 +22,7 @@ Single responsibility: Orchestrating monitoring components.
 from __future__ import annotations
 
 import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import torch
 
@@ -51,9 +51,9 @@ class TrainingMonitor:
     def __init__(
         self,
         eval_num_samples: int = 100000,
-        tensorboard_dir: Optional[str] = None,
-        experiment_name: Optional[str] = None,
-        log_dir: Optional[str] = "logs",
+        tensorboard_dir: str | None = None,
+        experiment_name: str | None = None,
+        log_dir: str | None = "logs",
         log_to_file: bool = True,
     ):
         """Initialize training monitor.
@@ -109,32 +109,32 @@ class TrainingMonitor:
         self.metrics.patience_counter = value
 
     @property
-    def coverage_A_history(self) -> List[int]:
+    def coverage_A_history(self) -> list[int]:
         """VAE-A coverage history."""
         return self.metrics.coverage_A_history
 
     @property
-    def coverage_B_history(self) -> List[int]:
+    def coverage_B_history(self) -> list[int]:
         """VAE-B coverage history."""
         return self.metrics.coverage_B_history
 
     @property
-    def H_A_history(self) -> List[float]:
+    def H_A_history(self) -> list[float]:
         """VAE-A entropy history."""
         return self.metrics.H_A_history
 
     @property
-    def H_B_history(self) -> List[float]:
+    def H_B_history(self) -> list[float]:
         """VAE-B entropy history."""
         return self.metrics.H_B_history
 
     @property
-    def correlation_hyp_history(self) -> List[float]:
+    def correlation_hyp_history(self) -> list[float]:
         """Hyperbolic correlation history."""
         return self.metrics.correlation_hyp_history
 
     @property
-    def correlation_euc_history(self) -> List[float]:
+    def correlation_euc_history(self) -> list[float]:
         """Euclidean correlation history."""
         return self.metrics.correlation_euc_history
 
@@ -268,7 +268,7 @@ class TrainingMonitor:
         hyp_kl_A: float = 0.0,
         hyp_kl_B: float = 0.0,
         centroid_loss: float = 0.0,
-        homeostatic_metrics: Optional[Dict[str, float]] = None,
+        homeostatic_metrics: dict[str, float] | None = None,
     ) -> None:
         """Log v5.10 hyperbolic metrics at epoch level."""
         # Update correlation tracking
@@ -312,7 +312,7 @@ class TrainingMonitor:
         hyp_kl_B: float = 0.0,
         centroid_loss: float = 0.0,
         radial_loss: float = 0.0,
-        homeostatic_metrics: Optional[Dict[str, float]] = None,
+        homeostatic_metrics: dict[str, float] | None = None,
     ) -> None:
         """Log comprehensive epoch summary."""
         # Update best coverage tracking
@@ -373,8 +373,8 @@ class TrainingMonitor:
         self,
         epoch: int,
         total_epochs: int,
-        train_losses: Dict[str, Any],
-        val_losses: Dict[str, Any],
+        train_losses: dict[str, Any],
+        val_losses: dict[str, Any],
         unique_A: int,
         cov_A: float,
         unique_B: int,
@@ -402,8 +402,8 @@ class TrainingMonitor:
     def log_tensorboard(
         self,
         epoch: int,
-        train_losses: Dict[str, Any],
-        val_losses: Dict[str, Any],
+        train_losses: dict[str, Any],
+        val_losses: dict[str, Any],
         unique_A: int,
         unique_B: int,
         cov_A: float,
@@ -433,15 +433,13 @@ class TrainingMonitor:
         include_all: bool = False,
     ) -> None:
         """Log latent embeddings to TensorBoard."""
-        self.tensorboard.log_manifold_embedding(
-            model, epoch, device, n_samples, include_all
-        )
+        self.tensorboard.log_manifold_embedding(model, epoch, device, n_samples, include_all)
 
     def close(self) -> None:
         """Close TensorBoard writer and flush all pending events."""
         self.tensorboard.close()
 
-    def get_metadata(self) -> Dict[str, Any]:
+    def get_metadata(self) -> dict[str, Any]:
         """Get all tracked metadata for checkpointing."""
         return self.metrics.get_metadata()
 

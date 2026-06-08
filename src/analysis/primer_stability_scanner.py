@@ -34,6 +34,7 @@ import numpy as np
 
 try:
     from Bio import SeqIO
+
     HAS_BIOPYTHON = True
 except ImportError:
     HAS_BIOPYTHON = False
@@ -105,15 +106,17 @@ def padic_window_embedding(window: str, p: int = 3) -> np.ndarray:
             n //= p
         return v
 
-    combined = sum(idx * (4 ** i) for i, idx in enumerate(indices[:10]))
+    combined = sum(idx * (4**i) for i, idx in enumerate(indices[:10]))
     valuation = padic_val(combined + 1)
 
-    features = np.array([
-        np.mean(indices),
-        np.std(indices) if len(indices) > 1 else 0,
-        valuation,
-        sum(1 for i in indices if i in [2, 3]) / len(indices),  # GC ratio
-    ])
+    features = np.array(
+        [
+            np.mean(indices),
+            np.std(indices) if len(indices) > 1 else 0,
+            valuation,
+            sum(1 for i in indices if i in [2, 3]) / len(indices),  # GC ratio
+        ]
+    )
 
     return features
 
@@ -132,7 +135,7 @@ def scan_genome_windows(
     sequence = sequence.upper()
 
     for pos in range(0, len(sequence) - window_size + 1, step):
-        window = sequence[pos:pos + window_size]
+        window = sequence[pos : pos + window_size]
 
         # Skip windows with Ns or other ambiguous bases
         if any(b not in "ATGCU" for b in window):
@@ -280,43 +283,45 @@ def export_candidates(candidates: list[PrimerCandidate], output_path: Path) -> N
 
     with open(output_path, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow([
-            "rank",
-            "position",
-            "sequence",
-            "length",
-            "stability_score",
-            "conservation_score",
-            "combined_score",
-            "gc_content",
-            "tm_estimate",
-            "variance_over_time",
-            "n_sequences",
-        ])
+        writer.writerow(
+            [
+                "rank",
+                "position",
+                "sequence",
+                "length",
+                "stability_score",
+                "conservation_score",
+                "combined_score",
+                "gc_content",
+                "tm_estimate",
+                "variance_over_time",
+                "n_sequences",
+            ]
+        )
 
         for i, c in enumerate(candidates, 1):
-            writer.writerow([
-                i,
-                c.position,
-                c.sequence,
-                c.length,
-                f"{c.stability_score:.4f}",
-                f"{c.conservation_score:.4f}",
-                f"{c.stability_score * c.conservation_score:.4f}",
-                f"{c.gc_content:.3f}",
-                f"{c.tm_estimate:.1f}",
-                f"{c.variance_over_time:.6f}",
-                c.n_sequences,
-            ])
+            writer.writerow(
+                [
+                    i,
+                    c.position,
+                    c.sequence,
+                    c.length,
+                    f"{c.stability_score:.4f}",
+                    f"{c.conservation_score:.4f}",
+                    f"{c.stability_score * c.conservation_score:.4f}",
+                    f"{c.gc_content:.3f}",
+                    f"{c.tm_estimate:.1f}",
+                    f"{c.variance_over_time:.6f}",
+                    c.n_sequences,
+                ]
+            )
 
     print(f"Exported {len(candidates)} primer candidates to {output_path}")
 
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Primer stability scanner for arbovirus diagnostics"
-    )
+    parser = argparse.ArgumentParser(description="Primer stability scanner for arbovirus diagnostics")
     parser.add_argument(
         "--input",
         type=str,
@@ -378,9 +383,11 @@ def main():
     print("\n=== Top 10 Primer Candidates ===")
     for i, c in enumerate(candidates[:10], 1):
         print(f"{i:2d}. Pos {c.position:5d}: {c.sequence}")
-        print(f"    Stability={c.stability_score:.3f} "
-              f"Conservation={c.conservation_score:.3f} "
-              f"GC={c.gc_content:.2f} Tm={c.tm_estimate:.1f}")
+        print(
+            f"    Stability={c.stability_score:.3f} "
+            f"Conservation={c.conservation_score:.3f} "
+            f"GC={c.gc_content:.2f} Tm={c.tm_estimate:.1f}"
+        )
 
     # Export
     export_candidates(candidates, Path(args.output))

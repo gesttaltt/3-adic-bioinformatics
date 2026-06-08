@@ -60,7 +60,7 @@ def compute_3adic_valuation_distribution(p: int = 3, n_digits: int = 9) -> dict:
     Returns:
         dict mapping valuation -> count
     """
-    total = p ** n_digits
+    total = p**n_digits
     distribution = {}
 
     # v=k: divisible by p^k but not p^(k+1)
@@ -81,7 +81,7 @@ def compute_hierarchy_ceiling(p: int = 3, n_digits: int = 9) -> dict:
     Returns a dict with the ceiling value and intermediate calculations.
     """
     dist = compute_3adic_valuation_distribution(p, n_digits)
-    n = p ** n_digits
+    n = p**n_digits
     mean_rank = (n + 1) / 2
 
     # Sort by valuation (ascending), which corresponds to largest radius first
@@ -102,7 +102,7 @@ def compute_hierarchy_ceiling(p: int = 3, n_digits: int = 9) -> dict:
     # For maximum negative Spearman: assign lowest radii to highest valuation.
     # Highest valuation = v=n_digits (rank position closest to n).
     # Flip: rad_rank_v = n + 1 - val_rank_v
-    rad_rank = {v: n + 1 - val_rank[v] for v in levels}
+    {v: n + 1 - val_rank[v] for v in levels}
 
     # SSBetween (valuation) = sum_v nv * (val_rank_v - mean)^2
     # This equals SSTotal_val because within-group variance is zero (all ties)
@@ -110,11 +110,10 @@ def compute_hierarchy_ceiling(p: int = 3, n_digits: int = 9) -> dict:
 
     # SSTotal for radius ranks (no ties assumed, ranks 1..n)
     # = n(n^2-1)/12
-    ss_total_rad = n * (n ** 2 - 1) / 12
+    ss_total_rad = n * (n**2 - 1) / 12
 
     # Verify that SSBetween_val <= SSTotal_val
     # SSTotal_val = SSBetween_val + SSWithin_val = SSBetween_val (since within = 0)
-    ss_total_val = ss_between_val  # zero within-group variance
 
     # Maximum |Spearman rho|
     rho_ceiling = -np.sqrt(ss_between_val / ss_total_rad)
@@ -148,30 +147,29 @@ def print_proof(result: dict) -> None:
     dist = {int(k): v for k, v in result["distribution"].items()}
 
     print(f"\nSystem: p={p}, exponent={q}, total operations={n:,}")
-    print(f"\nValuation distribution:")
+    print("\nValuation distribution:")
     print(f"  {'v':>4}  {'count':>8}  {'fraction':>10}")
-    print(f"  {'-'*4}  {'-'*8}  {'-'*10}")
+    print(f"  {'-' * 4}  {'-' * 8}  {'-' * 10}")
     for v in sorted(dist.keys()):
         frac = dist[v] / n
         print(f"  {v:>4}  {dist[v]:>8,}  {frac:>10.4f}")
 
-    print(f"\nKey statistic: v=0 contains {result['v0_fraction']:.4f} "
-          f"({dist[0]:,}/{n:,}) of all samples")
+    print(f"\nKey statistic: v=0 contains {result['v0_fraction']:.4f} ({dist[0]:,}/{n:,}) of all samples")
 
     print(f"\nSSBetween_val (valuation between-group SS) = {result['ss_between_val']:.0f}")
     print(f"SSTotal_rad   (radius total SS, ranks 1..n) = {result['ss_total_rad']:.0f}")
     print(f"eta^2 = SSBetween / SSTotal = {result['eta_squared']:.6f}")
 
-    print(f"\nMaximum achievable Spearman correlation:")
+    print("\nMaximum achievable Spearman correlation:")
     print(f"  rho_max = -sqrt(eta^2) = -sqrt({result['eta_squared']:.6f})")
     print(f"  rho_max = {result['rho_ceiling']:.6f}")
     print(f"  |rho_max| = {result['rho_ceiling_abs']:.6f}")
 
-    print(f"\nDocumented ceiling in CLAUDE.md: -0.8321")
+    print("\nDocumented ceiling in CLAUDE.md: -0.8321")
     print(f"Computed ceiling:               {result['rho_ceiling']:.4f}")
 
     tol = 0.001
-    if abs(abs(result['rho_ceiling']) - 0.8321) < tol:
+    if abs(abs(result["rho_ceiling"]) - 0.8321) < tol:
         print(f"\nVERIFIED: Computed ceiling matches documented value (within {tol})")
     else:
         print(f"\nDISCREPANCY: Computed {result['rho_ceiling']:.4f} vs documented -0.8321")
@@ -213,7 +211,7 @@ captures only between-group variance in valuations.
 def verify_with_simulation(n_samples: int = 1000) -> None:
     """Numerically verify the ceiling by constructing the optimal assignment."""
     p, q = 3, 9
-    n = p ** q
+    n = p**q
 
     print("=" * 70)
     print("NUMERICAL VERIFICATION (optimal assignment simulation)")
@@ -233,17 +231,18 @@ def verify_with_simulation(n_samples: int = 1000) -> None:
     # Optimal radius assignment: highest valuation -> smallest radius
     # Assign radius rank = n - argrank(valuation) + 1 within each group
     # (Simply: sort by valuation descending, assign radius ranks 1..n)
-    order = np.argsort(-valuations, kind='stable')  # descending valuation
+    order = np.argsort(-valuations, kind="stable")  # descending valuation
     radius_ranks = np.empty(n, dtype=float)
     for rank_pos, idx in enumerate(order):
         radius_ranks[idx] = rank_pos + 1
 
     from scipy.stats import spearmanr
+
     rho, p_val = spearmanr(valuations, radius_ranks)
     print(f"Spearman rho with optimal assignment: {rho:.6f}")
     print(f"Theoretical ceiling:                  {compute_hierarchy_ceiling()['rho_ceiling']:.6f}")
 
-    diff = abs(rho - compute_hierarchy_ceiling()['rho_ceiling'])
+    diff = abs(rho - compute_hierarchy_ceiling()["rho_ceiling"])
     print(f"Difference:                           {diff:.2e}")
     if diff < 1e-4:
         print("MATCH: Simulation confirms the theoretical ceiling.")
@@ -257,6 +256,7 @@ if __name__ == "__main__":
     print()
     try:
         from scipy.stats import spearmanr
+
         verify_with_simulation()
     except ImportError:
         print("scipy not available — skipping numerical verification")

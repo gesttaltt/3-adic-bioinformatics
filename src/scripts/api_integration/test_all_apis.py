@@ -12,21 +12,20 @@ Author: Claude Code
 Date: December 28, 2024
 """
 
-import json
-import time
-import requests
-import sys
 import io
-from pathlib import Path
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass
+import json
+import sys
+import time
 import warnings
+from pathlib import Path
+
+import requests
 
 # Fix Windows encoding issues
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 # Suppress warnings for cleaner output
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 # Output directory for API results
 OUTPUT_DIR = Path(__file__).parent.parent.parent / "results" / "api_tests"
@@ -39,10 +38,7 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # HIV-1 HXB2 Reference sequences (standard reference strain)
 HIV_SEQUENCES = {
-    "protease": (
-        "PQVTLWQRPLVTIKIGGQLKEALLDTGADDTVLEEMSLPGRWKPKMIGGIGGFIKVRQYD"
-        "QILIEICGHKAIGTVLVGPTPVNIIGRNLLTQIGCTLNF"
-    ),
+    "protease": ("PQVTLWQRPLVTIKIGGQLKEALLDTGADDTVLEEMSLPGRWKPKMIGGIGGFIKVRQYDQILIEICGHKAIGTVLVGPTPVNIIGRNLLTQIGCTLNF"),
     "reverse_transcriptase": (
         "PISPIETVPVKLKPGMDGPKVKQWPLTEEKIKALVEICTEMEKEGKISKIGPENPYNTPV"
         "FAIKKKDSTKWRKLVDFRELNKRTQDFWEVQLGIPHPAGLKKKKSVTVLDVGDAYFSVPL"
@@ -88,6 +84,7 @@ def print_subsection(title: str):
 # 1. ESM-2 PROTEIN LANGUAGE MODEL
 # =============================================================================
 
+
 def test_esm2_embeddings():
     """
     Test ESM-2 protein embeddings from Facebook/Meta Research.
@@ -106,7 +103,7 @@ def test_esm2_embeddings():
 
     try:
         import torch
-        from transformers import AutoTokenizer, AutoModel
+        from transformers import AutoModel, AutoTokenizer
 
         print("Loading ESM-2 model (this may take a moment)...")
 
@@ -117,8 +114,8 @@ def test_esm2_embeddings():
         model.eval()
 
         print(f"✓ Model loaded: {model_name}")
-        print(f"  - Parameters: 8M")
-        print(f"  - Embedding dimension: 320")
+        print("  - Parameters: 8M")
+        print("  - Embedding dimension: 320")
 
         # Test on HIV protease
         sequence = HIV_SEQUENCES["protease"]
@@ -140,7 +137,7 @@ def test_esm2_embeddings():
         print(f"\n✓ Sequence embedding (mean pooled): {seq_embedding.shape}")
 
         # Show embedding statistics
-        print(f"\nEmbedding statistics:")
+        print("\nEmbedding statistics:")
         print(f"  - Mean: {seq_embedding.mean().item():.4f}")
         print(f"  - Std: {seq_embedding.std().item():.4f}")
         print(f"  - Min: {seq_embedding.min().item():.4f}")
@@ -164,10 +161,10 @@ def test_esm2_embeddings():
         cos_sim = torch.nn.functional.cosine_similarity(wt_emb, mut_emb)
         euclidean_dist = torch.norm(wt_emb - mut_emb)
 
-        print(f"M46I mutation analysis:")
+        print("M46I mutation analysis:")
         print(f"  - Cosine similarity (WT vs M46I): {cos_sim.item():.6f}")
         print(f"  - Euclidean distance: {euclidean_dist.item():.4f}")
-        print(f"  - Interpretation: Small distance = conservative mutation")
+        print("  - Interpretation: Small distance = conservative mutation")
 
         # How to use in our model
         print_subsection("Integration with Our VAE")
@@ -223,6 +220,7 @@ How to integrate ESM-2 embeddings:
 # 2. PROTTRANS (T5-BASED PROTEIN MODEL)
 # =============================================================================
 
+
 def test_prottrans_embeddings():
     """
     Test ProtTrans embeddings from Rostlab.
@@ -240,9 +238,10 @@ def test_prottrans_embeddings():
     print_section("2. PROTTRANS EMBEDDINGS")
 
     try:
-        import torch
-        from transformers import T5Tokenizer, T5EncoderModel
         import re
+
+        import torch
+        from transformers import T5EncoderModel, T5Tokenizer
 
         print("Loading ProtTrans model...")
 
@@ -255,7 +254,8 @@ def test_prottrans_embeddings():
             model = T5EncoderModel.from_pretrained(model_name)
         except Exception:
             print("  Large model not cached, using smaller prot_bert...")
-            from transformers import BertTokenizer, BertModel
+            from transformers import BertModel, BertTokenizer
+
             model_name = "Rostlab/prot_bert"
             tokenizer = BertTokenizer.from_pretrained(model_name, do_lower_case=False)
             model = BertModel.from_pretrained(model_name)
@@ -317,6 +317,7 @@ Recommendation: Use ESM-2 for best accuracy, ProtTrans for memory constraints
 # 3. ALPHAFOLD DATABASE API
 # =============================================================================
 
+
 def test_alphafold_api():
     """
     Test AlphaFold Database API for protein structures.
@@ -357,7 +358,7 @@ def test_alphafold_api():
             if response.status_code == 200:
                 data = response.json()[0] if isinstance(response.json(), list) else response.json()
 
-                print(f"  ✓ Structure available!")
+                print("  ✓ Structure available!")
                 print(f"    - Gene: {data.get('gene', 'N/A')}")
                 print(f"    - Organism: {data.get('organismScientificName', 'N/A')}")
                 print(f"    - Sequence length: {data.get('uniprotEnd', 0) - data.get('uniprotStart', 0) + 1}")
@@ -371,12 +372,12 @@ def test_alphafold_api():
                 results[uniprot_id] = data
 
             elif response.status_code == 404:
-                print(f"  ✗ No structure available (404)")
+                print("  ✗ No structure available (404)")
             else:
                 print(f"  ✗ Error: {response.status_code}")
 
         except requests.exceptions.Timeout:
-            print(f"  ✗ Request timed out")
+            print("  ✗ Request timed out")
         except Exception as e:
             print(f"  ✗ Error: {e}")
 
@@ -420,7 +421,7 @@ From AlphaFold structures, we can extract:
 
     # Save results
     output_file = OUTPUT_DIR / "alphafold_results.json"
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\n✓ Results saved to: {output_file}")
 
@@ -430,6 +431,7 @@ From AlphaFold structures, we can extract:
 # =============================================================================
 # 4. STANFORD HIVDB API
 # =============================================================================
+
 
 def test_stanford_hivdb_api():
     """
@@ -515,25 +517,18 @@ def test_stanford_hivdb_api():
     mutant_seq = mutant_seq[:53] + "V" + mutant_seq[54:]  # I54V
     mutant_seq = mutant_seq[:81] + "A" + mutant_seq[82:]  # V82A
 
-    variables = {
-        "sequences": [
-            {
-                "header": "HIV1_Protease_Mutant_M46I_I54V_V82A",
-                "sequence": mutant_seq
-            }
-        ]
-    }
+    variables = {"sequences": [{"header": "HIV1_Protease_Mutant_M46I_I54V_V82A", "sequence": mutant_seq}]}
 
     print("Testing Stanford HIVDB GraphQL API...")
     print(f"  Query URL: {api_url}")
-    print(f"  Test sequence: HIV-1 Protease with M46I, I54V, V82A mutations")
+    print("  Test sequence: HIV-1 Protease with M46I, I54V, V82A mutations")
 
     try:
         response = requests.post(
             api_url,
             json={"query": query, "variables": variables},
             headers={"Content-Type": "application/json"},
-            timeout=30
+            timeout=30,
         )
 
         if response.status_code == 200:
@@ -567,12 +562,12 @@ def test_stanford_hivdb_api():
             for dr in analysis.get("drugResistance", []):
                 print(f"\n  Gene: {dr['gene']['name']}")
                 print(f"  {'Drug':<10} {'Score':>6} {'Level':<20} {'Interpretation'}")
-                print(f"  {'-'*60}")
+                print(f"  {'-' * 60}")
 
                 for ds in dr.get("drugScores", []):
                     drug = ds["drug"]["displayAbbr"]
                     score = ds["score"]
-                    level = ds["level"]
+                    ds["level"]
                     text = ds["text"]
                     print(f"  {drug:<10} {score:>6.1f} {text:<20}")
 
@@ -583,7 +578,7 @@ def test_stanford_hivdb_api():
 
             # Save full response
             output_file = OUTPUT_DIR / "stanford_hivdb_results.json"
-            with open(output_file, 'w') as f:
+            with open(output_file, "w") as f:
                 json.dump(data, f, indent=2)
             print(f"\n✓ Full results saved to: {output_file}")
 
@@ -636,6 +631,7 @@ Integration with our model:
 # 5. UNIPROT REST API
 # =============================================================================
 
+
 def test_uniprot_api():
     """
     Test UniProt REST API for protein annotations.
@@ -675,18 +671,20 @@ def test_uniprot_api():
             if response.status_code == 200:
                 data = response.json()
 
-                print(f"  ✓ Entry found!")
+                print("  ✓ Entry found!")
 
                 # Basic info
-                print(f"    - Primary name: {data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'N/A')}")
+                print(
+                    f"    - Primary name: {data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'N/A')}"
+                )
                 print(f"    - Organism: {data.get('organism', {}).get('scientificName', 'N/A')}")
                 print(f"    - Sequence length: {data.get('sequence', {}).get('length', 0)} aa")
 
                 # Features (domains, binding sites, etc.)
-                features = data.get('features', [])
+                features = data.get("features", [])
                 feature_types = {}
                 for f in features:
-                    ft = f.get('type', 'unknown')
+                    ft = f.get("type", "unknown")
                     feature_types[ft] = feature_types.get(ft, 0) + 1
 
                 print(f"    - Features: {len(features)} total")
@@ -694,8 +692,8 @@ def test_uniprot_api():
                     print(f"      • {ft}: {count}")
 
                 # Cross-references
-                xrefs = data.get('uniProtKBCrossReferences', [])
-                xref_dbs = set(x.get('database') for x in xrefs)
+                xrefs = data.get("uniProtKBCrossReferences", [])
+                xref_dbs = set(x.get("database") for x in xrefs)
                 print(f"    - Cross-references: {len(xrefs)} to {len(xref_dbs)} databases")
                 print(f"      • Databases: {', '.join(sorted(list(xref_dbs))[:10])}...")
 
@@ -717,11 +715,13 @@ def test_uniprot_api():
         response = requests.get(search_url, timeout=30)
         if response.status_code == 200:
             data = response.json()
-            results = data.get('results', [])
+            results = data.get("results", [])
             print(f"  ✓ Found {len(results)} results (showing first 5)")
             for r in results:
-                acc = r.get('primaryAccession', 'N/A')
-                name = r.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'N/A')
+                acc = r.get("primaryAccession", "N/A")
+                name = (
+                    r.get("proteinDescription", {}).get("recommendedName", {}).get("fullName", {}).get("value", "N/A")
+                )
                 print(f"    - {acc}: {name[:50]}")
     except Exception as e:
         print(f"  ✗ Error: {e}")
@@ -760,6 +760,7 @@ What we can extract:
 # 6. PDB DATA API
 # =============================================================================
 
+
 def test_pdb_api():
     """
     Test RCSB PDB Data API for protein structures.
@@ -793,26 +794,22 @@ def test_pdb_api():
                     "parameters": {
                         "attribute": "rcsb_entity_source_organism.taxonomy_lineage.name",
                         "operator": "exact_match",
-                        "value": "Human immunodeficiency virus 1"
-                    }
+                        "value": "Human immunodeficiency virus 1",
+                    },
                 },
                 {
                     "type": "terminal",
                     "service": "text",
-                    "parameters": {
-                        "attribute": "struct.title",
-                        "operator": "contains_words",
-                        "value": "protease"
-                    }
-                }
-            ]
+                    "parameters": {"attribute": "struct.title", "operator": "contains_words", "value": "protease"},
+                },
+            ],
         },
         "return_type": "entry",
         "request_options": {
             "results_content_type": ["experimental"],
             "return_all_hits": False,
-            "results_verbosity": "minimal"
-        }
+            "results_verbosity": "minimal",
+        },
     }
 
     try:
@@ -824,7 +821,7 @@ def test_pdb_api():
             results = data.get("result_set", [])
 
             print(f"✓ Found {total} HIV-1 Protease structures")
-            print(f"  Showing first 10:")
+            print("  Showing first 10:")
 
             for entry in results[:10]:
                 pdb_id = entry.get("identifier", "N/A")
@@ -845,12 +842,12 @@ def test_pdb_api():
                     print(f"  Title: {entry_data.get('struct', {}).get('title', 'N/A')[:80]}")
                     print(f"  Method: {entry_data.get('exptl', [{}])[0].get('method', 'N/A')}")
 
-                    resolution = entry_data.get('rcsb_entry_info', {}).get('resolution_combined', [None])[0]
+                    resolution = entry_data.get("rcsb_entry_info", {}).get("resolution_combined", [None])[0]
                     if resolution:
                         print(f"  Resolution: {resolution:.2f} Å")
 
                     # Ligands
-                    ligands = entry_data.get('rcsb_entry_info', {}).get('nonpolymer_bound_components', [])
+                    ligands = entry_data.get("rcsb_entry_info", {}).get("nonpolymer_bound_components", [])
                     if ligands:
                         print(f"  Ligands: {', '.join(ligands[:5])}")
         else:
@@ -872,7 +869,7 @@ def test_pdb_api():
 
         if response.status_code == 200:
             data = response.json()
-            print(f"  ✓ Structure retrieved!")
+            print("  ✓ Structure retrieved!")
             print(f"    Title: {data.get('struct', {}).get('title', 'N/A')[:80]}")
 
             # Get ligand info
@@ -919,6 +916,7 @@ What we can extract from PDB:
 # =============================================================================
 # 7. CHEMBL API
 # =============================================================================
+
 
 def test_chembl_api():
     """
@@ -974,7 +972,7 @@ def test_chembl_api():
 
                     print(f"  Found {len(activities)} activities (showing 10)")
                     print(f"  {'Compound':<15} {'Type':<10} {'Value':>10} {'Units':<10}")
-                    print(f"  {'-'*50}")
+                    print(f"  {'-' * 50}")
 
                     for act in activities[:10]:
                         comp = act.get("molecule_chembl_id", "N/A")[:15]
@@ -1046,6 +1044,7 @@ What we can use:
 # 8. MAVEDB API
 # =============================================================================
 
+
 def test_mavedb_api():
     """
     Test MaveDB API for deep mutational scanning data.
@@ -1078,10 +1077,10 @@ def test_mavedb_api():
             data = response.json()
             results = data.get("results", []) if isinstance(data, dict) else data
 
-            print(f"✓ Found score sets")
+            print("✓ Found score sets")
 
             if results:
-                print(f"  Showing first 5:")
+                print("  Showing first 5:")
                 for ss in results[:5]:
                     urn = ss.get("urn", "N/A")
                     title = ss.get("title", "N/A")[:50]
@@ -1145,6 +1144,7 @@ Note: MaveDB data is most useful for:
 # =============================================================================
 # MAIN EXECUTION
 # =============================================================================
+
 
 def main():
     """Run all API tests and generate summary."""
@@ -1233,15 +1233,10 @@ PHASE 4 - VALIDATION:
     """)
 
     # Save summary
-    summary = {
-        "test_date": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "results": results,
-        "passed": passed,
-        "total": total
-    }
+    summary = {"test_date": time.strftime("%Y-%m-%d %H:%M:%S"), "results": results, "passed": passed, "total": total}
 
     summary_file = OUTPUT_DIR / "api_test_summary.json"
-    with open(summary_file, 'w') as f:
+    with open(summary_file, "w") as f:
         json.dump(summary, f, indent=2)
 
     print(f"\n✓ Summary saved to: {summary_file}")
@@ -1251,6 +1246,6 @@ PHASE 4 - VALIDATION:
 
 if __name__ == "__main__":
     passed, total = main()
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f" COMPLETED: {passed}/{total} APIs tested successfully")
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")

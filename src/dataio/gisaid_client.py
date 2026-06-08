@@ -48,13 +48,12 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -105,22 +104,22 @@ class SequenceRecord:
     accession_id: str
     strain_name: str
     sequence: str
-    collection_date: Optional[str] = None
-    submission_date: Optional[str] = None
-    location: Optional[str] = None
-    host: Optional[str] = None
-    lineage: Optional[str] = None
-    clade: Optional[str] = None
-    gene_segment: Optional[str] = None
-    originating_lab: Optional[str] = None
-    submitting_lab: Optional[str] = None
-    authors: Optional[str] = None
-    passage: Optional[str] = None
-    age: Optional[str] = None
-    gender: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    collection_date: str | None = None
+    submission_date: str | None = None
+    location: str | None = None
+    host: str | None = None
+    lineage: str | None = None
+    clade: str | None = None
+    gene_segment: str | None = None
+    originating_lab: str | None = None
+    submitting_lab: str | None = None
+    authors: str | None = None
+    passage: str | None = None
+    age: str | None = None
+    gender: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "accession_id": self.accession_id,
@@ -155,8 +154,8 @@ class GISAIDConfig:
         timeout: Request timeout in seconds
     """
 
-    username: Optional[str] = None
-    password: Optional[str] = None
+    username: str | None = None
+    password: str | None = None
     cache_dir: str = ".gisaid_cache"
     rate_limit: int = 30
     timeout: int = 60
@@ -181,9 +180,9 @@ class GISAIDClient:
 
     def __init__(
         self,
-        config: Optional[GISAIDConfig] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        config: GISAIDConfig | None = None,
+        username: str | None = None,
+        password: str | None = None,
     ):
         """Initialize GISAID client.
 
@@ -215,7 +214,7 @@ class GISAIDClient:
         self._min_interval = 60.0 / self.config.rate_limit
 
         # Session token (mock)
-        self._token: Optional[str] = None
+        self._token: str | None = None
 
     def authenticate(self) -> bool:
         """Authenticate with GISAID.
@@ -230,9 +229,7 @@ class GISAIDClient:
 
         # Mock authentication - real implementation would use GISAID API
         # In production: POST to auth endpoint with credentials
-        self._token = hashlib.sha256(
-            f"{self.config.username}:{self.config.password}".encode()
-        ).hexdigest()[:32]
+        self._token = hashlib.sha256(f"{self.config.username}:{self.config.password}".encode()).hexdigest()[:32]
 
         return True
 
@@ -248,19 +245,19 @@ class GISAIDClient:
         key_str = json.dumps(kwargs, sort_keys=True)
         return hashlib.sha256(key_str.encode()).hexdigest()[:16]
 
-    def _check_cache(self, cache_key: str) -> Optional[List[SequenceRecord]]:
+    def _check_cache(self, cache_key: str) -> list[SequenceRecord] | None:
         """Check if results are cached."""
         cache_file = self.cache_dir / f"{cache_key}.json"
         if cache_file.exists():
             try:
-                with open(cache_file, "r") as f:
+                with open(cache_file) as f:
                     data = json.load(f)
                 return [SequenceRecord(**rec) for rec in data]
             except Exception:
                 return None
         return None
 
-    def _save_cache(self, cache_key: str, records: List[SequenceRecord]):
+    def _save_cache(self, cache_key: str, records: list[SequenceRecord]):
         """Save results to cache."""
         cache_file = self.cache_dir / f"{cache_key}.json"
         with open(cache_file, "w") as f:
@@ -268,16 +265,16 @@ class GISAIDClient:
 
     def download_influenza_sequences(
         self,
-        subtype: Union[str, InfluenzaLineage] = "H3N2",
+        subtype: str | InfluenzaLineage = "H3N2",
         gene: str = "HA",
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        location: Optional[str] = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        location: str | None = None,
         host: str = "Human",
         max_sequences: int = 1000,
         min_length: int = 500,
         use_cache: bool = True,
-    ) -> List[SequenceRecord]:
+    ) -> list[SequenceRecord]:
         """Download influenza sequences from GISAID EpiFlu.
 
         Args:
@@ -343,17 +340,17 @@ class GISAIDClient:
 
     def download_sarscov2_sequences(
         self,
-        lineage: Optional[Union[str, CoVLineage]] = None,
+        lineage: str | CoVLineage | None = None,
         gene: str = "S",  # Spike protein
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        region: Optional[str] = None,
-        country: Optional[str] = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        region: str | None = None,
+        country: str | None = None,
         max_sequences: int = 1000,
         complete_only: bool = True,
         high_coverage: bool = True,
         use_cache: bool = True,
-    ) -> List[SequenceRecord]:
+    ) -> list[SequenceRecord]:
         """Download SARS-CoV-2 sequences from GISAID EpiCoV.
 
         Args:
@@ -415,7 +412,7 @@ class GISAIDClient:
         database: GISAIDDatabase,
         query: str,
         max_results: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Search for sequences in GISAID.
 
         Args:
@@ -441,9 +438,9 @@ class GISAIDClient:
 
     def download_by_accession(
         self,
-        accession_ids: List[str],
+        accession_ids: list[str],
         database: GISAIDDatabase = GISAIDDatabase.EPICOV,
-    ) -> List[SequenceRecord]:
+    ) -> list[SequenceRecord]:
         """Download specific sequences by accession ID.
 
         Args:
@@ -458,19 +455,21 @@ class GISAIDClient:
         # Mock implementation
         records = []
         for acc_id in accession_ids:
-            records.append(SequenceRecord(
-                accession_id=acc_id,
-                strain_name=f"Mock/Accession/{acc_id}",
-                sequence="M" + "A" * 100,
-                collection_date="2024-01-01",
-            ))
+            records.append(
+                SequenceRecord(
+                    accession_id=acc_id,
+                    strain_name=f"Mock/Accession/{acc_id}",
+                    sequence="M" + "A" * 100,
+                    collection_date="2024-01-01",
+                )
+            )
 
         return records
 
     def export_to_fasta(
         self,
-        records: List[SequenceRecord],
-        output_path: Union[str, Path],
+        records: list[SequenceRecord],
+        output_path: str | Path,
         include_metadata: bool = True,
     ) -> Path:
         """Export sequences to FASTA format.
@@ -498,7 +497,7 @@ class GISAIDClient:
 
     def export_to_dataframe(
         self,
-        records: List[SequenceRecord],
+        records: list[SequenceRecord],
     ) -> pd.DataFrame:
         """Export sequences to pandas DataFrame.
 
@@ -515,8 +514,8 @@ class GISAIDClient:
         subtype: str,
         gene: str,
         n_sequences: int,
-        start_date: Optional[str] = None,
-    ) -> List[SequenceRecord]:
+        start_date: str | None = None,
+    ) -> list[SequenceRecord]:
         """Generate mock influenza sequences for testing."""
         np.random.seed(42)
         amino_acids = "ACDEFGHIKLMNPQRSTVWY"
@@ -530,7 +529,7 @@ class GISAIDClient:
             "PB2": 759,  # Polymerase basic 2
             "NP": 498,  # Nucleoprotein
             "M1": 252,  # Matrix 1
-            "M2": 97,   # Matrix 2
+            "M2": 97,  # Matrix 2
             "NS1": 230,  # Non-structural 1
             "NS2": 121,  # Nuclear export protein
         }
@@ -550,38 +549,40 @@ class GISAIDClient:
             # Mock location
             locations = ["USA/California", "China/Guangdong", "UK/England", "Japan/Tokyo", "Australia/Victoria"]
 
-            records.append(SequenceRecord(
-                accession_id=f"EPI_ISL_{2000000 + i:07d}",
-                strain_name=f"A/{locations[i % len(locations)]}/{i:04d}/{collection_date.year}({subtype})",
-                sequence=seq,
-                collection_date=collection_date.strftime("%Y-%m-%d"),
-                submission_date=collection_date.strftime("%Y-%m-%d"),
-                location=locations[i % len(locations)],
-                host="Human",
-                lineage=subtype,
-                gene_segment=gene,
-                passage="Original",
-            ))
+            records.append(
+                SequenceRecord(
+                    accession_id=f"EPI_ISL_{2000000 + i:07d}",
+                    strain_name=f"A/{locations[i % len(locations)]}/{i:04d}/{collection_date.year}({subtype})",
+                    sequence=seq,
+                    collection_date=collection_date.strftime("%Y-%m-%d"),
+                    submission_date=collection_date.strftime("%Y-%m-%d"),
+                    location=locations[i % len(locations)],
+                    host="Human",
+                    lineage=subtype,
+                    gene_segment=gene,
+                    passage="Original",
+                )
+            )
 
         return records
 
     def _generate_mock_sarscov2_sequences(
         self,
-        lineage: Optional[str],
+        lineage: str | None,
         gene: str,
         n_sequences: int,
-        start_date: Optional[str] = None,
-    ) -> List[SequenceRecord]:
+        start_date: str | None = None,
+    ) -> list[SequenceRecord]:
         """Generate mock SARS-CoV-2 sequences for testing."""
         np.random.seed(42)
         amino_acids = "ACDEFGHIKLMNPQRSTVWY"
 
         # Typical protein lengths
         gene_lengths = {
-            "S": 1273,   # Spike
-            "N": 419,    # Nucleocapsid
-            "M": 222,    # Membrane
-            "E": 75,     # Envelope
+            "S": 1273,  # Spike
+            "N": 419,  # Nucleocapsid
+            "M": 222,  # Membrane
+            "E": 75,  # Envelope
             "ORF1ab": 7096,  # Full polyprotein
             "RdRp": 932,  # RNA-dependent RNA polymerase
         }
@@ -599,18 +600,20 @@ class GISAIDClient:
 
             countries = ["USA", "UK", "Germany", "France", "Japan", "India", "Brazil", "South Africa"]
 
-            records.append(SequenceRecord(
-                accession_id=f"EPI_ISL_{3000000 + i:07d}",
-                strain_name=f"hCoV-19/{countries[i % len(countries)]}/{i:06d}/{collection_date.year}",
-                sequence=seq,
-                collection_date=collection_date.strftime("%Y-%m-%d"),
-                submission_date=collection_date.strftime("%Y-%m-%d"),
-                location=countries[i % len(countries)],
-                host="Human",
-                lineage=lineage,
-                clade=f"{lineage}_clade",
-                gene_segment=gene,
-            ))
+            records.append(
+                SequenceRecord(
+                    accession_id=f"EPI_ISL_{3000000 + i:07d}",
+                    strain_name=f"hCoV-19/{countries[i % len(countries)]}/{i:06d}/{collection_date.year}",
+                    sequence=seq,
+                    collection_date=collection_date.strftime("%Y-%m-%d"),
+                    submission_date=collection_date.strftime("%Y-%m-%d"),
+                    location=countries[i % len(countries)],
+                    host="Human",
+                    lineage=lineage,
+                    clade=f"{lineage}_clade",
+                    gene_segment=gene,
+                )
+            )
 
         return records
 
@@ -624,10 +627,10 @@ class GISAIDSequenceProcessor:
 
     @staticmethod
     def filter_quality(
-        records: List[SequenceRecord],
+        records: list[SequenceRecord],
         min_length: int = 100,
         max_ambiguous_fraction: float = 0.05,
-    ) -> List[SequenceRecord]:
+    ) -> list[SequenceRecord]:
         """Filter sequences by quality criteria.
 
         Args:
@@ -657,9 +660,9 @@ class GISAIDSequenceProcessor:
 
     @staticmethod
     def align_sequences(
-        records: List[SequenceRecord],
-        reference: Optional[str] = None,
-    ) -> List[SequenceRecord]:
+        records: list[SequenceRecord],
+        reference: str | None = None,
+    ) -> list[SequenceRecord]:
         """Align sequences to reference.
 
         Note: This is a placeholder. Real implementation would use
@@ -677,9 +680,9 @@ class GISAIDSequenceProcessor:
 
     @staticmethod
     def extract_mutations(
-        records: List[SequenceRecord],
+        records: list[SequenceRecord],
         reference: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Extract mutations relative to reference.
 
         Args:
@@ -694,27 +697,31 @@ class GISAIDSequenceProcessor:
             mutations = []
             seq = rec.sequence
 
-            for i, (ref_aa, seq_aa) in enumerate(zip(reference, seq)):
+            for i, (ref_aa, seq_aa) in enumerate(zip(reference, seq, strict=False)):
                 if ref_aa != seq_aa and seq_aa not in "-X":
-                    mutations.append({
-                        "position": i + 1,
-                        "ref": ref_aa,
-                        "alt": seq_aa,
-                        "notation": f"{ref_aa}{i + 1}{seq_aa}",
-                    })
+                    mutations.append(
+                        {
+                            "position": i + 1,
+                            "ref": ref_aa,
+                            "alt": seq_aa,
+                            "notation": f"{ref_aa}{i + 1}{seq_aa}",
+                        }
+                    )
 
-            results.append({
-                "accession_id": rec.accession_id,
-                "mutations": mutations,
-                "n_mutations": len(mutations),
-            })
+            results.append(
+                {
+                    "accession_id": rec.accession_id,
+                    "mutations": mutations,
+                    "n_mutations": len(mutations),
+                }
+            )
 
         return results
 
 
 def create_gisaid_client(
-    username: Optional[str] = None,
-    password: Optional[str] = None,
+    username: str | None = None,
+    password: str | None = None,
     cache_dir: str = ".gisaid_cache",
 ) -> GISAIDClient:
     """Create a configured GISAID client.

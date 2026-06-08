@@ -37,11 +37,9 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Union
 
 import numpy as np
 import torch
-
 
 # ============================================================================
 # Constants
@@ -245,7 +243,7 @@ def padic_distance_matrix(
     Returns:
         Distance matrix (n, n)
     """
-    n = len(indices)
+    len(indices)
     indices = indices.long()
 
     # Compute all pairwise differences using broadcasting
@@ -442,10 +440,7 @@ def padic_shift(
     Returns:
         PAdicShiftResult with shifted value and metadata
     """
-    if shift_amount >= 0:
-        shifted = value // (p**shift_amount)
-    else:
-        shifted = value * (p ** abs(shift_amount))
+    shifted = value // p**shift_amount if shift_amount >= 0 else value * p ** abs(shift_amount)
 
     digits = padic_digits(shifted, p)
     val = padic_valuation(shifted, p)

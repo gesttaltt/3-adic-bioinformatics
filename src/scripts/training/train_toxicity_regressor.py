@@ -73,7 +73,7 @@ def train_regressor(data_path: str, output_model_path: str, epochs: int = 10, ba
             # Flatten all trajectories into one big dataset for pre-training/testing
             print("I: Detected Dictionary of Tensors (Sliding Window format). Flattening...")
             tensor_list = []
-            for k, v in data.items():
+            for _k, v in data.items():
                 if isinstance(v, torch.Tensor):
                     tensor_list.append(v)
             if tensor_list:
@@ -119,7 +119,7 @@ def train_regressor(data_path: str, output_model_path: str, epochs: int = 10, ba
             total_loss += loss.item()
 
         avg_loss = total_loss / len(loader)
-        print(f"Epoch {epoch+1}/{epochs} | Loss: {avg_loss:.4f}")
+        print(f"Epoch {epoch + 1}/{epochs} | Loss: {avg_loss:.4f}")
 
     # Save
     torch.save(model.state_dict(), output_model_path)

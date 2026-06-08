@@ -22,7 +22,6 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -52,9 +51,9 @@ class MTLConfig:
     """
 
     input_dim: int = 64
-    hidden_dims: List[int] = field(default_factory=lambda: [512, 256, 128])
+    hidden_dims: list[int] = field(default_factory=lambda: [512, 256, 128])
     n_drugs: int = 18
-    drug_names: Optional[List[str]] = None
+    drug_names: list[str] | None = None
     use_cross_attention: bool = True
     n_attention_heads: int = 4
     dropout: float = 0.1
@@ -63,11 +62,24 @@ class MTLConfig:
 
 # Default TB drug names
 TB_DRUG_NAMES = [
-    "Isoniazid", "Rifampicin", "Ethambutol", "Pyrazinamide",
-    "Streptomycin", "Fluoroquinolones", "Amikacin", "Capreomycin",
-    "Kanamycin", "Ethionamide", "Cycloserine", "PAS",
-    "Linezolid", "Bedaquiline", "Delamanid", "Clofazimine",
-    "Meropenem", "Pretomanid",
+    "Isoniazid",
+    "Rifampicin",
+    "Ethambutol",
+    "Pyrazinamide",
+    "Streptomycin",
+    "Fluoroquinolones",
+    "Amikacin",
+    "Capreomycin",
+    "Kanamycin",
+    "Ethionamide",
+    "Cycloserine",
+    "PAS",
+    "Linezolid",
+    "Bedaquiline",
+    "Delamanid",
+    "Clofazimine",
+    "Meropenem",
+    "Pretomanid",
 ]
 
 
@@ -87,7 +99,7 @@ class MultiTaskResistancePredictor(nn.Module):
 
     def __init__(
         self,
-        config: Optional[MTLConfig] = None,
+        config: MTLConfig | None = None,
     ):
         """Initialize multi-task predictor.
 
@@ -99,7 +111,7 @@ class MultiTaskResistancePredictor(nn.Module):
 
         # Drug names
         if self.config.drug_names is None:
-            self.drug_names = TB_DRUG_NAMES[:self.config.n_drugs]
+            self.drug_names = TB_DRUG_NAMES[: self.config.n_drugs]
         else:
             self.drug_names = self.config.drug_names
 
@@ -123,9 +135,7 @@ class MultiTaskResistancePredictor(nn.Module):
             )
 
         # Task weights (for weighted loss)
-        self.task_weights = nn.Parameter(
-            torch.ones(self.config.n_drugs), requires_grad=True
-        )
+        self.task_weights = nn.Parameter(torch.ones(self.config.n_drugs), requires_grad=True)
 
         # Auxiliary heads
         self._build_auxiliary_heads()
@@ -136,12 +146,14 @@ class MultiTaskResistancePredictor(nn.Module):
         prev_dim = self.config.input_dim
 
         for hidden_dim in self.config.hidden_dims:
-            layers.extend([
-                nn.Linear(prev_dim, hidden_dim),
-                nn.LayerNorm(hidden_dim),
-                nn.SiLU(),
-                nn.Dropout(self.config.dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(prev_dim, hidden_dim),
+                    nn.LayerNorm(hidden_dim),
+                    nn.SiLU(),
+                    nn.Dropout(self.config.dropout),
+                ]
+            )
             prev_dim = hidden_dim
 
         self.shared_encoder = nn.Sequential(*layers)
@@ -176,9 +188,9 @@ class MultiTaskResistancePredictor(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        drug_indices: Optional[torch.Tensor] = None,
+        drug_indices: torch.Tensor | None = None,
         return_features: bool = False,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Forward pass.
 
         Args:
@@ -199,7 +211,7 @@ class MultiTaskResistancePredictor(nn.Module):
         if self.config.use_cross_attention and drug_indices is None:
             # Create task representations
             n_drugs = self.config.n_drugs
-            batch_size = x.shape[0]
+            x.shape[0]
 
             # Expand shared features for each drug
             task_reps = shared_features.unsqueeze(1).expand(-1, n_drugs, -1)
@@ -236,9 +248,9 @@ class MultiTaskResistancePredictor(nn.Module):
     def compute_loss(
         self,
         x: torch.Tensor,
-        targets: Dict[str, torch.Tensor],
+        targets: dict[str, torch.Tensor],
         use_task_weights: bool = True,
-    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
         """Compute multi-task loss.
 
         Args:
@@ -306,7 +318,7 @@ class MultiTaskResistancePredictor(nn.Module):
         self,
         x: torch.Tensor,
         threshold: float = 0.5,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Predict resistance with binary labels.
 
         Args:
@@ -397,22 +409,24 @@ class HierarchicalMTL(nn.Module):
         )
 
         # Class-level encoders
-        self.class_encoders = nn.ModuleDict({
-            class_name: nn.Sequential(
-                nn.Linear(hidden_dim, hidden_dim // 2),
-                nn.LayerNorm(hidden_dim // 2),
-                nn.SiLU(),
-            )
-            for class_name in self.DRUG_CLASSES.keys()
-        })
+        self.class_encoders = nn.ModuleDict(
+            {
+                class_name: nn.Sequential(
+                    nn.Linear(hidden_dim, hidden_dim // 2),
+                    nn.LayerNorm(hidden_dim // 2),
+                    nn.SiLU(),
+                )
+                for class_name in self.DRUG_CLASSES
+            }
+        )
 
         # Drug-level heads
         self.drug_heads = nn.ModuleDict()
-        for class_name, drugs in self.DRUG_CLASSES.items():
+        for _class_name, drugs in self.DRUG_CLASSES.items():
             for drug in drugs:
                 self.drug_heads[drug] = nn.Linear(hidden_dim // 2, 1)
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward pass.
 
         Args:

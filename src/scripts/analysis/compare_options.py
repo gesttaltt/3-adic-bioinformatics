@@ -70,7 +70,7 @@ def load_model_c(checkpoint_path, v5_5_path, device):
 
 def compute_detailed_metrics(model, x, indices, device, name="Model"):
     """Compute detailed metrics for a model."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Analyzing: {name}")
     print("=" * 60)
 
@@ -98,7 +98,7 @@ def compute_detailed_metrics(model, x, indices, device, name="Model"):
     # 2. Per-valuation statistics
     print("\n2. RADIUS BY VALUATION LEVEL")
     print(f"   {'Val':>3} | {'Count':>6} | {'Mean_A':>7} | {'Std_A':>6} | {'Mean_B':>7} | {'Std_B':>6} | {'Target':>7}")
-    print(f"   {'-'*3}-+-{'-'*6}-+-{'-'*7}-+-{'-'*6}-+-{'-'*7}-+-{'-'*6}-+-{'-'*7}")
+    print(f"   {'-' * 3}-+-{'-' * 6}-+-{'-' * 7}-+-{'-' * 6}-+-{'-' * 7}-+-{'-' * 6}-+-{'-' * 7}")
 
     val_stats = {}
     for v in range(10):
@@ -120,7 +120,9 @@ def compute_detailed_metrics(model, x, indices, device, name="Model"):
                 "target": target,
             }
 
-            print(f"   {v:>3} | {count:>6} | {mean_A:>7.4f} | {std_A:>6.4f} | {mean_B:>7.4f} | {std_B:>6.4f} | {target:>7.4f}")
+            print(
+                f"   {v:>3} | {count:>6} | {mean_A:>7.4f} | {std_A:>6.4f} | {mean_B:>7.4f} | {std_B:>6.4f} | {target:>7.4f}"
+            )
 
     # 3. Poincare distance analysis
     print("\n3. POINCARE DISTANCE BY VALUATION DIFFERENCE")
@@ -151,7 +153,7 @@ def compute_detailed_metrics(model, x, indices, device, name="Model"):
 
     print("\n   Mean Distance by Pair Valuation:")
     print(f"   {'PairVal':>7} | {'Mean_A':>7} | {'Mean_B':>7} | {'Target':>7}")
-    print(f"   {'-'*7}-+-{'-'*7}-+-{'-'*7}-+-{'-'*7}")
+    print(f"   {'-' * 7}-+-{'-' * 7}-+-{'-' * 7}-+-{'-' * 7}")
     for pv in range(7):
         mask = pair_vals == pv
         if mask.sum() > 0:
@@ -162,8 +164,12 @@ def compute_detailed_metrics(model, x, indices, device, name="Model"):
 
     # 4. Latent space spread
     print("\n4. LATENT SPACE STATISTICS")
-    print(f"   VAE-A radius: min={radii_A.min():.4f}, max={radii_A.max():.4f}, range={radii_A.max()-radii_A.min():.4f}")
-    print(f"   VAE-B radius: min={radii_B.min():.4f}, max={radii_B.max():.4f}, range={radii_B.max()-radii_B.min():.4f}")
+    print(
+        f"   VAE-A radius: min={radii_A.min():.4f}, max={radii_A.max():.4f}, range={radii_A.max() - radii_A.min():.4f}"
+    )
+    print(
+        f"   VAE-B radius: min={radii_B.min():.4f}, max={radii_B.max():.4f}, range={radii_B.max() - radii_B.min():.4f}"
+    )
 
     # Euclidean spread
     mu_A_np = mu_A.cpu().numpy()
@@ -179,7 +185,7 @@ def compute_detailed_metrics(model, x, indices, device, name="Model"):
         correct = (preds == targets).float().mean(dim=1)
         coverage = (correct == 1.0).sum().item() / len(x)
 
-    print(f"\n5. COVERAGE: {coverage*100:.2f}%")
+    print(f"\n5. COVERAGE: {coverage * 100:.2f}%")
 
     return {
         "radial_corr_A": radial_corr_A,
@@ -207,7 +213,7 @@ def plot_comparison(metrics_a, metrics_c, output_path):
             ax.scatter([v] * len(radii), radii, alpha=0.3, s=5)
     ax.set_xlabel("Valuation")
     ax.set_ylabel("Radius")
-    ax.set_title(f'Option A - VAE-A (corr={metrics_a["radial_corr_A"]:.3f})')
+    ax.set_title(f"Option A - VAE-A (corr={metrics_a['radial_corr_A']:.3f})")
     ax.set_xlim(-0.5, 9.5)
 
     # 2. Radial distribution by valuation - Option A VAE-B
@@ -219,7 +225,7 @@ def plot_comparison(metrics_a, metrics_c, output_path):
             ax.scatter([v] * len(radii), radii, alpha=0.3, s=5)
     ax.set_xlabel("Valuation")
     ax.set_ylabel("Radius")
-    ax.set_title(f'Option A - VAE-B (corr={metrics_a["radial_corr_B"]:.3f})')
+    ax.set_title(f"Option A - VAE-B (corr={metrics_a['radial_corr_B']:.3f})")
     ax.set_xlim(-0.5, 9.5)
 
     # 3. Mean radius comparison
@@ -250,7 +256,7 @@ def plot_comparison(metrics_a, metrics_c, output_path):
             ax.scatter([v] * len(radii), radii, alpha=0.3, s=5)
     ax.set_xlabel("Valuation")
     ax.set_ylabel("Radius")
-    ax.set_title(f'Option C - VAE-A (corr={metrics_c["radial_corr_A"]:.3f})')
+    ax.set_title(f"Option C - VAE-A (corr={metrics_c['radial_corr_A']:.3f})")
     ax.set_xlim(-0.5, 9.5)
 
     # 5. Radial distribution - Option C VAE-B
@@ -262,7 +268,7 @@ def plot_comparison(metrics_a, metrics_c, output_path):
             ax.scatter([v] * len(radii), radii, alpha=0.3, s=5)
     ax.set_xlabel("Valuation")
     ax.set_ylabel("Radius")
-    ax.set_title(f'Option C - VAE-B (corr={metrics_c["radial_corr_B"]:.3f})')
+    ax.set_title(f"Option C - VAE-B (corr={metrics_c['radial_corr_B']:.3f})")
     ax.set_xlim(-0.5, 9.5)
 
     # 6. Summary bar chart
@@ -349,7 +355,7 @@ def main():
     print("SUMMARY COMPARISON")
     print("=" * 60)
     print(f"\n{'Metric':<25} | {'Option A':>12} | {'Option C':>12} | {'Winner':>10}")
-    print(f"{'-'*25}-+-{'-'*12}-+-{'-'*12}-+-{'-'*10}")
+    print(f"{'-' * 25}-+-{'-' * 12}-+-{'-' * 12}-+-{'-' * 10}")
 
     comparisons = [
         (

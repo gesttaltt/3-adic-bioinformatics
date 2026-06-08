@@ -20,8 +20,7 @@ Licensed under PolyForm Noncommercial License 1.0.0
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
@@ -69,9 +68,7 @@ class StablePositionalEncoding(nn.Module):
         position = torch.arange(0, max_len, dtype=torch.float32).unsqueeze(1)
 
         # Use numerically stable computation
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2, dtype=torch.float32) * (-math.log(10000.0) / d_model)
-        )
+        div_term = torch.exp(torch.arange(0, d_model, 2, dtype=torch.float32) * (-math.log(10000.0) / d_model))
 
         # Clamp to prevent overflow
         pe[:, 0::2] = torch.sin(position * div_term).clamp(-1.0, 1.0)
@@ -129,9 +126,7 @@ class StableMultiHeadAttention(nn.Module):
         exp_x = torch.exp(x_stable.clamp(-50, 50))  # Clamp to prevent overflow
         return exp_x / (exp_x.sum(dim=-1, keepdim=True) + self.eps)
 
-    def _chunked_attention(
-        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
-    ) -> torch.Tensor:
+    def _chunked_attention(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
         """Memory-efficient chunked attention for long sequences.
 
         Args:
@@ -167,7 +162,7 @@ class StableMultiHeadAttention(nn.Module):
 
         return torch.cat(outputs, dim=2)
 
-    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
         """Forward pass with stable attention.
 
         Args:
@@ -247,7 +242,7 @@ class StableTransformerBlock(nn.Module):
                 nn.Dropout(cfg.dropout),
             )
 
-    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
         """Forward with Pre-LN residual connections."""
         # Attention with pre-norm
         x = x + self.attention(self.ln1(x), mask)
@@ -268,9 +263,7 @@ class StableResistanceTransformer(nn.Module):
         nn.init.normal_(self.aa_embedding.weight, std=cfg.init_scale)
 
         # Positional encoding
-        self.pos_encoding = StablePositionalEncoding(
-            cfg.d_model, cfg.max_position_embeddings, cfg.dropout, cfg.eps
-        )
+        self.pos_encoding = StablePositionalEncoding(cfg.d_model, cfg.max_position_embeddings, cfg.dropout, cfg.eps)
 
         # Transformer blocks
         self.blocks = nn.ModuleList([StableTransformerBlock(cfg) for _ in range(cfg.n_layers)])
@@ -289,7 +282,7 @@ class StableResistanceTransformer(nn.Module):
         # Gradient checkpointing flag
         self.use_gradient_checkpointing = cfg.use_gradient_checkpointing
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward pass with gradient checkpointing for memory efficiency.
 
         Args:
@@ -370,9 +363,7 @@ class StableTransformerWithVAE(nn.Module):
 
         # Encoder (stable transformer)
         self.aa_embedding = nn.Linear(cfg.n_aa, cfg.d_model, bias=False)
-        self.pos_encoding = StablePositionalEncoding(
-            cfg.d_model, cfg.max_position_embeddings, cfg.dropout, cfg.eps
-        )
+        self.pos_encoding = StablePositionalEncoding(cfg.d_model, cfg.max_position_embeddings, cfg.dropout, cfg.eps)
         self.blocks = nn.ModuleList([StableTransformerBlock(cfg) for _ in range(cfg.n_layers)])
         self.final_ln = nn.LayerNorm(cfg.d_model, eps=cfg.eps)
 
@@ -405,7 +396,7 @@ class StableTransformerWithVAE(nn.Module):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def encode(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def encode(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Encode input to latent distribution."""
         batch_size = x.size(0)
         if x.dim() == 2:
@@ -425,7 +416,7 @@ class StableTransformerWithVAE(nn.Module):
 
         return self.fc_mu(x), self.fc_logvar(x)
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward pass."""
         mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
@@ -527,7 +518,7 @@ if __name__ == "__main__":
     # Test VAE variant
     model_vae = StableTransformerWithVAE(cfg, latent_dim=32)
     out_vae = model_vae(x.detach())
-    print(f"\nVAE variant:")
+    print("\nVAE variant:")
     print(f"  z shape: {out_vae['z'].shape}")
     print(f"  mu shape: {out_vae['mu'].shape}")
     print(f"  prediction: {out_vae['prediction'].shape}")
@@ -543,7 +534,7 @@ if __name__ == "__main__":
             loss = out["prediction"].sum()
             loss.backward()
             print(f"  Batch size {batch_size}: OK")
-        except RuntimeError as e:
+        except RuntimeError:
             print(f"  Batch size {batch_size}: OOM")
             break
 

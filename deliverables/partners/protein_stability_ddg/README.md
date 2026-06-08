@@ -256,13 +256,19 @@ python scripts/C4_mutation_effect_predictor.py \
 
 ### 1. Mutation-Type Heterogeneity (KEY FINDING)
 
-| Mutation Type | Performance vs Baseline | Recommendation |
-|--------------|:-----------------------:|----------------|
-| neutral → charged | **+159%** | STRONGLY use p-adic |
-| hydrophobic → polar | +52% | Use p-adic |
-| size_change | +28% | Use p-adic |
-| charge_reversal | **-737%** | DO NOT use p-adic |
-| proline_mutations | -89% | DO NOT use p-adic |
+⚠️ **Provenance:** These figures were computed on the ProTherm benchmark subset (N=52),
+with subgroups as small as N=2-4 mutations per type. The extreme values (-737%, +159%)
+reflect very small subgroup performance and have wide confidence intervals. Treat as
+exploratory observations, not statistically robust estimates.
+**Computation source:** `scripts/C5_mutation_type_analysis.py`
+
+| Mutation Type | N (subgroup) | Performance vs Physicochemical Baseline | Recommendation |
+|--------------|:---:|:-----------------------:|----------------|
+| neutral → charged | ~5 | **+159%** | STRONGLY use p-adic |
+| hydrophobic → polar | ~12 | +52% | Use p-adic |
+| size_change | ~22 | +28% | Use p-adic |
+| charge_reversal | ~3 | **-737%** | DO NOT use p-adic |
+| proline_mutations | ~3 | -89% | DO NOT use p-adic |
 
 ### 2. Rosetta-Blind Detection
 

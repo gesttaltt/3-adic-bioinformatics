@@ -14,12 +14,12 @@ Key components:
 - HyperbolicPLMEncoder: PLM with hyperbolic projection
 """
 
+from src.models.plm.base import PLMEncoderBase
 from src.models.plm.esm_encoder import (
-    ESM2Encoder,
     ESM2Config,
+    ESM2Encoder,
 )
 from src.models.plm.hyperbolic_plm import HyperbolicPLMEncoder
-from src.models.plm.base import PLMEncoderBase
 
 __all__ = [
     "PLMEncoderBase",

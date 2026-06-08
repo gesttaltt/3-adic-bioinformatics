@@ -17,7 +17,6 @@ References:
 from __future__ import annotations
 
 import math
-from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -140,7 +139,7 @@ class TransformerDenoiser(nn.Module):
         self,
         x: Tensor,
         t: Tensor,
-        context: Optional[Tensor] = None,
+        context: Tensor | None = None,
     ) -> Tensor:
         """Predict denoised logits.
 
@@ -227,9 +226,9 @@ class CodonDiffusion(nn.Module):
     def forward(
         self,
         x: Tensor,
-        t: Optional[Tensor] = None,
-        context: Optional[Tensor] = None,
-    ) -> Dict[str, Tensor]:
+        t: Tensor | None = None,
+        context: Tensor | None = None,
+    ) -> dict[str, Tensor]:
         """Training forward pass.
 
         Args:
@@ -273,8 +272,8 @@ class CodonDiffusion(nn.Module):
     def training_step(
         self,
         x: Tensor,
-        context: Optional[Tensor] = None,
-    ) -> Dict[str, Tensor]:
+        context: Tensor | None = None,
+    ) -> dict[str, Tensor]:
         """Single training step.
 
         Args:
@@ -292,8 +291,8 @@ class CodonDiffusion(nn.Module):
         n_samples: int,
         seq_length: int,
         temperature: float = 1.0,
-        context: Optional[Tensor] = None,
-        device: Optional[torch.device] = None,
+        context: Tensor | None = None,
+        device: torch.device | None = None,
     ) -> Tensor:
         """Generate codon sequences via reverse diffusion.
 
@@ -346,8 +345,8 @@ class CodonDiffusion(nn.Module):
         seq_length: int,
         n_steps: int = 50,
         temperature: float = 1.0,
-        context: Optional[Tensor] = None,
-        device: Optional[torch.device] = None,
+        context: Tensor | None = None,
+        device: torch.device | None = None,
     ) -> Tensor:
         """Fast sampling using DDIM-like strategy.
 
@@ -448,9 +447,9 @@ class ConditionalCodonDiffusion(CodonDiffusion):
     def forward(
         self,
         x: Tensor,
-        t: Optional[Tensor] = None,
-        context: Optional[Tensor] = None,
-    ) -> Dict[str, Tensor]:
+        t: Tensor | None = None,
+        context: Tensor | None = None,
+    ) -> dict[str, Tensor]:
         """Training forward pass with context."""
         # Project context if provided
         if context is not None:
@@ -465,7 +464,7 @@ class ConditionalCodonDiffusion(CodonDiffusion):
         self,
         n_samples: int,
         seq_length: int,
-        context: Optional[Tensor] = None,
+        context: Tensor | None = None,
         **kwargs,
     ) -> Tensor:
         """Generate conditioned on context."""

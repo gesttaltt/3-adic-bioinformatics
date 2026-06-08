@@ -30,7 +30,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -56,15 +55,15 @@ class EscapePrediction:
     drug_resistance: torch.Tensor  # Drug resistance level
 
     # Disease-specific predictions
-    receptor_binding: Optional[torch.Tensor] = None  # Receptor affinity change
-    antibody_escape: Optional[torch.Tensor] = None  # Per-antibody escape
-    tcell_escape: Optional[torch.Tensor] = None  # T-cell epitope escape
+    receptor_binding: torch.Tensor | None = None  # Receptor affinity change
+    antibody_escape: torch.Tensor | None = None  # Per-antibody escape
+    tcell_escape: torch.Tensor | None = None  # T-cell epitope escape
 
     # Uncertainty estimates
-    fitness_uncertainty: Optional[torch.Tensor] = None
-    escape_uncertainty: Optional[torch.Tensor] = None
+    fitness_uncertainty: torch.Tensor | None = None
+    escape_uncertainty: torch.Tensor | None = None
 
-    def to_dict(self) -> Dict[str, torch.Tensor]:
+    def to_dict(self) -> dict[str, torch.Tensor]:
         """Convert to dictionary format."""
         result = {
             "fitness": self.fitness,
@@ -119,7 +118,7 @@ class FitnessPredictor(nn.Module):
         self,
         z: torch.Tensor,
         return_uncertainty: bool = False,
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Predict fitness score.
 
         Args:
@@ -192,7 +191,7 @@ class ImmuneEscapePredictor(nn.Module):
     def forward(
         self,
         z: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Predict immune escape.
 
         Args:
@@ -237,15 +236,17 @@ class DrugResistancePredictor(nn.Module):
         )
 
         # Per-drug-class resistance
-        self.drug_heads = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(hidden_dim, hidden_dim // 4),
-                nn.ReLU(),
-                nn.Linear(hidden_dim // 4, 1),
-                nn.Sigmoid(),
-            )
-            for _ in range(n_drug_classes)
-        ])
+        self.drug_heads = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Linear(hidden_dim, hidden_dim // 4),
+                    nn.ReLU(),
+                    nn.Linear(hidden_dim // 4, 1),
+                    nn.Sigmoid(),
+                )
+                for _ in range(n_drug_classes)
+            ]
+        )
 
         # Overall resistance (aggregated)
         self.overall = nn.Sequential(
@@ -256,7 +257,7 @@ class DrugResistancePredictor(nn.Module):
     def forward(
         self,
         z: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Predict drug resistance.
 
         Args:
@@ -407,7 +408,7 @@ class VariantEscapeHead(nn.Module):
         z: torch.Tensor,
         return_components: bool = True,
         return_uncertainty: bool = False,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Predict variant escape potential.
 
         Args:
@@ -428,12 +429,15 @@ class VariantEscapeHead(nn.Module):
         binding = self.binding_predictor(z)
 
         # Composite escape score
-        composite_input = torch.cat([
-            fitness,
-            immune_overall,
-            resistance_overall,
-            binding.mean(dim=-1, keepdim=True),
-        ], dim=-1)
+        composite_input = torch.cat(
+            [
+                fitness,
+                immune_overall,
+                resistance_overall,
+                binding.mean(dim=-1, keepdim=True),
+            ],
+            dim=-1,
+        )
         composite_score = self.composite(composite_input)
 
         # Build output dictionary
@@ -445,12 +449,14 @@ class VariantEscapeHead(nn.Module):
         }
 
         if return_components:
-            outputs.update({
-                "antibody_escape": antibody_escape,
-                "tcell_escape": tcell_escape,
-                "per_drug_resistance": per_drug,
-                "receptor_binding": binding,
-            })
+            outputs.update(
+                {
+                    "antibody_escape": antibody_escape,
+                    "tcell_escape": tcell_escape,
+                    "per_drug_resistance": per_drug,
+                    "receptor_binding": binding,
+                }
+            )
 
         if return_uncertainty and fitness_unc is not None:
             outputs["fitness_uncertainty"] = fitness_unc
@@ -459,10 +465,10 @@ class VariantEscapeHead(nn.Module):
 
     def compute_loss(
         self,
-        predictions: Dict[str, torch.Tensor],
-        targets: Dict[str, torch.Tensor],
-        weights: Optional[Dict[str, float]] = None,
-    ) -> Tuple[torch.Tensor, Dict[str, float]]:
+        predictions: dict[str, torch.Tensor],
+        targets: dict[str, torch.Tensor],
+        weights: dict[str, float] | None = None,
+    ) -> tuple[torch.Tensor, dict[str, float]]:
         """Compute escape prediction loss.
 
         Args:
@@ -548,19 +554,21 @@ class MetaLearningEscapeHead(nn.Module):
         )
 
         # Task-specific heads (fast-adapted)
-        self.task_heads = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(hidden_dim, hidden_dim // 2),
-                nn.ReLU(),
-                nn.Linear(hidden_dim // 2, 1),
-                nn.Sigmoid(),
-            )
-            for _ in range(n_tasks)
-        ])
+        self.task_heads = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Linear(hidden_dim, hidden_dim // 2),
+                    nn.ReLU(),
+                    nn.Linear(hidden_dim // 2, 1),
+                    nn.Sigmoid(),
+                )
+                for _ in range(n_tasks)
+            ]
+        )
 
         self.task_names = ["fitness", "immune_escape", "drug_resistance", "binding"]
 
-    def forward(self, z: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, z: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward pass.
 
         Args:
@@ -572,19 +580,19 @@ class MetaLearningEscapeHead(nn.Module):
         base_features = self.base(z)
 
         outputs = {}
-        for name, head in zip(self.task_names, self.task_heads):
+        for name, head in zip(self.task_names, self.task_heads, strict=False):
             outputs[name] = head(base_features)
 
         return outputs
 
-    def get_adaptation_parameters(self) -> List[nn.Parameter]:
+    def get_adaptation_parameters(self) -> list[nn.Parameter]:
         """Get parameters for fast adaptation (task heads only)."""
         params = []
         for head in self.task_heads:
             params.extend(head.parameters())
         return params
 
-    def get_base_parameters(self) -> List[nn.Parameter]:
+    def get_base_parameters(self) -> list[nn.Parameter]:
         """Get parameters for slow adaptation (base only)."""
         return list(self.base.parameters())
 

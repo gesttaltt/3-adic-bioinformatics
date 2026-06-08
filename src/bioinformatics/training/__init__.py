@@ -13,9 +13,9 @@ This module provides:
 """
 
 from src.bioinformatics.training.deterministic import (
-    set_deterministic_mode,
-    get_deterministic_dataloader,
     DeterministicConfig,
+    get_deterministic_dataloader,
+    set_deterministic_mode,
 )
 from src.bioinformatics.training.train_ddg_vae import (
     DDGVAETrainer,

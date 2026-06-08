@@ -467,9 +467,7 @@ class ProteinGVPEncoder(nn.Module):
                 n_layers=n_layers,
             )
         else:
-            self.gvp_layers = nn.ModuleList(
-                [GVPLayer(hidden_s, hidden_s, hidden_v, hidden_v) for _ in range(n_layers)]
-            )
+            self.gvp_layers = nn.ModuleList([GVPLayer(hidden_s, hidden_s, hidden_v, hidden_v) for _ in range(n_layers)])
 
         # Output projection
         self.output_proj = nn.Sequential(

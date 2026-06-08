@@ -37,7 +37,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -83,13 +82,13 @@ class ValidationResult:
     outside_goldilocks: int
     sensitivity: float  # True positive rate
     specificity: float  # True negative rate
-    goldilocks_range: Tuple[float, float]
+    goldilocks_range: tuple[float, float]
     threshold_accuracy: float
 
 
 # Reference immune recognition thresholds from literature
 # Based on T-cell recognition and MHC binding studies
-REFERENCE_THRESHOLDS: Dict[str, Dict] = {
+REFERENCE_THRESHOLDS: dict[str, dict] = {
     "mhc_class_i_binding": {
         "strong_binder": 50,  # IC50 < 50 nM
         "moderate_binder": 500,  # IC50 < 500 nM
@@ -111,9 +110,8 @@ REFERENCE_THRESHOLDS: Dict[str, Dict] = {
 
 # Amino acid similarity matrix for molecular distance calculation
 # Based on BLOSUM62 normalized to 0-1 range
-AMINO_ACID_SIMILARITY: Dict[str, Dict[str, float]] = {
-    aa1: {aa2: 1.0 if aa1 == aa2 else 0.0 for aa2 in "ACDEFGHIKLMNPQRSTVWY"}
-    for aa1 in "ACDEFGHIKLMNPQRSTVWY"
+AMINO_ACID_SIMILARITY: dict[str, dict[str, float]] = {
+    aa1: {aa2: 1.0 if aa1 == aa2 else 0.0 for aa2 in "ACDEFGHIKLMNPQRSTVWY"} for aa1 in "ACDEFGHIKLMNPQRSTVWY"
 }
 
 # Add known substitution similarities
@@ -226,7 +224,7 @@ class NobelImmuneValidator:
 
     def __init__(
         self,
-        goldilocks_range: Tuple[float, float] = (0.15, 0.30),
+        goldilocks_range: tuple[float, float] = (0.15, 0.30),
         p: int = 3,
     ):
         """Initialize the validator.
@@ -271,7 +269,7 @@ class NobelImmuneValidator:
             peptide2 = peptide2.ljust(max_len, "X")
 
         total_diff = 0.0
-        for i, (aa1, aa2) in enumerate(zip(peptide1, peptide2)):
+        for i, (aa1, aa2) in enumerate(zip(peptide1, peptide2, strict=False)):
             # Get similarity
             if aa1 in AMINO_ACID_SIMILARITY and aa2 in AMINO_ACID_SIMILARITY.get(aa1, {}):
                 similarity = AMINO_ACID_SIMILARITY[aa1].get(aa2, 0.0)
@@ -311,7 +309,7 @@ class NobelImmuneValidator:
 
     def validate_threshold(
         self,
-        threshold_data: List[ImmuneThresholdData],
+        threshold_data: list[ImmuneThresholdData],
     ) -> ValidationResult:
         """Validate experimental thresholds against p-adic predictions.
 
@@ -373,16 +371,32 @@ class NobelImmuneValidator:
         outside = len(padic_distances) - within
 
         # Sensitivity and specificity
-        tp = sum(1 for p, a in zip(predicted_responses, actual_responses) if p == ImmuneResponse.ACTIVATION and a == ImmuneResponse.ACTIVATION)
-        tn = sum(1 for p, a in zip(predicted_responses, actual_responses) if p == ImmuneResponse.TOLERANCE and a == ImmuneResponse.TOLERANCE)
-        fp = sum(1 for p, a in zip(predicted_responses, actual_responses) if p == ImmuneResponse.ACTIVATION and a == ImmuneResponse.TOLERANCE)
-        fn = sum(1 for p, a in zip(predicted_responses, actual_responses) if p == ImmuneResponse.TOLERANCE and a == ImmuneResponse.ACTIVATION)
+        tp = sum(
+            1
+            for p, a in zip(predicted_responses, actual_responses, strict=False)
+            if p == ImmuneResponse.ACTIVATION and a == ImmuneResponse.ACTIVATION
+        )
+        tn = sum(
+            1
+            for p, a in zip(predicted_responses, actual_responses, strict=False)
+            if p == ImmuneResponse.TOLERANCE and a == ImmuneResponse.TOLERANCE
+        )
+        fp = sum(
+            1
+            for p, a in zip(predicted_responses, actual_responses, strict=False)
+            if p == ImmuneResponse.ACTIVATION and a == ImmuneResponse.TOLERANCE
+        )
+        fn = sum(
+            1
+            for p, a in zip(predicted_responses, actual_responses, strict=False)
+            if p == ImmuneResponse.TOLERANCE and a == ImmuneResponse.ACTIVATION
+        )
 
         sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0.0
         specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
 
         # Overall accuracy
-        correct = sum(1 for p, a in zip(predicted_responses, actual_responses) if p == a)
+        correct = sum(1 for p, a in zip(predicted_responses, actual_responses, strict=False) if p == a)
         accuracy = correct / len(threshold_data)
 
         # Simple p-value estimation (would use proper stats in production)
@@ -414,7 +428,7 @@ class NobelImmuneValidator:
         self,
         n_samples: int = 100,
         noise_level: float = 0.1,
-    ) -> List[ImmuneThresholdData]:
+    ) -> list[ImmuneThresholdData]:
         """Generate synthetic immune threshold data for testing.
 
         Args:
@@ -427,7 +441,7 @@ class NobelImmuneValidator:
         np.random.seed(42)
         data = []
 
-        for i in range(n_samples):
+        for _i in range(n_samples):
             # Generate peptide
             peptide = "".join(np.random.choice(list("ACDEFGHIKLMNPQRSTVWY"), 9))
 
@@ -468,8 +482,8 @@ class NobelImmuneValidator:
 
     def compute_discrimination_boundary(
         self,
-        threshold_data: List[ImmuneThresholdData],
-    ) -> Dict[str, float]:
+        threshold_data: list[ImmuneThresholdData],
+    ) -> dict[str, float]:
         """Compute the optimal discrimination boundary.
 
         Finds the p-adic distance that best separates self from non-self.
@@ -482,10 +496,14 @@ class NobelImmuneValidator:
         """
         # Separate by response
         tolerance_distances = [
-            self.map_affinity_to_padic(d.binding_affinity_nm) for d in threshold_data if d.response == ImmuneResponse.TOLERANCE
+            self.map_affinity_to_padic(d.binding_affinity_nm)
+            for d in threshold_data
+            if d.response == ImmuneResponse.TOLERANCE
         ]
         activation_distances = [
-            self.map_affinity_to_padic(d.binding_affinity_nm) for d in threshold_data if d.response == ImmuneResponse.ACTIVATION
+            self.map_affinity_to_padic(d.binding_affinity_nm)
+            for d in threshold_data
+            if d.response == ImmuneResponse.ACTIVATION
         ]
 
         if not tolerance_distances or not activation_distances:
@@ -503,9 +521,7 @@ class NobelImmuneValidator:
         boundary = (tol_mean + act_mean) / 2
 
         # Separation (effect size)
-        pooled_std = np.sqrt(
-            (np.var(tolerance_distances) + np.var(activation_distances)) / 2
-        )
+        pooled_std = np.sqrt((np.var(tolerance_distances) + np.var(activation_distances)) / 2)
         separation = abs(act_mean - tol_mean) / pooled_std if pooled_std > 0 else 0
 
         return {
@@ -522,7 +538,7 @@ class NobelImmuneValidator:
 
 # Self-peptide reference sequences (human proteome-derived)
 # These are known HLA-A*02:01 binding peptides from self-proteins
-SELF_PEPTIDE_REFERENCES: Dict[str, Dict] = {
+SELF_PEPTIDE_REFERENCES: dict[str, dict] = {
     # Housekeeping proteins (universal self)
     "GAPDH_001": {
         "sequence": "VVVDLMAYL",
@@ -552,7 +568,7 @@ SELF_PEPTIDE_REFERENCES: Dict[str, Dict] = {
 
 # Non-self peptides (viral/pathogen-derived)
 # Known immunogenic peptides that trigger T-cell responses
-NONSELF_PEPTIDE_REFERENCES: Dict[str, Dict] = {
+NONSELF_PEPTIDE_REFERENCES: dict[str, dict] = {
     # HIV epitopes
     "HIV_GAG_SL9": {
         "sequence": "SLYNTVATL",
@@ -625,7 +641,7 @@ NONSELF_PEPTIDE_REFERENCES: Dict[str, Dict] = {
 
 # Autoimmune-associated peptides (Goldilocks Zone candidates)
 # These are self-peptides that have been implicated in autoimmune responses
-AUTOIMMUNE_PEPTIDES: Dict[str, Dict] = {
+AUTOIMMUNE_PEPTIDES: dict[str, dict] = {
     # Multiple Sclerosis - Myelin epitopes
     "MBP_85_99": {
         "sequence": "ENPVVHFFKNIVTPR",  # Class II
@@ -674,7 +690,7 @@ AUTOIMMUNE_PEPTIDES: Dict[str, Dict] = {
 }
 
 
-def load_experimental_dataset() -> List[ImmuneThresholdData]:
+def load_experimental_dataset() -> list[ImmuneThresholdData]:
     """Load curated experimental immune threshold dataset.
 
     Combines self-peptides, non-self peptides, and autoimmune-associated
@@ -732,7 +748,7 @@ def load_experimental_dataset() -> List[ImmuneThresholdData]:
     return dataset
 
 
-def run_validation_pipeline() -> Dict:
+def run_validation_pipeline() -> dict:
     """Run complete validation pipeline with experimental data.
 
     Returns:

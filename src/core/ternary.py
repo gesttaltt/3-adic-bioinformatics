@@ -38,8 +38,6 @@ Why this matters:
     After: Canonical implementation in one place
 """
 
-from typing import Optional
-
 import torch
 
 
@@ -225,7 +223,7 @@ class TernarySpace:
         """Check if ternary representation is valid."""
         return ((ternary == -1) | (ternary == 0) | (ternary == 1)).all(dim=-1)
 
-    def sample_indices(self, n: int, device: Optional[torch.device] = None) -> torch.Tensor:
+    def sample_indices(self, n: int, device: torch.device | None = None) -> torch.Tensor:
         """Sample random operation indices.
 
         Args:
@@ -237,7 +235,7 @@ class TernarySpace:
         """
         return torch.randint(0, self.N_OPERATIONS, (n,), device=device)
 
-    def all_indices(self, device: Optional[torch.device] = None) -> torch.Tensor:
+    def all_indices(self, device: torch.device | None = None) -> torch.Tensor:
         """Get tensor of all valid indices [0, 1, ..., N_OPERATIONS-1]."""
         return torch.arange(self.N_OPERATIONS, device=device)
 
@@ -245,7 +243,7 @@ class TernarySpace:
     # Batch Operations for GPU Efficiency
     # =========================================================================
 
-    def all_ternary(self, device: Optional[torch.device] = None) -> torch.Tensor:
+    def all_ternary(self, device: torch.device | None = None) -> torch.Tensor:
         """Get all 19,683 ternary representations at once.
 
         Useful for GPU-resident dataset - load once, index thereafter.

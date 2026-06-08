@@ -18,15 +18,15 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+import argparse
+from copy import deepcopy
+
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-import pandas as pd
 from scipy import stats
-from typing import Dict, List, Tuple, Optional
-import argparse
-from copy import deepcopy
 
 
 class TransferVAE(nn.Module):
@@ -70,15 +70,11 @@ class TransferVAE(nn.Module):
         )
 
         # Drug-specific prediction heads
-        self.drug_heads = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(latent_dim, 32),
-                nn.ReLU(),
-                nn.Linear(32, 1)
-            ) for _ in range(n_drugs)
-        ])
+        self.drug_heads = nn.ModuleList(
+            [nn.Sequential(nn.Linear(latent_dim, 32), nn.ReLU(), nn.Linear(32, 1)) for _ in range(n_drugs)]
+        )
 
-    def encode(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def encode(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         h = self.encoder(x)
         return self.fc_mu(h), self.fc_logvar(h)
 
@@ -89,7 +85,7 @@ class TransferVAE(nn.Module):
     def decode(self, z: torch.Tensor) -> torch.Tensor:
         return self.decoder(z)
 
-    def forward(self, x: torch.Tensor, drug_idx: int = 0) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, drug_idx: int = 0) -> dict[str, torch.Tensor]:
         mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
         x_recon = self.decode(z)
@@ -128,7 +124,7 @@ class TransferLearningTrainer:
     def __init__(self, device: str = "cuda" if torch.cuda.is_available() else "cpu"):
         self.device = device
 
-    def load_stanford_raw(self, drug_class: str) -> Tuple[pd.DataFrame, List[str], List[str]]:
+    def load_stanford_raw(self, drug_class: str) -> tuple[pd.DataFrame, list[str], list[str]]:
         """Load Stanford HIVDB data."""
         data_dir = project_root / "data" / "research"
 
@@ -150,12 +146,12 @@ class TransferLearningTrainer:
         df = pd.read_csv(filepath, sep="\t", low_memory=False)
 
         prefix = "P"
-        position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix):].isdigit()]
-        position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix):]))
+        position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix) :].isdigit()]
+        position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix) :]))
 
         return df, position_cols, drug_columns[drug_class]
 
-    def encode_amino_acids(self, df: pd.DataFrame, position_cols: List[str]) -> np.ndarray:
+    def encode_amino_acids(self, df: pd.DataFrame, position_cols: list[str]) -> np.ndarray:
         """One-hot encode sequences."""
         aa_alphabet = "ACDEFGHIKLMNPQRSTVWY*-"
         aa_to_idx = {aa: i for i, aa in enumerate(aa_alphabet)}
@@ -176,7 +172,7 @@ class TransferLearningTrainer:
 
         return encoded
 
-    def prepare_class_data(self, drug_class: str) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
+    def prepare_class_data(self, drug_class: str) -> dict[str, tuple[np.ndarray, np.ndarray]]:
         """Prepare data for all drugs in a class."""
         df, position_cols, drugs = self.load_stanford_raw(drug_class)
         data = {}
@@ -191,11 +187,11 @@ class TransferLearningTrainer:
 
         return data
 
-    def pretrain_on_class(self, drug_class: str, epochs: int = 50) -> Tuple[TransferVAE, Dict]:
+    def pretrain_on_class(self, drug_class: str, epochs: int = 50) -> tuple[TransferVAE, dict]:
         """Pre-train on ALL drugs in a class."""
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"PRE-TRAINING ON ALL {drug_class.upper()} DRUGS")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
         data = self.prepare_class_data(drug_class)
         drugs = list(data.keys())
@@ -247,7 +243,7 @@ class TransferLearningTrainer:
                 total_loss += loss.item()
 
             if (epoch + 1) % 10 == 0:
-                print(f"  Epoch {epoch+1}/{epochs}, Loss: {total_loss/n_drugs:.4f}")
+                print(f"  Epoch {epoch + 1}/{epochs}, Loss: {total_loss / n_drugs:.4f}")
 
         # Evaluate pre-trained model
         print("\nPre-training evaluation:")
@@ -264,13 +260,13 @@ class TransferLearningTrainer:
 
         return model, {"drugs": drugs, "drug_to_idx": drug_to_idx, "pretrain_results": pretrain_results}
 
-    def finetune_on_drug(self, model: TransferVAE, meta: Dict,
-                         target_drug: str, drug_class: str,
-                         epochs: int = 50) -> Dict:
+    def finetune_on_drug(
+        self, model: TransferVAE, meta: dict, target_drug: str, drug_class: str, epochs: int = 50
+    ) -> dict:
         """Fine-tune on a specific target drug."""
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"FINE-TUNING ON {target_drug}")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
         data = self.prepare_class_data(drug_class)
         if target_drug not in data:
@@ -298,10 +294,7 @@ class TransferLearningTrainer:
             param.requires_grad = False
 
         # Only train the drug-specific head first
-        optimizer = torch.optim.AdamW(
-            model.drug_heads[drug_idx].parameters(),
-            lr=1e-3, weight_decay=0.01
-        )
+        optimizer = torch.optim.AdamW(model.drug_heads[drug_idx].parameters(), lr=1e-3, weight_decay=0.01)
 
         best_corr = -1.0
         best_state = None
@@ -351,7 +344,7 @@ class TransferLearningTrainer:
                     if corr > best_corr:
                         best_corr = corr
                         best_state = deepcopy(model.state_dict())
-                    print(f"  Epoch {epoch+1}/{epochs}, Test Corr: {corr:+.3f} (best: {best_corr:+.3f})")
+                    print(f"  Epoch {epoch + 1}/{epochs}, Test Corr: {corr:+.3f} (best: {best_corr:+.3f})")
 
         # Load best state
         if best_state is not None:
@@ -366,7 +359,7 @@ class TransferLearningTrainer:
             "pretrain_corr": meta["pretrain_results"].get(target_drug, None),
         }
 
-    def run_transfer_learning(self, target_drug: str, drug_class: str) -> Dict:
+    def run_transfer_learning(self, target_drug: str, drug_class: str) -> dict:
         """Full transfer learning pipeline for a drug."""
         # Step 1: Pre-train on all drugs in class
         model, meta = self.pretrain_on_class(drug_class, epochs=50)
@@ -379,22 +372,43 @@ class TransferLearningTrainer:
 
 def main():
     parser = argparse.ArgumentParser(description="Transfer Learning for Problem Drugs")
-    parser.add_argument("--drug", type=str, default="TPV",
-                        help="Target drug to improve (TPV, DRV, DTG, RPV)")
-    parser.add_argument("--drug-class", type=str, default=None,
-                        help="Drug class (pi, nrti, nnrti, ini). Auto-detected if not specified.")
-    parser.add_argument("--all-problem-drugs", action="store_true",
-                        help="Run on all problem drugs")
+    parser.add_argument("--drug", type=str, default="TPV", help="Target drug to improve (TPV, DRV, DTG, RPV)")
+    parser.add_argument(
+        "--drug-class",
+        type=str,
+        default=None,
+        help="Drug class (pi, nrti, nnrti, ini). Auto-detected if not specified.",
+    )
+    parser.add_argument("--all-problem-drugs", action="store_true", help="Run on all problem drugs")
     args = parser.parse_args()
 
     # Drug to class mapping
     drug_to_class = {
-        "TPV": "pi", "DRV": "pi", "FPV": "pi", "ATV": "pi",
-        "IDV": "pi", "LPV": "pi", "NFV": "pi", "SQV": "pi",
-        "ABC": "nrti", "AZT": "nrti", "D4T": "nrti", "DDI": "nrti",
-        "FTC": "nrti", "3TC": "nrti", "TDF": "nrti",
-        "DOR": "nnrti", "EFV": "nnrti", "ETR": "nnrti", "NVP": "nnrti", "RPV": "nnrti",
-        "BIC": "ini", "CAB": "ini", "DTG": "ini", "EVG": "ini", "RAL": "ini",
+        "TPV": "pi",
+        "DRV": "pi",
+        "FPV": "pi",
+        "ATV": "pi",
+        "IDV": "pi",
+        "LPV": "pi",
+        "NFV": "pi",
+        "SQV": "pi",
+        "ABC": "nrti",
+        "AZT": "nrti",
+        "D4T": "nrti",
+        "DDI": "nrti",
+        "FTC": "nrti",
+        "3TC": "nrti",
+        "TDF": "nrti",
+        "DOR": "nnrti",
+        "EFV": "nnrti",
+        "ETR": "nnrti",
+        "NVP": "nnrti",
+        "RPV": "nnrti",
+        "BIC": "ini",
+        "CAB": "ini",
+        "DTG": "ini",
+        "EVG": "ini",
+        "RAL": "ini",
     }
 
     trainer = TransferLearningTrainer()
@@ -409,9 +423,9 @@ def main():
         ]
 
         for drug, drug_class in problem_drugs:
-            print(f"\n{'#'*70}")
+            print(f"\n{'#' * 70}")
             print(f"# TRANSFER LEARNING: {drug}")
-            print(f"{'#'*70}")
+            print(f"{'#' * 70}")
 
             result = trainer.run_transfer_learning(drug, drug_class)
             results.append(result)
@@ -425,13 +439,16 @@ def main():
         results.append(result)
 
     # Summary
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("TRANSFER LEARNING RESULTS")
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
     # Baseline comparisons
     baseline = {
-        "TPV": 0.699, "DRV": 0.779, "DTG": 0.722, "RPV": 0.714,
+        "TPV": 0.699,
+        "DRV": 0.779,
+        "DTG": 0.722,
+        "RPV": 0.714,
     }
 
     for r in results:
@@ -443,7 +460,7 @@ def main():
         print(f"{drug}:")
         print(f"  Baseline:     {base:+.3f}")
         print(f"  Transfer:     {best:+.3f}")
-        print(f"  Improvement:  {improvement:+.3f} ({improvement/base*100:.1f}%)")
+        print(f"  Improvement:  {improvement:+.3f} ({improvement / base * 100:.1f}%)")
         print()
 
     # Save results

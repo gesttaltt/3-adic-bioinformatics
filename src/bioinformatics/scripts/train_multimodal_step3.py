@@ -13,6 +13,7 @@ Key insight: Don't train from scratch - leverage pretrained specialists.
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -21,22 +22,22 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from scipy.stats import spearmanr, pearsonr
+from scipy.stats import pearsonr, spearmanr
 from torch.utils.data import DataLoader, Dataset, random_split
 
-import sys
 sys.path.insert(0, str(Path(__file__).parents[3]))
 
-from src.bioinformatics.models.ddg_vae import DDGVAE
-from src.bioinformatics.models.ddg_mlp_refiner import DDGMLPRefiner, RefinerConfig
-from src.bioinformatics.data.protherm_loader import ProThermLoader
 from src.bioinformatics.data.preprocessing import compute_features
+from src.bioinformatics.data.protherm_loader import ProThermLoader
+from src.bioinformatics.models.ddg_mlp_refiner import DDGMLPRefiner, RefinerConfig
+from src.bioinformatics.models.ddg_vae import DDGVAE
 from src.bioinformatics.training.deterministic import set_deterministic_mode
 
 
 @dataclass
 class OptimizedConfig:
     """Configuration for optimized multimodal architecture."""
+
     # Specialist VAE dimensions
     s669_dim: int = 16
     protherm_dim: int = 32
@@ -65,9 +66,7 @@ class AttentionFusion(nn.Module):
         super().__init__()
 
         # Project each modality to fusion dimension
-        self.projections = nn.ModuleList([
-            nn.Linear(d, fusion_dim) for d in dims
-        ])
+        self.projections = nn.ModuleList([nn.Linear(d, fusion_dim) for d in dims])
 
         # Multi-head attention
         # Query: ProTherm embedding, Key/Value: all embeddings
@@ -96,7 +95,7 @@ class AttentionFusion(nn.Module):
             weights: Attention weights for interpretability
         """
         # Project all embeddings
-        projected = [proj(emb) for proj, emb in zip(self.projections, embeddings)]
+        projected = [proj(emb) for proj, emb in zip(self.projections, embeddings, strict=False)]
 
         # Stack as sequence [batch, 3, fusion_dim]
         kv = torch.stack(projected, dim=1)
@@ -255,7 +254,7 @@ class OptimizedDataset(Dataset):
         for record in records:
             feat = compute_features(record.wild_type, record.mutant)
             basic_arr = feat.to_array(include_hyperbolic=False)
-            protherm_arr = np.pad(basic_arr, (0, 6), mode='constant')
+            protherm_arr = np.pad(basic_arr, (0, 6), mode="constant")
 
             self.features_s669.append(basic_arr)
             self.features_protherm.append(protherm_arr)
@@ -304,20 +303,21 @@ def train_step3():
     print("\n[1] Loading specialist VAEs...")
 
     vae_s669 = DDGVAE.create_s669_variant(use_hyperbolic=False)
-    ckpt = torch.load("outputs/ddg_vae_training_20260129_212316/vae_s669/best.pt",
-                      map_location=device, weights_only=False)
+    ckpt = torch.load(
+        "outputs/ddg_vae_training_20260129_212316/vae_s669/best.pt", map_location=device, weights_only=False
+    )
     vae_s669.load_state_dict(ckpt["model_state_dict"])
     print("  Loaded VAE-S669")
 
     vae_protherm = DDGVAE.create_protherm_variant(use_hyperbolic=False)
-    ckpt = torch.load("outputs/ddg_vae_training_20260129_212316/vae_protherm/best.pt",
-                      map_location=device, weights_only=False)
+    ckpt = torch.load(
+        "outputs/ddg_vae_training_20260129_212316/vae_protherm/best.pt", map_location=device, weights_only=False
+    )
     vae_protherm.load_state_dict(ckpt["model_state_dict"])
     print("  Loaded VAE-ProTherm (will provide baseline DDG)")
 
     vae_wide = DDGVAE.create_wide_variant(use_hyperbolic=False)
-    ckpt = torch.load("outputs/vae_wide_filtered_20260129_220019/best.pt",
-                      map_location=device, weights_only=False)
+    ckpt = torch.load("outputs/vae_wide_filtered_20260129_220019/best.pt", map_location=device, weights_only=False)
     vae_wide.load_state_dict(ckpt["model_state_dict"])
     print("  Loaded VAE-Wide")
 
@@ -340,8 +340,7 @@ def train_step3():
     dataset = OptimizedDataset(records)
     n_val = int(len(dataset) * 0.2)
     n_train = len(dataset) - n_val
-    train_ds, val_ds = random_split(dataset, [n_train, n_val],
-                                     generator=torch.Generator().manual_seed(42))
+    train_ds, val_ds = random_split(dataset, [n_train, n_val], generator=torch.Generator().manual_seed(42))
     print(f"  Train: {n_train}, Val: {n_val}")
 
     train_loader = DataLoader(train_ds, batch_size=config.batch_size, shuffle=True)
@@ -381,8 +380,12 @@ def train_step3():
     best_spearman = baseline_spearman  # Start from baseline
     patience_counter = 0
     history = {
-        "train_loss": [], "val_loss": [], "val_spearman": [],
-        "val_pearson": [], "delta_contribution": [], "attn_weights": []
+        "train_loss": [],
+        "val_loss": [],
+        "val_spearman": [],
+        "val_pearson": [],
+        "delta_contribution": [],
+        "attn_weights": [],
     }
 
     for epoch in range(config.epochs):
@@ -459,9 +462,11 @@ def train_step3():
         weight = torch.sigmoid(model.residual_weight).item()
 
         if epoch % 20 == 0 or val_spearman > best_spearman:
-            print(f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
-                  f"spearman={val_spearman:.4f} weight={weight:.3f} "
-                  f"attn=[{avg_attn[0]:.2f},{avg_attn[1]:.2f},{avg_attn[2]:.2f}]")
+            print(
+                f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
+                f"spearman={val_spearman:.4f} weight={weight:.3f} "
+                f"attn=[{avg_attn[0]:.2f},{avg_attn[1]:.2f},{avg_attn[2]:.2f}]"
+            )
 
         if val_spearman > best_spearman:
             best_spearman = val_spearman
@@ -469,14 +474,17 @@ def train_step3():
             best_attn = avg_attn
             patience_counter = 0
 
-            torch.save({
-                "model_state_dict": model.state_dict(),
-                "epoch": epoch,
-                "val_spearman": val_spearman,
-                "val_pearson": val_pearson,
-                "attn_weights": avg_attn.tolist(),
-                "config": config.__dict__,
-            }, output_dir / "best.pt")
+            torch.save(
+                {
+                    "model_state_dict": model.state_dict(),
+                    "epoch": epoch,
+                    "val_spearman": val_spearman,
+                    "val_pearson": val_pearson,
+                    "attn_weights": avg_attn.tolist(),
+                    "config": config.__dict__,
+                },
+                output_dir / "best.pt",
+            )
         else:
             patience_counter += 1
             if patience_counter >= config.patience:
@@ -563,7 +571,7 @@ def train_step3():
                     self.embeddings.append(out["fused"].cpu().squeeze(0))
                     self.model_preds.append(out["ddg"].cpu().item())
                     ddg = item["ddg"]
-                    self.labels.append(ddg.item() if hasattr(ddg, 'item') else ddg)
+                    self.labels.append(ddg.item() if hasattr(ddg, "item") else ddg)
 
             self.embeddings = torch.stack(self.embeddings)
             self.model_preds = torch.tensor(self.model_preds, dtype=torch.float32)
@@ -645,10 +653,13 @@ def train_step3():
 
         if val_spearman > best_refiner_spearman:
             best_refiner_spearman = val_spearman
-            torch.save({
-                "model_state_dict": refiner.state_dict(),
-                "val_spearman": val_spearman,
-            }, output_dir / "mlp_refiner_best.pt")
+            torch.save(
+                {
+                    "model_state_dict": refiner.state_dict(),
+                    "val_spearman": val_spearman,
+                },
+                output_dir / "mlp_refiner_best.pt",
+            )
 
     print(f"\n  Step 3 + MLP Refiner Spearman: {best_refiner_spearman:.4f}")
 
@@ -658,25 +669,25 @@ def train_step3():
     print("\n" + "=" * 70)
     print("STEP 3 COMPLETE")
     print("=" * 70)
-    print(f"\nResults:")
+    print("\nResults:")
     print(f"  Optimized Multimodal Spearman: {best_spearman:.4f}")
     print(f"  Step 3 + MLP Refiner Spearman: {best_refiner_spearman:.4f}")
-    print(f"\nComparison:")
-    print(f"  Step 1 Meta-VAE + Refiner:     0.63")
-    print(f"  Step 2 Combined + Refiner:     0.46")
+    print("\nComparison:")
+    print("  Step 1 Meta-VAE + Refiner:     0.63")
+    print("  Step 2 Combined + Refiner:     0.46")
     print(f"  Step 3 Optimized Multimodal:   {best_spearman:.2f}")
     print(f"  Step 3 + MLP Refiner:          {best_refiner_spearman:.2f}")
-    print(f"  Baseline VAE-ProTherm:         0.64")
-    print(f"  Baseline + MLP Refiner:        0.78")
+    print("  Baseline VAE-ProTherm:         0.64")
+    print("  Baseline + MLP Refiner:        0.78")
     print(f"\nCheckpoints: {output_dir}")
 
     # Determine if true multimodality achieved
     if best_refiner_spearman > 0.78:
-        print(f"\n  MULTIMODAL BEATS BEST BASELINE!")
+        print("\n  MULTIMODAL BEATS BEST BASELINE!")
     elif best_spearman > 0.64:
-        print(f"\n  TRUE MULTIMODALITY: Improves over single VAE baseline!")
+        print("\n  TRUE MULTIMODALITY: Improves over single VAE baseline!")
     else:
-        print(f"\n  No multimodal benefit over single VAE baseline.")
+        print("\n  No multimodal benefit over single VAE baseline.")
 
     return {
         "multimodal_spearman": best_spearman,

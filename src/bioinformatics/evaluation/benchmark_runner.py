@@ -11,23 +11,21 @@ on multiple datasets and comparing with literature methods.
 
 from __future__ import annotations
 
+import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Callable
-import json
 
 import numpy as np
 import torch
 
-from src.bioinformatics.evaluation.metrics import (
-    DDGMetrics,
-    compute_all_metrics,
-    compare_with_literature,
-)
 from src.bioinformatics.evaluation.cross_validation import (
     CrossValidator,
-    CVResult,
+)
+from src.bioinformatics.evaluation.metrics import (
+    DDGMetrics,
+    compare_with_literature,
 )
 
 
@@ -43,9 +41,9 @@ class BenchmarkResult:
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
     # Additional info
-    n_train: Optional[int] = None
-    n_test: Optional[int] = None
-    training_time: Optional[float] = None
+    n_train: int | None = None
+    n_test: int | None = None
+    training_time: float | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -108,7 +106,7 @@ class BenchmarkRunner:
 
     def __init__(
         self,
-        output_dir: Optional[Path] = None,
+        output_dir: Path | None = None,
         device: str = "cpu",
     ):
         """Initialize benchmark runner.
@@ -151,19 +149,21 @@ class BenchmarkRunner:
         Returns:
             BenchmarkResult
         """
-        from sklearn.linear_model import Ridge
         from src.bioinformatics.evaluation.cross_validation import PyTorchModelWrapper
 
         # Determine model type
         if isinstance(model, torch.nn.Module):
-            model_factory = lambda: PyTorchModelWrapper(
-                type(model),
-                model_kwargs={"config": model.config} if hasattr(model, "config") else {},
-                device=self.device,
-            )
+
+            def model_factory():
+                return PyTorchModelWrapper(
+                    type(model),
+                    model_kwargs={"config": model.config} if hasattr(model, "config") else {},
+                    device=self.device,
+                )
         else:
             # Assume sklearn-compatible
-            model_factory = lambda: model
+            def model_factory():
+                return model
 
         cv = CrossValidator(model_factory, scaler=True, seed=42)
 
@@ -172,7 +172,8 @@ class BenchmarkRunner:
             result = cv.loo_cv(X, y, bootstrap_ci=True)
         else:
             result = cv.kfold_cv(
-                X, y,
+                X,
+                y,
                 n_folds=n_folds,
                 n_repeats=n_repeats,
                 stratify=True,
@@ -216,7 +217,10 @@ class BenchmarkRunner:
         Returns:
             BenchmarkResult
         """
-        model_factory = lambda: model_class(**model_kwargs)
+
+        def model_factory():
+            return model_class(**model_kwargs)
+
         cv = CrossValidator(model_factory, scaler=True, seed=42)
 
         # Use LOO for small datasets, k-fold for larger
@@ -276,7 +280,7 @@ class BenchmarkRunner:
 
         return results
 
-    def save_results(self, filename: Optional[str] = None) -> Path:
+    def save_results(self, filename: str | None = None) -> Path:
         """Save all results to JSON file.
 
         Args:
@@ -325,17 +329,18 @@ class BenchmarkRunner:
             if r.metrics.spearman_ci:
                 ci_str = f"[{r.metrics.spearman_ci[0]:.3f}, {r.metrics.spearman_ci[1]:.3f}]"
             lines.append(
-                f"| {r.dataset_name} | {r.model_name} | "
-                f"{r.metrics.spearman_r:.3f} | {ci_str} | {r.metrics.n_samples} |"
+                f"| {r.dataset_name} | {r.model_name} | {r.metrics.spearman_r:.3f} | {ci_str} | {r.metrics.n_samples} |"
             )
 
-        lines.extend([
-            "",
-            "## Literature Comparison",
-            "",
-            "| Method | Reference | Our Best |",
-            "|--------|:---------:|:--------:|",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Literature Comparison",
+                "",
+                "| Method | Reference | Our Best |",
+                "|--------|:---------:|:--------:|",
+            ]
+        )
 
         # Find best result for comparison
         if self.results:
@@ -344,25 +349,29 @@ class BenchmarkRunner:
                 symbol = "✓" if info["outperforms"] else ""
                 lines.append(f"| {method} | {info['reference']:.3f} | {best.metrics.spearman_r:.3f} {symbol} |")
 
-        lines.extend([
-            "",
-            "## Detailed Results",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Detailed Results",
+                "",
+            ]
+        )
 
         for r in self.results:
-            lines.extend([
-                f"### {r.model_name} on {r.dataset_name}",
-                "",
-                f"- CV Type: {r.cv_type}",
-                f"- N samples: {r.metrics.n_samples}",
-                f"- Spearman ρ: {r.metrics.spearman_r:.4f} (p={r.metrics.spearman_p:.2e})",
-                f"- Pearson r: {r.metrics.pearson_r:.4f}",
-                f"- MAE: {r.metrics.mae:.4f} kcal/mol",
-                f"- RMSE: {r.metrics.rmse:.4f} kcal/mol",
-                f"- 3-class accuracy: {r.metrics.accuracy_3class:.1%}",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"### {r.model_name} on {r.dataset_name}",
+                    "",
+                    f"- CV Type: {r.cv_type}",
+                    f"- N samples: {r.metrics.n_samples}",
+                    f"- Spearman ρ: {r.metrics.spearman_r:.4f} (p={r.metrics.spearman_p:.2e})",
+                    f"- Pearson r: {r.metrics.pearson_r:.4f}",
+                    f"- MAE: {r.metrics.mae:.4f} kcal/mol",
+                    f"- RMSE: {r.metrics.rmse:.4f} kcal/mol",
+                    f"- 3-class accuracy: {r.metrics.accuracy_3class:.1%}",
+                    "",
+                ]
+            )
 
         return "\n".join(lines)
 

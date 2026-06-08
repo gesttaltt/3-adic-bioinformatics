@@ -28,7 +28,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -103,7 +102,7 @@ class PTMGoldilocksEncoder(PoincareModule):
         curvature: float = 1.0,
         max_norm: float = 0.95,
         use_hierarchical_init: bool = True,
-        goldilocks_zone: Optional[GoldilocksZone] = None,
+        goldilocks_zone: GoldilocksZone | None = None,
     ):
         super().__init__(c=curvature, max_norm=max_norm)
 
@@ -192,7 +191,7 @@ class PTMGoldilocksEncoder(PoincareModule):
     def forward(
         self,
         aa_indices: torch.Tensor,
-        ptm_states: Optional[torch.Tensor] = None,
+        ptm_states: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Embed amino acids with optional PTM states.
 
@@ -259,7 +258,7 @@ class PTMGoldilocksEncoder(PoincareModule):
         self,
         entropy_change: torch.Tensor,
         return_distance: bool = False,
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Determine if entropy changes fall within the Goldilocks zone.
 
         Args:
@@ -287,7 +286,7 @@ class PTMGoldilocksEncoder(PoincareModule):
         self,
         z_native: torch.Tensor,
         z_modified: torch.Tensor,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Comprehensive immunogenicity analysis.
 
         Computes multiple metrics relevant to immunogenicity prediction:
@@ -418,7 +417,7 @@ class PTMDataset(torch.utils.data.Dataset):
     def __len__(self) -> int:
         return len(self.sequences)
 
-    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         seq = self.sequences[idx]
         ptm_info = self.ptm_annotations[idx]
 

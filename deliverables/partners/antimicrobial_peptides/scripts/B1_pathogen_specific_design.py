@@ -229,9 +229,13 @@ class PathogenCandidate:
             "length": len(self.sequence),
             "mic_pred": round(self.mic_pred, 4),
             "mic_ug_ml": round(10 ** self.mic_pred, 4),
+            "mic_method": "ML-VALIDATED (PeptideVAE, Pearson r=0.61, p<0.001)",
             "pathogen_score": round(self.pathogen_score, 4),
+            "pathogen_score_method": "HEURISTIC (membrane composition rules — not ML-validated)",
             "toxicity_pred": round(self.toxicity_pred, 4),
+            "toxicity_method": "HEURISTIC (charge/hydrophobicity rules — not ML-validated)",
             "stability_score": round(self.stability_score, 4),
+            "stability_method": "HEURISTIC (physicochemical rules — not ML-validated)",
             "confidence": self.confidence,
             "net_charge": round(self.properties.get("net_charge", 0), 2),
             "hydrophobicity": round(self.properties.get("hydrophobicity", 0), 3),
@@ -516,6 +520,12 @@ def export_results(
     # JSON export
     results = {
         "pathogen": pathogen,
+        "prediction_methods": {
+            "mic_pred": "ML-VALIDATED (PeptideVAE, Pearson r=0.61, p<0.001)",
+            "toxicity_pred": "HEURISTIC — NOT ML-VALIDATED (charge/hydrophobicity rules only)",
+            "stability_score": "HEURISTIC — NOT ML-VALIDATED (physicochemical rules only)",
+            "pathogen_score": "HEURISTIC — NOT ML-VALIDATED (membrane composition rules only)",
+        },
         "pathogen_info": {
             "full_name": pathogen_info["full_name"],
             "gram": pathogen_info["gram"],
@@ -613,6 +623,16 @@ Examples:
     )
 
     args = parser.parse_args()
+
+    print("=" * 60)
+    print("AMP DESIGN — PREDICTION METHOD NOTICE")
+    print("=" * 60)
+    print("  mic_pred       : ML-VALIDATED (PeptideVAE, r=0.61, p<0.001)")
+    print("  toxicity_pred  : HEURISTIC [NOT ML-VALIDATED]")
+    print("  stability_score: HEURISTIC [NOT ML-VALIDATED]")
+    print("  pathogen_score : HEURISTIC [NOT ML-VALIDATED]")
+    print("See BIAS_ANALYSIS.md for full methodology notes.")
+    print("=" * 60)
 
     pathogens = list(WHO_PRIORITY_PATHOGENS.keys()) if args.all_pathogens else [args.pathogen]
 

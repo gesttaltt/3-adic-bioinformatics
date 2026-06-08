@@ -29,8 +29,8 @@ References:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Tuple
 
 import torch
 
@@ -97,7 +97,9 @@ class ParetoFrontOptimizer:
 
         return bool(is_dominated.item())
 
-    def identify_pareto_front(self, candidates: torch.Tensor, scores: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def identify_pareto_front(
+        self, candidates: torch.Tensor, scores: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Identify the non-dominated set (Pareto Front) from a batch of candidates.
 
         Args:
@@ -136,7 +138,7 @@ class ParetoFrontOptimizer:
         return candidates[non_dominated_indices], scores[non_dominated_indices]
 
 
-def fast_non_dominated_sort(scores: torch.Tensor) -> List[torch.Tensor]:
+def fast_non_dominated_sort(scores: torch.Tensor) -> list[torch.Tensor]:
     """Fast non-dominated sorting algorithm from NSGA-II.
 
     Assigns each individual to a Pareto front (rank).
@@ -154,7 +156,7 @@ def fast_non_dominated_sort(scores: torch.Tensor) -> List[torch.Tensor]:
 
     # Domination count and dominated set for each individual
     domination_count = torch.zeros(n, dtype=torch.long, device=device)
-    dominated_by: List[List[int]] = [[] for _ in range(n)]
+    dominated_by: list[list[int]] = [[] for _ in range(n)]
 
     # Compute domination relationships
     for i in range(n):
@@ -174,7 +176,7 @@ def fast_non_dominated_sort(scores: torch.Tensor) -> List[torch.Tensor]:
                 domination_count[i] += 1
 
     # Build fronts
-    fronts: List[torch.Tensor] = []
+    fronts: list[torch.Tensor] = []
     remaining = set(range(n))
 
     while remaining:
@@ -261,7 +263,7 @@ class NSGAII:
     - SBX crossover and polynomial mutation
     """
 
-    def __init__(self, config: Optional[NSGAConfig] = None):
+    def __init__(self, config: NSGAConfig | None = None):
         """Initialize NSGA-II optimizer.
 
         Args:
@@ -297,9 +299,7 @@ class NSGAII:
         # Compare by rank first, then crowding distance
         best_idx = indices[0]
         for idx in indices[1:]:
-            if ranks[idx] < ranks[best_idx]:
-                best_idx = idx
-            elif ranks[idx] == ranks[best_idx] and crowding[idx] > crowding[best_idx]:
+            if ranks[idx] < ranks[best_idx] or ranks[idx] == ranks[best_idx] and crowding[idx] > crowding[best_idx]:
                 best_idx = idx
 
         return population[best_idx]
@@ -308,7 +308,7 @@ class NSGAII:
         self,
         parent1: torch.Tensor,
         parent2: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Simulated Binary Crossover (SBX).
 
         Args:
@@ -358,7 +358,7 @@ class NSGAII:
         self,
         population: torch.Tensor,
         scores: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Assign front ranks and crowding distances to population.
 
         Args:
@@ -389,7 +389,7 @@ class NSGAII:
         population: torch.Tensor,
         scores: torch.Tensor,
         evaluate_fn: Callable[[torch.Tensor], torch.Tensor],
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Evolve one generation.
 
         Args:
@@ -447,8 +447,8 @@ class NSGAII:
         self,
         initial_population: torch.Tensor,
         evaluate_fn: Callable[[torch.Tensor], torch.Tensor],
-        callback: Optional[Callable[[int, torch.Tensor, torch.Tensor], None]] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        callback: Callable[[int, torch.Tensor, torch.Tensor], None] | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Run NSGA-II optimization.
 
         Args:
@@ -474,7 +474,7 @@ class NSGAII:
         self,
         population: torch.Tensor,
         scores: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Extract Pareto front from final population.
 
         Args:

@@ -84,7 +84,7 @@ class CRISPROfftargetAnalyzer:
             )
 
         mismatches = []
-        for i, (t, o) in enumerate(zip(target, offtarget)):
+        for i, (t, o) in enumerate(zip(target, offtarget, strict=False)):
             if t != o:
                 mismatches.append((i, t, o))
         return mismatches
@@ -175,10 +175,7 @@ class CRISPROfftargetAnalyzer:
         min_padic = min((o.padic_distance for o in offtargets), default=float("inf"))
 
         # Compute safety radius (minimum hyperbolic distance to high-risk site)
-        if high_risk:
-            safety_radius = min(o.hyperbolic_distance for o in high_risk)
-        else:
-            safety_radius = float("inf")
+        safety_radius = min(o.hyperbolic_distance for o in high_risk) if high_risk else float("inf")
 
         # Compute specificity score
         if offtargets:

@@ -35,7 +35,6 @@ import zipfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -45,6 +44,7 @@ from src.config.paths import RAW_DATA_DIR
 try:
     from Bio import SeqIO
     from Bio.SeqRecord import SeqRecord
+
     HAS_BIOPYTHON = True
 except ImportError:
     HAS_BIOPYTHON = False
@@ -52,12 +52,12 @@ except ImportError:
 
 # NCBI Taxonomy IDs for arboviruses
 TAXON_IDS = {
-    "dengue": 12637,       # Dengue virus (all serotypes)
-    "dengue1": 11053,      # DENV-1
-    "dengue2": 11060,      # DENV-2
-    "dengue3": 11069,      # DENV-3
-    "dengue4": 11070,      # DENV-4
-    "zika": 64320,         # Zika virus
+    "dengue": 12637,  # Dengue virus (all serotypes)
+    "dengue1": 11053,  # DENV-1
+    "dengue2": 11060,  # DENV-2
+    "dengue3": 11069,  # DENV-3
+    "dengue4": 11070,  # DENV-4
+    "zika": 64320,  # Zika virus
     "chikungunya": 37124,  # Chikungunya virus
 }
 
@@ -68,10 +68,10 @@ class VirusMetadata:
 
     accession: str
     organism: str
-    serotype: Optional[str]
-    collection_date: Optional[datetime]
-    geo_location: Optional[str]
-    host: Optional[str]
+    serotype: str | None
+    collection_date: datetime | None
+    geo_location: str | None
+    host: str | None
     sequence_length: int
 
 
@@ -91,9 +91,9 @@ def check_ncbi_datasets_installed() -> bool:
 def download_via_ncbi_datasets(
     taxon_id: int,
     output_dir: Path,
-    geo_location: Optional[str] = None,
-    date_range: Optional[tuple[str, str]] = None,
-) -> Optional[Path]:
+    geo_location: str | None = None,
+    date_range: tuple[str, str] | None = None,
+) -> Path | None:
     """Download virus genomes using NCBI datasets CLI.
 
     Args:
@@ -162,7 +162,7 @@ def download_via_ncbi_datasets(
         return None
 
 
-def parse_collection_date(date_str: str) -> Optional[datetime]:
+def parse_collection_date(date_str: str) -> datetime | None:
     """Parse collection date from various formats."""
     if not date_str:
         return None
@@ -185,7 +185,7 @@ def parse_collection_date(date_str: str) -> Optional[datetime]:
     return None
 
 
-def extract_serotype(header: str) -> Optional[str]:
+def extract_serotype(header: str) -> str | None:
     """Extract Dengue serotype from sequence header."""
     patterns = [
         r"DENV[-_]?(\d)",
@@ -246,9 +246,7 @@ def process_fasta(
         date_match = re.search(r"(\d{4}[-/]\d{2}[-/]\d{2})", header)
         if not date_match:
             date_match = re.search(r"(\d{4})", header)
-        collection_date = parse_collection_date(
-            date_match.group(1) if date_match else ""
-        )
+        collection_date = parse_collection_date(date_match.group(1) if date_match else "")
 
         # Extract location
         loc_patterns = [
@@ -298,12 +296,13 @@ def create_demo_data(output_path: Path, virus: str = "dengue") -> None:
     # Generate synthetic demo sequences
     demo_sequences = []
     for i in range(10):
-        serotype = ((i % 4) + 1)
+        serotype = (i % 4) + 1
         year = 2015 + (i % 10)
         accession = f"DEMO{i:04d}"
 
         # Generate random-ish sequence
         import random
+
         random.seed(42 + i)
         seq = "".join(random.choices("ATGC", k=10000))
 
@@ -318,9 +317,7 @@ def create_demo_data(output_path: Path, virus: str = "dengue") -> None:
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Download arbovirus genomes from NCBI"
-    )
+    parser = argparse.ArgumentParser(description="Download arbovirus genomes from NCBI")
     parser.add_argument(
         "--virus",
         type=str,

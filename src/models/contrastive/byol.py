@@ -16,8 +16,8 @@ References:
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass, field
-from typing import Callable, Optional, Tuple
+from collections.abc import Callable
+from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
@@ -72,7 +72,7 @@ class MLP(nn.Module):
         layers = []
         prev_dim = input_dim
 
-        for i in range(num_layers - 1):
+        for _i in range(num_layers - 1):
             layers.append(nn.Linear(prev_dim, hidden_dim))
             if use_bn:
                 layers.append(nn.BatchNorm1d(hidden_dim))
@@ -125,11 +125,9 @@ class MomentumEncoder(nn.Module):
         for online_params, target_params in zip(
             online_encoder.parameters(),
             self.target_encoder.parameters(),
+            strict=False,
         ):
-            target_params.data = (
-                self.momentum * target_params.data +
-                (1 - self.momentum) * online_params.data
-            )
+            target_params.data = self.momentum * target_params.data + (1 - self.momentum) * online_params.data
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Encode with target encoder."""
@@ -157,8 +155,8 @@ class BYOL(nn.Module):
     def __init__(
         self,
         encoder: nn.Module,
-        config: Optional[BYOLConfig] = None,
-        augmentation: Optional[SequenceAugmentations] = None,
+        config: BYOLConfig | None = None,
+        augmentation: SequenceAugmentations | None = None,
     ):
         """Initialize BYOL.
 
@@ -207,7 +205,7 @@ class BYOL(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass returning online and target representations.
 
         Args:
@@ -231,7 +229,7 @@ class BYOL(nn.Module):
     def compute_loss(
         self,
         x1: torch.Tensor,
-        x2: Optional[torch.Tensor] = None,
+        x2: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute BYOL loss.
 
@@ -294,10 +292,10 @@ class BYOL(nn.Module):
         for online_params, target_params in zip(
             self.projector.parameters(),
             self.target_projector.parameters(),
+            strict=False,
         ):
             target_params.data = (
-                self.config.momentum * target_params.data +
-                (1 - self.config.momentum) * online_params.data
+                self.config.momentum * target_params.data + (1 - self.config.momentum) * online_params.data
             )
 
     def get_representation(self, x: torch.Tensor) -> torch.Tensor:
@@ -319,7 +317,7 @@ class BYOLTrainer:
         self,
         model: BYOL,
         optimizer: torch.optim.Optimizer,
-        scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
+        scheduler: torch.optim.lr_scheduler._LRScheduler | None = None,
         device: str = "cuda",
     ):
         """Initialize trainer.
@@ -338,7 +336,7 @@ class BYOLTrainer:
     def train_epoch(
         self,
         dataloader: torch.utils.data.DataLoader,
-        augmentation: Optional[Callable] = None,
+        augmentation: Callable | None = None,
     ) -> float:
         """Train for one epoch.
 
@@ -354,10 +352,7 @@ class BYOLTrainer:
         n_batches = 0
 
         for batch in dataloader:
-            if isinstance(batch, (tuple, list)):
-                x = batch[0]
-            else:
-                x = batch
+            x = batch[0] if isinstance(batch, (tuple, list)) else batch
 
             x = x.to(self.device)
 
@@ -401,7 +396,7 @@ class BYOL2(nn.Module):
     def __init__(
         self,
         encoder: nn.Module,
-        config: Optional[BYOLConfig] = None,
+        config: BYOLConfig | None = None,
         n_global_views: int = 2,
         n_local_views: int = 4,
     ):
@@ -457,17 +452,11 @@ class BYOL2(nn.Module):
             Total loss
         """
         # Encode all views through online network
-        online_global = [
-            self.predictor(self.projector(self.encoder(v)))
-            for v in global_views
-        ]
+        online_global = [self.predictor(self.projector(self.encoder(v))) for v in global_views]
 
         # Encode global views through target network
         with torch.no_grad():
-            target_global = [
-                self.target_projector(self.momentum_encoder(v))
-                for v in global_views
-            ]
+            target_global = [self.target_projector(self.momentum_encoder(v)) for v in global_views]
 
         # All views predict global targets
         total_loss = 0
@@ -499,15 +488,18 @@ class BYOL2(nn.Module):
     def update_target(self):
         """Update target with cosine momentum schedule."""
         # Cosine momentum schedule
-        momentum = 1 - (1 - self.base_momentum) * (
-            1 + torch.cos(torch.tensor(torch.pi * self.current_step / self.total_steps))
-        ) / 2
+        momentum = (
+            1
+            - (1 - self.base_momentum)
+            * (1 + torch.cos(torch.tensor(torch.pi * self.current_step / self.total_steps)))
+            / 2
+        )
 
         self.momentum_encoder.momentum = momentum.item()
         self.momentum_encoder.update(self.encoder)
 
         # Update projector
-        for o, t in zip(self.projector.parameters(), self.target_projector.parameters()):
+        for o, t in zip(self.projector.parameters(), self.target_projector.parameters(), strict=False):
             t.data = momentum * t.data + (1 - momentum) * o.data
 
         self.current_step += 1

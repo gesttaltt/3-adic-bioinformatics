@@ -298,6 +298,7 @@ def resolve_legacy_path(path: str | Path) -> Path:
 # INITIALIZATION
 # =============================================================================
 
+
 def init_project_dirs() -> None:
     """Initialize all project directories.
 

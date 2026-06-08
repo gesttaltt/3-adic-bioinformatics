@@ -6,6 +6,7 @@
 # For commercial licensing inquiries: support@aiwhisperers.com
 
 """Detailed v5.9 Hyperbolic Poincare Ball Geometry Analysis."""
+
 import sys
 from pathlib import Path
 
@@ -285,4 +286,4 @@ ax.text(
 plt.tight_layout()
 plt.savefig(output_path / "v59_hyperbolic_analysis.png", dpi=150, bbox_inches="tight")
 plt.close()
-print(f'Saved: {output_path / "v59_hyperbolic_analysis.png"}')
+print(f"Saved: {output_path / 'v59_hyperbolic_analysis.png'}")

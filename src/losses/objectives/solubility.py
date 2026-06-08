@@ -13,12 +13,13 @@ protein expression and therapeutic stability.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import torch
 
-from .base import Objective, ObjectiveResult
 from src.geometry import poincare_distance
+
+from .base import Objective, ObjectiveResult
 
 # Amino acid hydrophobicity scale (Kyte-Doolittle)
 # Higher values = more hydrophobic
@@ -155,7 +156,7 @@ class SolubilityObjective(Objective):
     def evaluate(
         self,
         latent: torch.Tensor,
-        decoded: Optional[torch.Tensor] = None,
+        decoded: torch.Tensor | None = None,
         **kwargs: Any,
     ) -> ObjectiveResult:
         """Evaluate solubility objective.
@@ -275,7 +276,7 @@ class StabilityObjective(Objective):
     def evaluate(
         self,
         latent: torch.Tensor,
-        decoded: Optional[torch.Tensor] = None,
+        decoded: torch.Tensor | None = None,
         **kwargs: Any,
     ) -> ObjectiveResult:
         """Evaluate stability objective.

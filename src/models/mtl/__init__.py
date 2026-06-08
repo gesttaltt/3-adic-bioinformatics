@@ -18,9 +18,10 @@ Key components:
 - GradNorm: Automatic task weighting
 """
 
+from src.models.mtl.gradnorm import GradNormOptimizer
 from src.models.mtl.resistance_predictor import (
-    MultiTaskResistancePredictor,
     MTLConfig,
+    MultiTaskResistancePredictor,
 )
 from src.models.mtl.task_heads import (
     ClassificationHead,
@@ -28,7 +29,6 @@ from src.models.mtl.task_heads import (
     RegressionHead,
     TaskHead,
 )
-from src.models.mtl.gradnorm import GradNormOptimizer
 
 __all__ = [
     "MultiTaskResistancePredictor",

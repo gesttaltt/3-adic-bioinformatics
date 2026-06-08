@@ -17,14 +17,14 @@ Each component:
     - Is independently testable
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import torch
 import torch.nn.functional as F
 
+from ..geometry import poincare_distance
 from .base import DualVAELossComponent, LossComponent, LossResult
 from .padic import PAdicRankingLossHyperbolic, PAdicRankingLossV2
-from ..geometry import poincare_distance
 
 
 class ReconstructionLossComponent(LossComponent):
@@ -41,7 +41,7 @@ class ReconstructionLossComponent(LossComponent):
         """
         super().__init__(weight=weight, name="reconstruction")
 
-    def forward(self, outputs: Dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> LossResult:
+    def forward(self, outputs: dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> LossResult:
         """Compute reconstruction loss for both VAEs.
 
         Args:
@@ -114,7 +114,7 @@ class KLDivergenceLossComponent(LossComponent):
 
         return torch.sum(kl_per_dim) / mu.size(0)
 
-    def forward(self, outputs: Dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> LossResult:
+    def forward(self, outputs: dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> LossResult:
         """Compute KL divergence for both VAEs.
 
         Args:
@@ -174,7 +174,7 @@ class EntropyLossComponent(LossComponent):
         entropy = -(probs * torch.log(probs + 1e-10)).sum()
         return entropy
 
-    def forward(self, outputs: Dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> LossResult:
+    def forward(self, outputs: dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> LossResult:
         """Compute entropy regularization.
 
         Args:
@@ -233,11 +233,11 @@ class RepulsionLossComponent(LossComponent):
 
         dists = torch.cdist(z, z, p=2)
         mask = ~torch.eye(z.size(0), dtype=torch.bool, device=z.device)
-        repulsion = torch.exp(-dists[mask] ** 2 / (self.sigma**2)).mean()
+        repulsion = torch.exp(-(dists[mask] ** 2) / (self.sigma**2)).mean()
 
         return repulsion
 
-    def forward(self, outputs: Dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> LossResult:
+    def forward(self, outputs: dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> LossResult:
         """Compute repulsion loss.
 
         Args:
@@ -277,7 +277,7 @@ class EntropyAlignmentComponent(LossComponent):
         """
         super().__init__(weight=weight, name="entropy_align")
 
-    def forward(self, outputs: Dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> LossResult:
+    def forward(self, outputs: dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> LossResult:
         """Compute entropy alignment loss.
 
         Args:
@@ -308,7 +308,7 @@ class PAdicRankingLossComponent(DualVAELossComponent):
     Wraps PAdicRankingLossV2 with the LossComponent interface.
     """
 
-    def __init__(self, weight: float = 0.5, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, weight: float = 0.5, config: dict[str, Any] | None = None):
         """Initialize p-adic ranking loss.
 
         Args:
@@ -326,7 +326,9 @@ class PAdicRankingLossComponent(DualVAELossComponent):
             semi_hard=config.get("semi_hard", True),
         )
 
-    def compute_single(self, z: torch.Tensor, outputs: Dict[str, torch.Tensor], targets: torch.Tensor, vae: str, **kwargs) -> LossResult:
+    def compute_single(
+        self, z: torch.Tensor, outputs: dict[str, torch.Tensor], targets: torch.Tensor, vae: str, **kwargs
+    ) -> LossResult:
         """Compute ranking loss for single VAE.
 
         Args:
@@ -366,7 +368,7 @@ class PAdicHyperbolicLossComponent(DualVAELossComponent):
     Wraps PAdicRankingLossHyperbolic with the LossComponent interface.
     """
 
-    def __init__(self, weight: float = 0.5, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, weight: float = 0.5, config: dict[str, Any] | None = None):
         """Initialize hyperbolic p-adic loss.
 
         Args:
@@ -386,7 +388,9 @@ class PAdicHyperbolicLossComponent(DualVAELossComponent):
             max_norm=config.get("max_norm", 0.95),
         )
 
-    def compute_single(self, z: torch.Tensor, outputs: Dict[str, torch.Tensor], targets: torch.Tensor, vae: str, **kwargs) -> LossResult:
+    def compute_single(
+        self, z: torch.Tensor, outputs: dict[str, torch.Tensor], targets: torch.Tensor, vae: str, **kwargs
+    ) -> LossResult:
         """Compute hyperbolic ranking loss for single VAE.
 
         Args:
@@ -459,7 +463,9 @@ class RadialStratificationLossComponent(DualVAELossComponent):
 
         self.ternary = TERNARY
 
-    def compute_single(self, z: torch.Tensor, outputs: Dict[str, torch.Tensor], targets: torch.Tensor, vae: str, **kwargs) -> LossResult:
+    def compute_single(
+        self, z: torch.Tensor, outputs: dict[str, torch.Tensor], targets: torch.Tensor, vae: str, **kwargs
+    ) -> LossResult:
         """Compute radial stratification for single VAE.
 
         Args:
@@ -492,10 +498,7 @@ class RadialStratificationLossComponent(DualVAELossComponent):
         target_radius = self.outer_radius - normalized_v * (self.outer_radius - self.inner_radius)
 
         # Compute loss with optional valuation weighting
-        if self.valuation_weighting:
-            weights = 1.0 + normalized_v
-        else:
-            weights = torch.ones_like(normalized_v)
+        weights = 1.0 + normalized_v if self.valuation_weighting else torch.ones_like(normalized_v)
 
         loss = F.smooth_l1_loss(actual_radius, target_radius, reduction="none")
         weighted_loss = (loss * weights).mean()

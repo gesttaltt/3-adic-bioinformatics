@@ -15,8 +15,6 @@ Single responsibility: Hyperbolic ranking with radial hierarchy.
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -109,9 +107,7 @@ class PAdicRankingLossHyperbolic(nn.Module):
         """
         return poincare_distance(x, y, c=self.curvature)
 
-    def _compute_radial_loss(
-        self, z_hyp: torch.Tensor, batch_indices: torch.Tensor
-    ) -> torch.Tensor:
+    def _compute_radial_loss(self, z_hyp: torch.Tensor, batch_indices: torch.Tensor) -> torch.Tensor:
         """Compute radial hierarchy loss.
 
         Points with high 3-adic valuation (divisible by large powers of 3)
@@ -137,9 +133,7 @@ class PAdicRankingLossHyperbolic(nn.Module):
 
         return radial_loss
 
-    def forward(
-        self, z: torch.Tensor, batch_indices: torch.Tensor
-    ) -> Tuple[torch.Tensor, Dict[str, float]]:
+    def forward(self, z: torch.Tensor, batch_indices: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
         """Compute hyperbolic p-Adic ranking loss.
 
         Args:
@@ -181,17 +175,11 @@ class PAdicRankingLossHyperbolic(nn.Module):
             }
 
         # Compute hierarchical margin
-        hierarchical_margin = self.miner.compute_hierarchical_margin(
-            triplets.v_pos, triplets.v_neg
-        )
+        hierarchical_margin = self.miner.compute_hierarchical_margin(triplets.v_pos, triplets.v_neg)
 
         # Compute Poincaré distances
-        d_anchor_pos = self._poincare_distance(
-            z_hyp[triplets.anchor_idx], z_hyp[triplets.pos_idx]
-        )
-        d_anchor_neg = self._poincare_distance(
-            z_hyp[triplets.anchor_idx], z_hyp[triplets.neg_idx]
-        )
+        d_anchor_pos = self._poincare_distance(z_hyp[triplets.anchor_idx], z_hyp[triplets.pos_idx])
+        d_anchor_neg = self._poincare_distance(z_hyp[triplets.anchor_idx], z_hyp[triplets.neg_idx])
 
         # Triplet loss with hierarchical margin
         violations = d_anchor_pos - d_anchor_neg + hierarchical_margin

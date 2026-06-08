@@ -33,12 +33,9 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import logging
-import zipfile
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -133,7 +130,7 @@ def download_file(url: str, output_path: Path) -> bool:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(response.content)
 
-        logger.info(f"Saved to {output_path} ({len(response.content)/1024:.1f} KB)")
+        logger.info(f"Saved to {output_path} ({len(response.content) / 1024:.1f} KB)")
         return True
     except Exception as e:
         logger.error(f"Failed to download {url}: {e}")
@@ -218,23 +215,22 @@ def analyze_data(
     # Host animals
     if "host_animal_common" in metadata_df.columns:
         hosts = metadata_df["host_animal_common"].value_counts()
-        logger.info(f"\nHost animals:")
+        logger.info("\nHost animals:")
         for host, count in hosts.items():
             logger.info(f"  {host}: {count}")
 
     # Resistance classes
     if "resistance_class" in genotype_df.columns:
         classes = genotype_df["resistance_class"].value_counts()
-        logger.info(f"\nResistance classes:")
+        logger.info("\nResistance classes:")
         for cls, count in classes.head(10).items():
             logger.info(f"  {cls}: {count}")
 
     # Beta-lactamase genes (look in gene_name_family and gene columns)
     gene_col = "gene_name_family" if "gene_name_family" in genotype_df.columns else "gene"
-    beta_lac_mask = (
-        genotype_df[gene_col].str.contains("TEM|SHV|CTX|OXA|ampC|bla", case=False, na=False) |
-        genotype_df["resistance_class"].str.contains("beta-lactam", case=False, na=False)
-    )
+    beta_lac_mask = genotype_df[gene_col].str.contains("TEM|SHV|CTX|OXA|ampC|bla", case=False, na=False) | genotype_df[
+        "resistance_class"
+    ].str.contains("beta-lactam", case=False, na=False)
     beta_lac_genes = genotype_df[beta_lac_mask]
     logger.info(f"\nBeta-lactam resistance genes found: {len(beta_lac_genes)}")
 
@@ -249,14 +245,23 @@ def analyze_data(
     logger.info(f"\nAntibiotics tested: {len(antibiotics)}")
 
     # Beta-lactam antibiotics
-    beta_lactam_keywords = ["ampicillin", "amox", "cef", "ceph", "imipenem", "ticarcillin", "piperacillin", "penicillin"]
+    beta_lactam_keywords = [
+        "ampicillin",
+        "amox",
+        "cef",
+        "ceph",
+        "imipenem",
+        "ticarcillin",
+        "piperacillin",
+        "penicillin",
+    ]
     beta_lactam_abs = [ab for ab in antibiotics if any(kw in ab.lower() for kw in beta_lactam_keywords)]
     logger.info(f"Beta-lactam antibiotics: {len(beta_lactam_abs)}")
     for ab in sorted(beta_lactam_abs):
         logger.info(f"  - {ab}")
 
     # Resistance distribution for beta-lactams
-    logger.info(f"\nResistance distribution (beta-lactams):")
+    logger.info("\nResistance distribution (beta-lactams):")
     for ab in sorted(beta_lactam_abs):
         ab_data = phenotype_df[phenotype_df["mic_id"] == ab]
         resistant = (ab_data["phenotype"] == "R").sum()
@@ -327,10 +332,9 @@ def create_tem_dataset(
 
     # Get unique beta-lactamase genes
     gene_col = "gene_name_family" if "gene_name_family" in genotype_df.columns else "gene"
-    beta_lac_mask = (
-        genotype_df[gene_col].str.contains("TEM|SHV|CTX|OXA|ampC|bla", case=False, na=False) |
-        genotype_df["resistance_class"].str.contains("beta-lactam", case=False, na=False)
-    )
+    beta_lac_mask = genotype_df[gene_col].str.contains("TEM|SHV|CTX|OXA|ampC|bla", case=False, na=False) | genotype_df[
+        "resistance_class"
+    ].str.contains("beta-lactam", case=False, na=False)
     beta_lac_genes = genotype_df[beta_lac_mask]
 
     # Get unique gene identifiers
@@ -343,8 +347,8 @@ def create_tem_dataset(
     for i, sample_id in enumerate(sample_ids):
         sample_genes = genotype_df[genotype_df["sample_id"] == sample_id]
         sample_beta_lac = sample_genes[
-            (sample_genes[gene_col].str.contains("TEM|SHV|CTX|OXA|ampC|bla", case=False, na=False)) |
-            (sample_genes["resistance_class"].str.contains("beta-lactam", case=False, na=False))
+            (sample_genes[gene_col].str.contains("TEM|SHV|CTX|OXA|ampC|bla", case=False, na=False))
+            | (sample_genes["resistance_class"].str.contains("beta-lactam", case=False, na=False))
         ]
 
         for j, gene in enumerate(unique_genes):
@@ -353,7 +357,7 @@ def create_tem_dataset(
 
     logger.info(f"Feature matrix shape: {X.shape}")
     n_with_genes = (X.sum(axis=1) > 0).sum()
-    logger.info(f"Samples with any beta-lactam gene: {n_with_genes} ({n_with_genes/len(sample_ids)*100:.1f}%)")
+    logger.info(f"Samples with any beta-lactam gene: {n_with_genes} ({n_with_genes / len(sample_ids) * 100:.1f}%)")
 
     return X, y, sample_ids
 
@@ -374,8 +378,8 @@ def validate_with_analyzer(
         Validation results dict
     """
     from sklearn.linear_model import RidgeClassifier
-    from sklearn.model_selection import cross_val_predict
     from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
+    from sklearn.model_selection import cross_val_predict
 
     logger.info("\n" + "=" * 60)
     logger.info("VALIDATION RESULTS")
@@ -389,8 +393,8 @@ def validate_with_analyzer(
     n_resistant = (y == 1).sum()
     n_sensitive = (y == 0).sum()
     logger.info(f"\nDataset: {len(y)} samples")
-    logger.info(f"Resistant: {n_resistant} ({n_resistant/len(y)*100:.1f}%)")
-    logger.info(f"Sensitive: {n_sensitive} ({n_sensitive/len(y)*100:.1f}%)")
+    logger.info(f"Resistant: {n_resistant} ({n_resistant / len(y) * 100:.1f}%)")
+    logger.info(f"Sensitive: {n_sensitive} ({n_sensitive / len(y) * 100:.1f}%)")
 
     # Ridge classifier with cross-validation
     model = RidgeClassifier(alpha=1.0)
@@ -420,7 +424,7 @@ def validate_with_analyzer(
     except Exception:
         roc_auc = None
 
-    logger.info(f"\nResults:")
+    logger.info("\nResults:")
     logger.info(f"  Accuracy: {accuracy:.3f}")
     logger.info(f"  F1 Score: {f1:.3f}")
     logger.info(f"  Spearman: {spearman_corr:.3f} (p={spearman_p:.2e})")
@@ -429,7 +433,7 @@ def validate_with_analyzer(
 
     # Feature importance
     model.fit(X, y)
-    feature_importance = np.abs(model.coef_).flatten()
+    np.abs(model.coef_).flatten()
 
     return {
         "n_samples": len(y),
@@ -461,11 +465,17 @@ def validate_multiple_drugs(
     all_antibiotics = phenotype_df["mic_id"].unique()
 
     # Find beta-lactam antibiotics
-    beta_lactam_keywords = ["ampicillin", "amox", "cef", "ceph", "imipenem", "ticarcillin", "piperacillin", "penicillin"]
-    beta_lactam_abs = [
-        ab for ab in all_antibiotics
-        if any(kw.lower() in ab.lower() for kw in beta_lactam_keywords)
+    beta_lactam_keywords = [
+        "ampicillin",
+        "amox",
+        "cef",
+        "ceph",
+        "imipenem",
+        "ticarcillin",
+        "piperacillin",
+        "penicillin",
     ]
+    beta_lactam_abs = [ab for ab in all_antibiotics if any(kw.lower() in ab.lower() for kw in beta_lactam_keywords)]
 
     logger.info(f"\nValidating across {len(beta_lactam_abs)} beta-lactam antibiotics...")
 
@@ -561,10 +571,9 @@ def main():
     args = parser.parse_args()
 
     # Download if needed
-    if not args.process_only:
-        if not download_all_files(args.data_dir):
-            logger.error("Download failed")
-            return
+    if not args.process_only and not download_all_files(args.data_dir):
+        logger.error("Download failed")
+        return
 
     if args.download_only:
         logger.info("Download complete. Use --process-only to analyze.")
@@ -574,7 +583,7 @@ def main():
     metadata_df, genotype_df, phenotype_df = load_data(args.data_dir)
 
     # Analyze data structure
-    analysis = analyze_data(metadata_df, genotype_df, phenotype_df)
+    analyze_data(metadata_df, genotype_df, phenotype_df)
 
     # Validate
     if args.all_drugs:
@@ -588,8 +597,7 @@ def main():
             serializable_results = {}
             for drug, results in all_results.items():
                 serializable_results[drug] = {
-                    k: float(v) if isinstance(v, (np.floating, np.integer)) else v
-                    for k, v in results.items()
+                    k: float(v) if isinstance(v, (np.floating, np.integer)) else v for k, v in results.items()
                 }
             json.dump(serializable_results, f, indent=2)
         logger.info(f"\nResults saved to {args.output_dir / 'validation_results.json'}")

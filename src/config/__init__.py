@@ -25,74 +25,106 @@ Usage:
 
 # Constants
 from .constants import (
+    # Coverage tracking
+    COVERAGE_TARGET_PCT,
+    # Geometry
+    CURVATURE_MAX,
+    CURVATURE_MIN,
+    # Training
+    DEFAULT_BATCH_SIZE,
+    # Observability
+    DEFAULT_CHECKPOINT_DIR,
+    DEFAULT_CHECKPOINT_FREQ,
+    DEFAULT_CURVATURE,
+    DEFAULT_EMBEDDING_INTERVAL,
+    DEFAULT_EPOCHS,
+    DEFAULT_EVAL_SAMPLES,
+    DEFAULT_FREE_BITS,
+    # Hyperbolic geometry
+    DEFAULT_GEODESIC_WEIGHT,
+    DEFAULT_GRAD_CLIP,
+    # Loss functions
+    DEFAULT_HARD_NEGATIVE_RATIO,
+    DEFAULT_HISTOGRAM_INTERVAL,
+    DEFAULT_LATENT_DIM,
+    DEFAULT_LEARNING_RATE,
+    DEFAULT_LOG_DIR,
+    DEFAULT_LOG_INTERVAL,
+    DEFAULT_MARGIN_BASE,
+    DEFAULT_MARGIN_SCALE,
+    DEFAULT_MAX_RADIUS,
+    DEFAULT_METRIC_LOSS_SCALE,
+    DEFAULT_METRIC_N_PAIRS,
+    DEFAULT_N_TRIPLETS,
+    DEFAULT_PATIENCE,
+    DEFAULT_PLATEAU_MIN_DELTA,
+    DEFAULT_PLATEAU_PATIENCE,
+    DEFAULT_PRIOR_SIGMA,
+    DEFAULT_RADIAL_WEIGHT,
+    DEFAULT_RADIUS_POWER,
+    DEFAULT_RANKING_MARGIN,
+    DEFAULT_REPULSION_SIGMA,
+    DEFAULT_TENSORBOARD_DIR,
+    DEFAULT_WEIGHT_DECAY,
     # Numerical stability
     EPSILON,
     EPSILON_LOG,
     EPSILON_NORM,
     EPSILON_TEMP,
-    # Geometry
-    CURVATURE_MAX,
-    CURVATURE_MIN,
-    DEFAULT_CURVATURE,
-    DEFAULT_LATENT_DIM,
-    DEFAULT_MAX_RADIUS,
-    RADIUS_MAX,
-    RADIUS_MIN,
-    # Training
-    DEFAULT_BATCH_SIZE,
-    DEFAULT_EPOCHS,
-    DEFAULT_FREE_BITS,
-    DEFAULT_GRAD_CLIP,
-    DEFAULT_LEARNING_RATE,
-    DEFAULT_PATIENCE,
-    DEFAULT_WEIGHT_DECAY,
     # Gradient balance
     GRAD_EMA_MOMENTUM,
     GRAD_SCALE_MAX,
     GRAD_SCALE_MIN,
-    # Ternary space
-    MAX_VALUATION,
-    N_TERNARY_DIGITS,
-    N_TERNARY_OPERATIONS,
-    TERNARY_BASE,
-    # Loss functions
-    DEFAULT_HARD_NEGATIVE_RATIO,
-    DEFAULT_MARGIN_BASE,
-    DEFAULT_MARGIN_SCALE,
-    DEFAULT_METRIC_LOSS_SCALE,
-    DEFAULT_METRIC_N_PAIRS,
-    DEFAULT_N_TRIPLETS,
-    DEFAULT_RANKING_MARGIN,
-    DEFAULT_REPULSION_SIGMA,
-    # Hyperbolic geometry
-    DEFAULT_GEODESIC_WEIGHT,
-    DEFAULT_PRIOR_SIGMA,
-    DEFAULT_RADIAL_WEIGHT,
-    DEFAULT_RADIUS_POWER,
-    HYPERBOLIC_CURVATURE,
-    HYPERBOLIC_MAX_NORM,
     # Homeostatic control
     HOMEOSTATIC_CURVATURE_RATE,
     HOMEOSTATIC_EMA_MOMENTUM,
     HOMEOSTATIC_SIGMA_RATE,
     HOMEOSTATIC_TARGET_RADIUS,
-    # Coverage tracking
-    COVERAGE_TARGET_PCT,
-    DEFAULT_PLATEAU_MIN_DELTA,
-    DEFAULT_PLATEAU_PATIENCE,
-    # Observability
-    DEFAULT_CHECKPOINT_DIR,
-    DEFAULT_CHECKPOINT_FREQ,
-    DEFAULT_EMBEDDING_INTERVAL,
-    DEFAULT_EVAL_SAMPLES,
-    DEFAULT_HISTOGRAM_INTERVAL,
-    DEFAULT_LOG_DIR,
-    DEFAULT_LOG_INTERVAL,
-    DEFAULT_TENSORBOARD_DIR,
+    HYPERBOLIC_CURVATURE,
+    HYPERBOLIC_MAX_NORM,
+    # Ternary space
+    MAX_VALUATION,
+    N_TERNARY_DIGITS,
+    N_TERNARY_OPERATIONS,
+    RADIUS_MAX,
+    RADIUS_MIN,
+    TERNARY_BASE,
 )
 
 # Environment
-from .environment import Environment, EnvConfig, get_env_config, reset_env_config
+from .environment import EnvConfig, Environment, get_env_config, reset_env_config
+
+# Loader
+from .loader import load_config, save_config
+
+# Paths
+from .paths import (
+    CACHE_DIR,
+    CHECKPOINTS_DIR,
+    CONFIG_DIR,
+    DATA_DIR,
+    DELIVERABLES_DIR,
+    DOCS_DIR,
+    EXTERNAL_DATA_DIR,
+    LOGS_DIR,
+    OUTPUT_DIR,
+    PROCESSED_DATA_DIR,
+    PROJECT_ROOT,
+    RAW_DATA_DIR,
+    REPORTS_DIR,
+    RESULTS_DIR,
+    RUNS_DIR,
+    SCRIPTS_DIR,
+    SRC_DIR,
+    TESTS_DIR,
+    VIZ_DIR,
+    ensure_dirs,
+    get_checkpoint_path,
+    get_data_path,
+    get_results_path,
+    init_project_dirs,
+    resolve_legacy_path,
+)
 
 # Schema
 from .schema import (
@@ -103,38 +135,6 @@ from .schema import (
     RankingConfig,
     TrainingConfig,
     VAEConfig,
-)
-
-# Loader
-from .loader import load_config, save_config
-
-# Paths
-from .paths import (
-    PROJECT_ROOT,
-    CONFIG_DIR,
-    DATA_DIR,
-    RAW_DATA_DIR,
-    PROCESSED_DATA_DIR,
-    EXTERNAL_DATA_DIR,
-    CACHE_DIR,
-    OUTPUT_DIR,
-    RESULTS_DIR,
-    CHECKPOINTS_DIR,
-    RUNS_DIR,
-    REPORTS_DIR,
-    VIZ_DIR,
-    LOGS_DIR,
-    DOCS_DIR,
-    SRC_DIR,
-    TESTS_DIR,
-    SCRIPTS_DIR,
-    DELIVERABLES_DIR,
-    ensure_dirs,
-    get_checkpoint_path,
-    get_results_path,
-    get_data_path,
-    resolve_legacy_path,
-    init_project_dirs,
 )
 
 __all__ = [

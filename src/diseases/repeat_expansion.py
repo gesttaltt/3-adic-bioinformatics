@@ -37,7 +37,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -62,8 +61,8 @@ class RepeatDiseaseInfo:
     name: str
     repeat: TrinucleotideRepeat
     gene: str
-    normal_range: Tuple[int, int]  # Normal repeat count range
-    intermediate_range: Tuple[int, int]  # Pre-mutation/intermediate
+    normal_range: tuple[int, int]  # Normal repeat count range
+    intermediate_range: tuple[int, int]  # Pre-mutation/intermediate
     disease_threshold: int  # Minimum for disease
     full_penetrance: int  # Full disease penetrance
     anticipation: bool  # Whether disease shows anticipation
@@ -83,7 +82,7 @@ class RepeatDiseaseInfo:
 
 
 # Database of repeat expansion diseases
-REPEAT_DISEASES: Dict[str, RepeatDiseaseInfo] = {
+REPEAT_DISEASES: dict[str, RepeatDiseaseInfo] = {
     "huntington": RepeatDiseaseInfo(
         name="Huntington's Disease",
         repeat=TrinucleotideRepeat.CAG,
@@ -164,7 +163,7 @@ class RepeatAnalysisResult:
     risk_score: float
     classification: str  # "normal", "intermediate", "disease"
     aggregation_propensity: float
-    predicted_onset_age: Optional[int]
+    predicted_onset_age: int | None
 
 
 class RepeatExpansionAnalyzer:
@@ -273,7 +272,7 @@ class RepeatExpansionAnalyzer:
 
         return float(base * length_factor)
 
-    def _predict_onset_age(self, repeat_count: int, disease_info: RepeatDiseaseInfo) -> Optional[int]:
+    def _predict_onset_age(self, repeat_count: int, disease_info: RepeatDiseaseInfo) -> int | None:
         """Predict age of disease onset based on repeat count.
 
         For HD and other CAG diseases, there's an inverse correlation
@@ -355,8 +354,8 @@ class RepeatExpansionAnalyzer:
     def find_disease_boundary(
         self,
         disease: str,
-        search_range: Tuple[int, int] = (1, 100),
-    ) -> Dict[str, int]:
+        search_range: tuple[int, int] = (1, 100),
+    ) -> dict[str, int]:
         """Find repeat counts corresponding to phase transitions.
 
         Identifies boundaries between normal, intermediate, and disease
@@ -406,7 +405,7 @@ class RepeatExpansionAnalyzer:
 
         return boundaries
 
-    def compare_diseases(self, repeat_count: int) -> List[RepeatAnalysisResult]:
+    def compare_diseases(self, repeat_count: int) -> list[RepeatAnalysisResult]:
         """Compare risk across all diseases for a given repeat count.
 
         Args:
@@ -427,8 +426,8 @@ class RepeatExpansionAnalyzer:
     def generate_risk_trajectory(
         self,
         disease: str,
-        repeat_range: Tuple[int, int] = (10, 80),
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        repeat_range: tuple[int, int] = (10, 80),
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Generate risk trajectory across repeat counts.
 
         Useful for visualization of how risk changes with repeat count.

@@ -13,9 +13,13 @@ This package provides specialized projections for:
 - Hopf fibration
 """
 
-from .poincare import (compute_hyperbolic_centroids,
-                       create_poincare_animation_data, plot_3d_poincare_ball,
-                       plot_hierarchy_tree, project_to_2d_poincare)
+from .poincare import (
+    compute_hyperbolic_centroids,
+    create_poincare_animation_data,
+    plot_3d_poincare_ball,
+    plot_hierarchy_tree,
+    project_to_2d_poincare,
+)
 
 __all__ = [
     "project_to_2d_poincare",

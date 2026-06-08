@@ -30,20 +30,14 @@ Usage:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
-import os
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
-from urllib.parse import urljoin
 
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +58,7 @@ class AlphaFoldStructure:
     plddt: np.ndarray
     sequence: str
     uniprot_id: str
-    pae: Optional[np.ndarray] = None
+    pae: np.ndarray | None = None
 
     def to_tensors(self, device: str = "cpu") -> dict[str, torch.Tensor]:
         """Convert to PyTorch tensors."""
@@ -87,7 +81,7 @@ class AlphaFoldStructureLoader:
 
     def __init__(
         self,
-        cache_dir: Optional[Path] = None,
+        cache_dir: Path | None = None,
         model_version: int = 4,
     ):
         """Initialize structure loader.
@@ -183,6 +177,7 @@ class AlphaFoldStructureLoader:
         """
         try:
             import requests
+
             api_url = f"{self.ALPHAFOLD_API_URL}prediction/{uniprot_id}"
             resp = requests.get(api_url, timeout=10)
             if resp.status_code == 200:
@@ -447,9 +442,9 @@ class AlphaFoldEncoder(nn.Module):
     def forward(
         self,
         coords: torch.Tensor,
-        plddt_scores: Optional[torch.Tensor] = None,
-        pae_matrix: Optional[torch.Tensor] = None,
-        mask: Optional[torch.Tensor] = None,
+        plddt_scores: torch.Tensor | None = None,
+        pae_matrix: torch.Tensor | None = None,
+        mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Encode AlphaFold2 structure.
 
@@ -463,14 +458,12 @@ class AlphaFoldEncoder(nn.Module):
             Structure embeddings (batch, n_residues, embed_dim)
         """
         batch_size, n_residues, _ = coords.shape
-        device = coords.device
 
         # Initial coordinate encoding
         h = self.coord_encoder(coords)
 
         # Add distance information
         dist = torch.cdist(coords, coords)  # (batch, n, n)
-        dist_mask = dist < self.cutoff
 
         # Aggregate distance features per residue
         dist_features = self.dist_embed(dist.unsqueeze(-1).mean(dim=2))  # Mean over neighbors
@@ -502,7 +495,7 @@ class AlphaFoldEncoder(nn.Module):
 
         return self.out_proj(h)
 
-    def pool(self, h: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def pool(self, h: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
         """Pool residue embeddings to sequence embedding.
 
         Args:
@@ -523,8 +516,8 @@ class AlphaFoldFeatureExtractor:
 
     def __init__(
         self,
-        encoder: Optional[AlphaFoldEncoder] = None,
-        loader: Optional[AlphaFoldStructureLoader] = None,
+        encoder: AlphaFoldEncoder | None = None,
+        loader: AlphaFoldStructureLoader | None = None,
         device: str = "cpu",
     ):
         """Initialize feature extractor.

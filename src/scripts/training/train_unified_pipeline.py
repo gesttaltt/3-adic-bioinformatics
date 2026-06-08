@@ -49,11 +49,9 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -258,10 +256,7 @@ def print_plan(steps: list[TrainingStep], quick: bool = False):
 
 def check_dependencies(step: TrainingStep, completed: set[str]) -> bool:
     """Check if all dependencies are satisfied."""
-    for dep in step.dependencies:
-        if dep not in completed:
-            return False
-    return True
+    return all(dep in completed for dep in step.dependencies)
 
 
 def run_step(
@@ -299,18 +294,18 @@ def run_step(
     start_time = time.time()
 
     try:
-        result = subprocess.run(
+        subprocess.run(
             cmd,
             cwd=str(PROJECT_ROOT),
             check=True,
         )
         elapsed = time.time() - start_time
-        print(f"\n  [OK] {step.name} completed in {elapsed/3600:.2f}h")
+        print(f"\n  [OK] {step.name} completed in {elapsed / 3600:.2f}h")
         return True, elapsed
 
     except subprocess.CalledProcessError as e:
         elapsed = time.time() - start_time
-        print(f"\n  [ERROR] {step.name} failed after {elapsed/3600:.2f}h")
+        print(f"\n  [ERROR] {step.name} failed after {elapsed / 3600:.2f}h")
         print(f"  Exit code: {e.returncode}")
         return False, elapsed
 
@@ -365,7 +360,8 @@ def main():
         help="Show plan without executing",
     )
     parser.add_argument(
-        "-y", "--yes",
+        "-y",
+        "--yes",
         action="store_true",
         help="Skip confirmation prompts",
     )
@@ -394,9 +390,8 @@ def main():
                 continue
 
             # Disease filter
-            if step.diseases != ["all"]:
-                if not any(d in args.diseases for d in step.diseases):
-                    continue
+            if step.diseases != ["all"] and not any(d in args.diseases for d in step.diseases):
+                continue
 
             steps.append(step)
 
@@ -469,14 +464,14 @@ def main():
     print("=" * 80)
 
     total_time = sum(timings.values())
-    print(f"\n  Total time: {total_time/3600:.2f} hours")
+    print(f"\n  Total time: {total_time / 3600:.2f} hours")
     print(f"  Completed: {len(completed)} steps")
     print(f"  Failed: {len(failed)} steps")
 
     if completed:
         print("\n  Completed steps:")
         for name in sorted(completed):
-            time_str = f" ({timings.get(name, 0)/3600:.2f}h)" if name in timings else ""
+            time_str = f" ({timings.get(name, 0) / 3600:.2f}h)" if name in timings else ""
             print(f"    [OK] {name}{time_str}")
 
     if failed:

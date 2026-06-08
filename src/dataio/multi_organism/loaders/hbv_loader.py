@@ -23,13 +23,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
 from ..base import OrganismLoader, OrganismType, SequenceRecord, SequenceType
 from ..registry import OrganismRegistry
-
 
 # Known drug resistance mutations in HBV polymerase
 HBV_RESISTANCE_MUTATIONS = {
@@ -75,17 +74,17 @@ class HBVLoader(OrganismLoader):
     def __init__(
         self,
         organism: OrganismType = OrganismType.HBV,
-        cache_dir: Optional[Path] = None,
-        max_sequences: Optional[int] = None,
+        cache_dir: Path | None = None,
+        max_sequences: int | None = None,
         gene: str = "polymerase",
         include_resistance: bool = True,
     ):
         super().__init__(organism, cache_dir, max_sequences)
         self.gene = gene
         self.include_resistance = include_resistance
-        self._sequences: Optional[List[SequenceRecord]] = None
+        self._sequences: list[SequenceRecord] | None = None
 
-    def load_sequences(self) -> List[SequenceRecord]:
+    def load_sequences(self) -> list[SequenceRecord]:
         """Load HBV sequences.
 
         First tries to load from cache, then from remote sources.
@@ -117,7 +116,7 @@ class HBVLoader(OrganismLoader):
 
         return self._sequences
 
-    def _load_from_cache(self, cache_file: Path) -> List[SequenceRecord]:
+    def _load_from_cache(self, cache_file: Path) -> list[SequenceRecord]:
         """Load sequences from cache file."""
         with open(cache_file) as f:
             data = json.load(f)
@@ -159,7 +158,7 @@ class HBVLoader(OrganismLoader):
         with open(cache_file, "w") as f:
             json.dump(data, f)
 
-    def _fetch_from_ncbi(self) -> List[SequenceRecord]:
+    def _fetch_from_ncbi(self) -> list[SequenceRecord]:
         """Fetch HBV sequences from NCBI."""
         try:
             from data_access.clients.ncbi_client import NCBIClient
@@ -192,7 +191,7 @@ class HBVLoader(OrganismLoader):
         except ImportError:
             raise RuntimeError("NCBI client not available")
 
-    def _generate_synthetic(self) -> List[SequenceRecord]:
+    def _generate_synthetic(self) -> list[SequenceRecord]:
         """Generate synthetic HBV sequences for testing."""
         np.random.seed(42)
 
@@ -220,7 +219,7 @@ class HBVLoader(OrganismLoader):
 
             # Assign drug resistance based on mutations
             drug_resistance = {}
-            for drug, mut_info in HBV_RESISTANCE_MUTATIONS.items():
+            for drug, _mut_info in HBV_RESISTANCE_MUTATIONS.items():
                 # Simplified: random resistance level
                 drug_resistance[drug] = np.random.random() if mutations else 0.0
 
@@ -239,7 +238,7 @@ class HBVLoader(OrganismLoader):
 
         return records
 
-    def get_validation_labels(self) -> Dict[str, Any]:
+    def get_validation_labels(self) -> dict[str, Any]:
         """Get drug resistance labels for validation."""
         records = self.load_sequences()
 
@@ -256,7 +255,7 @@ class HBVLoader(OrganismLoader):
 
         return labels
 
-    def get_resistance_profile(self, sequence_id: str) -> Dict[str, float]:
+    def get_resistance_profile(self, sequence_id: str) -> dict[str, float]:
         """Get drug resistance profile for a sequence."""
         records = self.load_sequences()
         for record in records:
@@ -264,7 +263,7 @@ class HBVLoader(OrganismLoader):
                 return record.drug_resistance or {}
         return {}
 
-    def find_resistance_mutations(self, sequence: str) -> Dict[str, List[str]]:
+    def find_resistance_mutations(self, sequence: str) -> dict[str, list[str]]:
         """Find known resistance mutations in a sequence.
 
         Args:
@@ -281,7 +280,7 @@ class HBVLoader(OrganismLoader):
             found[drug] = []
             all_muts = mutations["primary"] + mutations["secondary"]
 
-            for mut in all_muts:
+            for _mut in all_muts:
                 # Parse mutation (e.g., "M204V")
                 # Check if mutation is present in sequence
                 # This requires proper sequence alignment
@@ -290,7 +289,7 @@ class HBVLoader(OrganismLoader):
         return found
 
     @staticmethod
-    def get_genotype_info(genotype: str) -> Dict[str, str]:
+    def get_genotype_info(genotype: str) -> dict[str, str]:
         """Get information about an HBV genotype."""
         return HBV_GENOTYPES.get(genotype, {"prevalence": "Unknown", "severity": "Unknown"})
 
@@ -299,7 +298,7 @@ class HBVLoader(OrganismLoader):
 def load_hbv_sequences(
     max_sequences: int = 1000,
     gene: str = "polymerase",
-) -> List[SequenceRecord]:
+) -> list[SequenceRecord]:
     """Load HBV sequences.
 
     Args:

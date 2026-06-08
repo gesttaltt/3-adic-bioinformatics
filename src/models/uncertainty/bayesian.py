@@ -14,8 +14,6 @@ References:
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
-
 import torch
 import torch.nn as nn
 
@@ -59,7 +57,7 @@ class MCDropoutWrapper(nn.Module):
 
         def add_dropout_after(module):
             """Add dropout after specific layer types."""
-            for name, child in module.named_children():
+            for _name, child in module.named_children():
                 if isinstance(child, (nn.Linear, nn.Conv1d, nn.Conv2d)):
                     self.dropout_layers.append(nn.Dropout(self.dropout_rate))
                 add_dropout_after(child)
@@ -81,7 +79,7 @@ class MCDropoutWrapper(nn.Module):
         self,
         x: torch.Tensor,
         n_samples: int = 100,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Predict with uncertainty estimation via MC Dropout.
 
         Args:
@@ -124,7 +122,7 @@ class BayesianPredictor(nn.Module):
         self,
         input_dim: int,
         output_dim: int = 1,
-        hidden_dims: list[int] = [256, 128, 64],
+        hidden_dims: list[int] = None,
         dropout_rate: float = 0.1,
         learn_variance: bool = True,
     ):
@@ -137,6 +135,8 @@ class BayesianPredictor(nn.Module):
             dropout_rate: Dropout rate for MC sampling
             learn_variance: Learn heteroscedastic aleatoric uncertainty
         """
+        if hidden_dims is None:
+            hidden_dims = [256, 128, 64]
         super().__init__()
         self.output_dim = output_dim
         self.learn_variance = learn_variance
@@ -147,12 +147,14 @@ class BayesianPredictor(nn.Module):
         prev_dim = input_dim
 
         for hidden_dim in hidden_dims:
-            layers.extend([
-                nn.Linear(prev_dim, hidden_dim),
-                nn.LayerNorm(hidden_dim),
-                nn.SiLU(),
-                nn.Dropout(dropout_rate),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(prev_dim, hidden_dim),
+                    nn.LayerNorm(hidden_dim),
+                    nn.SiLU(),
+                    nn.Dropout(dropout_rate),
+                ]
+            )
             prev_dim = hidden_dim
 
         self.backbone = nn.Sequential(*layers)
@@ -251,7 +253,7 @@ class BayesianPredictor(nn.Module):
         x: torch.Tensor,
         confidence_threshold: float = 0.8,
         n_samples: int = 100,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Predict with option to reject uncertain samples.
 
         Args:
@@ -292,10 +294,7 @@ class BayesianPredictor(nn.Module):
             mean, variance = self.forward(x, return_variance=True)
 
             # Negative log-likelihood of Gaussian
-            nll = 0.5 * (
-                torch.log(variance + 1e-8) +
-                (y - mean) ** 2 / (variance + 1e-8)
-            )
+            nll = 0.5 * (torch.log(variance + 1e-8) + (y - mean) ** 2 / (variance + 1e-8))
             return nll.mean()
         else:
             mean = self.forward(x)
@@ -313,7 +312,7 @@ class BayesianResistancePredictor(BayesianPredictor):
         self,
         input_dim: int,
         n_drugs: int = 18,
-        hidden_dims: list[int] = [512, 256, 128],
+        hidden_dims: list[int] = None,
         dropout_rate: float = 0.15,
     ):
         """Initialize resistance predictor.
@@ -324,6 +323,8 @@ class BayesianResistancePredictor(BayesianPredictor):
             hidden_dims: Hidden layer dimensions
             dropout_rate: Dropout rate
         """
+        if hidden_dims is None:
+            hidden_dims = [512, 256, 128]
         super().__init__(
             input_dim=input_dim,
             output_dim=n_drugs,
@@ -340,7 +341,7 @@ class BayesianResistancePredictor(BayesianPredictor):
     def predict_resistance(
         self,
         x: torch.Tensor,
-        drug_indices: Optional[torch.Tensor] = None,
+        drug_indices: torch.Tensor | None = None,
         n_samples: int = 100,
     ) -> dict:
         """Predict resistance with calibrated uncertainty.
@@ -361,9 +362,14 @@ class BayesianResistancePredictor(BayesianPredictor):
 
         # Select specific drugs if requested
         if drug_indices is not None:
-            for key in ["prediction", "epistemic_uncertainty",
-                       "aleatoric_uncertainty", "total_uncertainty",
-                       "confidence", "calibrated_confidence"]:
+            for key in [
+                "prediction",
+                "epistemic_uncertainty",
+                "aleatoric_uncertainty",
+                "total_uncertainty",
+                "confidence",
+                "calibrated_confidence",
+            ]:
                 result[key] = result[key][:, drug_indices]
 
         return result

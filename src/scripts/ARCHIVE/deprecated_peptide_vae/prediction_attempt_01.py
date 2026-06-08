@@ -41,23 +41,23 @@ from __future__ import annotations
 
 import json
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 # Add project root
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 try:
-    from scipy.stats import spearmanr, pearsonr
+    from scipy.stats import pearsonr, spearmanr
+
     HAS_SCIPY = True
 except ImportError:
     HAS_SCIPY = False
@@ -69,26 +69,26 @@ PAD_IDX = len(AA_VOCAB)  # 20 = padding
 
 # Physicochemical properties (from Colbes validation)
 AA_PROPERTIES = {
-    'A': {'hydro': 0.62, 'charge': 0.0, 'size': -0.77},
-    'C': {'hydro': 0.29, 'charge': 0.0, 'size': -0.41},
-    'D': {'hydro': -0.90, 'charge': -1.0, 'size': -0.32},
-    'E': {'hydro': -0.74, 'charge': -1.0, 'size': 0.40},
-    'F': {'hydro': 1.19, 'charge': 0.0, 'size': 0.81},
-    'G': {'hydro': 0.48, 'charge': 0.0, 'size': -1.00},
-    'H': {'hydro': -0.40, 'charge': 0.5, 'size': 0.18},
-    'I': {'hydro': 1.38, 'charge': 0.0, 'size': 0.55},
-    'K': {'hydro': -1.50, 'charge': 1.0, 'size': 0.46},
-    'L': {'hydro': 1.06, 'charge': 0.0, 'size': 0.55},
-    'M': {'hydro': 0.64, 'charge': 0.0, 'size': 0.46},
-    'N': {'hydro': -0.78, 'charge': 0.0, 'size': -0.18},
-    'P': {'hydro': 0.12, 'charge': 0.0, 'size': -0.45},
-    'Q': {'hydro': -0.85, 'charge': 0.0, 'size': 0.18},
-    'R': {'hydro': -2.53, 'charge': 1.0, 'size': 0.64},
-    'S': {'hydro': -0.18, 'charge': 0.0, 'size': -0.59},
-    'T': {'hydro': -0.05, 'charge': 0.0, 'size': -0.32},
-    'V': {'hydro': 1.08, 'charge': 0.0, 'size': 0.14},
-    'W': {'hydro': 0.81, 'charge': 0.0, 'size': 1.00},
-    'Y': {'hydro': 0.26, 'charge': 0.0, 'size': 0.73},
+    "A": {"hydro": 0.62, "charge": 0.0, "size": -0.77},
+    "C": {"hydro": 0.29, "charge": 0.0, "size": -0.41},
+    "D": {"hydro": -0.90, "charge": -1.0, "size": -0.32},
+    "E": {"hydro": -0.74, "charge": -1.0, "size": 0.40},
+    "F": {"hydro": 1.19, "charge": 0.0, "size": 0.81},
+    "G": {"hydro": 0.48, "charge": 0.0, "size": -1.00},
+    "H": {"hydro": -0.40, "charge": 0.5, "size": 0.18},
+    "I": {"hydro": 1.38, "charge": 0.0, "size": 0.55},
+    "K": {"hydro": -1.50, "charge": 1.0, "size": 0.46},
+    "L": {"hydro": 1.06, "charge": 0.0, "size": 0.55},
+    "M": {"hydro": 0.64, "charge": 0.0, "size": 0.46},
+    "N": {"hydro": -0.78, "charge": 0.0, "size": -0.18},
+    "P": {"hydro": 0.12, "charge": 0.0, "size": -0.45},
+    "Q": {"hydro": -0.85, "charge": 0.0, "size": 0.18},
+    "R": {"hydro": -2.53, "charge": 1.0, "size": 0.64},
+    "S": {"hydro": -0.18, "charge": 0.0, "size": -0.59},
+    "T": {"hydro": -0.05, "charge": 0.0, "size": -0.32},
+    "V": {"hydro": 1.08, "charge": 0.0, "size": 0.14},
+    "W": {"hydro": 0.81, "charge": 0.0, "size": 1.00},
+    "Y": {"hydro": 0.26, "charge": 0.0, "size": 0.73},
 }
 
 
@@ -101,13 +101,13 @@ def compute_physicochemical(sequence: str) -> dict:
 
     for aa in sequence:
         if aa in AA_PROPERTIES:
-            total_hydro += AA_PROPERTIES[aa]['hydro']
-            total_charge += AA_PROPERTIES[aa]['charge']
+            total_hydro += AA_PROPERTIES[aa]["hydro"]
+            total_charge += AA_PROPERTIES[aa]["charge"]
 
     return {
-        'length': length,
-        'hydrophobicity': total_hydro / max(length, 1),
-        'net_charge': total_charge,
+        "length": length,
+        "hydrophobicity": total_hydro / max(length, 1),
+        "net_charge": total_charge,
     }
 
 
@@ -117,7 +117,7 @@ def poincare_distance(x: torch.Tensor, y: torch.Tensor, c: float = 1.0) -> torch
     CRITICAL: Use this instead of torch.norm() for radial computations!
     V5.12.2 audit showed .norm() breaks hierarchy.
     """
-    sqrt_c = c ** 0.5
+    sqrt_c = c**0.5
 
     # Mobius addition: -x + y
     x_sq = (x * x).sum(dim=-1, keepdim=True)
@@ -125,7 +125,7 @@ def poincare_distance(x: torch.Tensor, y: torch.Tensor, c: float = 1.0) -> torch
     xy = (x * y).sum(dim=-1, keepdim=True)
 
     num = (1 + 2 * c * xy + c * y_sq) * (-x) + (1 - c * x_sq) * y
-    denom = 1 + 2 * c * (-xy) + c ** 2 * x_sq * y_sq
+    denom = 1 + 2 * c * (-xy) + c**2 * x_sq * y_sq
     diff = num / torch.clamp(denom, min=1e-8)
 
     diff_norm = torch.clamp(torch.norm(diff, dim=-1), min=1e-8, max=1 - 1e-5)
@@ -134,7 +134,7 @@ def poincare_distance(x: torch.Tensor, y: torch.Tensor, c: float = 1.0) -> torch
 
 def exp_map_zero(v: torch.Tensor, c: float = 1.0) -> torch.Tensor:
     """Exponential map from tangent space at origin to Poincare ball."""
-    sqrt_c = c ** 0.5
+    sqrt_c = c**0.5
     v_norm = torch.clamp(torch.norm(v, dim=-1, keepdim=True), min=1e-8)
     scale = torch.tanh(sqrt_c * v_norm / 2.0) / (sqrt_c * v_norm)
     return v * scale
@@ -143,6 +143,7 @@ def exp_map_zero(v: torch.Tensor, c: float = 1.0) -> torch.Tensor:
 @dataclass
 class PeptideVAEConfig:
     """Configuration for PeptideVAE."""
+
     vocab_size: int = 21  # 20 AAs + padding
     max_seq_len: int = 50
     embed_dim: int = 64
@@ -176,18 +177,18 @@ class PeptideDataset(Dataset):
         props = self.properties[idx]
 
         # Encode sequence
-        encoded = [AA_TO_IDX.get(aa, PAD_IDX) for aa in seq[:self.max_len]]
+        encoded = [AA_TO_IDX.get(aa, PAD_IDX) for aa in seq[: self.max_len]]
 
         # Pad to max_len
         padding = [PAD_IDX] * (self.max_len - len(encoded))
         encoded = encoded + padding
 
         return {
-            'sequence': torch.tensor(encoded, dtype=torch.long),
-            'length': torch.tensor(props['length'], dtype=torch.float),
-            'hydrophobicity': torch.tensor(props['hydrophobicity'], dtype=torch.float),
-            'net_charge': torch.tensor(props['net_charge'], dtype=torch.float),
-            'raw_sequence': seq,
+            "sequence": torch.tensor(encoded, dtype=torch.long),
+            "length": torch.tensor(props["length"], dtype=torch.float),
+            "hydrophobicity": torch.tensor(props["hydrophobicity"], dtype=torch.float),
+            "net_charge": torch.tensor(props["net_charge"], dtype=torch.float),
+            "raw_sequence": seq,
         }
 
 
@@ -198,9 +199,7 @@ class PeptideEncoder(nn.Module):
         super().__init__()
         self.config = config
 
-        self.embedding = nn.Embedding(
-            config.vocab_size, config.embed_dim, padding_idx=PAD_IDX
-        )
+        self.embedding = nn.Embedding(config.vocab_size, config.embed_dim, padding_idx=PAD_IDX)
 
         self.lstm = nn.LSTM(
             config.embed_dim,
@@ -268,7 +267,7 @@ class PeptideDecoder(nn.Module):
     def forward(
         self,
         z: torch.Tensor,
-        target: Optional[torch.Tensor] = None,
+        target: torch.Tensor | None = None,
         max_len: int = 50,
     ) -> torch.Tensor:
         batch_size = z.size(0)
@@ -334,9 +333,9 @@ class PhysicochemicalHead(nn.Module):
     def forward(self, z: torch.Tensor) -> dict[str, torch.Tensor]:
         out = self.net(z)
         return {
-            'length_pred': out[:, 0],
-            'hydro_pred': out[:, 1],
-            'charge_pred': out[:, 2],
+            "length_pred": out[:, 0],
+            "hydro_pred": out[:, 1],
+            "charge_pred": out[:, 2],
         }
 
 
@@ -375,7 +374,7 @@ class PeptideVAE(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        target: Optional[torch.Tensor] = None,
+        target: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         # Encode
         mu, logvar = self.encoder(x)
@@ -394,11 +393,11 @@ class PeptideVAE(nn.Module):
         radii = poincare_distance(z_hyp, origin, self.curvature)
 
         return {
-            'logits': logits,
-            'mu': mu,
-            'logvar': logvar,
-            'z_hyp': z_hyp,
-            'radii': radii,
+            "logits": logits,
+            "mu": mu,
+            "logvar": logvar,
+            "z_hyp": z_hyp,
+            "radii": radii,
             **phys_preds,
         }
 
@@ -414,8 +413,8 @@ class PeptideVAE(nn.Module):
         config = self.config
 
         # Reconstruction loss (cross-entropy)
-        logits = outputs['logits']
-        target = batch['sequence']
+        logits = outputs["logits"]
+        target = batch["sequence"]
 
         # Reshape for cross-entropy
         batch_size, seq_len, vocab_size = logits.shape
@@ -424,42 +423,36 @@ class PeptideVAE(nn.Module):
 
         # Mask padding
         mask = target_flat != PAD_IDX
-        recon_loss = F.cross_entropy(
-            logits_flat[mask], target_flat[mask], reduction='mean'
-        )
+        recon_loss = F.cross_entropy(logits_flat[mask], target_flat[mask], reduction="mean")
 
         # KL divergence
-        mu = outputs['mu']
-        logvar = outputs['logvar']
+        mu = outputs["mu"]
+        logvar = outputs["logvar"]
         kl_loss = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
 
         # Physicochemical loss (C3 validated - these ARE the signal sources)
-        length_true = batch['length']
-        hydro_true = batch['hydrophobicity']
-        charge_true = batch['net_charge']
+        length_true = batch["length"]
+        hydro_true = batch["hydrophobicity"]
+        charge_true = batch["net_charge"]
 
         # Normalize length for loss computation
-        length_pred = outputs['length_pred'] * 10  # Scale up
+        length_pred = outputs["length_pred"] * 10  # Scale up
         length_target = length_true
 
         phys_loss = (
-            F.mse_loss(length_pred, length_target) +
-            F.mse_loss(outputs['hydro_pred'], hydro_true) +
-            F.mse_loss(outputs['charge_pred'], charge_true)
+            F.mse_loss(length_pred, length_target)
+            + F.mse_loss(outputs["hydro_pred"], hydro_true)
+            + F.mse_loss(outputs["charge_pred"], charge_true)
         )
 
         # Total loss
-        total_loss = (
-            config.recon_weight * recon_loss +
-            config.kl_weight * kl_loss +
-            config.phys_weight * phys_loss
-        )
+        total_loss = config.recon_weight * recon_loss + config.kl_weight * kl_loss + config.phys_weight * phys_loss
 
         return {
-            'total': total_loss,
-            'recon': recon_loss,
-            'kl': kl_loss,
-            'phys': phys_loss,
+            "total": total_loss,
+            "recon": recon_loss,
+            "kl": kl_loss,
+            "phys": phys_loss,
         }
 
 
@@ -470,12 +463,12 @@ def load_peptide_data(data_dir: Path) -> list[str]:
     csv_files = list(data_dir.glob("*.csv"))
 
     for csv_file in csv_files:
-        with open(csv_file, 'r') as f:
+        with open(csv_file) as f:
             lines = f.readlines()
 
         # Skip header
         for line in lines[1:]:
-            parts = line.strip().split(',')
+            parts = line.strip().split(",")
             if len(parts) > 0:
                 seq = parts[0].strip()
                 # Validate sequence
@@ -505,36 +498,35 @@ def train_epoch(
 
     for batch in dataloader:
         # Move to device
-        batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v
-                 for k, v in batch.items()}
+        batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
 
         optimizer.zero_grad()
 
         # Forward pass
-        outputs = model(batch['sequence'], target=batch['sequence'])
+        outputs = model(batch["sequence"], target=batch["sequence"])
 
         # Compute loss
         losses = model.compute_loss(outputs, batch)
 
         # Backward pass
-        losses['total'].backward()
+        losses["total"].backward()
 
         # Gradient clipping
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
         optimizer.step()
 
-        total_loss += losses['total'].item()
-        total_recon += losses['recon'].item()
-        total_kl += losses['kl'].item()
-        total_phys += losses['phys'].item()
+        total_loss += losses["total"].item()
+        total_recon += losses["recon"].item()
+        total_kl += losses["kl"].item()
+        total_phys += losses["phys"].item()
         n_batches += 1
 
     return {
-        'total': total_loss / n_batches,
-        'recon': total_recon / n_batches,
-        'kl': total_kl / n_batches,
-        'phys': total_phys / n_batches,
+        "total": total_loss / n_batches,
+        "recon": total_recon / n_batches,
+        "kl": total_kl / n_batches,
+        "phys": total_phys / n_batches,
     }
 
 
@@ -562,32 +554,31 @@ def evaluate(
     all_charge_true = []
 
     for batch in dataloader:
-        batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v
-                 for k, v in batch.items()}
+        batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
 
-        outputs = model(batch['sequence'], target=batch['sequence'])
+        outputs = model(batch["sequence"], target=batch["sequence"])
         losses = model.compute_loss(outputs, batch)
 
-        total_loss += losses['total'].item()
-        total_recon += losses['recon'].item()
-        total_kl += losses['kl'].item()
-        total_phys += losses['phys'].item()
+        total_loss += losses["total"].item()
+        total_recon += losses["recon"].item()
+        total_kl += losses["kl"].item()
+        total_phys += losses["phys"].item()
         n_batches += 1
 
         # Collect predictions for correlation
-        all_length_pred.extend((outputs['length_pred'] * 10).cpu().numpy())
-        all_length_true.extend(batch['length'].cpu().numpy())
-        all_hydro_pred.extend(outputs['hydro_pred'].cpu().numpy())
-        all_hydro_true.extend(batch['hydrophobicity'].cpu().numpy())
-        all_charge_pred.extend(outputs['charge_pred'].cpu().numpy())
-        all_charge_true.extend(batch['net_charge'].cpu().numpy())
+        all_length_pred.extend((outputs["length_pred"] * 10).cpu().numpy())
+        all_length_true.extend(batch["length"].cpu().numpy())
+        all_hydro_pred.extend(outputs["hydro_pred"].cpu().numpy())
+        all_hydro_true.extend(batch["hydrophobicity"].cpu().numpy())
+        all_charge_pred.extend(outputs["charge_pred"].cpu().numpy())
+        all_charge_true.extend(batch["net_charge"].cpu().numpy())
 
     # Compute correlations (C3 validation)
     results = {
-        'total': total_loss / n_batches,
-        'recon': total_recon / n_batches,
-        'kl': total_kl / n_batches,
-        'phys': total_phys / n_batches,
+        "total": total_loss / n_batches,
+        "recon": total_recon / n_batches,
+        "kl": total_kl / n_batches,
+        "phys": total_phys / n_batches,
     }
 
     if HAS_SCIPY and len(all_length_pred) > 10:
@@ -595,9 +586,9 @@ def evaluate(
         hydro_r, _ = pearsonr(all_hydro_pred, all_hydro_true)
         charge_r, _ = pearsonr(all_charge_pred, all_charge_true)
 
-        results['length_r'] = length_r
-        results['hydro_r'] = hydro_r
-        results['charge_r'] = charge_r
+        results["length_r"] = length_r
+        results["hydro_r"] = hydro_r
+        results["charge_r"] = charge_r
 
     return results
 
@@ -615,14 +606,13 @@ def compute_reconstruction_accuracy(
 
     with torch.no_grad():
         for batch in dataloader:
-            batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v
-                     for k, v in batch.items()}
+            batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
 
-            outputs = model(batch['sequence'], target=batch['sequence'])
+            outputs = model(batch["sequence"], target=batch["sequence"])
 
             # Get predictions
-            pred = outputs['logits'].argmax(dim=-1)
-            target = batch['sequence']
+            pred = outputs["logits"].argmax(dim=-1)
+            target = batch["sequence"]
 
             # Count correct (excluding padding)
             mask = target != PAD_IDX
@@ -639,7 +629,7 @@ def main():
     print("=" * 70)
 
     # Device
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"\nDevice: {device}")
 
     # Configuration
@@ -706,7 +696,7 @@ def main():
 
     # Training loop
     n_epochs = 100
-    best_val_loss = float('inf')
+    best_val_loss = float("inf")
 
     print("\n" + "=" * 70)
     print("PHASE 1: Coverage + Physicochemical Grounding")
@@ -720,24 +710,31 @@ def main():
         # Log every 10 epochs
         if (epoch + 1) % 10 == 0 or epoch == 0:
             print(f"\nEpoch {epoch + 1}/{n_epochs}")
-            print(f"  Train: total={train_losses['total']:.4f}, recon={train_losses['recon']:.4f}, "
-                  f"kl={train_losses['kl']:.4f}, phys={train_losses['phys']:.4f}")
+            print(
+                f"  Train: total={train_losses['total']:.4f}, recon={train_losses['recon']:.4f}, "
+                f"kl={train_losses['kl']:.4f}, phys={train_losses['phys']:.4f}"
+            )
             print(f"  Val:   total={val_metrics['total']:.4f}, recon={val_metrics['recon']:.4f}")
 
-            if 'length_r' in val_metrics:
-                print(f"  Physicochemical R: length={val_metrics['length_r']:.3f}, "
-                      f"hydro={val_metrics['hydro_r']:.3f}, charge={val_metrics['charge_r']:.3f}")
+            if "length_r" in val_metrics:
+                print(
+                    f"  Physicochemical R: length={val_metrics['length_r']:.3f}, "
+                    f"hydro={val_metrics['hydro_r']:.3f}, charge={val_metrics['charge_r']:.3f}"
+                )
 
         # Save best model
-        if val_metrics['total'] < best_val_loss:
-            best_val_loss = val_metrics['total']
-            torch.save({
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'config': config,
-                'val_loss': best_val_loss,
-            }, PROJECT_ROOT / "checkpoints" / "peptide_vae_attempt_01.pt")
+        if val_metrics["total"] < best_val_loss:
+            best_val_loss = val_metrics["total"]
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "config": config,
+                    "val_loss": best_val_loss,
+                },
+                PROJECT_ROOT / "checkpoints" / "peptide_vae_attempt_01.pt",
+            )
 
     # Final evaluation
     print("\n" + "=" * 70)
@@ -750,18 +747,18 @@ def main():
 
     # Final metrics
     final_metrics = evaluate(model, val_loader, device)
-    print(f"\nFinal Validation Metrics:")
+    print("\nFinal Validation Metrics:")
     print(f"  Total Loss: {final_metrics['total']:.4f}")
     print(f"  Reconstruction: {final_metrics['recon']:.4f}")
 
-    if 'length_r' in final_metrics:
-        print(f"\nPhysicochemical Encoding (C3 Validation):")
+    if "length_r" in final_metrics:
+        print("\nPhysicochemical Encoding (C3 Validation):")
         print(f"  Length R: {final_metrics['length_r']:.3f}")
         print(f"  Hydrophobicity R: {final_metrics['hydro_r']:.3f}")
         print(f"  Charge R: {final_metrics['charge_r']:.3f}")
 
         # Check validation criteria
-        mean_r = np.mean([final_metrics['length_r'], final_metrics['hydro_r'], final_metrics['charge_r']])
+        mean_r = np.mean([final_metrics["length_r"], final_metrics["hydro_r"], final_metrics["charge_r"]])
 
         if mean_r >= 0.8:
             print(f"\n✓ PHASE 1 PASSED: Mean physicochemical R = {mean_r:.3f} ≥ 0.8")
@@ -770,32 +767,32 @@ def main():
 
     # Save results
     results = {
-        'attempt': 'prediction_attempt_01',
-        'timestamp': datetime.now().isoformat(),
-        'config': {
-            'latent_dim': config.latent_dim,
-            'hidden_dim': config.hidden_dim,
-            'n_epochs': n_epochs,
+        "attempt": "prediction_attempt_01",
+        "timestamp": datetime.now().isoformat(),
+        "config": {
+            "latent_dim": config.latent_dim,
+            "hidden_dim": config.hidden_dim,
+            "n_epochs": n_epochs,
         },
-        'results': {
-            'reconstruction_accuracy': float(recon_acc),
-            'final_val_loss': float(final_metrics['total']),
-            'physicochemical_r': {
-                'length': float(final_metrics.get('length_r', 0)),
-                'hydrophobicity': float(final_metrics.get('hydro_r', 0)),
-                'charge': float(final_metrics.get('charge_r', 0)),
+        "results": {
+            "reconstruction_accuracy": float(recon_acc),
+            "final_val_loss": float(final_metrics["total"]),
+            "physicochemical_r": {
+                "length": float(final_metrics.get("length_r", 0)),
+                "hydrophobicity": float(final_metrics.get("hydro_r", 0)),
+                "charge": float(final_metrics.get("charge_r", 0)),
             },
         },
-        'validation_status': {
-            'phase_1_coverage': recon_acc >= 0.95,
-            'phase_1_physicochemical': final_metrics.get('length_r', 0) >= 0.8,
+        "validation_status": {
+            "phase_1_coverage": recon_acc >= 0.95,
+            "phase_1_physicochemical": final_metrics.get("length_r", 0) >= 0.8,
         },
     }
 
     results_path = PROJECT_ROOT / "results" / "peptide_vae_attempt_01.json"
     results_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(results_path, 'w') as f:
+    with open(results_path, "w") as f:
         json.dump(results, f, indent=2)
 
     print(f"\nResults saved to: {results_path}")

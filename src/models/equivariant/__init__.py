@@ -14,14 +14,14 @@ Key components:
 - InvariantReadout: Convert to invariant features
 """
 
-from src.models.equivariant.se3_encoder import (
-    SE3EquivariantEncoder,
-    SE3Config,
-)
 from src.models.equivariant.layers import (
     EquivariantBlock,
     InvariantReadout,
     RadialBasisFunctions,
+)
+from src.models.equivariant.se3_encoder import (
+    SE3Config,
+    SE3EquivariantEncoder,
 )
 
 __all__ = [

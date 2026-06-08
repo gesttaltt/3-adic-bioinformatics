@@ -159,9 +159,7 @@ class HyperbolicOfftargetEmbedder(nn.Module):
         target_encoded = self.encode_sequence(target_sequences)
 
         # Apply attention
-        target_attended, _ = self.mismatch_attention(
-            target_encoded, target_encoded, target_encoded
-        )
+        target_attended, _ = self.mismatch_attention(target_encoded, target_encoded, target_encoded)
 
         # Flatten and project
         target_flat = target_attended.flatten(start_dim=1)

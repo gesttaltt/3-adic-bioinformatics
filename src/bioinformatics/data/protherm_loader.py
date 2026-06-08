@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import csv
 import json
-from dataclasses import dataclass, field, asdict
+from collections.abc import Iterator
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Optional, Iterator
 
 import numpy as np
 import torch
@@ -26,7 +26,6 @@ from torch.utils.data import Dataset
 
 from src.bioinformatics.data.preprocessing import (
     compute_features,
-    MutationFeatures,
 )
 
 
@@ -42,11 +41,11 @@ class ProThermRecord:
     ddg: float  # kcal/mol (positive = destabilizing)
     temperature: float = 25.0
     ph: float = 7.0
-    method: Optional[str] = None
-    secondary_structure: Optional[str] = None
-    solvent_accessibility: Optional[float] = None
-    protein_name: Optional[str] = None
-    source: Optional[str] = None
+    method: str | None = None
+    secondary_structure: str | None = None
+    solvent_accessibility: float | None = None
+    protein_name: str | None = None
+    source: str | None = None
 
     @property
     def mutation_string(self) -> str:
@@ -63,7 +62,7 @@ class ProThermRecord:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ProThermRecord":
+    def from_dict(cls, data: dict) -> ProThermRecord:
         """Create from dictionary."""
         return cls(**data)
 
@@ -93,7 +92,7 @@ class ProThermDatabase:
         min_ddg: float = -10.0,
         max_ddg: float = 10.0,
         require_structure: bool = False,
-        proteins: Optional[list[str]] = None,
+        proteins: list[str] | None = None,
     ) -> list[ProThermRecord]:
         """Filter records by criteria.
 
@@ -147,7 +146,7 @@ class ProThermDatabase:
             json.dump(data, f, indent=2)
 
     @classmethod
-    def load(cls, path: Path) -> "ProThermDatabase":
+    def load(cls, path: Path) -> ProThermDatabase:
         """Load database from JSON file."""
         with open(path) as f:
             data = json.load(f)
@@ -163,7 +162,7 @@ class ProThermDataset(Dataset):
     def __init__(
         self,
         records: list[ProThermRecord],
-        aa_embeddings: Optional[dict[str, torch.Tensor]] = None,
+        aa_embeddings: dict[str, torch.Tensor] | None = None,
         curvature: float = 1.0,
     ):
         """Initialize dataset.
@@ -249,7 +248,6 @@ class ProThermLoader:
         ("1L63", "A", 133, "F", "A", 4.5, "E", "T4 Lysozyme"),
         ("1L63", "A", 153, "L", "A", 3.2, "H", "T4 Lysozyme"),
         ("1L63", "A", 157, "V", "A", 1.9, "E", "T4 Lysozyme"),
-
         # Barnase (1BNI)
         ("1BNI", "A", 12, "I", "A", 2.4, "H", "Barnase"),
         ("1BNI", "A", 16, "I", "A", 3.1, "H", "Barnase"),
@@ -261,7 +259,6 @@ class ProThermLoader:
         ("1BNI", "A", 96, "L", "A", 3.0, "H", "Barnase"),
         ("1BNI", "A", 98, "V", "A", 1.8, "H", "Barnase"),
         ("1BNI", "A", 102, "Y", "F", 0.9, "E", "Barnase"),
-
         # CI2 (2CI2)
         ("2CI2", "I", 4, "I", "A", 2.1, "H", "CI2"),
         ("2CI2", "I", 16, "L", "A", 3.8, "H", "CI2"),
@@ -271,7 +268,6 @@ class ProThermLoader:
         ("2CI2", "I", 38, "I", "A", 2.3, "E", "CI2"),
         ("2CI2", "I", 49, "V", "A", 1.5, "E", "CI2"),
         ("2CI2", "I", 51, "L", "A", 2.6, "E", "CI2"),
-
         # Staphylococcal nuclease (1STN)
         ("1STN", "A", 13, "V", "A", 1.4, "E", "Staph Nuclease"),
         ("1STN", "A", 23, "V", "A", 2.1, "H", "Staph Nuclease"),
@@ -280,26 +276,22 @@ class ProThermLoader:
         ("1STN", "A", 66, "L", "A", 2.9, "H", "Staph Nuclease"),
         ("1STN", "A", 99, "V", "A", 1.8, "H", "Staph Nuclease"),
         ("1STN", "A", 104, "I", "A", 2.2, "H", "Staph Nuclease"),
-
         # RNase H (1RN1)
         ("1RN1", "A", 5, "I", "A", 2.6, "H", "RNase H"),
         ("1RN1", "A", 7, "V", "A", 1.8, "E", "RNase H"),
         ("1RN1", "A", 10, "V", "A", 2.0, "E", "RNase H"),
         ("1RN1", "A", 17, "L", "A", 3.1, "H", "RNase H"),
         ("1RN1", "A", 56, "I", "A", 2.4, "H", "RNase H"),
-
         # SH3 domain (1SHG)
         ("1SHG", "A", 4, "V", "A", 1.2, "E", "SH3"),
         ("1SHG", "A", 8, "L", "A", 2.4, "E", "SH3"),
         ("1SHG", "A", 22, "I", "A", 1.8, "E", "SH3"),
         ("1SHG", "A", 34, "V", "A", 1.5, "E", "SH3"),
         ("1SHG", "A", 53, "L", "A", 2.1, "E", "SH3"),
-
         # CheY (3CHY)
         ("3CHY", "A", 14, "I", "A", 2.2, "E", "CheY"),
         ("3CHY", "A", 54, "V", "A", 1.6, "H", "CheY"),
         ("3CHY", "A", 87, "L", "A", 2.8, "H", "CheY"),
-
         # Ubiquitin (1UBQ)
         ("1UBQ", "A", 3, "I", "A", 1.9, "E", "Ubiquitin"),
         ("1UBQ", "A", 5, "V", "A", 1.3, "E", "Ubiquitin"),
@@ -307,7 +299,6 @@ class ProThermLoader:
         ("1UBQ", "A", 23, "I", "A", 2.5, "H", "Ubiquitin"),
         ("1UBQ", "A", 30, "I", "A", 1.8, "H", "Ubiquitin"),
         ("1UBQ", "A", 44, "I", "A", 2.2, "E", "Ubiquitin"),
-
         # Lambda repressor (1LMB)
         ("1LMB", "3", 6, "V", "A", 2.1, "H", "Lambda Repressor"),
         ("1LMB", "3", 13, "L", "A", 3.4, "H", "Lambda Repressor"),
@@ -320,7 +311,6 @@ class ProThermLoader:
         ("1LMB", "3", 54, "L", "A", 3.1, "H", "Lambda Repressor"),
         ("1LMB", "3", 61, "V", "A", 1.7, "H", "Lambda Repressor"),
         ("1LMB", "3", 69, "I", "A", 2.3, "H", "Lambda Repressor"),
-
         # Cold shock protein (1CSP)
         ("1CSP", "A", 3, "F", "A", 3.2, "E", "CspB"),
         ("1CSP", "A", 12, "V", "A", 1.8, "E", "CspB"),
@@ -331,7 +321,6 @@ class ProThermLoader:
         ("1CSP", "A", 45, "I", "A", 1.9, "E", "CspB"),
         ("1CSP", "A", 53, "V", "A", 1.4, "E", "CspB"),
         ("1CSP", "A", 64, "F", "Y", 0.6, "E", "CspB"),
-
         # Protein G (1PGA)
         ("1PGA", "A", 3, "L", "A", 2.6, "E", "Protein G"),
         ("1PGA", "A", 7, "V", "A", 1.9, "E", "Protein G"),
@@ -341,7 +330,6 @@ class ProThermLoader:
         ("1PGA", "A", 43, "V", "A", 1.7, "E", "Protein G"),
         ("1PGA", "A", 52, "W", "A", 4.2, "E", "Protein G"),
         ("1PGA", "A", 54, "V", "A", 2.0, "E", "Protein G"),
-
         # Tenascin (1TEN)
         ("1TEN", "A", 8, "I", "A", 2.3, "E", "Tenascin"),
         ("1TEN", "A", 15, "V", "A", 1.7, "E", "Tenascin"),
@@ -351,7 +339,6 @@ class ProThermLoader:
         ("1TEN", "A", 52, "L", "A", 2.4, "E", "Tenascin"),
         ("1TEN", "A", 67, "I", "A", 1.9, "E", "Tenascin"),
         ("1TEN", "A", 75, "V", "A", 1.6, "E", "Tenascin"),
-
         # HEL Lysozyme (1HEL)
         ("1HEL", "A", 3, "V", "A", 1.5, "H", "HEL"),
         ("1HEL", "A", 17, "L", "A", 2.9, "H", "HEL"),
@@ -362,7 +349,6 @@ class ProThermLoader:
         ("1HEL", "A", 84, "V", "A", 1.4, "E", "HEL"),
         ("1HEL", "A", 98, "L", "A", 2.5, "H", "HEL"),
         ("1HEL", "A", 108, "W", "F", 1.9, "H", "HEL"),
-
         # Ribonuclease A (7RSA)
         ("7RSA", "A", 8, "M", "A", 1.8, "H", "RNase A"),
         ("7RSA", "A", 13, "M", "A", 2.1, "H", "RNase A"),
@@ -372,7 +358,6 @@ class ProThermLoader:
         ("7RSA", "A", 81, "M", "A", 1.9, "H", "RNase A"),
         ("7RSA", "A", 106, "V", "A", 1.5, "E", "RNase A"),
         ("7RSA", "A", 118, "V", "A", 1.7, "E", "RNase A"),
-
         # Myoglobin (1MBN)
         ("1MBN", "A", 4, "V", "A", 1.4, "H", "Myoglobin"),
         ("1MBN", "A", 10, "L", "A", 2.8, "H", "Myoglobin"),
@@ -384,7 +369,6 @@ class ProThermLoader:
         ("1MBN", "A", 89, "L", "A", 2.7, "H", "Myoglobin"),
         ("1MBN", "A", 104, "L", "A", 2.5, "H", "Myoglobin"),
         ("1MBN", "A", 111, "V", "A", 1.3, "H", "Myoglobin"),
-
         # Thioredoxin (1XOA)
         ("1XOA", "A", 22, "V", "A", 1.8, "E", "Thioredoxin"),
         ("1XOA", "A", 25, "I", "A", 2.1, "E", "Thioredoxin"),
@@ -393,7 +377,6 @@ class ProThermLoader:
         ("1XOA", "A", 74, "I", "A", 2.0, "E", "Thioredoxin"),
         ("1XOA", "A", 78, "V", "A", 1.6, "E", "Thioredoxin"),
         ("1XOA", "A", 85, "L", "A", 2.3, "H", "Thioredoxin"),
-
         # Cytochrome C (1HRC)
         ("1HRC", "A", 10, "I", "A", 1.9, "H", "Cytochrome C"),
         ("1HRC", "A", 25, "L", "A", 2.4, "H", "Cytochrome C"),
@@ -402,7 +385,6 @@ class ProThermLoader:
         ("1HRC", "A", 57, "L", "A", 2.6, "H", "Cytochrome C"),
         ("1HRC", "A", 68, "M", "A", 1.8, "H", "Cytochrome C"),
         ("1HRC", "A", 80, "I", "A", 2.2, "H", "Cytochrome C"),
-
         # Stabilizing mutations (negative DDG)
         ("1L63", "A", 9, "G", "A", -0.8, "H", "T4 Lysozyme"),
         ("1L63", "A", 96, "G", "A", -1.2, "H", "T4 Lysozyme"),
@@ -419,7 +401,6 @@ class ProThermLoader:
         ("1STN", "A", 29, "G", "A", -0.6, "H", "Staph Nuclease"),
         ("1PGA", "A", 9, "G", "A", -0.7, "C", "Protein G"),
         ("1PGA", "A", 41, "G", "A", -1.0, "H", "Protein G"),
-
         # Neutral mutations
         ("1L63", "A", 77, "K", "R", 0.1, "C", "T4 Lysozyme"),
         ("1BNI", "A", 64, "E", "D", -0.2, "C", "Barnase"),
@@ -435,20 +416,17 @@ class ProThermLoader:
         ("1PGA", "A", 12, "K", "R", 0.0, "C", "Protein G"),
         ("1HEL", "A", 61, "E", "D", 0.1, "C", "HEL"),
         ("1MBN", "A", 45, "K", "R", 0.0, "C", "Myoglobin"),
-
         # Highly destabilizing mutations
         ("1L63", "A", 133, "F", "G", 5.2, "E", "T4 Lysozyme"),
         ("1BNI", "A", 51, "W", "G", 4.8, "H", "Barnase"),
         ("1CSP", "A", 27, "F", "G", 4.5, "E", "CspB"),
         ("1PGA", "A", 52, "W", "G", 5.5, "E", "Protein G"),
         ("1MBN", "A", 42, "F", "G", 4.9, "H", "Myoglobin"),
-
         # Proline mutations
         ("1L63", "A", 86, "L", "P", 3.5, "H", "T4 Lysozyme"),
         ("1BNI", "A", 42, "V", "P", 2.8, "H", "Barnase"),
         ("2CI2", "I", 18, "L", "P", 3.2, "H", "CI2"),
         ("1PGA", "A", 25, "I", "P", 2.9, "H", "Protein G"),
-
         # Charge mutations
         ("1L63", "A", 16, "K", "L", 1.8, "C", "T4 Lysozyme"),
         ("1BNI", "A", 29, "E", "L", 2.1, "C", "Barnase"),
@@ -460,7 +438,7 @@ class ProThermLoader:
         ("1MBN", "A", 32, "L", "E", 3.4, "H", "Myoglobin"),
     ]
 
-    def __init__(self, data_dir: Optional[Path] = None):
+    def __init__(self, data_dir: Path | None = None):
         """Initialize loader.
 
         Args:
@@ -477,29 +455,33 @@ class ProThermLoader:
         Returns:
             ProThermDatabase with curated mutations
         """
-        db = ProThermDatabase(metadata={
-            "source": "ProTherm Curated",
-            "description": "Experimentally validated protein stability mutations",
-            "n_proteins": len(set(m[0] for m in self.CURATED_MUTATIONS)),
-            "version": "1.0",
-        })
+        db = ProThermDatabase(
+            metadata={
+                "source": "ProTherm Curated",
+                "description": "Experimentally validated protein stability mutations",
+                "n_proteins": len(set(m[0] for m in self.CURATED_MUTATIONS)),
+                "version": "1.0",
+            }
+        )
 
         for pdb, chain, pos, wt, mut, ddg, ss, name in self.CURATED_MUTATIONS:
             # Estimate RSA based on secondary structure
             rsa = 0.2 if ss in ["H", "E"] else 0.6
 
-            db.add(ProThermRecord(
-                pdb_id=pdb,
-                chain=chain,
-                position=pos,
-                wild_type=wt,
-                mutant=mut,
-                ddg=ddg,
-                secondary_structure=ss,
-                solvent_accessibility=rsa,
-                protein_name=name,
-                source="Literature",
-            ))
+            db.add(
+                ProThermRecord(
+                    pdb_id=pdb,
+                    chain=chain,
+                    position=pos,
+                    wild_type=wt,
+                    mutant=mut,
+                    ddg=ddg,
+                    secondary_structure=ss,
+                    solvent_accessibility=rsa,
+                    protein_name=name,
+                    source="Literature",
+                )
+            )
 
         return db
 
@@ -520,19 +502,23 @@ class ProThermLoader:
         with open(csv_path, newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                db.add(ProThermRecord(
-                    pdb_id=row["pdb_id"],
-                    chain=row.get("chain", "A"),
-                    position=int(row["position"]),
-                    wild_type=row["wild_type"],
-                    mutant=row["mutant"],
-                    ddg=float(row["ddg"]),
-                    temperature=float(row.get("temperature", 25.0)),
-                    ph=float(row.get("ph", 7.0)),
-                    method=row.get("method"),
-                    secondary_structure=row.get("secondary_structure"),
-                    solvent_accessibility=float(row["solvent_accessibility"]) if row.get("solvent_accessibility") else None,
-                ))
+                db.add(
+                    ProThermRecord(
+                        pdb_id=row["pdb_id"],
+                        chain=row.get("chain", "A"),
+                        position=int(row["position"]),
+                        wild_type=row["wild_type"],
+                        mutant=row["mutant"],
+                        ddg=float(row["ddg"]),
+                        temperature=float(row.get("temperature", 25.0)),
+                        ph=float(row.get("ph", 7.0)),
+                        method=row.get("method"),
+                        secondary_structure=row.get("secondary_structure"),
+                        solvent_accessibility=float(row["solvent_accessibility"])
+                        if row.get("solvent_accessibility")
+                        else None,
+                    )
+                )
 
         return db
 
@@ -556,8 +542,8 @@ class ProThermLoader:
 
     def create_dataset(
         self,
-        db: Optional[ProThermDatabase] = None,
-        aa_embeddings: Optional[dict[str, torch.Tensor]] = None,
+        db: ProThermDatabase | None = None,
+        aa_embeddings: dict[str, torch.Tensor] | None = None,
         curvature: float = 1.0,
         **filter_kwargs,
     ) -> ProThermDataset:

@@ -17,13 +17,12 @@ References:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 @dataclass
@@ -32,8 +31,8 @@ class FeatureImportance:
 
     position_scores: np.ndarray  # Importance per position (n_positions,)
     aa_scores: np.ndarray  # Importance per AA at each position (n_positions, n_aa)
-    top_positions: List[int]  # Most important positions
-    top_mutations: List[Tuple[int, str, float]]  # (position, AA, score)
+    top_positions: list[int]  # Most important positions
+    top_mutations: list[tuple[int, str, float]]  # (position, AA, score)
 
     def get_mutation_importance(self, position: int, aa: str) -> float:
         """Get importance score for specific mutation."""
@@ -52,7 +51,7 @@ class IntegratedGradients:
         self,
         model: nn.Module,
         n_steps: int = 50,
-        baseline: Optional[torch.Tensor] = None,
+        baseline: torch.Tensor | None = None,
     ):
         """Initialize.
 
@@ -68,7 +67,7 @@ class IntegratedGradients:
     def attribute(
         self,
         x: torch.Tensor,
-        target_fn: Callable[[Dict], torch.Tensor] = None,
+        target_fn: Callable[[dict], torch.Tensor] = None,
     ) -> torch.Tensor:
         """Compute attributions for input.
 
@@ -80,7 +79,9 @@ class IntegratedGradients:
             Attributions tensor same shape as input
         """
         if target_fn is None:
-            target_fn = lambda out: out.get("prediction", out.get("z", out["mu"])[:, 0])
+
+            def target_fn(out):
+                return out.get("prediction", out.get("z", out["mu"])[:, 0])
 
         device = x.device
         baseline = self.baseline if self.baseline is not None else torch.zeros_like(x)
@@ -140,7 +141,7 @@ class GradientSHAP:
     def shap_values(
         self,
         x: torch.Tensor,
-        target_fn: Callable[[Dict], torch.Tensor] = None,
+        target_fn: Callable[[dict], torch.Tensor] = None,
     ) -> torch.Tensor:
         """Compute SHAP values.
 
@@ -152,7 +153,9 @@ class GradientSHAP:
             SHAP values tensor
         """
         if target_fn is None:
-            target_fn = lambda out: out.get("prediction", out.get("z", out["mu"])[:, 0])
+
+            def target_fn(out):
+                return out.get("prediction", out.get("z", out["mu"])[:, 0])
 
         device = x.device
         batch_size = x.size(0)
@@ -187,7 +190,7 @@ def compute_position_importance(
     attributions: torch.Tensor,
     n_positions: int,
     n_aa: int = 22,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Convert attributions to position-level importance.
 
     Args:
@@ -215,7 +218,7 @@ def extract_top_mutations(
     aa_scores: np.ndarray,
     top_k: int = 20,
     aa_alphabet: str = "ACDEFGHIKLMNPQRSTVWY*-",
-) -> List[Tuple[int, str, float]]:
+) -> list[tuple[int, str, float]]:
     """Extract top important mutations.
 
     Returns:
@@ -244,7 +247,7 @@ class AttentionAnalyzer:
     def __init__(self, model: nn.Module):
         """Initialize with transformer model."""
         self.model = model
-        self.attention_maps: List[torch.Tensor] = []
+        self.attention_maps: list[torch.Tensor] = []
 
         # Register hooks
         self._register_hooks()
@@ -265,7 +268,7 @@ class AttentionAnalyzer:
 
         return hook
 
-    def get_attention(self, x: torch.Tensor) -> List[torch.Tensor]:
+    def get_attention(self, x: torch.Tensor) -> list[torch.Tensor]:
         """Get attention maps for input.
 
         Args:
@@ -282,7 +285,7 @@ class AttentionAnalyzer:
 
     def visualize_attention(
         self,
-        attention_maps: List[torch.Tensor],
+        attention_maps: list[torch.Tensor],
         layer_idx: int = -1,
     ) -> np.ndarray:
         """Get attention heatmap for visualization.
@@ -345,7 +348,7 @@ class ResistanceMutationValidator:
         else:
             self.known_mutations = {}
 
-    def validate(self, feature_importance: FeatureImportance) -> Dict[str, float]:
+    def validate(self, feature_importance: FeatureImportance) -> dict[str, float]:
         """Validate feature importance against known mutations.
 
         Returns:
@@ -393,8 +396,8 @@ class LatentSpaceAnalyzer:
     def get_latent_embeddings(
         self,
         x: torch.Tensor,
-        drug_labels: Optional[torch.Tensor] = None,
-    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        drug_labels: torch.Tensor | None = None,
+    ) -> tuple[np.ndarray, np.ndarray | None]:
         """Extract latent embeddings.
 
         Returns:
@@ -414,7 +417,7 @@ class LatentSpaceAnalyzer:
         self,
         embeddings: np.ndarray,
         labels: np.ndarray,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Compute clustering quality metrics.
 
         Returns:
@@ -475,7 +478,7 @@ def compute_feature_importance(
     n_positions: int = 99,
     n_aa: int = 22,
     method: str = "integrated_gradients",
-    background: Optional[torch.Tensor] = None,
+    background: torch.Tensor | None = None,
 ) -> FeatureImportance:
     """Compute feature importance using specified method.
 

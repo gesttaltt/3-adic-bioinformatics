@@ -73,7 +73,6 @@ def process_file(filepath: Path, dry_run: bool = False, verbose: bool = False) -
 
     try:
         content = filepath.read_text(encoding="utf-8")
-        original_content = content
         modified = False
 
         # Check for existing SPDX
@@ -155,10 +154,7 @@ def main():
     os.chdir(repo_root)
 
     # Determine directory to process
-    if args.dir:
-        target_dir = Path(args.dir)
-    else:
-        target_dir = THEORY_DIR
+    target_dir = Path(args.dir) if args.dir else THEORY_DIR
 
     if not target_dir.exists():
         print(f"Error: Directory not found: {target_dir}")

@@ -17,12 +17,12 @@ import argparse
 import sys
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
 from scipy.stats import spearmanr
-import numpy as np
+from torch.utils.data import DataLoader, TensorDataset
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -30,7 +30,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.core import TERNARY
 from src.data.generation import generate_all_ternary_operations
 from src.models import TernaryVAEV5_11_PartialFreeze
-from src.utils.checkpoint import load_checkpoint_compat, get_model_state_dict
+from src.utils.checkpoint import get_model_state_dict, load_checkpoint_compat
 
 
 class BalancedRadialLoss(nn.Module):
@@ -56,11 +56,8 @@ class BalancedRadialLoss(nn.Module):
 
         # Precompute target radii
         self.register_buffer(
-            'target_radii',
-            torch.tensor([
-                outer_radius - (v / self.max_valuation) * (outer_radius - inner_radius)
-                for v in range(10)
-            ])
+            "target_radii",
+            torch.tensor([outer_radius - (v / self.max_valuation) * (outer_radius - inner_radius) for v in range(10)]),
         )
 
     def forward(
@@ -115,16 +112,16 @@ class BalancedRadialLoss(nn.Module):
         richness_loss = richness_loss / max(len(unique_vals), 1)
 
         total = (
-            self.hierarchy_weight * hierarchy_loss +
-            self.coverage_weight * coverage_loss +
-            self.richness_weight * richness_loss
+            self.hierarchy_weight * hierarchy_loss
+            + self.coverage_weight * coverage_loss
+            + self.richness_weight * richness_loss
         )
 
         return {
-            'total': total,
-            'hierarchy_loss': hierarchy_loss,
-            'coverage_loss': coverage_loss,
-            'richness_loss': richness_loss,
+            "total": total,
+            "hierarchy_loss": hierarchy_loss,
+            "coverage_loss": coverage_loss,
+            "richness_loss": richness_loss,
         }
 
 
@@ -143,13 +140,13 @@ def compute_metrics(model, all_ops, indices, device):
         model.set_encoder_b_frozen(True)
 
         for i in range(0, len(all_ops), batch_size):
-            batch_ops = all_ops[i:i+batch_size].to(device)
+            batch_ops = all_ops[i : i + batch_size].to(device)
 
             out = model(batch_ops, compute_control=False)
-            radii = out['z_A_hyp'].norm(dim=-1).cpu().numpy()
+            radii = out["z_A_hyp"].norm(dim=-1).cpu().numpy()
             all_radii.append(radii)
 
-            logits = model.decoder_A(out['mu_A'])
+            logits = model.decoder_A(out["mu_A"])
             preds = torch.argmax(logits, dim=-1) - 1
             correct = (preds == batch_ops.long()).float().mean(dim=1).cpu().numpy()
             all_correct.append(correct)
@@ -176,13 +173,13 @@ def compute_metrics(model, all_ops, indices, device):
     model.train()
 
     return {
-        'coverage': coverage,
-        'hierarchy': hierarchy,
-        'richness': avg_var,
-        'r_v0': r_v0,
-        'r_v9': r_v9,
-        'unique_radii': len(np.unique(np.round(all_radii, 6))),
-        'mean_radius': all_radii.mean(),
+        "coverage": coverage,
+        "hierarchy": hierarchy,
+        "richness": avg_var,
+        "r_v0": r_v0,
+        "r_v9": r_v9,
+        "unique_radii": len(np.unique(np.round(all_radii, 6))),
+        "mean_radius": all_radii.mean(),
     }
 
 
@@ -195,14 +192,12 @@ def main():
     parser.add_argument("--coverage_weight", type=float, default=0.5)
     parser.add_argument("--richness_weight", type=float, default=2.0)
     parser.add_argument("--target_richness", type=float, default=0.3)
-    parser.add_argument("--checkpoint", type=str,
-                        default="checkpoints/radial_target/best.pt")
-    parser.add_argument("--save_dir", type=str,
-                        default="checkpoints/balanced_radial")
+    parser.add_argument("--checkpoint", type=str, default="checkpoints/radial_target/best.pt")
+    parser.add_argument("--save_dir", type=str, default="checkpoints/balanced_radial")
     parser.add_argument("--device", type=str, default="cuda")
     args = parser.parse_args()
 
-    device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
 
     save_dir = PROJECT_ROOT / args.save_dir
@@ -217,8 +212,8 @@ def main():
         curvature=1.0,
         use_controller=False,
         use_dual_projection=True,
-        freeze_encoder_b=True,   # Freeze encoder B
-        freeze_encoder_a=True,   # Freeze encoder A - only projection trainable
+        freeze_encoder_b=True,  # Freeze encoder B
+        freeze_encoder_a=True,  # Freeze encoder A - only projection trainable
         encoder_b_lr_scale=0.0,
         encoder_a_lr_scale=0.0,
     )
@@ -248,9 +243,9 @@ def main():
     with torch.no_grad():
         original_radii_list = []
         for i in range(0, len(all_ops), 4096):
-            batch = all_ops[i:i+4096].to(device)
+            batch = all_ops[i : i + 4096].to(device)
             out = model(batch, compute_control=False)
-            original_radii_list.append(out['z_A_hyp'].norm(dim=-1))
+            original_radii_list.append(out["z_A_hyp"].norm(dim=-1))
         original_radii_full = torch.cat(original_radii_list)
 
     print(f"Original radii range: {original_radii_full.min():.4f} - {original_radii_full.max():.4f}")
@@ -273,7 +268,9 @@ def main():
 
     # === Training ===
     print("\n=== Starting Training ===")
-    print(f"Weights: hierarchy={args.hierarchy_weight}, coverage={args.coverage_weight}, richness={args.richness_weight}")
+    print(
+        f"Weights: hierarchy={args.hierarchy_weight}, coverage={args.coverage_weight}, richness={args.richness_weight}"
+    )
     print(f"Target richness ratio: {args.target_richness}")
 
     best_hierarchy = 0.0
@@ -281,7 +278,7 @@ def main():
 
     for epoch in range(args.epochs):
         model.train()
-        epoch_losses = {'total': 0, 'hierarchy': 0, 'coverage': 0, 'richness': 0}
+        epoch_losses = {"total": 0, "hierarchy": 0, "coverage": 0, "richness": 0}
         n_batches = 0
 
         for batch_ops, batch_idx in dataloader:
@@ -292,21 +289,21 @@ def main():
             orig_radii_batch = original_radii_full[batch_idx]
 
             out = model(batch_ops, compute_control=False)
-            z_A = out['z_A_hyp']
-            mu_A = out['mu_A']
+            z_A = out["z_A_hyp"]
+            mu_A = out["mu_A"]
             logits = model.decoder_A(mu_A)
 
             losses = loss_fn(z_A, batch_idx, logits, batch_ops, orig_radii_batch)
 
             optimizer.zero_grad()
-            losses['total'].backward()
+            losses["total"].backward()
             torch.nn.utils.clip_grad_norm_(model.projection.parameters(), 1.0)
             optimizer.step()
 
-            epoch_losses['total'] += losses['total'].item()
-            epoch_losses['hierarchy'] += losses['hierarchy_loss'].item()
-            epoch_losses['coverage'] += losses['coverage_loss'].item()
-            epoch_losses['richness'] += losses['richness_loss'].item()
+            epoch_losses["total"] += losses["total"].item()
+            epoch_losses["hierarchy"] += losses["hierarchy_loss"].item()
+            epoch_losses["coverage"] += losses["coverage_loss"].item()
+            epoch_losses["richness"] += losses["richness_loss"].item()
             n_batches += 1
 
         scheduler.step()
@@ -318,41 +315,49 @@ def main():
             metrics = compute_metrics(model, all_ops, indices, device)
 
             if initial_richness is None:
-                initial_richness = metrics['richness']
+                initial_richness = metrics["richness"]
 
-            richness_ratio = metrics['richness'] / (initial_richness + 1e-10)
+            richness_ratio = metrics["richness"] / (initial_richness + 1e-10)
 
             print(f"\nEpoch {epoch}/{args.epochs}")
-            print(f"  Loss: {epoch_losses['total']:.4f} (h:{epoch_losses['hierarchy']:.4f}, c:{epoch_losses['coverage']:.4f}, r:{epoch_losses['richness']:.4f})")
+            print(
+                f"  Loss: {epoch_losses['total']:.4f} (h:{epoch_losses['hierarchy']:.4f}, c:{epoch_losses['coverage']:.4f}, r:{epoch_losses['richness']:.4f})"
+            )
             print(f"  Hierarchy: {metrics['hierarchy']:.4f} (target: ~-0.95)")
-            print(f"  Coverage: {metrics['coverage']*100:.2f}%")
+            print(f"  Coverage: {metrics['coverage'] * 100:.2f}%")
             print(f"  Richness ratio: {richness_ratio:.4f} (target: {args.target_richness})")
             print(f"  Radius: v0={metrics['r_v0']:.4f} -> v9={metrics['r_v9']:.4f}")
             print(f"  Unique radii: {metrics['unique_radii']}")
 
-            is_best = metrics['hierarchy'] < best_hierarchy
+            is_best = metrics["hierarchy"] < best_hierarchy
             if is_best:
-                best_hierarchy = metrics['hierarchy']
+                best_hierarchy = metrics["hierarchy"]
                 print(f"  [NEW BEST: {best_hierarchy:.4f}]")
 
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': model.state_dict(),
-                    'metrics': metrics,
-                    'richness_ratio': richness_ratio,
-                    'config': vars(args),
-                }, save_dir / 'best.pt')
+                torch.save(
+                    {
+                        "epoch": epoch,
+                        "model_state_dict": model.state_dict(),
+                        "metrics": metrics,
+                        "richness_ratio": richness_ratio,
+                        "config": vars(args),
+                    },
+                    save_dir / "best.pt",
+                )
 
-            torch.save({
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'metrics': metrics,
-            }, save_dir / 'latest.pt')
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "model_state_dict": model.state_dict(),
+                    "metrics": metrics,
+                },
+                save_dir / "latest.pt",
+            )
 
     print("\n=== Training Complete ===")
     print(f"Best Hierarchy: {best_hierarchy:.4f}")
     print(f"Saved to: {save_dir}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

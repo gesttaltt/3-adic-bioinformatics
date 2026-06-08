@@ -28,7 +28,9 @@ def ensure_dir(path):
         os.makedirs(path)
 
 
-def run_script(script_name, args=[]):
+def run_script(script_name, args=None):
+    if args is None:
+        args = []
     script_path = os.path.join(SCRIPTS_DIR, script_name)
     print(f"Running {script_name}...")
     try:

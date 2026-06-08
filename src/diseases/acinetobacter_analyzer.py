@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -183,17 +183,21 @@ class AcinetobacterConfig(DiseaseConfig):
     name: str = "acinetobacter"
     display_name: str = "Acinetobacter baumannii"
     disease_type: DiseaseType = DiseaseType.BACTERIAL
-    tasks: list[TaskType] = field(default_factory=lambda: [
-        TaskType.RESISTANCE,
-        TaskType.FITNESS,
-    ])
+    tasks: list[TaskType] = field(
+        default_factory=lambda: [
+            TaskType.RESISTANCE,
+            TaskType.FITNESS,
+        ]
+    )
 
     # Data sources
-    data_sources: dict[str, str] = field(default_factory=lambda: {
-        "ncbi_pathogen": "https://www.ncbi.nlm.nih.gov/pathogens/",
-        "pubmlst": "https://pubmlst.org/organisms/acinetobacter-baumannii",
-        "cdc_ar": "https://www.cdc.gov/drugresistance/",
-    })
+    data_sources: dict[str, str] = field(
+        default_factory=lambda: {
+            "ncbi_pathogen": "https://www.ncbi.nlm.nih.gov/pathogens/",
+            "pubmlst": "https://pubmlst.org/organisms/acinetobacter-baumannii",
+            "cdc_ar": "https://www.cdc.gov/drugresistance/",
+        }
+    )
 
     # A. baumannii-specific settings
     predict_carbapenem_resistance: bool = True
@@ -204,9 +208,7 @@ class AcinetobacterConfig(DiseaseConfig):
     # Sequence settings
     min_sequence_length: int = 50
 
-    genes: list[str] = field(
-        default_factory=lambda: [g.value for g in ABGene]
-    )
+    genes: list[str] = field(default_factory=lambda: [g.value for g in ABGene])
 
 
 class AcinetobacterAnalyzer(DiseaseAnalyzer):
@@ -221,7 +223,7 @@ class AcinetobacterAnalyzer(DiseaseAnalyzer):
     - Treatment option assessment
     """
 
-    def __init__(self, config: Optional[AcinetobacterConfig] = None):
+    def __init__(self, config: AcinetobacterConfig | None = None):
         """Initialize A. baumannii analyzer.
 
         Args:
@@ -233,7 +235,7 @@ class AcinetobacterAnalyzer(DiseaseAnalyzer):
     def analyze(
         self,
         sequences: dict[ABGene, list[str]],
-        clonal_complex: Optional[ABClonalComplex] = None,
+        clonal_complex: ABClonalComplex | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Analyze A. baumannii sequences for resistance.
@@ -248,7 +250,7 @@ class AcinetobacterAnalyzer(DiseaseAnalyzer):
         """
         results = {
             "n_sequences": len(next(iter(sequences.values()), [])),
-            "genes_analyzed": [g.value for g in sequences.keys()],
+            "genes_analyzed": [g.value for g in sequences],
             "clonal_complex": clonal_complex.value if clonal_complex else None,
         }
 
@@ -404,11 +406,13 @@ class AcinetobacterAnalyzer(DiseaseAnalyzer):
                         fold_change = aa_effects[aa]
                         if fold_change > 1.0:
                             resistance_score += np.log2(fold_change) / 10
-                            detected_mutations.append({
-                                "position": pos,
-                                "amino_acid": aa,
-                                "fold_change": fold_change,
-                            })
+                            detected_mutations.append(
+                                {
+                                    "position": pos,
+                                    "amino_acid": aa,
+                                    "fold_change": fold_change,
+                                }
+                            )
 
             results["scores"].append(min(resistance_score, 1.0))
             results["mutations"].append(detected_mutations)
@@ -547,8 +551,11 @@ class AcinetobacterAnalyzer(DiseaseAnalyzer):
             resistant_classes += 1
 
         # Aminoglycosides
-        if any("amikacin" in d or "gentamicin" in d for d in resistance_data
-               if resistance_data.get(d, {}).get("classifications", [""])[0] == "resistant"):
+        if any(
+            "amikacin" in d or "gentamicin" in d
+            for d in resistance_data
+            if resistance_data.get(d, {}).get("classifications", [""])[0] == "resistant"
+        ):
             resistant_classes += 1
 
         # Colistin/Polymyxins

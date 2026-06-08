@@ -23,7 +23,7 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -187,7 +187,7 @@ class DrugInteractionLoss(nn.Module):
     def forward(
         self,
         resistance_predictions: torch.Tensor,
-        drug_indices: Optional[torch.Tensor] = None,
+        drug_indices: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute drug interaction loss.
 
@@ -251,7 +251,7 @@ class MarginRankingLoss(nn.Module):
         self,
         predictions: torch.Tensor,
         targets: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
+        mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute margin ranking loss.
 
@@ -306,7 +306,7 @@ class EpistasisLoss(nn.Module):
         latent_dim: int = 16,
         n_drugs: int = 1,
         p: int = 3,
-        weights: Optional[dict[str, float]] = None,
+        weights: dict[str, float] | None = None,
         use_coevolution: bool = True,
         use_drug_interaction: bool = True,
         use_margin_ranking: bool = True,
@@ -356,7 +356,7 @@ class EpistasisLoss(nn.Module):
         self,
         model_output: dict[str, torch.Tensor],
         targets: dict[str, torch.Tensor],
-        mutation_info: Optional[dict[str, Any]] = None,
+        mutation_info: dict[str, Any] | None = None,
     ) -> EpistasisLossResult:
         """Compute unified epistasis loss.
 

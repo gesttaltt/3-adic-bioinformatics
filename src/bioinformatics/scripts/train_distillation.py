@@ -16,26 +16,26 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from scipy.stats import spearmanr, pearsonr
+from scipy.stats import pearsonr, spearmanr
 from torch.utils.data import DataLoader, TensorDataset
 
 # Add project root to path
 project_root = Path(__file__).parents[3]
 sys.path.insert(0, str(project_root))
 
-from src.bioinformatics.data.s669_loader import S669Loader
 from src.bioinformatics.data.preprocessing import compute_features
+from src.bioinformatics.data.s669_loader import S669Loader
 
 
 @dataclass
 class DistillationConfig:
     """Configuration for knowledge distillation."""
+
     # Model architecture
     d_model: int = 64
     nhead: int = 4
@@ -54,14 +54,13 @@ class DistillationConfig:
     patience: int = 30
 
     # Paths
-    teacher_checkpoint: Optional[str] = None
+    teacher_checkpoint: str | None = None
 
 
 class DDGTransformer(nn.Module):
     """Transformer for DDG prediction."""
 
-    def __init__(self, input_dim: int, d_model: int = 64, nhead: int = 4,
-                 num_layers: int = 3, dropout: float = 0.1):
+    def __init__(self, input_dim: int, d_model: int = 64, nhead: int = 4, num_layers: int = 3, dropout: float = 0.1):
         super().__init__()
         self.input_dim = input_dim
         self.d_model = d_model
@@ -81,7 +80,7 @@ class DDGTransformer(nn.Module):
             nhead=nhead,
             dim_feedforward=d_model * 4,
             dropout=dropout,
-            activation='gelu',
+            activation="gelu",
             batch_first=True,
             norm_first=True,
         )
@@ -95,7 +94,7 @@ class DDGTransformer(nn.Module):
             nn.Linear(d_model // 2, 1),
         )
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         batch_size = x.size(0)
 
         # Project features: (batch, input_dim) -> (batch, input_dim, d_model)
@@ -119,7 +118,7 @@ class DDGTransformer(nn.Module):
         return {"pred": pred, "embedding": cls_out}
 
 
-def load_protherm_data() -> Tuple[np.ndarray, np.ndarray]:
+def load_protherm_data() -> tuple[np.ndarray, np.ndarray]:
     """Load ProTherm curated dataset from built-in data."""
     from src.bioinformatics.data.protherm_loader import ProThermLoader
 
@@ -137,7 +136,7 @@ def load_protherm_data() -> Tuple[np.ndarray, np.ndarray]:
     return np.array(features_list, dtype=np.float32), np.array(labels_list, dtype=np.float32)
 
 
-def load_s669_data() -> Tuple[np.ndarray, np.ndarray]:
+def load_s669_data() -> tuple[np.ndarray, np.ndarray]:
     """Load full S669 dataset."""
     loader = S669Loader()
     records = loader.load_from_csv()
@@ -159,7 +158,7 @@ def train_teacher_model(
     X_val: np.ndarray,
     y_val: np.ndarray,
     config: DistillationConfig,
-) -> Tuple[DDGTransformer, float]:
+) -> tuple[DDGTransformer, float]:
     """Train teacher model on ProTherm (high-quality data)."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -214,7 +213,7 @@ def train_teacher_model(
                 break
 
         if (epoch + 1) % 20 == 0:
-            print(f"    Teacher epoch {epoch+1}: val_spearman={val_corr:.4f}")
+            print(f"    Teacher epoch {epoch + 1}: val_spearman={val_corr:.4f}")
 
     if best_state:
         model.load_state_dict(best_state)
@@ -243,7 +242,7 @@ def distillation_loss(
     """
     # Distillation loss: match teacher's predictions
     # Using MSE scaled by temperature (similar to soft targets)
-    distill_loss = F.mse_loss(student_pred / temperature, teacher_pred / temperature) * (temperature ** 2)
+    distill_loss = F.mse_loss(student_pred / temperature, teacher_pred / temperature) * (temperature**2)
 
     # Ground truth loss
     gt_loss = F.mse_loss(student_pred, target)
@@ -260,7 +259,7 @@ def train_student_with_distillation(
     y_val: np.ndarray,
     source_train: np.ndarray,  # 0 = S669, 1 = ProTherm
     config: DistillationConfig,
-) -> Tuple[DDGTransformer, Dict]:
+) -> tuple[DDGTransformer, dict]:
     """Train student model on combined data with teacher guidance."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -318,8 +317,8 @@ def train_student_with_distillation(
             )
 
             # Compute losses separately for logging
-            distill = F.mse_loss(student_pred / config.temperature, teacher_pred / config.temperature, reduction='none')
-            distill = (distill * (config.temperature ** 2)).mean()
+            distill = F.mse_loss(student_pred / config.temperature, teacher_pred / config.temperature, reduction="none")
+            distill = (distill * (config.temperature**2)).mean()
 
             gt = F.mse_loss(student_pred, batch_y)
 
@@ -358,8 +357,10 @@ def train_student_with_distillation(
                 break
 
         if (epoch + 1) % 20 == 0:
-            print(f"    Student epoch {epoch+1}: val_spearman={val_corr:.4f}, "
-                  f"distill={np.mean(epoch_losses['distill']):.4f}, gt={np.mean(epoch_losses['gt']):.4f}")
+            print(
+                f"    Student epoch {epoch + 1}: val_spearman={val_corr:.4f}, "
+                f"distill={np.mean(epoch_losses['distill']):.4f}, gt={np.mean(epoch_losses['gt']):.4f}"
+            )
 
     if best_state:
         student.load_state_dict(best_state)
@@ -367,7 +368,7 @@ def train_student_with_distillation(
     return student, {"best_val_corr": best_val_corr, "history": history}
 
 
-def evaluate_model(model: DDGTransformer, X: np.ndarray, y: np.ndarray, name: str = "Model") -> Dict:
+def evaluate_model(model: DDGTransformer, X: np.ndarray, y: np.ndarray, name: str = "Model") -> dict:
     """Evaluate model on a dataset."""
     device = next(model.parameters()).device
     X_t = torch.tensor(X, dtype=torch.float32, device=device)
@@ -424,16 +425,16 @@ def main():
 
     # ProTherm split (for teacher training)
     protherm_idx = np.random.permutation(len(X_protherm))
-    protherm_train_idx = protherm_idx[:int(0.8 * len(protherm_idx))]
-    protherm_val_idx = protherm_idx[int(0.8 * len(protherm_idx)):]
+    protherm_train_idx = protherm_idx[: int(0.8 * len(protherm_idx))]
+    protherm_val_idx = protherm_idx[int(0.8 * len(protherm_idx)) :]
 
     X_protherm_train, y_protherm_train = X_protherm[protherm_train_idx], y_protherm[protherm_train_idx]
     X_protherm_val, y_protherm_val = X_protherm[protherm_val_idx], y_protherm[protherm_val_idx]
 
     # S669 split
     s669_idx = np.random.permutation(len(X_s669))
-    s669_train_idx = s669_idx[:int(0.8 * len(s669_idx))]
-    s669_val_idx = s669_idx[int(0.8 * len(s669_idx)):]
+    s669_train_idx = s669_idx[: int(0.8 * len(s669_idx))]
+    s669_val_idx = s669_idx[int(0.8 * len(s669_idx)) :]
 
     X_s669_train, y_s669_train = X_s669[s669_train_idx], y_s669[s669_train_idx]
     X_s669_val, y_s669_val = X_s669[s669_val_idx], y_s669[s669_val_idx]
@@ -444,8 +445,10 @@ def main():
     # Train teacher on ProTherm
     print("\n[2] Training TEACHER model on ProTherm...")
     teacher, teacher_val_corr = train_teacher_model(
-        X_protherm_train, y_protherm_train,
-        X_protherm_val, y_protherm_val,
+        X_protherm_train,
+        y_protherm_train,
+        X_protherm_val,
+        y_protherm_val,
         config,
     )
     print(f"  Teacher ProTherm validation: Spearman = {teacher_val_corr:.4f}")
@@ -457,10 +460,12 @@ def main():
     # Create combined training set
     X_combined_train = np.vstack([X_s669_train, X_protherm_train])
     y_combined_train = np.concatenate([y_s669_train, y_protherm_train])
-    source_combined_train = np.concatenate([
-        np.zeros(len(X_s669_train)),  # 0 = S669
-        np.ones(len(X_protherm_train)),  # 1 = ProTherm
-    ])
+    source_combined_train = np.concatenate(
+        [
+            np.zeros(len(X_s669_train)),  # 0 = S669
+            np.ones(len(X_protherm_train)),  # 1 = ProTherm
+        ]
+    )
 
     # Combined validation
     X_combined_val = np.vstack([X_s669_val, X_protherm_val])
@@ -473,8 +478,10 @@ def main():
     print("\n[3] Training STUDENT model with distillation...")
     student, student_history = train_student_with_distillation(
         teacher,
-        X_combined_train, y_combined_train,
-        X_combined_val, y_combined_val,
+        X_combined_train,
+        y_combined_train,
+        X_combined_val,
+        y_combined_val,
         source_combined_train,
         config,
     )
@@ -509,8 +516,8 @@ def main():
     print(f"""
 | Model                    | ProTherm | S669  | Combined |
 |--------------------------|----------|-------|----------|
-| Teacher (ProTherm only)  | {teacher_protherm['spearman']:.4f}   | {teacher_s669['spearman']:.4f} | {teacher_combined['spearman']:.4f}    |
-| Student (distilled)      | {student_protherm['spearman']:.4f}   | {student_s669['spearman']:.4f} | {student_combined['spearman']:.4f}    |
+| Teacher (ProTherm only)  | {teacher_protherm["spearman"]:.4f}   | {teacher_s669["spearman"]:.4f} | {teacher_combined["spearman"]:.4f}    |
+| Student (distilled)      | {student_protherm["spearman"]:.4f}   | {student_s669["spearman"]:.4f} | {student_combined["spearman"]:.4f}    |
 | Previous best combined   |  0.36    | 0.27  | 0.26     |
 """)
 
@@ -519,8 +526,8 @@ def main():
     print("KNOWLEDGE TRANSFER ANALYSIS")
     print("=" * 70)
 
-    s669_improvement = (student_s669['spearman'] - teacher_s669['spearman']) / abs(teacher_s669['spearman']) * 100
-    protherm_retention = student_protherm['spearman'] / teacher_protherm['spearman'] * 100
+    s669_improvement = (student_s669["spearman"] - teacher_s669["spearman"]) / abs(teacher_s669["spearman"]) * 100
+    protherm_retention = student_protherm["spearman"] / teacher_protherm["spearman"] * 100
 
     print(f"  S669 improvement (student vs teacher): {s669_improvement:+.1f}%")
     print(f"  ProTherm knowledge retention: {protherm_retention:.1f}%")

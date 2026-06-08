@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -91,7 +90,7 @@ class PAdicContrastiveLoss(nn.Module):
         valuation = torch.zeros_like(diff, dtype=torch.float32)
         remaining = diff.abs()
 
-        for k in range(self.max_valuation + 1):
+        for _k in range(self.max_valuation + 1):
             divisible = (remaining % self.prime) == 0
             valuation = torch.where(divisible, valuation + 1, valuation)
             remaining = torch.where(divisible, remaining // self.prime, remaining)
@@ -185,10 +184,7 @@ class PAdicContrastiveLoss(nn.Module):
 
         # Average over samples with positives
         has_positive = positive_mask.any(dim=1)
-        if has_positive.sum() > 0:
-            loss = loss[has_positive].mean()
-        else:
-            loss = torch.tensor(0.0, device=device)
+        loss = loss[has_positive].mean() if has_positive.sum() > 0 else torch.tensor(0.0, device=device)
 
         return loss
 
@@ -206,7 +202,7 @@ class MultiScaleContrastive(nn.Module):
         n_levels: int = 3,
         base_temperature: float = 0.07,
         temperature_scale: float = 1.5,
-        level_weights: Optional[List[float]] = None,
+        level_weights: list[float] | None = None,
         prime: int = 3,
     ):
         """Initialize multi-scale contrastive loss.
@@ -248,7 +244,7 @@ class MultiScaleContrastive(nn.Module):
         self,
         embeddings: torch.Tensor,
         indices: torch.Tensor,
-    ) -> Tuple[torch.Tensor, dict]:
+    ) -> tuple[torch.Tensor, dict]:
         """Compute multi-scale contrastive loss.
 
         Args:
@@ -261,7 +257,7 @@ class MultiScaleContrastive(nn.Module):
         total_loss = torch.tensor(0.0, device=embeddings.device)
         level_losses = {}
 
-        for i, (loss_fn, weight) in enumerate(zip(self.losses, self.level_weights)):
+        for i, (loss_fn, weight) in enumerate(zip(self.losses, self.level_weights, strict=False)):
             level_loss = loss_fn(embeddings, indices)
             level_losses[f"level_{i}"] = level_loss.item()
             total_loss = total_loss + weight * level_loss
@@ -320,7 +316,7 @@ class SimCLREncoder(nn.Module):
         self,
         x: torch.Tensor,
         return_representation: bool = False,
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """Forward pass.
 
         Args:
@@ -399,6 +395,7 @@ class MomentumContrastEncoder(nn.Module):
         for param_q, param_k in zip(
             self.encoder_q.parameters(),
             self.encoder_k.parameters(),
+            strict=False,
         ):
             param_k.data = self.momentum * param_k.data + (1 - self.momentum) * param_q.data
 
@@ -431,7 +428,7 @@ class MomentumContrastEncoder(nn.Module):
         x_q: torch.Tensor,
         x_k: torch.Tensor,
         indices: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass for MoCo.
 
         Args:
@@ -521,7 +518,7 @@ class PAdicPositiveSampler:
         valuation = torch.zeros_like(diff, dtype=torch.float32)
         remaining = abs_diff
 
-        for k in range(self.max_valuation + 1):
+        for _k in range(self.max_valuation + 1):
             divisible = (remaining % self.prime) == 0
             valuation = torch.where(divisible & ~is_zero, valuation + 1, valuation)
             remaining = torch.where(divisible, remaining // self.prime, remaining)
@@ -541,7 +538,7 @@ class PAdicPositiveSampler:
         self,
         anchor_idx: int,
         all_indices: torch.Tensor,
-    ) -> Optional[int]:
+    ) -> int | None:
         """Sample a single positive for anchor.
 
         Args:

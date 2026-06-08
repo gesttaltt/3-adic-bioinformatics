@@ -39,12 +39,11 @@ Example:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, TypeVar
+from typing import TypeVar
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 
 T = TypeVar("T")  # Type of sections
 
@@ -65,8 +64,8 @@ class OpenSet:
     start: int  # Start position in sequence
     end: int  # End position
     level: int = 0  # Hierarchy level (0 = residue, higher = domain)
-    children: List["OpenSet"] = field(default_factory=list)
-    parent: Optional["OpenSet"] = None
+    children: list[OpenSet] = field(default_factory=list)
+    parent: OpenSet | None = None
 
     def __hash__(self):
         return hash((self.name, self.start, self.end))
@@ -76,11 +75,11 @@ class OpenSet:
             return False
         return self.name == other.name and self.start == other.start and self.end == other.end
 
-    def contains(self, other: "OpenSet") -> bool:
+    def contains(self, other: OpenSet) -> bool:
         """Check if this set contains another."""
         return self.start <= other.start and other.end <= self.end
 
-    def intersects(self, other: "OpenSet") -> bool:
+    def intersects(self, other: OpenSet) -> bool:
         """Check if sets overlap."""
         return not (self.end <= other.start or other.end <= self.start)
 
@@ -94,9 +93,9 @@ class ResidueSection:
 
     open_set: OpenSet
     data: torch.Tensor  # Local feature vector
-    properties: Dict[str, float] = field(default_factory=dict)
+    properties: dict[str, float] = field(default_factory=dict)
 
-    def restrict_to(self, smaller_set: OpenSet) -> "ResidueSection":
+    def restrict_to(self, smaller_set: OpenSet) -> ResidueSection:
         """Restrict section to smaller open set."""
         if not self.open_set.contains(smaller_set):
             raise ValueError(f"{self.open_set.name} does not contain {smaller_set.name}")
@@ -123,9 +122,9 @@ class ResidueSection:
 class SheafMorphism:
     """Morphism between sheaves (natural transformation of presheaves)."""
 
-    source_sheaf: "ProteinSheaf"
-    target_sheaf: "ProteinSheaf"
-    component_maps: Dict[str, nn.Module]  # Maps for each open set
+    source_sheaf: ProteinSheaf
+    target_sheaf: ProteinSheaf
+    component_maps: dict[str, nn.Module]  # Maps for each open set
 
 
 class SheafGluing(nn.Module):
@@ -180,7 +179,7 @@ class SheafGluing(nn.Module):
         self,
         section1: ResidueSection,
         section2: ResidueSection,
-    ) -> Tuple[float, torch.Tensor]:
+    ) -> tuple[float, torch.Tensor]:
         """Check if two sections are compatible on their overlap.
 
         Args:
@@ -224,8 +223,8 @@ class SheafGluing(nn.Module):
 
     def glue(
         self,
-        sections: List[ResidueSection],
-    ) -> Tuple[torch.Tensor, float]:
+        sections: list[ResidueSection],
+    ) -> tuple[torch.Tensor, float]:
         """Glue multiple sections into a global section.
 
         Args:
@@ -300,16 +299,10 @@ class SheafConstraint(nn.Module):
         self.gluing_weight = gluing_weight
 
         # Restriction maps between levels
-        self.restrictions = nn.ModuleList([
-            nn.Linear(hidden_dim, hidden_dim)
-            for _ in range(n_levels - 1)
-        ])
+        self.restrictions = nn.ModuleList([nn.Linear(hidden_dim, hidden_dim) for _ in range(n_levels - 1)])
 
         # Gluing modules per level
-        self.gluings = nn.ModuleList([
-            SheafGluing(hidden_dim)
-            for _ in range(n_levels - 1)
-        ])
+        self.gluings = nn.ModuleList([SheafGluing(hidden_dim) for _ in range(n_levels - 1)])
 
     def locality_loss(
         self,
@@ -334,7 +327,7 @@ class SheafConstraint(nn.Module):
 
     def gluing_loss(
         self,
-        sections: List[torch.Tensor],
+        sections: list[torch.Tensor],
         glued: torch.Tensor,
         level_idx: int,
     ) -> torch.Tensor:
@@ -367,8 +360,8 @@ class SheafConstraint(nn.Module):
 
     def forward(
         self,
-        features_by_level: List[torch.Tensor],
-    ) -> Tuple[torch.Tensor, Dict[str, float]]:
+        features_by_level: list[torch.Tensor],
+    ) -> tuple[torch.Tensor, dict[str, float]]:
         """Apply sheaf constraints and compute losses.
 
         Args:
@@ -395,14 +388,13 @@ class SheafConstraint(nn.Module):
         for i in range(len(features_by_level) - 1):
             # Create sections from level i
             level_i = features_by_level[i]
-            if level_i.dim() == 2:
-                sections = [level_i[j] for j in range(level_i.size(0))]
-            else:
-                sections = [level_i]
+            sections = [level_i[j] for j in range(level_i.size(0))] if level_i.dim() == 2 else [level_i]
 
             glue_loss = self.gluing_loss(
                 sections,
-                features_by_level[i + 1].mean(dim=0) if features_by_level[i + 1].dim() > 1 else features_by_level[i + 1],
+                features_by_level[i + 1].mean(dim=0)
+                if features_by_level[i + 1].dim() > 1
+                else features_by_level[i + 1],
                 i,
             )
             losses[f"gluing_level_{i}"] = glue_loss.item()
@@ -438,10 +430,7 @@ class ProteinSheaf(nn.Module):
         self.n_levels = n_levels
 
         # Feature extractors per level
-        self.level_encoders = nn.ModuleList([
-            nn.Linear(feature_dim, feature_dim)
-            for _ in range(n_levels)
-        ])
+        self.level_encoders = nn.ModuleList([nn.Linear(feature_dim, feature_dim) for _ in range(n_levels)])
 
         # Sheaf constraint
         self.constraint = SheafConstraint(feature_dim, n_levels)
@@ -452,8 +441,8 @@ class ProteinSheaf(nn.Module):
     def compute_sections(
         self,
         sequence_features: torch.Tensor,
-        open_sets: List[OpenSet],
-    ) -> Dict[str, ResidueSection]:
+        open_sets: list[OpenSet],
+    ) -> dict[str, ResidueSection]:
         """Compute sections over given open sets.
 
         Args:
@@ -467,7 +456,7 @@ class ProteinSheaf(nn.Module):
 
         for open_set in open_sets:
             # Extract features for this open set
-            local_features = sequence_features[open_set.start:open_set.end]
+            local_features = sequence_features[open_set.start : open_set.end]
 
             # Encode at appropriate level
             encoded = self.level_encoders[open_set.level](local_features)
@@ -484,8 +473,8 @@ class ProteinSheaf(nn.Module):
     def forward(
         self,
         sequence_features: torch.Tensor,
-        hierarchy: Optional[List[List[OpenSet]]] = None,
-    ) -> Tuple[torch.Tensor, Dict[str, float]]:
+        hierarchy: list[list[OpenSet]] | None = None,
+    ) -> tuple[torch.Tensor, dict[str, float]]:
         """Process sequence through protein sheaf.
 
         Args:
@@ -516,7 +505,7 @@ class ProteinSheaf(nn.Module):
             for level_idx, level_sets in enumerate(hierarchy):
                 level_features = []
                 for open_set in level_sets:
-                    local = sequence_features[b, open_set.start:open_set.end]
+                    local = sequence_features[b, open_set.start : open_set.end]
                     encoded = self.level_encoders[level_idx](local)
                     level_features.append(encoded.mean(dim=0))
 
@@ -545,7 +534,7 @@ class ProteinSheaf(nn.Module):
     def _build_default_hierarchy(
         self,
         seq_len: int,
-    ) -> List[List[OpenSet]]:
+    ) -> list[list[OpenSet]]:
         """Build default hierarchy of open sets.
 
         Args:

@@ -12,7 +12,6 @@ from different modalities (sequence, structure, properties).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -32,10 +31,12 @@ class FusionConfig:
         fusion_type: Type of fusion ('attention', 'gated', 'concat')
     """
 
-    modality_dims: Dict[str, int] = field(default_factory=lambda: {
-        "sequence": 64,
-        "structure": 64,
-    })
+    modality_dims: dict[str, int] = field(
+        default_factory=lambda: {
+            "sequence": 64,
+            "structure": 64,
+        }
+    )
     output_dim: int = 128
     hidden_dim: int = 256
     n_heads: int = 4
@@ -51,7 +52,7 @@ class ConcatFusion(nn.Module):
 
     def __init__(
         self,
-        modality_dims: Dict[str, int],
+        modality_dims: dict[str, int],
         output_dim: int = 128,
         hidden_dim: int = 256,
         dropout: float = 0.1,
@@ -79,7 +80,7 @@ class ConcatFusion(nn.Module):
 
     def forward(
         self,
-        modality_embeddings: Dict[str, torch.Tensor],
+        modality_embeddings: dict[str, torch.Tensor],
     ) -> torch.Tensor:
         """Fuse modality embeddings.
 
@@ -104,7 +105,7 @@ class GatedFusion(nn.Module):
 
     def __init__(
         self,
-        modality_dims: Dict[str, int],
+        modality_dims: dict[str, int],
         output_dim: int = 128,
         dropout: float = 0.1,
     ):
@@ -120,10 +121,7 @@ class GatedFusion(nn.Module):
         self.n_modalities = len(modality_dims)
 
         # Project each modality to common dimension
-        self.projections = nn.ModuleDict({
-            name: nn.Linear(dim, output_dim)
-            for name, dim in modality_dims.items()
-        })
+        self.projections = nn.ModuleDict({name: nn.Linear(dim, output_dim) for name, dim in modality_dims.items()})
 
         # Gate network
         total_dim = sum(modality_dims.values())
@@ -139,7 +137,7 @@ class GatedFusion(nn.Module):
 
     def forward(
         self,
-        modality_embeddings: Dict[str, torch.Tensor],
+        modality_embeddings: dict[str, torch.Tensor],
     ) -> torch.Tensor:
         """Fuse with learned gates.
 
@@ -150,10 +148,7 @@ class GatedFusion(nn.Module):
             Gated fusion result
         """
         # Project each modality
-        projected = {
-            name: self.projections[name](emb)
-            for name, emb in modality_embeddings.items()
-        }
+        projected = {name: self.projections[name](emb) for name, emb in modality_embeddings.items()}
 
         # Compute gates
         concatenated = torch.cat(
@@ -176,8 +171,8 @@ class GatedFusion(nn.Module):
 
     def get_gate_weights(
         self,
-        modality_embeddings: Dict[str, torch.Tensor],
-    ) -> Dict[str, torch.Tensor]:
+        modality_embeddings: dict[str, torch.Tensor],
+    ) -> dict[str, torch.Tensor]:
         """Get gate weights for interpretability.
 
         Args:
@@ -192,10 +187,7 @@ class GatedFusion(nn.Module):
         )
         gates = self.gate_network(concatenated)
 
-        return {
-            name: gates[:, i]
-            for i, name in enumerate(self.modality_names)
-        }
+        return {name: gates[:, i] for i, name in enumerate(self.modality_names)}
 
 
 class CrossModalAttention(nn.Module):
@@ -206,7 +198,7 @@ class CrossModalAttention(nn.Module):
 
     def __init__(
         self,
-        modality_dims: Dict[str, int],
+        modality_dims: dict[str, int],
         output_dim: int = 128,
         n_heads: int = 4,
         dropout: float = 0.1,
@@ -229,10 +221,9 @@ class CrossModalAttention(nn.Module):
         self.head_dim = output_dim // n_heads
 
         # Project to common dimension
-        self.input_projections = nn.ModuleDict({
-            name: nn.Linear(dim, output_dim)
-            for name, dim in modality_dims.items()
-        })
+        self.input_projections = nn.ModuleDict(
+            {name: nn.Linear(dim, output_dim) for name, dim in modality_dims.items()}
+        )
 
         # Multi-head attention components
         self.q_proj = nn.Linear(output_dim, output_dim)
@@ -245,7 +236,7 @@ class CrossModalAttention(nn.Module):
 
     def forward(
         self,
-        modality_embeddings: Dict[str, torch.Tensor],
+        modality_embeddings: dict[str, torch.Tensor],
         return_attention: bool = False,
     ) -> torch.Tensor:
         """Apply cross-modal attention.
@@ -260,10 +251,7 @@ class CrossModalAttention(nn.Module):
         batch_size = next(iter(modality_embeddings.values())).shape[0]
 
         # Project to common dimension
-        projected = {
-            name: self.input_projections[name](emb)
-            for name, emb in modality_embeddings.items()
-        }
+        projected = {name: self.input_projections[name](emb) for name, emb in modality_embeddings.items()}
 
         # Stack as sequence: (batch, n_modalities, output_dim)
         stacked = torch.stack(
@@ -282,7 +270,7 @@ class CrossModalAttention(nn.Module):
         V = V.view(batch_size, self.n_modalities, self.n_heads, self.head_dim).transpose(1, 2)
 
         # Attention scores
-        scores = torch.matmul(Q, K.transpose(-2, -1)) / (self.head_dim ** 0.5)
+        scores = torch.matmul(Q, K.transpose(-2, -1)) / (self.head_dim**0.5)
         attn = F.softmax(scores, dim=-1)
         attn = self.dropout(attn)
 
@@ -290,9 +278,7 @@ class CrossModalAttention(nn.Module):
         context = torch.matmul(attn, V)
 
         # Reshape back
-        context = context.transpose(1, 2).contiguous().view(
-            batch_size, self.n_modalities, self.output_dim
-        )
+        context = context.transpose(1, 2).contiguous().view(batch_size, self.n_modalities, self.output_dim)
 
         # Output projection
         output = self.out_proj(context)
@@ -323,7 +309,7 @@ class CrossModalFusion(nn.Module):
 
     def __init__(
         self,
-        config: Optional[FusionConfig] = None,
+        config: FusionConfig | None = None,
     ):
         """Initialize cross-modal fusion.
 
@@ -356,14 +342,13 @@ class CrossModalFusion(nn.Module):
             )
 
         # Optional: modality-specific preprocessing
-        self.modality_norms = nn.ModuleDict({
-            name: nn.LayerNorm(dim)
-            for name, dim in self.config.modality_dims.items()
-        })
+        self.modality_norms = nn.ModuleDict(
+            {name: nn.LayerNorm(dim) for name, dim in self.config.modality_dims.items()}
+        )
 
     def forward(
         self,
-        modality_embeddings: Dict[str, torch.Tensor],
+        modality_embeddings: dict[str, torch.Tensor],
         return_attention: bool = False,
     ) -> torch.Tensor:
         """Fuse modality embeddings.
@@ -376,10 +361,7 @@ class CrossModalFusion(nn.Module):
             Fused embedding
         """
         # Normalize each modality
-        normalized = {
-            name: self.modality_norms[name](emb)
-            for name, emb in modality_embeddings.items()
-        }
+        normalized = {name: self.modality_norms[name](emb) for name, emb in modality_embeddings.items()}
 
         # Apply fusion
         if hasattr(self.fusion, "forward") and return_attention:
@@ -401,9 +383,9 @@ class HierarchicalFusion(nn.Module):
 
     def __init__(
         self,
-        modality_dims: Dict[str, int],
+        modality_dims: dict[str, int],
         output_dim: int = 128,
-        hierarchy: Optional[List[List[str]]] = None,
+        hierarchy: list[list[str]] | None = None,
     ):
         """Initialize hierarchical fusion.
 
@@ -418,8 +400,7 @@ class HierarchicalFusion(nn.Module):
         if hierarchy is None:
             # Default: pair-wise fusion
             names = list(modality_dims.keys())
-            hierarchy = [[names[i], names[i + 1] if i + 1 < len(names) else names[i]]
-                        for i in range(0, len(names), 2)]
+            hierarchy = [[names[i], names[i + 1] if i + 1 < len(names) else names[i]] for i in range(0, len(names), 2)]
 
         self.hierarchy = hierarchy
 
@@ -450,7 +431,7 @@ class HierarchicalFusion(nn.Module):
 
     def forward(
         self,
-        modality_embeddings: Dict[str, torch.Tensor],
+        modality_embeddings: dict[str, torch.Tensor],
     ) -> torch.Tensor:
         """Apply hierarchical fusion.
 
@@ -462,7 +443,7 @@ class HierarchicalFusion(nn.Module):
         """
         current = modality_embeddings.copy()
 
-        for level, (group, fusion) in enumerate(zip(self.hierarchy, self.fusion_layers)):
+        for level, (group, fusion) in enumerate(zip(self.hierarchy, self.fusion_layers, strict=False)):
             group_emb = {name: current[name] for name in group if name in current}
 
             if len(group_emb) > 1:

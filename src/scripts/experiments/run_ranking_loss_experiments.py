@@ -23,15 +23,14 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+import argparse
+
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-import pandas as pd
 from scipy import stats
-from typing import Dict, List, Tuple, Optional
-import argparse
-from datetime import datetime
 
 
 class RankingLosses:
@@ -44,17 +43,18 @@ class RankingLosses:
         target_mean = target - target.mean()
 
         cov = (pred_mean * target_mean).sum()
-        pred_std = torch.sqrt((pred_mean ** 2).sum() + 1e-8)
-        target_std = torch.sqrt((target_mean ** 2).sum() + 1e-8)
+        pred_std = torch.sqrt((pred_mean**2).sum() + 1e-8)
+        target_std = torch.sqrt((target_mean**2).sum() + 1e-8)
 
         corr = cov / (pred_std * target_std)
         return 1 - corr
 
     @staticmethod
-    def differentiable_spearman_loss(pred: torch.Tensor, target: torch.Tensor,
-                                      temperature: float = 0.1) -> torch.Tensor:
+    def differentiable_spearman_loss(
+        pred: torch.Tensor, target: torch.Tensor, temperature: float = 0.1
+    ) -> torch.Tensor:
         """#152: Differentiable Spearman correlation loss using soft ranks."""
-        n = pred.size(0)
+        pred.size(0)
 
         # Soft ranking using sigmoid comparisons
         pred_diff = pred.unsqueeze(1) - pred.unsqueeze(0)  # [n, n]
@@ -67,8 +67,7 @@ class RankingLosses:
         return RankingLosses.pearson_loss(soft_ranks_pred, soft_ranks_target)
 
     @staticmethod
-    def margin_ranking_loss(pred: torch.Tensor, target: torch.Tensor,
-                            margin: float = 0.1) -> torch.Tensor:
+    def margin_ranking_loss(pred: torch.Tensor, target: torch.Tensor, margin: float = 0.1) -> torch.Tensor:
         """#154: Margin ranking loss - learns pairwise orderings."""
         n = pred.size(0)
         if n < 2:
@@ -88,8 +87,9 @@ class RankingLosses:
         return loss.mean()
 
     @staticmethod
-    def triplet_ranking_loss(pred: torch.Tensor, target: torch.Tensor,
-                             margin: float = 0.1, n_triplets: int = 100) -> torch.Tensor:
+    def triplet_ranking_loss(
+        pred: torch.Tensor, target: torch.Tensor, margin: float = 0.1, n_triplets: int = 100
+    ) -> torch.Tensor:
         """#155: Triplet ranking loss with anchor-positive-negative sampling."""
         n = pred.size(0)
         if n < 3:
@@ -101,20 +101,20 @@ class RankingLosses:
         total_loss = 0.0
         count = 0
 
-        for _ in range(min(n_triplets, n * (n-1) * (n-2) // 6)):
+        for _ in range(min(n_triplets, n * (n - 1) * (n - 2) // 6)):
             # Sample anchor, positive (similar rank), negative (different rank)
-            anchor_pos = torch.randint(1, n-1, (1,)).item()
+            anchor_pos = torch.randint(1, n - 1, (1,)).item()
             anchor_idx = sorted_idx[anchor_pos]
 
             # Positive: one step away in rank
             pos_offset = torch.randint(0, 2, (1,)).item() * 2 - 1  # -1 or 1
-            pos_idx = sorted_idx[max(0, min(n-1, anchor_pos + pos_offset))]
+            pos_idx = sorted_idx[max(0, min(n - 1, anchor_pos + pos_offset))]
 
             # Negative: far away in rank
             if anchor_pos < n // 2:
-                neg_idx = sorted_idx[torch.randint(anchor_pos + n//4, n, (1,)).item()]
+                neg_idx = sorted_idx[torch.randint(anchor_pos + n // 4, n, (1,)).item()]
             else:
-                neg_idx = sorted_idx[torch.randint(0, anchor_pos - n//4 + 1, (1,)).item()]
+                neg_idx = sorted_idx[torch.randint(0, anchor_pos - n // 4 + 1, (1,)).item()]
 
             # Triplet loss: d(anchor, positive) should be < d(anchor, negative)
             d_pos = torch.abs(pred[anchor_idx] - pred[pos_idx])
@@ -127,8 +127,7 @@ class RankingLosses:
         return total_loss / max(count, 1)
 
     @staticmethod
-    def contrastive_ranking_loss(pred: torch.Tensor, target: torch.Tensor,
-                                  temperature: float = 0.1) -> torch.Tensor:
+    def contrastive_ranking_loss(pred: torch.Tensor, target: torch.Tensor, temperature: float = 0.1) -> torch.Tensor:
         """#156: Contrastive ranking loss - align similar, repel dissimilar."""
         n = pred.size(0)
         if n < 2:
@@ -177,8 +176,7 @@ class RankingLosses:
         return total_loss / n
 
     @staticmethod
-    def ordinal_regression_loss(pred: torch.Tensor, target: torch.Tensor,
-                                 n_levels: int = 5) -> torch.Tensor:
+    def ordinal_regression_loss(pred: torch.Tensor, target: torch.Tensor, n_levels: int = 5) -> torch.Tensor:
         """#168: Ordinal regression loss - treat as ordered classification."""
         # Discretize targets into levels
         target_min, target_max = target.min(), target.max()
@@ -204,13 +202,12 @@ class RankingLosses:
         return total_loss / (n_levels - 1)
 
     @staticmethod
-    def soft_label_ranking_loss(pred: torch.Tensor, target: torch.Tensor,
-                                 sigma: float = 0.1) -> torch.Tensor:
+    def soft_label_ranking_loss(pred: torch.Tensor, target: torch.Tensor, sigma: float = 0.1) -> torch.Tensor:
         """#171: Soft labels for ranking - Gaussian smoothed targets."""
         n = pred.size(0)
 
         # Create soft rankings using Gaussian kernels
-        target_expanded = target.unsqueeze(1)  # [n, 1]
+        target.unsqueeze(1)  # [n, 1]
         positions = torch.arange(n, device=pred.device, dtype=pred.dtype).unsqueeze(0)  # [1, n]
 
         # Sort targets to get ranks
@@ -219,7 +216,7 @@ class RankingLosses:
         ranks[sorted_idx] = torch.arange(n, device=pred.device, dtype=pred.dtype)
 
         # Soft targets: Gaussian around true rank
-        soft_targets = torch.exp(-((positions - ranks.unsqueeze(1)) ** 2) / (2 * sigma ** 2))
+        soft_targets = torch.exp(-((positions - ranks.unsqueeze(1)) ** 2) / (2 * sigma**2))
         soft_targets = soft_targets / soft_targets.sum(dim=1, keepdim=True)
 
         # Soft predictions
@@ -227,11 +224,11 @@ class RankingLosses:
         pred_ranks = torch.zeros_like(pred)
         pred_ranks[pred_sorted_idx] = torch.arange(n, device=pred.device, dtype=pred.dtype)
 
-        soft_preds = torch.exp(-((positions - pred_ranks.unsqueeze(1)) ** 2) / (2 * sigma ** 2))
+        soft_preds = torch.exp(-((positions - pred_ranks.unsqueeze(1)) ** 2) / (2 * sigma**2))
         soft_preds = soft_preds / soft_preds.sum(dim=1, keepdim=True)
 
         # KL divergence between soft distributions
-        return F.kl_div(torch.log(soft_preds + 1e-8), soft_targets, reduction='batchmean')
+        return F.kl_div(torch.log(soft_preds + 1e-8), soft_targets, reduction="batchmean")
 
 
 class ExperimentRunner:
@@ -241,7 +238,7 @@ class ExperimentRunner:
         self.device = device
         self.results = []
 
-    def load_stanford_raw(self, drug_class: str = "pi") -> Tuple[pd.DataFrame, List[str], List[str]]:
+    def load_stanford_raw(self, drug_class: str = "pi") -> tuple[pd.DataFrame, list[str], list[str]]:
         """Load Stanford HIVDB data."""
         data_dir = project_root / "data" / "research"
 
@@ -265,12 +262,12 @@ class ExperimentRunner:
 
         df = pd.read_csv(filepath, sep="\t", low_memory=False)
         prefix = "P"
-        position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix):].isdigit()]
-        position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix):]))
+        position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix) :].isdigit()]
+        position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix) :]))
 
         return df, position_cols, drug_columns[drug_class]
 
-    def encode_amino_acids(self, df: pd.DataFrame, position_cols: List[str]) -> np.ndarray:
+    def encode_amino_acids(self, df: pd.DataFrame, position_cols: list[str]) -> np.ndarray:
         """One-hot encode amino acid sequences."""
         aa_alphabet = "ACDEFGHIKLMNPQRSTVWY*-"
         aa_to_idx = {aa: i for i, aa in enumerate(aa_alphabet)}
@@ -291,7 +288,7 @@ class ExperimentRunner:
 
         return encoded
 
-    def load_data(self, drug_class: str = "pi") -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
+    def load_data(self, drug_class: str = "pi") -> dict[str, tuple[np.ndarray, np.ndarray]]:
         """Load HIV resistance data."""
         data = {}
 
@@ -332,11 +329,18 @@ class ExperimentRunner:
             nn.Linear(64, 1),  # Predict resistance score
         ).to(self.device)
 
-    def train_with_loss(self, model: nn.Module,
-                        X_train: np.ndarray, y_train: np.ndarray,
-                        X_test: np.ndarray, y_test: np.ndarray,
-                        loss_fn: callable, loss_name: str,
-                        epochs: int = 100, lr: float = 1e-3) -> Dict:
+    def train_with_loss(
+        self,
+        model: nn.Module,
+        X_train: np.ndarray,
+        y_train: np.ndarray,
+        X_test: np.ndarray,
+        y_test: np.ndarray,
+        loss_fn: callable,
+        loss_name: str,
+        epochs: int = 100,
+        lr: float = 1e-3,
+    ) -> dict:
         """Train model with specific loss function."""
         X_train_t = torch.tensor(X_train, dtype=torch.float32).to(self.device)
         y_train_t = torch.tensor(y_train, dtype=torch.float32).to(self.device)
@@ -379,12 +383,11 @@ class ExperimentRunner:
 
         return {"loss_name": loss_name, "best_corr": best_corr}
 
-    def run_experiment(self, drug_class: str = "pi",
-                       drugs: Optional[List[str]] = None) -> pd.DataFrame:
+    def run_experiment(self, drug_class: str = "pi", drugs: list[str] | None = None) -> pd.DataFrame:
         """Run all ranking loss experiments."""
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"RANKING LOSS EXPERIMENTS - {drug_class.upper()}")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
         data = self.load_data(drug_class)
         if drugs:
@@ -425,8 +428,7 @@ class ExperimentRunner:
 
                 try:
                     result = self.train_with_loss(
-                        model, X_train, y_train, X_test, y_test,
-                        loss_fn, loss_name, epochs=100
+                        model, X_train, y_train, X_test, y_test, loss_fn, loss_name, epochs=100
                     )
                     result["drug"] = drug
                     result["drug_class"] = drug_class
@@ -435,22 +437,23 @@ class ExperimentRunner:
                     print(f"corr = {result['best_corr']:+.3f}")
                 except Exception as e:
                     print(f"FAILED: {e}")
-                    results.append({
-                        "drug": drug,
-                        "drug_class": drug_class,
-                        "loss_name": loss_name,
-                        "best_corr": np.nan,
-                        "n_samples": len(X),
-                        "error": str(e)
-                    })
+                    results.append(
+                        {
+                            "drug": drug,
+                            "drug_class": drug_class,
+                            "loss_name": loss_name,
+                            "best_corr": np.nan,
+                            "n_samples": len(X),
+                            "error": str(e),
+                        }
+                    )
 
         return pd.DataFrame(results)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Ranking Loss Experiments")
-    parser.add_argument("--drug-class", type=str, default="pi",
-                        choices=["pi", "nrti", "nnrti", "ini", "all"])
+    parser.add_argument("--drug-class", type=str, default="pi", choices=["pi", "nrti", "nnrti", "ini", "all"])
     parser.add_argument("--drugs", type=str, nargs="+", default=None)
     args = parser.parse_args()
 
@@ -471,9 +474,9 @@ def main():
     print(f"\nResults saved to: {output_path}")
 
     # Summary
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("SUMMARY - Best Loss Function per Drug")
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
     for drug in results["drug"].unique():
         drug_results = results[results["drug"] == drug].dropna(subset=["best_corr"])
@@ -482,9 +485,9 @@ def main():
             print(f"{drug}: {best['loss_name']} -> {best['best_corr']:+.3f}")
 
     # Overall best
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("OVERALL - Average Correlation by Loss Function")
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
     avg_by_loss = results.groupby("loss_name")["best_corr"].mean().sort_values(ascending=False)
     for loss_name, avg_corr in avg_by_loss.items():

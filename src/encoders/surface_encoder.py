@@ -62,24 +62,72 @@ class SurfaceEncoderOutput:
 
 # Chemical property scales
 HYDROPHOBICITY_SCALE = {
-    "A": 1.8, "R": -4.5, "N": -3.5, "D": -3.5, "C": 2.5,
-    "Q": -3.5, "E": -3.5, "G": -0.4, "H": -3.2, "I": 4.5,
-    "L": 3.8, "K": -3.9, "M": 1.9, "F": 2.8, "P": -1.6,
-    "S": -0.8, "T": -0.7, "W": -0.9, "Y": -1.3, "V": 4.2,
+    "A": 1.8,
+    "R": -4.5,
+    "N": -3.5,
+    "D": -3.5,
+    "C": 2.5,
+    "Q": -3.5,
+    "E": -3.5,
+    "G": -0.4,
+    "H": -3.2,
+    "I": 4.5,
+    "L": 3.8,
+    "K": -3.9,
+    "M": 1.9,
+    "F": 2.8,
+    "P": -1.6,
+    "S": -0.8,
+    "T": -0.7,
+    "W": -0.9,
+    "Y": -1.3,
+    "V": 4.2,
 }
 
 CHARGE_SCALE = {
-    "A": 0, "R": 1, "N": 0, "D": -1, "C": 0,
-    "Q": 0, "E": -1, "G": 0, "H": 0.5, "I": 0,
-    "L": 0, "K": 1, "M": 0, "F": 0, "P": 0,
-    "S": 0, "T": 0, "W": 0, "Y": 0, "V": 0,
+    "A": 0,
+    "R": 1,
+    "N": 0,
+    "D": -1,
+    "C": 0,
+    "Q": 0,
+    "E": -1,
+    "G": 0,
+    "H": 0.5,
+    "I": 0,
+    "L": 0,
+    "K": 1,
+    "M": 0,
+    "F": 0,
+    "P": 0,
+    "S": 0,
+    "T": 0,
+    "W": 0,
+    "Y": 0,
+    "V": 0,
 }
 
 VOLUME_SCALE = {
-    "A": 88.6, "R": 173.4, "N": 114.1, "D": 111.1, "C": 108.5,
-    "Q": 143.8, "E": 138.4, "G": 60.1, "H": 153.2, "I": 166.7,
-    "L": 166.7, "K": 168.6, "M": 162.9, "F": 189.9, "P": 112.7,
-    "S": 89.0, "T": 116.1, "W": 227.8, "Y": 193.6, "V": 140.0,
+    "A": 88.6,
+    "R": 173.4,
+    "N": 114.1,
+    "D": 111.1,
+    "C": 108.5,
+    "Q": 143.8,
+    "E": 138.4,
+    "G": 60.1,
+    "H": 153.2,
+    "I": 166.7,
+    "L": 166.7,
+    "K": 168.6,
+    "M": 162.9,
+    "F": 189.9,
+    "P": 112.7,
+    "S": 89.0,
+    "T": 116.1,
+    "W": 227.8,
+    "Y": 193.6,
+    "V": 140.0,
 }
 
 
@@ -112,9 +160,7 @@ class GeodesicConv(nn.Module):
         self.n_orientations = n_orientations
 
         # Learnable filter bank
-        self.filters = nn.Parameter(
-            torch.randn(n_rings, n_orientations, in_channels, out_channels) * 0.01
-        )
+        self.filters = nn.Parameter(torch.randn(n_rings, n_orientations, in_channels, out_channels) * 0.01)
         self.bias = nn.Parameter(torch.zeros(out_channels))
 
     def forward(
@@ -266,7 +312,7 @@ class PAdicSurfaceAttention(nn.Module):
         # Compute valuations
         valuations = torch.zeros_like(diff, dtype=torch.float)
         for k in range(1, 10):
-            divisible = (diff % (self.p ** k) == 0) & (diff > 0)
+            divisible = (diff % (self.p**k) == 0) & (diff > 0)
             valuations[divisible] = k
 
         distances = torch.where(
@@ -304,7 +350,7 @@ class PAdicSurfaceAttention(nn.Module):
         v = v.transpose(1, 2)
 
         # Compute attention scores
-        scores = torch.matmul(q, k.transpose(-2, -1)) / (self.head_dim ** 0.5)
+        scores = torch.matmul(q, k.transpose(-2, -1)) / (self.head_dim**0.5)
 
         # Add p-adic bias
         if padic_bias is None:
@@ -623,9 +669,7 @@ class SurfaceComplementarity(nn.Module):
             Complementarity score (higher = more complementary)
         """
         # Negative correlation indicates complementarity
-        correlation = torch.corrcoef(
-            torch.stack([surface1_curvatures.flatten(), surface2_curvatures.flatten()])
-        )[0, 1]
+        correlation = torch.corrcoef(torch.stack([surface1_curvatures.flatten(), surface2_curvatures.flatten()]))[0, 1]
 
         # Convert to complementarity score (0-1)
         complementarity = (1 - correlation) / 2
@@ -678,12 +722,8 @@ class SurfaceComplementarity(nn.Module):
         Returns:
             Dictionary with complementarity scores
         """
-        shape_score = self.shape_complementarity(
-            surface1["curvatures"], surface2["curvatures"]
-        )
-        chem_score = self.chemical_complementarity(
-            surface1["features"], surface2["features"]
-        )
+        shape_score = self.shape_complementarity(surface1["curvatures"], surface2["curvatures"])
+        chem_score = self.chemical_complementarity(surface1["features"], surface2["features"])
 
         overall = (shape_score + chem_score) / 2
 

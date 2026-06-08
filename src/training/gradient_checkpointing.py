@@ -10,14 +10,14 @@ during training, particularly useful for GPUs with limited memory (4-6GB).
 """
 
 from dataclasses import dataclass
-from typing import Optional
-import torch
+
 import torch.nn as nn
 
 
 @dataclass
 class GradientCheckpointConfig:
     """Configuration for gradient checkpointing."""
+
     enabled: bool = False
     segments: int = 2  # Number of segments to divide model into
     checkpoint_segments: int = 2  # Alias for backwards compatibility
@@ -33,7 +33,7 @@ def create_checkpoint_config(
     preserve_rng_state: bool = True,
     encoder_checkpoint: bool = True,
     decoder_checkpoint: bool = True,
-    projection_checkpoint: bool = False
+    projection_checkpoint: bool = False,
 ) -> GradientCheckpointConfig:
     """Create a gradient checkpoint configuration.
 
@@ -55,14 +55,11 @@ def create_checkpoint_config(
         preserve_rng_state=preserve_rng_state,
         encoder_checkpoint=encoder_checkpoint,
         decoder_checkpoint=decoder_checkpoint,
-        projection_checkpoint=projection_checkpoint
+        projection_checkpoint=projection_checkpoint,
     )
 
 
-def apply_gradient_checkpointing(
-    model: nn.Module,
-    config: Optional[GradientCheckpointConfig] = None
-) -> nn.Module:
+def apply_gradient_checkpointing(model: nn.Module, config: GradientCheckpointConfig | None = None) -> nn.Module:
     """Apply gradient checkpointing to a model.
 
     Gradient checkpointing trades compute for memory by recomputing
@@ -79,11 +76,11 @@ def apply_gradient_checkpointing(
         return model
 
     # Enable gradient checkpointing for models that support it
-    if hasattr(model, 'gradient_checkpointing_enable'):
+    if hasattr(model, "gradient_checkpointing_enable"):
         model.gradient_checkpointing_enable()
-    elif hasattr(model, 'encoder_A') and hasattr(model.encoder_A, 'gradient_checkpointing_enable'):
+    elif hasattr(model, "encoder_A") and hasattr(model.encoder_A, "gradient_checkpointing_enable"):
         model.encoder_A.gradient_checkpointing_enable()
-        if hasattr(model, 'encoder_B'):
+        if hasattr(model, "encoder_B"):
             model.encoder_B.gradient_checkpointing_enable()
     else:
         # For custom models, we can use torch.utils.checkpoint manually
@@ -93,8 +90,4 @@ def apply_gradient_checkpointing(
     return model
 
 
-__all__ = [
-    'GradientCheckpointConfig',
-    'create_checkpoint_config',
-    'apply_gradient_checkpointing'
-]
+__all__ = ["GradientCheckpointConfig", "create_checkpoint_config", "apply_gradient_checkpointing"]

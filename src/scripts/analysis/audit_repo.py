@@ -138,7 +138,7 @@ def generate_report(ruff_issues, mypy_issues):
             # Group by source for clarity
             errors = sorted(
                 issues,
-                key=lambda x: (int(x["line"]) if str(x["line"]).isdigit() else 0),
+                key=lambda x: int(x["line"]) if str(x["line"]).isdigit() else 0,
             )
 
             f.write("| Line | Tool | Code | Message |\n")

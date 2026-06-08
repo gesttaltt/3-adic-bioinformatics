@@ -12,15 +12,14 @@ Measures resolution of the full dual-VAE system working together
 
 import sys
 from pathlib import Path
-from typing import Dict
 
 import numpy as np
 import torch
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from src.benchmark import (BenchmarkBase, create_v5_6_model, get_device,
-                           load_checkpoint_safe, load_config, save_results)
+from src.benchmark import BenchmarkBase, create_v5_6_model, get_device, load_checkpoint_safe, load_config, save_results
+
 from src.config.paths import CHECKPOINTS_DIR
 
 
@@ -31,7 +30,7 @@ class CoupledSystemBenchmark(BenchmarkBase):
         super().__init__(model, device)
 
     @torch.no_grad()
-    def measure_ensemble_reconstruction(self, batch_size=256) -> Dict:
+    def measure_ensemble_reconstruction(self, batch_size=256) -> dict:
         """Measure reconstruction using ensemble of both VAEs"""
         # Strategy 1: Voting (both VAEs decode, take majority vote per bit)
         voting_correct = 0
@@ -103,7 +102,7 @@ class CoupledSystemBenchmark(BenchmarkBase):
         }
 
     @torch.no_grad()
-    def measure_cross_injected_sampling(self, n_samples=50000, batch_size=1000, rho=0.5) -> Dict:
+    def measure_cross_injected_sampling(self, n_samples=50000, batch_size=1000, rho=0.5) -> dict:
         """Measure sampling coverage with cross-injection active"""
         sampled_ops = set()
 
@@ -145,7 +144,7 @@ class CoupledSystemBenchmark(BenchmarkBase):
         }
 
     @torch.no_grad()
-    def measure_complementary_coverage(self, batch_size=256) -> Dict:
+    def measure_complementary_coverage(self, batch_size=256) -> dict:
         """Measure which operations each VAE handles best"""
         vae_a_best_count = 0
         vae_b_best_count = 0
@@ -201,12 +200,14 @@ class CoupledSystemBenchmark(BenchmarkBase):
             "vae_a_specialization_rate": vae_a_best_count / self.n_ops,
             "vae_b_specialization_rate": vae_b_best_count / self.n_ops,
             "complementarity_score": (
-                min(vae_a_best_count, vae_b_best_count) / max(vae_a_best_count, vae_b_best_count) if vae_b_best_count > 0 else 0
+                min(vae_a_best_count, vae_b_best_count) / max(vae_a_best_count, vae_b_best_count)
+                if vae_b_best_count > 0
+                else 0
             ),
         }
 
     @torch.no_grad()
-    def measure_latent_space_coupling(self, n_samples=1000) -> Dict:
+    def measure_latent_space_coupling(self, n_samples=1000) -> dict:
         """Measure correlation between VAE-A and VAE-B latent spaces"""
         # Sample operations
         indices = torch.randperm(self.n_ops)[:n_samples]
@@ -243,7 +244,7 @@ class CoupledSystemBenchmark(BenchmarkBase):
         }
 
     @torch.no_grad()
-    def measure_system_resolution_score(self) -> Dict:
+    def measure_system_resolution_score(self) -> dict:
         """Compute overall system resolution score"""
         # Quick measurements for scoring
         ensemble = self.measure_ensemble_reconstruction(batch_size=256)
@@ -276,7 +277,7 @@ class CoupledSystemBenchmark(BenchmarkBase):
             "improvement": overall_score - 0.7785,
         }
 
-    def run_full_benchmark(self) -> Dict:
+    def run_full_benchmark(self) -> dict:
         """Run all coupled system benchmarks"""
         results = {
             "model_info": {

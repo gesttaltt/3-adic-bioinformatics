@@ -25,8 +25,8 @@ from src.models.uncertainty.bayesian import (
     MCDropoutWrapper,
 )
 from src.models.uncertainty.calibration import (
-    CalibrationMetrics,
     CalibratedModel,
+    CalibrationMetrics,
     FocalLossCalibration,
     IsotonicCalibration,
     LabelSmoothingLoss,
@@ -47,16 +47,16 @@ from src.models.uncertainty.conformal import (
     SplitConformalClassifier,
     evaluate_conformal_coverage,
 )
-from src.models.uncertainty.evidential import (
-    EvidentialEnsemble,
-    EvidentialLoss,
-    EvidentialPredictor,
-)
 from src.models.uncertainty.ensemble import (
     BatchEnsemble,
     DeepEnsemble,
     EnsemblePredictor,
     SnapshotEnsemble,
+)
+from src.models.uncertainty.evidential import (
+    EvidentialEnsemble,
+    EvidentialLoss,
+    EvidentialPredictor,
 )
 from src.models.uncertainty.wrapper import (
     CalibratedWrapper,

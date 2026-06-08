@@ -36,7 +36,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -58,7 +57,7 @@ class QuantumEnzyme:
     name: str
     ec_number: str  # Enzyme Commission number
     mechanism: QuantumMechanism
-    active_site_residues: List[str]  # Key residues (e.g., ["H95", "D220"])
+    active_site_residues: list[str]  # Key residues (e.g., ["H95", "D220"])
     tunneling_distance: float  # Å
     activation_barrier: float  # kcal/mol
     isotope_effect: float  # KIE (kinetic isotope effect)
@@ -66,7 +65,7 @@ class QuantumEnzyme:
 
 
 # Database of enzymes with documented quantum effects
-QUANTUM_ENZYMES: Dict[str, QuantumEnzyme] = {
+QUANTUM_ENZYMES: dict[str, QuantumEnzyme] = {
     "photosystem_II": QuantumEnzyme(
         name="Photosystem II",
         ec_number="1.10.3.9",
@@ -140,7 +139,7 @@ QUANTUM_ENZYMES: Dict[str, QuantumEnzyme] = {
 }
 
 # Amino acid properties relevant to quantum tunneling
-TUNNELING_RESIDUES: Dict[str, float] = {
+TUNNELING_RESIDUES: dict[str, float] = {
     # Residues that frequently participate in tunneling reactions
     "H": 0.9,  # Histidine - proton relay
     "C": 0.8,  # Cysteine - thiolate chemistry
@@ -162,12 +161,12 @@ class CatalyticSiteAnalysis:
     """Result of catalytic site analysis."""
 
     site_sequence: str
-    residue_positions: List[int]
+    residue_positions: list[int]
     padic_clustering_score: float
     tunneling_propensity: float
     predicted_kie: float  # Predicted kinetic isotope effect
-    mechanism_likelihood: Dict[QuantumMechanism, float]
-    critical_residues: List[str]
+    mechanism_likelihood: dict[QuantumMechanism, float]
+    critical_residues: list[str]
 
 
 class QuantumBiologyAnalyzer:
@@ -214,7 +213,7 @@ class QuantumBiologyAnalyzer:
     def analyze_catalytic_site(
         self,
         sequence: str,
-        active_site_positions: List[int],
+        active_site_positions: list[int],
     ) -> CatalyticSiteAnalysis:
         """Analyze a catalytic site for quantum tunneling signatures.
 
@@ -257,7 +256,7 @@ class QuantumBiologyAnalyzer:
             critical_residues=critical,
         )
 
-    def _compute_clustering_score(self, positions: List[int]) -> float:
+    def _compute_clustering_score(self, positions: list[int]) -> float:
         """Compute p-adic clustering score for residue positions.
 
         Lower clustering (higher p-adic distances) may indicate
@@ -285,7 +284,7 @@ class QuantumBiologyAnalyzer:
         # Convert to clustering score (inverted)
         return float(1.0 - min(1.0, avg_distance))
 
-    def _compute_tunneling_propensity(self, residues: List[str]) -> float:
+    def _compute_tunneling_propensity(self, residues: list[str]) -> float:
         """Compute tunneling propensity based on residue composition.
 
         Args:
@@ -300,7 +299,7 @@ class QuantumBiologyAnalyzer:
         scores = [TUNNELING_RESIDUES.get(r.upper(), 0.1) for r in residues]
         return float(np.mean(scores))
 
-    def _predict_kie(self, residues: List[str], clustering: float) -> float:
+    def _predict_kie(self, residues: list[str], clustering: float) -> float:
         """Predict kinetic isotope effect.
 
         Higher KIE (>7) suggests quantum tunneling contribution.
@@ -326,7 +325,7 @@ class QuantumBiologyAnalyzer:
 
         return min(100, max(1.0, predicted))
 
-    def _assess_mechanism_likelihood(self, residues: List[str]) -> Dict[QuantumMechanism, float]:
+    def _assess_mechanism_likelihood(self, residues: list[str]) -> dict[QuantumMechanism, float]:
         """Assess likelihood of different quantum mechanisms.
 
         Args:
@@ -364,7 +363,7 @@ class QuantumBiologyAnalyzer:
 
         return likelihoods
 
-    def _identify_critical_residues(self, residues: List[str]) -> List[str]:
+    def _identify_critical_residues(self, residues: list[str]) -> list[str]:
         """Identify residues critical for quantum effects.
 
         Args:
@@ -416,7 +415,7 @@ class QuantumBiologyAnalyzer:
     def compare_to_known_enzyme(
         self,
         site_analysis: CatalyticSiteAnalysis,
-    ) -> Tuple[str, float]:
+    ) -> tuple[str, float]:
         """Find most similar known quantum enzyme.
 
         Args:

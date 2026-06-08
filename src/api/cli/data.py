@@ -6,7 +6,6 @@
 """Data management commands for Ternary VAE CLI."""
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -83,14 +82,16 @@ def data_download(
         ...,
         help="Data source to download from (huggingface, kaggle, zenodo, github)",
     ),
-    dataset: Optional[str] = typer.Option(
+    dataset: str | None = typer.Option(
         None,
-        "--dataset", "-d",
+        "--dataset",
+        "-d",
         help="Specific dataset to download",
     ),
-    output_dir: Optional[Path] = typer.Option(
+    output_dir: Path | None = typer.Option(
         None,
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Output directory (defaults to data/external/<source>)",
     ),
 ):
@@ -122,7 +123,7 @@ def data_download(
         raise typer.Exit(1)
 
 
-def _download_huggingface(dataset: Optional[str], output_dir: Path):
+def _download_huggingface(dataset: str | None, output_dir: Path):
     """Download from HuggingFace datasets."""
     try:
         from datasets import load_dataset
@@ -155,7 +156,7 @@ def _download_huggingface(dataset: Optional[str], output_dir: Path):
             console.print(f"[red]Failed to download {name}: {e}[/red]")
 
 
-def _download_kaggle(dataset: Optional[str], output_dir: Path):
+def _download_kaggle(dataset: str | None, output_dir: Path):
     """Download from Kaggle."""
     console.print("[yellow]Kaggle download requires kaggle CLI setup[/yellow]")
     console.print("1. pip install kaggle")
@@ -163,13 +164,13 @@ def _download_kaggle(dataset: Optional[str], output_dir: Path):
     console.print("3. Run: kaggle datasets download -d <dataset-name> -p <output-dir>")
 
 
-def _download_zenodo(dataset: Optional[str], output_dir: Path):
+def _download_zenodo(dataset: str | None, output_dir: Path):
     """Download from Zenodo."""
     console.print("[yellow]Zenodo download implementation pending[/yellow]")
     console.print("Use src/scripts/hiv/download_hiv_datasets.py for Zenodo data")
 
 
-def _download_github(dataset: Optional[str], output_dir: Path):
+def _download_github(dataset: str | None, output_dir: Path):
     """Download from GitHub."""
     repos = {
         "HIV-data": "https://github.com/user/HIV-data.git",
@@ -220,8 +221,7 @@ def _validate_stanford():
     project_root = Path(__file__).resolve().parents[2]
     data_dir = project_root / "data" / "research" / "datasets"
 
-    files = ["stanford_hivdb_pi.txt", "stanford_hivdb_nrti.txt",
-             "stanford_hivdb_nnrti.txt", "stanford_hivdb_ini.txt"]
+    files = ["stanford_hivdb_pi.txt", "stanford_hivdb_nrti.txt", "stanford_hivdb_nnrti.txt", "stanford_hivdb_ini.txt"]
 
     for f in files:
         path = data_dir / f
@@ -253,6 +253,7 @@ def _validate_ctl():
 
     if path.exists():
         import csv
+
         with open(path) as fp:
             reader = csv.reader(fp)
             rows = list(reader)

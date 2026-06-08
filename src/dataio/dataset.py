@@ -12,8 +12,6 @@ This module provides PyTorch dataset classes for ternary operations.
 Single responsibility: Dataset definition only.
 """
 
-from typing import Union
-
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -26,7 +24,7 @@ class TernaryOperationDataset(Dataset):
     with values in {-1, 0, 1}.
     """
 
-    def __init__(self, operations: Union[np.ndarray, torch.Tensor]):
+    def __init__(self, operations: np.ndarray | torch.Tensor):
         """Initialize dataset with operations.
 
         Args:

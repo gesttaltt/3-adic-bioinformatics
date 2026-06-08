@@ -13,9 +13,8 @@ Compares results against baseline VAE.
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -28,10 +27,10 @@ from torch.utils.data import DataLoader, TensorDataset
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.models.gene_specific_vae import GeneConfig, GeneSpecificVAE, create_vae_for_gene
+from src.models.gene_specific_vae import GeneConfig, GeneSpecificVAE
 from src.models.multi_task_vae import MultiTaskConfig, MultiTaskVAE
 from src.models.resistance_transformer import ResistanceTransformer, TransformerConfig
-from src.models.uncertainty import MCDropoutWrapper, UncertaintyEstimate
+from src.models.uncertainty import MCDropoutWrapper
 
 
 @dataclass
@@ -46,7 +45,7 @@ class ExperimentConfig:
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def load_stanford_data(drug_class: str) -> Tuple[pd.DataFrame, List[str], List[str]]:
+def load_stanford_data(drug_class: str) -> tuple[pd.DataFrame, list[str], list[str]]:
     """Load Stanford HIVDB data."""
     data_dir = project_root / "data" / "research"
 
@@ -74,13 +73,13 @@ def load_stanford_data(drug_class: str) -> Tuple[pd.DataFrame, List[str], List[s
     # All Stanford HIVDB files use "P" prefix for position columns
     prefix = "P"
 
-    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix):].isdigit()]
+    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix) :].isdigit()]
     position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix) :]))
 
     return df, position_cols, drug_columns[drug_class]
 
 
-def encode_amino_acids(df: pd.DataFrame, position_cols: List[str]) -> np.ndarray:
+def encode_amino_acids(df: pd.DataFrame, position_cols: list[str]) -> np.ndarray:
     """One-hot encode amino acid sequences."""
     aa_alphabet = "ACDEFGHIKLMNPQRSTVWY*-"
     aa_to_idx = {aa: i for i, aa in enumerate(aa_alphabet)}
@@ -106,7 +105,7 @@ def prepare_data(
     drug_class: str,
     target_drug: str,
     test_size: float = 0.2,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int, int]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int, int]:
     """Prepare data for training."""
     df, position_cols, drugs = load_stanford_data(drug_class)
 
@@ -174,7 +173,7 @@ class BaselineVAE(nn.Module):
         return {"x_recon": x_recon, "mu": mu, "logvar": logvar, "z": z, "prediction": z[:, 0]}
 
 
-def compute_loss(cfg: ExperimentConfig, out: Dict, x: torch.Tensor, y: torch.Tensor) -> Dict[str, torch.Tensor]:
+def compute_loss(cfg: ExperimentConfig, out: dict, x: torch.Tensor, y: torch.Tensor) -> dict[str, torch.Tensor]:
     """Compute training loss."""
     losses = {}
 
@@ -203,7 +202,7 @@ def train_model(
     train_y: torch.Tensor,
     test_x: torch.Tensor,
     test_y: torch.Tensor,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Train model and return metrics."""
     device = torch.device(cfg.device)
     model = model.to(device)
@@ -241,12 +240,12 @@ def run_experiments(drug_class: str = "pi", epochs: int = 100):
     """Run all experiments for a drug class."""
     cfg = ExperimentConfig(epochs=epochs)
 
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"EXPERIMENTS FOR {drug_class.upper()}")
     print("=" * 80)
 
     _, position_cols, drugs = load_stanford_data(drug_class)
-    n_positions = len(position_cols)
+    len(position_cols)
 
     results = []
 
@@ -321,7 +320,7 @@ def run_multi_task_experiment(drug_class: str = "pi", epochs: int = 100):
     """Run multi-task learning experiment."""
     cfg = ExperimentConfig(epochs=epochs)
 
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"MULTI-TASK EXPERIMENT FOR {drug_class.upper()}")
     print("=" * 80)
 
@@ -352,7 +351,7 @@ def run_multi_task_experiment(drug_class: str = "pi", epochs: int = 100):
 
     # Train on all drugs together
     print("  Training multi-task model...")
-    for epoch in range(cfg.epochs):
+    for _epoch in range(cfg.epochs):
         model.train()
         for drug, data in all_data.items():
             x = data["train_x"].to(device)
@@ -398,7 +397,7 @@ def run_uncertainty_experiment(drug_class: str = "pi", drug: str = "LPV", epochs
     """Run uncertainty quantification experiment."""
     cfg = ExperimentConfig(epochs=epochs)
 
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"UNCERTAINTY EXPERIMENT FOR {drug}")
     print("=" * 80)
 
@@ -419,7 +418,7 @@ def run_uncertainty_experiment(drug_class: str = "pi", drug: str = "LPV", epochs
     dataset = TensorDataset(train_x, train_y)
     loader = DataLoader(dataset, batch_size=cfg.batch_size, shuffle=True)
 
-    for epoch in range(cfg.epochs):
+    for _epoch in range(cfg.epochs):
         model.train()
         for x, y in loader:
             x, y = x.to(device), y.to(device)
@@ -466,10 +465,7 @@ def main():
     all_results = []
 
     # Run main experiments
-    if args.drug_class == "all":
-        classes = ["pi", "nrti", "nnrti", "ini"]
-    else:
-        classes = [args.drug_class]
+    classes = ["pi", "nrti", "nnrti", "ini"] if args.drug_class == "all" else [args.drug_class]
 
     for drug_class in classes:
         results = run_experiments(drug_class, epochs=args.epochs)
@@ -477,11 +473,11 @@ def main():
 
     # Run multi-task for PI
     if "pi" in classes:
-        mt_results = run_multi_task_experiment("pi", epochs=args.epochs)
+        run_multi_task_experiment("pi", epochs=args.epochs)
 
     # Run uncertainty for LPV
     if "pi" in classes:
-        unc_results = run_uncertainty_experiment("pi", "LPV", epochs=args.epochs)
+        run_uncertainty_experiment("pi", "LPV", epochs=args.epochs)
 
     # Summary
     print("\n" + "=" * 80)

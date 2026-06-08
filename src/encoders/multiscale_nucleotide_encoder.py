@@ -26,7 +26,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -45,10 +44,22 @@ class NucleotideBase(Enum):
 
 # Dinucleotide encoding (16 combinations)
 DINUCLEOTIDES = [
-    "AA", "AC", "AG", "AT",
-    "CA", "CC", "CG", "CT",
-    "GA", "GC", "GG", "GT",
-    "TA", "TC", "TG", "TT",
+    "AA",
+    "AC",
+    "AG",
+    "AT",
+    "CA",
+    "CC",
+    "CG",
+    "CT",
+    "GA",
+    "GC",
+    "GG",
+    "GT",
+    "TA",
+    "TC",
+    "TG",
+    "TT",
 ]
 
 DINUCLEOTIDE_TO_IDX = {dn: i for i, dn in enumerate(DINUCLEOTIDES)}
@@ -114,7 +125,7 @@ class NucleotideEmbedding(nn.Module):
     def forward(
         self,
         nucleotides: torch.Tensor,
-        positions: Optional[torch.Tensor] = None,
+        positions: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Embed nucleotides with optional position encoding.
 
@@ -183,8 +194,8 @@ class DinucleotideEncoder(nn.Module):
     def forward(
         self,
         nucleotides: torch.Tensor,
-        region_mask: Optional[torch.Tensor] = None,
-        start_codon_pos: Optional[int] = None,
+        region_mask: torch.Tensor | None = None,
+        start_codon_pos: int | None = None,
     ) -> torch.Tensor:
         """Encode sequence as dinucleotide features.
 
@@ -250,7 +261,7 @@ class WobblePositionEncoder(nn.Module):
     def forward(
         self,
         wobble_bases: torch.Tensor,
-        first_two_bases: Optional[torch.Tensor] = None,
+        first_two_bases: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Encode wobble position features.
 
@@ -358,7 +369,7 @@ class LocalStructureEncoder(nn.Module):
     def forward(
         self,
         pairing_probs: torch.Tensor,
-        structure_labels: Optional[torch.Tensor] = None,
+        structure_labels: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Encode local structure features.
 
@@ -434,12 +445,10 @@ class RibosomeSiteEncoder(nn.Module):
             # Get context window around site
             center = site_positions + site_offset
             start = (center - self.context_window // 2).clamp(0, n_codons - self.context_window)
-            end = start + self.context_window
+            start + self.context_window
 
             # Extract context (simplified: just use position embedding)
-            site_emb = self.site_embedding(
-                torch.tensor([site_idx], device=device).expand(batch_size)
-            )
+            site_emb = self.site_embedding(torch.tensor([site_idx], device=device).expand(batch_size))
 
             # For simplicity, use center codon embedding
             center_clamped = center.clamp(0, n_codons - 1)
@@ -465,7 +474,7 @@ class MultiScaleNucleotideEncoder(nn.Module):
     This goes beyond codon-level to capture finer-grained biological signals.
     """
 
-    def __init__(self, config: Optional[MultiScaleConfig] = None, **kwargs):
+    def __init__(self, config: MultiScaleConfig | None = None, **kwargs):
         """Initialize multi-scale encoder.
 
         Args:
@@ -623,10 +632,10 @@ class MultiScaleNucleotideEncoder(nn.Module):
     def forward(
         self,
         nucleotides: torch.Tensor,
-        codon_positions: Optional[torch.Tensor] = None,
-        region_mask: Optional[torch.Tensor] = None,
-        structure_features: Optional[torch.Tensor] = None,
-    ) -> Dict[str, torch.Tensor]:
+        codon_positions: torch.Tensor | None = None,
+        region_mask: torch.Tensor | None = None,
+        structure_features: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Multi-scale encoding of nucleotide sequence.
 
         Args:
@@ -726,7 +735,7 @@ class MultiScaleNucleotideEncoder(nn.Module):
 
     def _hierarchical_aggregate(
         self,
-        features: Dict[str, torch.Tensor],
+        features: dict[str, torch.Tensor],
         nucleotides: torch.Tensor,
     ) -> torch.Tensor:
         """Hierarchical aggregation: nt -> dinuc -> codon.
@@ -750,10 +759,8 @@ class MultiScaleNucleotideEncoder(nn.Module):
         dinuc = self.nt_to_dinuc(nt_pairs.reshape(batch_size, seq_len // 2, -1))
 
         # Aggregate triplets to codons
-        dinuc_triplets = dinuc[:, :n_codons * 3 // 2].reshape(batch_size, n_codons, -1)
-        codon = self.dinuc_to_codon(
-            dinuc_triplets.reshape(batch_size, n_codons, -1)
-        )
+        dinuc_triplets = dinuc[:, : n_codons * 3 // 2].reshape(batch_size, n_codons, -1)
+        codon = self.dinuc_to_codon(dinuc_triplets.reshape(batch_size, n_codons, -1))
 
         return codon
 

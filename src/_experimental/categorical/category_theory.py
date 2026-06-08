@@ -28,8 +28,9 @@ References:
 from __future__ import annotations
 
 from abc import abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Dict, Generic, List, Optional, Tuple, TypeVar
+from typing import Generic, TypeVar
 
 import torch
 import torch.nn as nn
@@ -49,7 +50,7 @@ class TensorType:
     Acts as an object in the category of tensor spaces.
     """
 
-    shape: Tuple[int, ...]
+    shape: tuple[int, ...]
     dtype: torch.dtype = torch.float32
     device: str = "cpu"
 
@@ -66,7 +67,7 @@ class TensorType:
         return tensor.shape[-len(self.shape) :] == self.shape
 
     @classmethod
-    def from_tensor(cls, tensor: torch.Tensor) -> "TensorType":
+    def from_tensor(cls, tensor: torch.Tensor) -> TensorType:
         """Create type from tensor (excluding batch dim)."""
         return cls(
             shape=tuple(tensor.shape[1:]),
@@ -86,7 +87,7 @@ class Morphism(Generic[A, B]):
     source: A
     target: B
     name: str = ""
-    transform: Optional[Callable[[torch.Tensor], torch.Tensor]] = None
+    transform: Callable[[torch.Tensor], torch.Tensor] | None = None
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
         """Apply the morphism."""
@@ -94,7 +95,7 @@ class Morphism(Generic[A, B]):
             raise ValueError("No transform defined for this morphism")
         return self.transform(x)
 
-    def compose(self, other: "Morphism[B, C]") -> "Morphism[A, C]":
+    def compose(self, other: Morphism[B, C]) -> Morphism[A, C]:
         """Compose with another morphism: self ; other = other ∘ self."""
         if self.target != other.source:
             raise TypeError(f"Cannot compose: target {self.target} != source {other.source}")
@@ -120,7 +121,7 @@ class CategoricalLayer(nn.Module):
         self,
         input_type: TensorType,
         output_type: TensorType,
-        layer: Optional[nn.Module] = None,
+        layer: nn.Module | None = None,
         name: str = "",
     ):
         """Initialize categorical layer.
@@ -167,7 +168,7 @@ class CategoricalLayer(nn.Module):
             transform=self.forward,
         )
 
-    def compose(self, other: "CategoricalLayer") -> "CategoricalLayer":
+    def compose(self, other: CategoricalLayer) -> CategoricalLayer:
         """Compose with another categorical layer."""
         if self.output_type != other.input_type:
             raise TypeError(f"Cannot compose: output {self.output_type} != input {other.input_type}")
@@ -182,7 +183,7 @@ class CategoricalLayer(nn.Module):
             name=f"({self.name} ; {other.name})",
         )
 
-    def __rshift__(self, other: "CategoricalLayer") -> "CategoricalLayer":
+    def __rshift__(self, other: CategoricalLayer) -> CategoricalLayer:
         """Compose using >> operator: f >> g = g ∘ f."""
         return self.compose(other)
 
@@ -221,7 +222,7 @@ class Functor(Generic[A, B]):
         """Apply functor to a morphism."""
         return self.morphism_map(morph)
 
-    def compose(self, other: "Functor[B, C]") -> "Functor[A, C]":
+    def compose(self, other: Functor[B, C]) -> Functor[A, C]:
         """Compose with another functor."""
 
         def composed_object_map(obj: A) -> C:
@@ -248,7 +249,7 @@ class NaturalTransformation(Generic[A, B]):
         self,
         source_functor: Functor,
         target_functor: Functor,
-        components: Dict[A, Morphism],
+        components: dict[A, Morphism],
         name: str = "",
     ):
         """Initialize natural transformation.
@@ -452,8 +453,8 @@ class StringDiagram:
 
     def __init__(self):
         """Initialize empty diagram."""
-        self.boxes: List[CategoricalLayer] = []
-        self.wires: List[Tuple[int, int, int, int]] = []
+        self.boxes: list[CategoricalLayer] = []
+        self.wires: list[tuple[int, int, int, int]] = []
         # (from_box, from_port, to_box, to_port)
 
     def add_box(self, layer: CategoricalLayer) -> int:
@@ -516,7 +517,7 @@ class Optic(nn.Module):
 
     def __init__(
         self,
-        forward_fn: Callable[[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]],
+        forward_fn: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
         backward_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
     ):
         """Initialize optic.
@@ -550,7 +551,7 @@ class ResidualOptic(Optic):
         """
         self.inner_layer = layer
 
-        def forward_fn(x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        def forward_fn(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
             return x, self.inner_layer(x) + x
 
         def backward_fn(residual: torch.Tensor, dy: torch.Tensor) -> torch.Tensor:
@@ -596,7 +597,7 @@ class AttentionOptic(Optic):
 
         def forward_fn(
             x: torch.Tensor,
-        ) -> Tuple[torch.Tensor, torch.Tensor]:
+        ) -> tuple[torch.Tensor, torch.Tensor]:
             batch, seq_len, _ = x.shape
 
             # Compute QKV
@@ -635,7 +636,7 @@ class AttentionOptic(Optic):
         _, out = self.forward_fn(x)
         return out
 
-    def forward_with_attention(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward_with_attention(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward returning both output and attention weights."""
         return self.forward_fn(x)
 
@@ -654,10 +655,10 @@ class CategoricalNetwork(nn.Module):
         """
         super().__init__()
         self.name = name
-        self.layers: List[CategoricalLayer] = []
+        self.layers: list[CategoricalLayer] = []
         self._modules_list = nn.ModuleList()
 
-    def add_layer(self, layer: CategoricalLayer) -> "CategoricalNetwork":
+    def add_layer(self, layer: CategoricalLayer) -> CategoricalNetwork:
         """Add a layer to the network.
 
         Args:
@@ -677,12 +678,12 @@ class CategoricalNetwork(nn.Module):
         return self
 
     @property
-    def input_type(self) -> Optional[TensorType]:
+    def input_type(self) -> TensorType | None:
         """Get input type of network."""
         return self.layers[0].input_type if self.layers else None
 
     @property
-    def output_type(self) -> Optional[TensorType]:
+    def output_type(self) -> TensorType | None:
         """Get output type of network."""
         return self.layers[-1].output_type if self.layers else None
 
@@ -706,7 +707,4 @@ class CategoricalNetwork(nn.Module):
 
     def verify_types(self) -> bool:
         """Verify all type connections are valid."""
-        for i in range(len(self.layers) - 1):
-            if self.layers[i].output_type != self.layers[i + 1].input_type:
-                return False
-        return True
+        return all(self.layers[i].output_type == self.layers[i + 1].input_type for i in range(len(self.layers) - 1))

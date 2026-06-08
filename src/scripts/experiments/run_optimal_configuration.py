@@ -16,15 +16,13 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-import pandas as pd
 from scipy import stats
-from typing import Dict, List, Tuple
-import argparse
-from datetime import datetime
 
 
 def listmle_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -85,7 +83,7 @@ class OptimalVAE(nn.Module):
             nn.Linear(256, input_dim),
         )
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         h = self.encoder(x)
         mu = self.fc_mu(h)
         logvar = self.fc_logvar(h)
@@ -103,7 +101,7 @@ class OptimalTrainer:
     def __init__(self, device: str = "cuda" if torch.cuda.is_available() else "cpu"):
         self.device = device
 
-    def load_stanford_raw(self, drug_class: str = "pi") -> Tuple[pd.DataFrame, List[str], List[str]]:
+    def load_stanford_raw(self, drug_class: str = "pi") -> tuple[pd.DataFrame, list[str], list[str]]:
         """Load Stanford HIVDB data."""
         data_dir = project_root / "data" / "research"
 
@@ -127,12 +125,12 @@ class OptimalTrainer:
 
         df = pd.read_csv(filepath, sep="\t", low_memory=False)
         prefix = "P"
-        position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix):].isdigit()]
-        position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix):]))
+        position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix) :].isdigit()]
+        position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix) :]))
 
         return df, position_cols, drug_columns[drug_class]
 
-    def encode_amino_acids(self, df: pd.DataFrame, position_cols: List[str]) -> np.ndarray:
+    def encode_amino_acids(self, df: pd.DataFrame, position_cols: list[str]) -> np.ndarray:
         """OneHot encode amino acid sequences (best encoding)."""
         aa_alphabet = "ACDEFGHIKLMNPQRSTVWY*-"
         aa_to_idx = {aa: i for i, aa in enumerate(aa_alphabet)}
@@ -153,10 +151,16 @@ class OptimalTrainer:
 
         return encoded
 
-    def train(self, model: nn.Module,
-              X_train: np.ndarray, y_train: np.ndarray,
-              X_test: np.ndarray, y_test: np.ndarray,
-              epochs: int = 100, lr: float = 1e-3) -> Dict:
+    def train(
+        self,
+        model: nn.Module,
+        X_train: np.ndarray,
+        y_train: np.ndarray,
+        X_test: np.ndarray,
+        y_test: np.ndarray,
+        epochs: int = 100,
+        lr: float = 1e-3,
+    ) -> dict:
         """Train with optimal configuration: ListMLE + AdamW."""
         X_train_t = torch.tensor(X_train, dtype=torch.float32).to(self.device)
         y_train_t = torch.tensor(y_train, dtype=torch.float32).to(self.device)
@@ -221,9 +225,9 @@ class OptimalTrainer:
         results = []
 
         for drug_class in ["pi", "nrti", "nnrti", "ini"]:
-            print(f"\n{'='*70}")
+            print(f"\n{'=' * 70}")
             print(f"OPTIMAL CONFIGURATION - {drug_class.upper()}")
-            print(f"{'='*70}\n")
+            print(f"{'=' * 70}\n")
 
             try:
                 df, position_cols, drugs = self.load_stanford_raw(drug_class)
@@ -259,21 +263,25 @@ class OptimalTrainer:
                     result = self.train(model, X_train, y_train, X_test, y_test)
                     print(f"corr = {result['best_corr']:+.3f}")
 
-                    results.append({
-                        "drug_class": drug_class,
-                        "drug": drug,
-                        "n_samples": len(X),
-                        "best_corr": result["best_corr"],
-                    })
+                    results.append(
+                        {
+                            "drug_class": drug_class,
+                            "drug": drug,
+                            "n_samples": len(X),
+                            "best_corr": result["best_corr"],
+                        }
+                    )
 
                 except Exception as e:
                     print(f"  {drug}: FAILED - {e}")
-                    results.append({
-                        "drug_class": drug_class,
-                        "drug": drug,
-                        "best_corr": np.nan,
-                        "error": str(e),
-                    })
+                    results.append(
+                        {
+                            "drug_class": drug_class,
+                            "drug": drug,
+                            "best_corr": np.nan,
+                            "error": str(e),
+                        }
+                    )
 
         return pd.DataFrame(results)
 
@@ -296,9 +304,9 @@ def main():
     print(f"\nResults saved to: {output_path}")
 
     # Summary
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("FINAL SUMMARY - Optimal Configuration Results")
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
     for drug_class in results["drug_class"].unique():
         class_results = results[results["drug_class"] == drug_class].dropna(subset=["best_corr"])
@@ -310,9 +318,9 @@ def main():
 
     # Overall
     overall_avg = results["best_corr"].mean()
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"OVERALL AVERAGE: {overall_avg:+.3f}")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
 
 if __name__ == "__main__":

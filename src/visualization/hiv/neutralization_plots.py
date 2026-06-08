@@ -8,19 +8,20 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
 
 try:
     import matplotlib.pyplot as plt
+
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
 
 try:
     import seaborn  # noqa: F401
+
     HAS_SEABORN = True
 except ImportError:
     HAS_SEABORN = False
@@ -34,7 +35,7 @@ def _check_matplotlib():
 def plot_bnab_sensitivity(
     df: pd.DataFrame,
     top_n: int = 20,
-    save_path: Optional[Union[str, Path]] = None,
+    save_path: str | Path | None = None,
     figsize: tuple = (12, 6),
 ) -> plt.Figure:
     """Plot bnAb sensitivity signatures.
@@ -56,9 +57,7 @@ def plot_bnab_sensitivity(
 
     # Left: Effect size (separation between sensitive/resistant)
     if "Antibody" in df_top.columns and "effect_size" in df_top.columns:
-        colors = plt.cm.coolwarm(
-            np.linspace(0, 1, len(df_top))
-        )
+        colors = plt.cm.coolwarm(np.linspace(0, 1, len(df_top)))
 
         axes[0].barh(
             df_top["Antibody"],
@@ -99,7 +98,7 @@ def plot_bnab_sensitivity(
 
 def plot_breadth_potency(
     df: pd.DataFrame,
-    save_path: Optional[Union[str, Path]] = None,
+    save_path: str | Path | None = None,
     figsize: tuple = (10, 8),
 ) -> plt.Figure:
     """Plot antibody breadth vs potency relationship.
@@ -117,8 +116,7 @@ def plot_breadth_potency(
     fig, ax = plt.subplots(figsize=figsize)
 
     if not all(c in df.columns for c in ["breadth_pct", "potency_score"]):
-        ax.text(0.5, 0.5, "Required columns not found",
-                ha="center", va="center", transform=ax.transAxes)
+        ax.text(0.5, 0.5, "Required columns not found", ha="center", va="center", transform=ax.transAxes)
         return fig
 
     # Color by epitope class if available
@@ -152,6 +150,7 @@ def plot_breadth_potency(
 
     # Add correlation line
     from scipy.stats import spearmanr
+
     r, p = spearmanr(df["breadth_pct"], df["potency_score"])
 
     z = np.polyfit(df["breadth_pct"], df["potency_score"], 1)
@@ -188,7 +187,7 @@ def plot_breadth_potency(
 
 def plot_antibody_clusters(
     df: pd.DataFrame,
-    save_path: Optional[Union[str, Path]] = None,
+    save_path: str | Path | None = None,
     figsize: tuple = (10, 8),
 ) -> plt.Figure:
     """Plot antibody clusters by epitope class and potency.
@@ -206,8 +205,7 @@ def plot_antibody_clusters(
     fig, ax = plt.subplots(figsize=figsize)
 
     if "epitope_class" not in df.columns:
-        ax.text(0.5, 0.5, "No epitope class data",
-                ha="center", va="center", transform=ax.transAxes)
+        ax.text(0.5, 0.5, "No epitope class data", ha="center", va="center", transform=ax.transAxes)
         return fig
 
     # Group by epitope class

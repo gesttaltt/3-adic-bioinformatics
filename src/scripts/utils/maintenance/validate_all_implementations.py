@@ -19,19 +19,19 @@ def main():
     print(f"Started: {datetime.now()}")
 
     results = {}
-    scripts_dir = Path(__file__).parent
+    Path(__file__).parent
 
     # Test 1: Literature Implementations
     print("\n[1/4] Testing literature_implementations.py...")
     try:
         from literature_implementations import (
-            PAdicCodonEncoder,
-            HyperbolicVAE,
-            PottsModelFitness,
-            PersistentHomologyAnalyzer,
-            ZeroShotMutationPredictor,
             EpistasisDetector,
+            HyperbolicVAE,
+            PAdicCodonEncoder,
+            PersistentHomologyAnalyzer,
+            PottsModelFitness,
             QuasispeciesSimulator,
+            ZeroShotMutationPredictor,
         )
 
         # Quick tests
@@ -40,37 +40,38 @@ def main():
         print("  - PAdicCodonEncoder: OK")
 
         import torch
+
         vae = HyperbolicVAE(100, 64, 16)
         x = torch.randn(4, 100)
         out = vae(x)
         assert len(out) == 4
         print("  - HyperbolicVAE: OK")
 
-        potts = PottsModelFitness(10)
+        PottsModelFitness(10)
         print("  - PottsModelFitness: OK")
 
         ph = PersistentHomologyAnalyzer()
         stats = ph.persistence_statistics("MGARASVLS")
-        assert 'dim0_n_bars' in stats
+        assert "dim0_n_bars" in stats
         print("  - PersistentHomologyAnalyzer: OK")
 
         zs = ZeroShotMutationPredictor()
-        effect = zs.predict_mutation_effect("MGARASVLS", 0, 'M', 'A')
+        effect = zs.predict_mutation_effect("MGARASVLS", 0, "M", "A")
         # Check for any of the expected keys
-        assert any(k in effect for k in ['effect_class', 'score', 'predicted_effect'])
+        assert any(k in effect for k in ["effect_class", "score", "predicted_effect"])
         print("  - ZeroShotMutationPredictor: OK")
 
-        ed = EpistasisDetector()
+        EpistasisDetector()
         print("  - EpistasisDetector: OK")
 
-        qs = QuasispeciesSimulator(10)
+        QuasispeciesSimulator(10)
         print("  - QuasispeciesSimulator: OK")
 
-        results['literature_implementations'] = 'PASS'
+        results["literature_implementations"] = "PASS"
         print("  [PASS] All literature implementations validated")
 
     except Exception as e:
-        results['literature_implementations'] = f'FAIL: {e}'
+        results["literature_implementations"] = f"FAIL: {e}"
         print(f"  [FAIL] {e}")
 
     # Test 2: Advanced Implementations
@@ -78,46 +79,45 @@ def main():
     try:
         from advanced_literature_implementations import (
             ConditionalFlowMatcher,
-            ProteinConformationGenerator,
             DrugResistanceAnalyzer,
             HLAEpitopePredictorSimulated,
-            UnifiedHIVResearchPipeline,
+            ProteinConformationGenerator,
         )
 
-        cfm = ConditionalFlowMatcher()
+        ConditionalFlowMatcher()
         print("  - ConditionalFlowMatcher: OK")
 
         pcg = ProteinConformationGenerator()
         ensemble = pcg.generate_ensemble("MGARASVLS", n_conformations=2)
-        assert 'conformations' in ensemble
+        assert "conformations" in ensemble
         print("  - ProteinConformationGenerator: OK")
 
         dra = DrugResistanceAnalyzer()
-        impact = dra.analyze_mutation_structural_impact('protease', 'D30N')
-        assert 'binding_impact' in impact
+        impact = dra.analyze_mutation_structural_impact("protease", "D30N")
+        assert "binding_impact" in impact
         print("  - DrugResistanceAnalyzer: OK")
 
         hla = HLAEpitopePredictorSimulated()
-        epitopes = hla.predict_epitopes("MGARASVLSGGELDR", "Test")
+        hla.predict_epitopes("MGARASVLSGGELDR", "Test")
         print("  - HLAEpitopePredictorSimulated: OK")
 
-        results['advanced_implementations'] = 'PASS'
+        results["advanced_implementations"] = "PASS"
         print("  [PASS] All advanced implementations validated")
 
     except Exception as e:
-        results['advanced_implementations'] = f'FAIL: {e}'
+        results["advanced_implementations"] = f"FAIL: {e}"
         print(f"  [FAIL] {e}")
 
     # Test 3: Cutting Edge Implementations
     print("\n[3/4] Testing cutting_edge_implementations.py...")
     try:
         from cutting_edge_implementations import (
-            OptimalTransportAligner,
-            ProteinLanguageModel,
             AntibodyDiffusionModel,
             AntibodyOptimizer,
-            PPIGraphNeuralNetwork,
             HIVHostInteractionPredictor,
+            OptimalTransportAligner,
+            PPIGraphNeuralNetwork,
+            ProteinLanguageModel,
         )
 
         ot = OptimalTransportAligner()
@@ -130,23 +130,23 @@ def main():
         assert emb.shape[0] == 9
         print("  - ProteinLanguageModel: OK")
 
-        diff = AntibodyDiffusionModel()
+        AntibodyDiffusionModel()
         print("  - AntibodyDiffusionModel: OK")
 
-        opt = AntibodyOptimizer()
+        AntibodyOptimizer()
         print("  - AntibodyOptimizer: OK")
 
-        gnn = PPIGraphNeuralNetwork()
+        PPIGraphNeuralNetwork()
         print("  - PPIGraphNeuralNetwork: OK")
 
-        ppi = HIVHostInteractionPredictor()
+        HIVHostInteractionPredictor()
         print("  - HIVHostInteractionPredictor: OK")
 
-        results['cutting_edge_implementations'] = 'PASS'
+        results["cutting_edge_implementations"] = "PASS"
         print("  [PASS] All cutting-edge implementations validated")
 
     except Exception as e:
-        results['cutting_edge_implementations'] = f'FAIL: {e}'
+        results["cutting_edge_implementations"] = f"FAIL: {e}"
         print(f"  [FAIL] {e}")
 
     # Test 4: Clinical Dashboard
@@ -161,24 +161,24 @@ def main():
 
         patient = PatientProfile(
             patient_id="TEST-001",
-            hiv_sequences={'Protease': "PQITLWQRPLVTIKIGGQLKEALLDTGADDTVLE"},
+            hiv_sequences={"Protease": "PQITLWQRPLVTIKIGGQLKEALLDTGADDTVLE"},
             viral_load=10000,
-            cd4_count=400
+            cd4_count=400,
         )
 
         resistance = dashboard.assess_resistance(patient)
-        assert hasattr(resistance, 'overall_risk')
+        assert hasattr(resistance, "overall_risk")
         print("  - ResistanceAssessment: OK")
 
         treatment = dashboard.recommend_treatment(patient)
-        assert hasattr(treatment, 'regimen')
+        assert hasattr(treatment, "regimen")
         print("  - TreatmentRecommendation: OK")
 
-        results['clinical_dashboard'] = 'PASS'
+        results["clinical_dashboard"] = "PASS"
         print("  [PASS] Clinical dashboard validated")
 
     except Exception as e:
-        results['clinical_dashboard'] = f'FAIL: {e}'
+        results["clinical_dashboard"] = f"FAIL: {e}"
         print(f"  [FAIL] {e}")
 
     # Summary

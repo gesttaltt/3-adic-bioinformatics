@@ -3,7 +3,7 @@
 # Licensed under the PolyForm Noncommercial License 1.0.0
 # See LICENSE file in the repository root for full license text.
 
-from typing import Dict, Optional, Protocol, Tuple, Union, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 import torch
 
@@ -12,7 +12,7 @@ import torch
 class EncoderProtocol(Protocol):
     """Protocol for VAE Encoders."""
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Returns: (mu, logvar)"""
         ...
 
@@ -30,7 +30,9 @@ class DecoderProtocol(Protocol):
 class ProjectionProtocol(Protocol):
     """Protocol for Hyperbolic Projections."""
 
-    def forward(self, z_A: torch.Tensor, z_B: Optional[torch.Tensor] = None) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+    def forward(
+        self, z_A: torch.Tensor, z_B: torch.Tensor | None = None
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """Projects Euclidean vectors to Hyperbolic space."""
         ...
 
@@ -39,6 +41,6 @@ class ProjectionProtocol(Protocol):
 class ControllerProtocol(Protocol):
     """Protocol for Differentiable Controllers."""
 
-    def forward(self, batch_stats: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, batch_stats: torch.Tensor) -> dict[str, torch.Tensor]:
         """Returns control signals."""
         ...

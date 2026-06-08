@@ -36,60 +36,17 @@ Loss Types:
 """
 
 # New structural components (LossRegistry pattern)
-from .base import DualVAELossComponent, LossComponent, LossResult
-from .components import (EntropyAlignmentComponent, EntropyLossComponent,
-                         KLDivergenceLossComponent,
-                         PAdicHyperbolicLossComponent,
-                         PAdicRankingLossComponent,
-                         RadialStratificationLossComponent,
-                         ReconstructionLossComponent, RepulsionLossComponent)
-from .consequence_predictor import (ConsequencePredictor,
-                                    PurposefulRankingLoss,
-                                    evaluate_addition_accuracy)
-# NOTE: DualVAELoss is deprecated - use LossRegistry pattern for new code
-# Kept for backward compatibility with existing trainers
-from .dual_vae_loss import (DualVAELoss, EntropyRegularization,
-                            KLDivergenceLoss, ReconstructionLoss,
-                            RepulsionLoss)
-from .hyperbolic_prior import HomeostaticHyperbolicPrior, HyperbolicPrior
-from .hyperbolic_recon import (HomeostaticReconLoss, HyperbolicCentroidLoss,
-                               HyperbolicReconLoss)
-from .padic_geodesic import (CombinedGeodesicLoss, GlobalRankLoss,
-                             MonotonicRadialLoss, PAdicGeodesicLoss,
-                             RadialHierarchyLoss, poincare_distance)
-# p-Adic losses - import from new modular subpackage (preferred)
-# Also maintains backward compatibility with existing imports
-from .padic import (
-    PAdicMetricLoss,
-    PAdicNormLoss,
-    PAdicRankingLoss,
-    PAdicRankingLossHyperbolic,
-    PAdicRankingLossV2,
-    # New exports from modular structure
-    EuclideanTripletMiner,
-    HyperbolicTripletMiner,
-    TripletBatch,
-    TripletMiner,
-    compute_3adic_valuation_batch,
-)
-from .radial_stratification import (RadialStratificationLoss,
-                                    compute_single_index_valuation)
-from .rich_hierarchy import RichHierarchyLoss
-from .registry import (
-    LossComponentRegistry,
-    LossGroup,
-    LossRegistry,
-    create_registry_from_config,
-    create_registry_from_training_config,
-    create_registry_with_plugins,
-)
-from .zero_structure import (CombinedZeroStructureLoss, ZeroSparsityLoss,
-                             ZeroValuationLoss, compute_operation_zero_count,
-                             compute_operation_zero_valuation)
-
 # Autoimmune-aware regularization
-from .autoimmunity import (AutoimmuneCodonRegularizer, CD4CD8AwareRegularizer,
-                           HUMAN_CODON_RSCU)
+from .autoimmunity import HUMAN_CODON_RSCU, AutoimmuneCodonRegularizer, CD4CD8AwareRegularizer
+from .base import DualVAELossComponent, LossComponent, LossResult
+
+# Codon usage constraints
+from .codon_usage import (
+    CodonOptimalityScore,
+    CodonUsageConfig,
+    CodonUsageLoss,
+    Organism,
+)
 
 # Co-evolution losses
 from .coevolution_loss import (
@@ -100,15 +57,29 @@ from .coevolution_loss import (
     PAdicStructureLoss,
     ResourceConservationLoss,
 )
+from .components import (
+    EntropyAlignmentComponent,
+    EntropyLossComponent,
+    KLDivergenceLossComponent,
+    PAdicHyperbolicLossComponent,
+    PAdicRankingLossComponent,
+    RadialStratificationLossComponent,
+    ReconstructionLossComponent,
+    RepulsionLossComponent,
+)
+from .consequence_predictor import ConsequencePredictor, PurposefulRankingLoss, evaluate_addition_accuracy
 
-# Glycan shield analysis
-from .glycan_loss import (
-    GlycanRemovalSimulator,
-    GlycanSequonDetector,
-    GlycanShieldAnalyzer,
-    GlycanShieldMetrics,
-    GlycanSite,
-    SentinelGlycanLoss,
+# NOTE: DualVAELoss is deprecated - use LossRegistry pattern for new code
+# Kept for backward compatibility with existing trainers
+from .dual_vae_loss import DualVAELoss, EntropyRegularization, KLDivergenceLoss, ReconstructionLoss, RepulsionLoss
+
+# Epistasis losses
+from .epistasis_loss import (
+    DrugInteractionLoss,
+    EpistasisLoss,
+    EpistasisLossResult,
+    LearnedEpistasisLoss,
+    MarginRankingLoss,
 )
 
 # Fisher-Rao information geometry
@@ -120,21 +91,57 @@ from .fisher_rao import (
     NaturalGradientRegularizer,
 )
 
-# Codon usage constraints
-from .codon_usage import (
-    CodonOptimalityScore,
-    CodonUsageConfig,
-    CodonUsageLoss,
-    Organism,
+# Glycan shield analysis
+from .glycan_loss import (
+    GlycanRemovalSimulator,
+    GlycanSequonDetector,
+    GlycanShieldAnalyzer,
+    GlycanShieldMetrics,
+    GlycanSite,
+    SentinelGlycanLoss,
 )
+from .hyperbolic_prior import HomeostaticHyperbolicPrior, HyperbolicPrior
+from .hyperbolic_recon import HomeostaticReconLoss, HyperbolicCentroidLoss, HyperbolicReconLoss
 
-# Epistasis losses
-from .epistasis_loss import (
-    EpistasisLoss,
-    EpistasisLossResult,
-    LearnedEpistasisLoss,
-    DrugInteractionLoss,
-    MarginRankingLoss,
+# p-Adic losses - import from new modular subpackage (preferred)
+# Also maintains backward compatibility with existing imports
+from .padic import (
+    # New exports from modular structure
+    EuclideanTripletMiner,
+    HyperbolicTripletMiner,
+    PAdicMetricLoss,
+    PAdicNormLoss,
+    PAdicRankingLoss,
+    PAdicRankingLossHyperbolic,
+    PAdicRankingLossV2,
+    TripletBatch,
+    TripletMiner,
+    compute_3adic_valuation_batch,
+)
+from .padic_geodesic import (
+    CombinedGeodesicLoss,
+    GlobalRankLoss,
+    MonotonicRadialLoss,
+    PAdicGeodesicLoss,
+    RadialHierarchyLoss,
+    poincare_distance,
+)
+from .radial_stratification import RadialStratificationLoss, compute_single_index_valuation
+from .registry import (
+    LossComponentRegistry,
+    LossGroup,
+    LossRegistry,
+    create_registry_from_config,
+    create_registry_from_training_config,
+    create_registry_with_plugins,
+)
+from .rich_hierarchy import RichHierarchyLoss
+from .zero_structure import (
+    CombinedZeroStructureLoss,
+    ZeroSparsityLoss,
+    ZeroValuationLoss,
+    compute_operation_zero_count,
+    compute_operation_zero_valuation,
 )
 
 # Appetitive losses archived (unused in active training)

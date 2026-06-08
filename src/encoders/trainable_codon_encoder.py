@@ -36,30 +36,24 @@ Usage:
 
 from __future__ import annotations
 
-import math
-from typing import Optional
-
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from src.biology.codons import (
-    GENETIC_CODE,
-    CODON_TO_INDEX,
     AMINO_ACID_TO_CODONS,
+    GENETIC_CODE,
     codon_index_to_triplet,
 )
+from src.encoders.codon_encoder import AA_PROPERTIES
 from src.geometry import (
-    poincare_distance,
     exp_map_zero,
+    poincare_distance,
     project_to_poincare,
 )
-from src.encoders.codon_encoder import AA_PROPERTIES
-
 
 # Base encoding: A=0, C=1, G=2, T/U=3
-BASE_TO_IDX = {'A': 0, 'C': 1, 'G': 2, 'T': 3, 'U': 3}
+BASE_TO_IDX = {"A": 0, "C": 1, "G": 2, "T": 3, "U": 3}
 
 
 def codon_to_onehot_12dim(codon_idx: int) -> torch.Tensor:
@@ -91,9 +85,9 @@ def compute_codon_hierarchy_level(codon_idx: int) -> int:
         Hierarchy level 0-3 (0=most variable, 3=most conserved)
     """
     triplet = codon_index_to_triplet(codon_idx)
-    aa = GENETIC_CODE.get(triplet, '*')
+    aa = GENETIC_CODE.get(triplet, "*")
 
-    if aa == '*':
+    if aa == "*":
         return 0  # Stop codons at boundary
 
     # Get all codons for this amino acid
@@ -202,16 +196,13 @@ class TrainableCodonEncoder(nn.Module):
         self.encoder = CodonEncoderMLP(latent_dim, hidden_dim, dropout)
 
         # Pre-compute one-hot encodings for all 64 codons
-        self.register_buffer(
-            'codon_onehots',
-            torch.stack([codon_to_onehot_12dim(i) for i in range(64)])
-        )
+        self.register_buffer("codon_onehots", torch.stack([codon_to_onehot_12dim(i) for i in range(64)]))
 
         # Pre-compute hierarchy levels and target radii
         hierarchies = [compute_codon_hierarchy_level(i) for i in range(64)]
         target_radii = [get_target_radius(h, max_radius, min_radius) for h in hierarchies]
-        self.register_buffer('hierarchies', torch.tensor(hierarchies, dtype=torch.float32))
-        self.register_buffer('target_radii', torch.tensor(target_radii, dtype=torch.float32))
+        self.register_buffer("hierarchies", torch.tensor(hierarchies, dtype=torch.float32))
+        self.register_buffer("target_radii", torch.tensor(target_radii, dtype=torch.float32))
 
         # Pre-compute amino acid groups
         self._build_aa_groups()
@@ -222,11 +213,11 @@ class TrainableCodonEncoder(nn.Module):
     def _build_aa_groups(self):
         """Build mapping from amino acid to codon indices."""
         self.aa_to_indices = {}
-        for aa in 'ACDEFGHIKLMNPQRSTVWY*':
+        for aa in "ACDEFGHIKLMNPQRSTVWY*":
             indices = []
             for i in range(64):
                 triplet = codon_index_to_triplet(i)
-                if GENETIC_CODE.get(triplet, '*') == aa:
+                if GENETIC_CODE.get(triplet, "*") == aa:
                     indices.append(i)
             if indices:
                 self.aa_to_indices[aa] = indices
@@ -240,7 +231,7 @@ class TrainableCodonEncoder(nn.Module):
             for j in range(64):
                 padic_matrix[i, j] = compute_padic_distance_between_codons(i, j)
 
-        self.register_buffer('padic_distances', padic_matrix)
+        self.register_buffer("padic_distances", padic_matrix)
 
     def encode_all(self) -> torch.Tensor:
         """Encode all 64 codons to Poincaré ball.
@@ -287,7 +278,7 @@ class TrainableCodonEncoder(nn.Module):
 
         return z_hyp
 
-    def get_hyperbolic_radii(self, z_hyp: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def get_hyperbolic_radii(self, z_hyp: torch.Tensor | None = None) -> torch.Tensor:
         """Get hyperbolic radii for embeddings.
 
         Args:
@@ -336,7 +327,7 @@ class TrainableCodonEncoder(nn.Module):
         padic_centered = padic_flat - padic_flat.mean()
 
         corr = (hyp_centered * padic_centered).sum() / (
-            torch.sqrt((hyp_centered ** 2).sum() * (padic_centered ** 2).sum()) + 1e-8
+            torch.sqrt((hyp_centered**2).sum() * (padic_centered**2).sum()) + 1e-8
         )
 
         return 1.0 - corr
@@ -352,7 +343,7 @@ class TrainableCodonEncoder(nn.Module):
         count = 0
 
         for aa, indices in self.aa_to_indices.items():
-            if aa == '*' or len(indices) < 2:
+            if aa == "*" or len(indices) < 2:
                 continue
 
             # Get group embeddings and compute pairwise distances
@@ -377,7 +368,7 @@ class TrainableCodonEncoder(nn.Module):
         # Compute AA centroids
         aa_centroids = {}
         for aa, indices in self.aa_to_indices.items():
-            if aa != '*':
+            if aa != "*":
                 aa_centroids[aa] = z_hyp[indices].mean(dim=0)
 
         # Margin-based separation loss
@@ -387,13 +378,9 @@ class TrainableCodonEncoder(nn.Module):
 
         aas = list(aa_centroids.keys())
         for i, aa1 in enumerate(aas):
-            for aa2 in aas[i+1:]:
+            for aa2 in aas[i + 1 :]:
                 # Distance between AA centroids
-                d = poincare_distance(
-                    aa_centroids[aa1].unsqueeze(0),
-                    aa_centroids[aa2].unsqueeze(0),
-                    c=self.curvature
-                )
+                d = poincare_distance(aa_centroids[aa1].unsqueeze(0), aa_centroids[aa2].unsqueeze(0), c=self.curvature)
                 # Penalize if too close
                 total_loss = total_loss + F.relu(margin - d)
                 count += 1
@@ -411,7 +398,7 @@ class TrainableCodonEncoder(nn.Module):
         aa_centroids = {}
         aa_props = {}
         for aa, indices in self.aa_to_indices.items():
-            if aa != '*' and aa in AA_PROPERTIES:
+            if aa != "*" and aa in AA_PROPERTIES:
                 aa_centroids[aa] = z_hyp[indices].mean(dim=0)
                 aa_props[aa] = torch.tensor(AA_PROPERTIES[aa], device=z_hyp.device)
 
@@ -421,11 +408,9 @@ class TrainableCodonEncoder(nn.Module):
         prop_dists = []
 
         for i, aa1 in enumerate(aas):
-            for aa2 in aas[i+1:]:
+            for aa2 in aas[i + 1 :]:
                 d_hyp = poincare_distance(
-                    aa_centroids[aa1].unsqueeze(0),
-                    aa_centroids[aa2].unsqueeze(0),
-                    c=self.curvature
+                    aa_centroids[aa1].unsqueeze(0), aa_centroids[aa2].unsqueeze(0), c=self.curvature
                 )
                 d_prop = torch.norm(aa_props[aa1] - aa_props[aa2])
 
@@ -442,9 +427,7 @@ class TrainableCodonEncoder(nn.Module):
         hyp_c = hyp_tensor - hyp_tensor.mean()
         prop_c = prop_tensor - prop_tensor.mean()
 
-        corr = (hyp_c * prop_c).sum() / (
-            torch.sqrt((hyp_c ** 2).sum() * (prop_c ** 2).sum()) + 1e-8
-        )
+        corr = (hyp_c * prop_c).sum() / (torch.sqrt((hyp_c**2).sum() * (prop_c**2).sum()) + 1e-8)
 
         return 1.0 - corr
 
@@ -468,20 +451,20 @@ class TrainableCodonEncoder(nn.Module):
         property_loss = self.compute_aa_property_loss()
 
         total = (
-            radial_weight * radial_loss +
-            padic_weight * padic_loss +
-            cohesion_weight * cohesion_loss +
-            separation_weight * separation_loss +
-            property_weight * property_loss
+            radial_weight * radial_loss
+            + padic_weight * padic_loss
+            + cohesion_weight * cohesion_loss
+            + separation_weight * separation_loss
+            + property_weight * property_loss
         )
 
         return {
-            'total': total,
-            'radial': radial_loss,
-            'padic': padic_loss,
-            'cohesion': cohesion_loss,
-            'separation': separation_loss,
-            'property': property_loss,
+            "total": total,
+            "radial": radial_loss,
+            "padic": padic_loss,
+            "cohesion": cohesion_loss,
+            "separation": separation_loss,
+            "property": property_loss,
         }
 
     def get_amino_acid_embedding(self, aa: str) -> torch.Tensor:
@@ -502,10 +485,7 @@ class TrainableCodonEncoder(nn.Module):
 
     def get_all_amino_acid_embeddings(self) -> dict[str, torch.Tensor]:
         """Get embeddings for all 20 standard amino acids."""
-        return {
-            aa: self.get_amino_acid_embedding(aa)
-            for aa in 'ACDEFGHIKLMNPQRSTVWY'
-        }
+        return {aa: self.get_amino_acid_embedding(aa) for aa in "ACDEFGHIKLMNPQRSTVWY"}
 
     def compute_aa_distance(self, aa1: str, aa2: str) -> float:
         """Compute hyperbolic distance between amino acids."""
@@ -519,7 +499,7 @@ def train_codon_encoder(
     lr: float = 0.001,
     latent_dim: int = 16,
     hidden_dim: int = 64,
-    device: str = 'cpu',
+    device: str = "cpu",
     radial_weight: float = 1.0,
     padic_weight: float = 1.0,
     cohesion_weight: float = 0.5,
@@ -549,7 +529,7 @@ def train_codon_encoder(
     optimizer = torch.optim.AdamW(encoder.parameters(), lr=lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
-    best_loss = float('inf')
+    best_loss = float("inf")
     best_state = None
 
     for epoch in range(epochs):
@@ -563,21 +543,23 @@ def train_codon_encoder(
             property_weight=property_weight,
         )
 
-        losses['total'].backward()
+        losses["total"].backward()
         torch.nn.utils.clip_grad_norm_(encoder.parameters(), max_norm=1.0)
         optimizer.step()
         scheduler.step()
 
-        if losses['total'].item() < best_loss:
-            best_loss = losses['total'].item()
+        if losses["total"].item() < best_loss:
+            best_loss = losses["total"].item()
             best_state = {k: v.clone() for k, v in encoder.state_dict().items()}
 
         if (epoch + 1) % print_every == 0:
-            print(f"Epoch {epoch+1}/{epochs}: "
-                  f"total={losses['total'].item():.4f}, "
-                  f"radial={losses['radial'].item():.4f}, "
-                  f"padic={losses['padic'].item():.4f}, "
-                  f"cohesion={losses['cohesion'].item():.4f}")
+            print(
+                f"Epoch {epoch + 1}/{epochs}: "
+                f"total={losses['total'].item():.4f}, "
+                f"radial={losses['radial'].item():.4f}, "
+                f"padic={losses['padic'].item():.4f}, "
+                f"cohesion={losses['cohesion'].item():.4f}"
+            )
 
     # Load best state
     if best_state is not None:

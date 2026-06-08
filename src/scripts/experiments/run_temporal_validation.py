@@ -9,10 +9,9 @@ Critical for clinical deployment confidence.
 from __future__ import annotations
 
 import sys
-from pathlib import Path
-from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
 import warnings
+from dataclasses import dataclass, field
+from pathlib import Path
 
 warnings.filterwarnings("ignore")
 
@@ -31,7 +30,7 @@ from scipy.stats import pearsonr
 class VAEConfig:
     input_dim: int
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [256, 128, 64])
+    hidden_dims: list[int] = field(default_factory=lambda: [256, 128, 64])
     dropout: float = 0.1
     ranking_weight: float = 0.3
 
@@ -47,12 +46,14 @@ class TemporalVAE(nn.Module):
         layers = []
         in_dim = cfg.input_dim
         for h in cfg.hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, h),
-                nn.GELU(),
-                nn.LayerNorm(h),
-                nn.Dropout(cfg.dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, h),
+                    nn.GELU(),
+                    nn.LayerNorm(h),
+                    nn.Dropout(cfg.dropout),
+                ]
+            )
             in_dim = h
         self.encoder = nn.Sequential(*layers)
 
@@ -87,7 +88,7 @@ class TemporalVAE(nn.Module):
         return {"x_recon": x_recon, "mu": mu, "logvar": logvar, "prediction": pred, "z": z}
 
 
-def load_data_with_years(drug_class: str) -> Tuple[pd.DataFrame, List[str], List[str]]:
+def load_data_with_years(drug_class: str) -> tuple[pd.DataFrame, list[str], list[str]]:
     """Load Stanford HIVDB data with year information."""
     data_dir = root / "data" / "research"
 
@@ -115,7 +116,7 @@ def load_data_with_years(drug_class: str) -> Tuple[pd.DataFrame, List[str], List
     return df, pos_cols, drug_columns[drug_class]
 
 
-def encode_sequences(df: pd.DataFrame, position_cols: List[str]) -> np.ndarray:
+def encode_sequences(df: pd.DataFrame, position_cols: list[str]) -> np.ndarray:
     """One-hot encode amino acid sequences."""
     aa_alphabet = "ACDEFGHIKLMNPQRSTVWY*-"
     aa_to_idx = {aa: i for i, aa in enumerate(aa_alphabet)}
@@ -144,7 +145,7 @@ def train_and_evaluate(
     input_dim: int,
     epochs: int = 100,
     device: str = "cuda",
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Train VAE and evaluate on test set."""
     cfg = VAEConfig(input_dim=input_dim)
     model = TemporalVAE(cfg).to(device)
@@ -157,7 +158,7 @@ def train_and_evaluate(
 
     # Training
     model.train()
-    for epoch in range(epochs):
+    for _epoch in range(epochs):
         optimizer.zero_grad()
 
         out = model(X_train)
@@ -259,14 +260,16 @@ def run_temporal_validation(
         result = train_and_evaluate(X_train, y_train, X_test, y_test, X_train.shape[1], device=device)
         print(f"corr={result['correlation']:+.4f}")
 
-        results.append({
-            "drug_class": drug_class,
-            "drug": drug,
-            "n_train": len(X_train),
-            "n_test": len(X_test),
-            "correlation": result["correlation"],
-            "p_value": result["p_value"],
-        })
+        results.append(
+            {
+                "drug_class": drug_class,
+                "drug": drug,
+                "n_train": len(X_train),
+                "n_test": len(X_test),
+                "correlation": result["correlation"],
+                "p_value": result["p_value"],
+            }
+        )
 
     return pd.DataFrame(results)
 
@@ -300,7 +303,9 @@ def main():
         print("-" * 50)
 
         for _, row in final_df.iterrows():
-            print(f"{row['drug']:<8} {row['drug_class']:<8} {row['n_train']:<8} {row['n_test']:<8} {row['correlation']:+.4f}")
+            print(
+                f"{row['drug']:<8} {row['drug_class']:<8} {row['n_train']:<8} {row['n_test']:<8} {row['correlation']:+.4f}"
+            )
 
         print("-" * 50)
 

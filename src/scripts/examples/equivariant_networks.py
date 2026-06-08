@@ -25,8 +25,6 @@ from src.equivariant import (
     CodonEmbedding,
     CodonSymmetryLayer,
     CodonTransformer,
-    SE3Layer,
-    SO3GNN,
     SO3Layer,
     SphericalHarmonics,
 )
@@ -50,7 +48,7 @@ def example_spherical_harmonics():
 
     print(f"Input: {points.shape[0]} points on unit sphere")
     print(f"Output: {features.shape} spherical harmonic features")
-    print(f"  l=0: 1 feature, l=1: 3 features, l=2: 5 features = 9 total")
+    print("  l=0: 1 feature, l=1: 3 features, l=2: 5 features = 9 total")
 
 
 def example_so3_layer():
@@ -74,10 +72,12 @@ def example_so3_layer():
     features = torch.randn(batch_size, n_nodes, 16)
 
     # Create some edges (k-nearest neighbors style)
-    edge_index = torch.stack([
-        torch.randint(0, n_nodes, (100,)),
-        torch.randint(0, n_nodes, (100,)),
-    ])
+    edge_index = torch.stack(
+        [
+            torch.randint(0, n_nodes, (100,)),
+            torch.randint(0, n_nodes, (100,)),
+        ]
+    )
 
     output = layer(features, positions, edge_index)
 
@@ -108,10 +108,12 @@ def example_se3_transformer():
     # Create sequential edges (backbone connectivity)
     src = torch.arange(n_residues - 1)
     dst = torch.arange(1, n_residues)
-    edge_index = torch.stack([
-        torch.cat([src, dst]),  # Bidirectional
-        torch.cat([dst, src]),
-    ])
+    edge_index = torch.stack(
+        [
+            torch.cat([src, dst]),  # Bidirectional
+            torch.cat([dst, src]),
+        ]
+    )
 
     # Forward pass
     new_features, new_positions = model(features, positions, edge_index)

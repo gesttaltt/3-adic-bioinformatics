@@ -41,7 +41,7 @@ classDiagram
     classDef frozen fill:#e1e4e8,stroke:#333,stroke-dasharray: 5 5;
     classDef trainable fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px;
     classDef hyperbolic fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px;
-    
+
     note "{title}"
 """
 
@@ -52,7 +52,7 @@ graph TD
     classDef frozen fill:#e1e4e8,stroke:#333,stroke-dasharray: 5 5;
     classDef trainable fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px;
     classDef hyperbolic fill:#e1bee7,stroke:#7b1fa2,stroke-width:2px;
-    
+
     %% {title}
 """
 
@@ -60,7 +60,7 @@ graph TD
 def parse_imports(file_path):
     """Parses a python file to extract imported modules."""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             tree = ast.parse(f.read())
     except Exception:
         return []
@@ -70,16 +70,15 @@ def parse_imports(file_path):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 imports.append(alias.name)
-        elif isinstance(node, ast.ImportFrom):
-            if node.module:
-                imports.append(node.module)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imports.append(node.module)
     return list(set(imports))
 
 
 def parse_classes(file_path):
     """Parses a python file to extract class definitions and their methods."""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             tree = ast.parse(f.read())
     except Exception:
         return []
@@ -123,7 +122,7 @@ def generate_diagrams():
     class DifferentiableController:::trainable {
         +forward(stats)
     }
-    
+
     TernaryVAEV5_11 *-- FrozenEncoder
     TernaryVAEV5_11 *-- FrozenDecoder
     TernaryVAEV5_11 *-- DualHyperbolicProjection
@@ -148,7 +147,7 @@ def generate_diagrams():
     }
     class DirectionNet:::trainable
     class RadiusNet:::trainable
-    
+
     DualHyperbolicProjection *-- HyperbolicProjection
     HyperbolicProjection *-- DirectionNet
     HyperbolicProjection *-- RadiusNet
@@ -200,7 +199,7 @@ def generate_diagrams():
         + """
     Z_euc[Euclidean Z] -->|Copy| Branch1
     Z_euc -->|Copy| Branch2
-    
+
     subgraph Direction Learning
     Branch1 --> DirNet[Direction Net]:::trainable
     DirNet -->|Residual| Add[+]
@@ -208,14 +207,14 @@ def generate_diagrams():
     Add --> Norm[Normalize L2]
     Norm --> Dir[Direction Vector]
     end
-    
+
     subgraph Radial Learning
     Branch2 --> RadNet[Radius Net]:::trainable
     RadNet --> Sigmoid
     Sigmoid --> Scale[Scale by MaxRadius]
     Scale --> Rad[Scalar Radius]
     end
-    
+
     Dir --> Mult[Multiply]
     Rad --> Mult
     Mult --> Z_hyp[Poincaré Z]:::hyperbolic
@@ -287,29 +286,29 @@ def generate_diagrams():
     NormU["||u||^2"]
     NormV["||v||^2"]
     Diff["||u - v||^2"]
-    
+
     u --> NormU
     v --> NormV
     u --> Diff
     v --> Diff
-    
+
     Term1["1 - ||u||^2"]
     Term2["1 - ||v||^2"]
-    
+
     NormU --> Term1
     NormV --> Term2
-    
+
     Num["2 * ||u - v||^2"]
     Diff --> Num
-    
+
     Denom["Term1 * Term2"]
     Term1 --> Denom
     Term2 --> Denom
-    
+
     Frac["1 + (Num / Denom)"]
     Num --> Frac
     Denom --> Frac
-    
+
     Dist["arcosh(Frac)"]:::hyperbolic
     Frac --> Dist
 """,
@@ -346,7 +345,7 @@ sequenceDiagram
     participant M as Model
     participant L as Loss
     participant O as Optimizer
-    
+
     T->>M: forward(batch)
     M->>M: Encode -> Project
     M->>M: Compute Control
@@ -389,7 +388,7 @@ stateDiagram-v2
         +minimal()
         +production()
     }
-    
+
     BaseFactory <|-- TernaryOperationFactory
     BaseFactory <|-- ModelConfigFactory
 """,
@@ -403,11 +402,11 @@ stateDiagram-v2
     Root --> Suites[suites/]
     Root --> Core[core/]
     Root --> Factories[factories/]
-    
+
     Suites --> Unit[unit/]
     Suites --> Integ[integration/]
     Suites --> E2E[e2e/]
-    
+
     Core --> Builders:::trainable
     Core --> Matchers:::hyperbolic
 """,

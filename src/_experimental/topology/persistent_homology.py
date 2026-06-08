@@ -23,7 +23,6 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
 
 import numpy as np
 import torch
@@ -55,7 +54,7 @@ class PersistenceDiagram:
     dimension: int
     birth: np.ndarray
     death: np.ndarray
-    generators: Optional[List[np.ndarray]] = None
+    generators: list[np.ndarray] | None = None
 
     def __post_init__(self):
         """Validate and ensure arrays are numpy arrays."""
@@ -78,7 +77,7 @@ class PersistenceDiagram:
         """Compute midlife ((birth + death) / 2) for each feature."""
         return (self.birth + self.death) / 2
 
-    def filter_by_persistence(self, threshold: float) -> "PersistenceDiagram":
+    def filter_by_persistence(self, threshold: float) -> PersistenceDiagram:
         """Return diagram with only features persisting above threshold."""
         mask = self.persistence > threshold
         return PersistenceDiagram(
@@ -96,7 +95,7 @@ class PersistenceDiagram:
         )
 
     @classmethod
-    def empty(cls, dimension: int = 0) -> "PersistenceDiagram":
+    def empty(cls, dimension: int = 0) -> PersistenceDiagram:
         """Create an empty persistence diagram."""
         return cls(
             dimension=dimension,
@@ -104,7 +103,7 @@ class PersistenceDiagram:
             death=np.array([], dtype=np.float32),
         )
 
-    def wasserstein_distance(self, other: "PersistenceDiagram", p: int = 2) -> float:
+    def wasserstein_distance(self, other: PersistenceDiagram, p: int = 2) -> float:
         """Compute p-Wasserstein distance to another diagram.
 
         Uses optimal transport between diagrams, including matching
@@ -178,7 +177,7 @@ class TopologicalFingerprint:
     """
 
     diagrams: dict = field(default_factory=dict)
-    metadata: Optional[dict] = None
+    metadata: dict | None = None
 
     def __getitem__(self, dimension: int) -> PersistenceDiagram:
         """Get persistence diagram for given dimension."""
@@ -277,7 +276,7 @@ class RipsFiltration:
 
     def build(
         self,
-        points: Union[np.ndarray, torch.Tensor],
+        points: np.ndarray | torch.Tensor,
     ) -> TopologicalFingerprint:
         """Build Rips complex and compute persistent homology.
 
@@ -368,10 +367,7 @@ class RipsFiltration:
             return TopologicalFingerprint()
 
         # Compute pairwise distances
-        if n > 1:
-            dist_matrix = squareform(pdist(points))
-        else:
-            dist_matrix = np.zeros((1, 1))
+        dist_matrix = squareform(pdist(points)) if n > 1 else np.zeros((1, 1))
 
         # Get all unique edge lengths sorted
         edge_lengths = np.unique(dist_matrix[np.triu_indices(n, k=1)])
@@ -401,13 +397,12 @@ class RipsFiltration:
         for eps in edge_lengths:
             for i in range(n):
                 for j in range(i + 1, n):
-                    if dist_matrix[i, j] <= eps:
-                        if union(i, j):
-                            n_components -= 1
-                            # Record death of a component
-                            if n_components > 0:
-                                births.append(0.0)
-                                deaths.append(eps)
+                    if dist_matrix[i, j] <= eps and union(i, j):
+                        n_components -= 1
+                        # Record death of a component
+                        if n_components > 0:
+                            births.append(0.0)
+                            deaths.append(eps)
 
             if n_components == 1:
                 break
@@ -482,7 +477,7 @@ class PAdicFiltration:
 
     def build(
         self,
-        indices: Union[np.ndarray, torch.Tensor, List[int]],
+        indices: np.ndarray | torch.Tensor | list[int],
     ) -> TopologicalFingerprint:
         """Build filtration from p-adic indices.
 
@@ -569,11 +564,10 @@ class PAdicFiltration:
         for eps in distances:
             for i in range(n):
                 for j in range(i + 1, n):
-                    if dist_matrix[i, j] <= eps:
-                        if union(i, j):
-                            n_components -= 1
-                            births.append(0.0)
-                            deaths.append(eps)
+                    if dist_matrix[i, j] <= eps and union(i, j):
+                        n_components -= 1
+                        births.append(0.0)
+                        deaths.append(eps)
 
         if births:
             diagrams = {
@@ -619,7 +613,7 @@ class PersistenceVectorizer:
         method: str = "statistics",
         resolution: int = 50,
         sigma: float = 0.1,
-        dimensions: List[int] = None,
+        dimensions: list[int] = None,
     ):
         """Initialize vectorizer.
 
@@ -705,7 +699,7 @@ class PersistenceVectorizer:
             # For each point (b, d), the tent function is:
             # max(0, min(t - b, d - t))
             landscape = np.zeros(self.resolution, dtype=np.float32)
-            for b, d in zip(diag.birth, diag.death):
+            for b, d in zip(diag.birth, diag.death, strict=False):
                 tent = np.maximum(0, np.minimum(t - b, d - t))
                 landscape = np.maximum(landscape, tent)
 
@@ -739,7 +733,7 @@ class PersistenceVectorizer:
 
             # Compute weighted image
             image = np.zeros((self.resolution, self.resolution), dtype=np.float32)
-            for b, p in zip(birth, pers):
+            for b, p in zip(birth, pers, strict=False):
                 # Weight by persistence
                 weight = p
 
@@ -799,7 +793,7 @@ class ProteinTopologyEncoder(nn.Module):
     def __init__(
         self,
         output_dim: int = 128,
-        hidden_dims: List[int] = None,
+        hidden_dims: list[int] = None,
         max_dimension: int = 1,
         vectorization: str = "statistics",
         resolution: int = 50,
@@ -855,7 +849,7 @@ class ProteinTopologyEncoder(nn.Module):
     def forward(
         self,
         coordinates: torch.Tensor,
-        indices: Optional[torch.Tensor] = None,
+        indices: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Forward pass.
 

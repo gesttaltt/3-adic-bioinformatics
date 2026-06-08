@@ -8,7 +8,6 @@
 """Metrics for evaluating Ternary VAE performance."""
 
 from collections import defaultdict
-from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -16,9 +15,7 @@ import torch
 from src.config.constants import N_TERNARY_OPERATIONS
 
 
-def evaluate_coverage(
-    samples: torch.Tensor, total_operations: int = N_TERNARY_OPERATIONS
-) -> Tuple[int, float]:
+def evaluate_coverage(samples: torch.Tensor, total_operations: int = N_TERNARY_OPERATIONS) -> tuple[int, float]:
     """Evaluate operation coverage from generated samples.
 
     Args:
@@ -151,7 +148,7 @@ def compute_reconstruction_accuracy(inputs: torch.Tensor, outputs: torch.Tensor,
     return accuracy.item()
 
 
-def analyze_coverage_distribution(samples: torch.Tensor, dimension: int = 9) -> Dict[str, Union[float, Dict[int, float]]]:
+def analyze_coverage_distribution(samples: torch.Tensor, dimension: int = 9) -> dict[str, float | dict[int, float]]:
     """Analyze the distribution of covered operations.
 
     Args:
@@ -164,7 +161,7 @@ def analyze_coverage_distribution(samples: torch.Tensor, dimension: int = 9) -> 
     samples_rounded = torch.round(samples).long()
 
     # Value distribution
-    value_counts: Dict[int, float] = {-1: 0.0, 0: 0.0, 1: 0.0}
+    value_counts: dict[int, float] = {-1: 0.0, 0: 0.0, 1: 0.0}
     for v in [-1, 0, 1]:
         value_counts[v] = float((samples_rounded == v).sum().item())
 
@@ -207,7 +204,7 @@ class CoverageTracker:
         epoch: int,
         coverage_A: int,
         coverage_B: int,
-        intersection: Optional[int] = None,
+        intersection: int | None = None,
     ):
         """Update coverage history.
 
@@ -236,7 +233,7 @@ class CoverageTracker:
             self.best_coverage = coverage_union
             self.best_epoch = epoch
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """Get coverage statistics.
 
         Returns:

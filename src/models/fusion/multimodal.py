@@ -11,8 +11,8 @@ other modalities into unified representations.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -67,10 +67,10 @@ class MultimodalEncoder(nn.Module):
 
     def __init__(
         self,
-        config: Optional[MultimodalConfig] = None,
-        sequence_encoder: Optional[nn.Module] = None,
-        structure_encoder: Optional[nn.Module] = None,
-        property_encoder: Optional[nn.Module] = None,
+        config: MultimodalConfig | None = None,
+        sequence_encoder: nn.Module | None = None,
+        structure_encoder: nn.Module | None = None,
+        property_encoder: nn.Module | None = None,
     ):
         """Initialize multimodal encoder.
 
@@ -90,9 +90,9 @@ class MultimodalEncoder(nn.Module):
 
         # Build fusion layer
         modality_dims = {}
-        if sequence_encoder is not None or True:
+        if True:
             modality_dims["sequence"] = self.config.sequence_dim
-        if structure_encoder is not None or True:
+        if True:
             modality_dims["structure"] = self.config.structure_dim
         if property_encoder is not None:
             modality_dims["property"] = self.config.property_dim
@@ -119,12 +119,12 @@ class MultimodalEncoder(nn.Module):
 
     def forward(
         self,
-        sequence_emb: Optional[torch.Tensor] = None,
-        structure_emb: Optional[torch.Tensor] = None,
-        property_emb: Optional[torch.Tensor] = None,
-        sequence_input: Optional[Any] = None,
-        structure_input: Optional[Any] = None,
-        property_input: Optional[Any] = None,
+        sequence_emb: torch.Tensor | None = None,
+        structure_emb: torch.Tensor | None = None,
+        property_emb: torch.Tensor | None = None,
+        sequence_input: Any | None = None,
+        structure_input: Any | None = None,
+        property_input: Any | None = None,
         return_modality_embeddings: bool = False,
     ) -> torch.Tensor:
         """Encode multimodal inputs.
@@ -185,8 +185,8 @@ class MultimodalEncoder(nn.Module):
 
     def _handle_missing_modalities(
         self,
-        modality_embeddings: Dict[str, torch.Tensor],
-    ) -> Dict[str, torch.Tensor]:
+        modality_embeddings: dict[str, torch.Tensor],
+    ) -> dict[str, torch.Tensor]:
         """Handle missing modalities with learned defaults.
 
         Args:
@@ -201,14 +201,10 @@ class MultimodalEncoder(nn.Module):
 
         # Create default embeddings for missing modalities
         if "sequence" not in modality_embeddings:
-            modality_embeddings["sequence"] = torch.zeros(
-                batch_size, self.config.sequence_dim, device=device
-            )
+            modality_embeddings["sequence"] = torch.zeros(batch_size, self.config.sequence_dim, device=device)
 
         if "structure" not in modality_embeddings:
-            modality_embeddings["structure"] = torch.zeros(
-                batch_size, self.config.structure_dim, device=device
-            )
+            modality_embeddings["structure"] = torch.zeros(batch_size, self.config.structure_dim, device=device)
 
         return modality_embeddings
 
@@ -226,7 +222,7 @@ class MultimodalEncoder(nn.Module):
         # Exponential map to Poincaré ball
         c = abs(self.config.curvature)
         norm = x.norm(dim=-1, keepdim=True).clamp(min=1e-8)
-        sqrt_c = c ** 0.5
+        sqrt_c = c**0.5
 
         hyperbolic = torch.tanh(sqrt_c * norm) * x / (sqrt_c * norm)
 
@@ -251,7 +247,7 @@ class ContrastiveMultimodalEncoder(nn.Module):
 
     def __init__(
         self,
-        config: Optional[MultimodalConfig] = None,
+        config: MultimodalConfig | None = None,
         temperature: float = 0.07,
     ):
         """Initialize contrastive multimodal encoder.
@@ -278,19 +274,21 @@ class ContrastiveMultimodalEncoder(nn.Module):
         )
 
         # Fusion for inference
-        self.fusion = CrossModalFusion(FusionConfig(
-            modality_dims={
-                "sequence": self.config.output_dim,
-                "structure": self.config.output_dim,
-            },
-            output_dim=self.config.output_dim,
-            fusion_type="attention",
-        ))
+        self.fusion = CrossModalFusion(
+            FusionConfig(
+                modality_dims={
+                    "sequence": self.config.output_dim,
+                    "structure": self.config.output_dim,
+                },
+                output_dim=self.config.output_dim,
+                fusion_type="attention",
+            )
+        )
 
     def forward(
         self,
         sequence_emb: torch.Tensor,
-        structure_emb: Optional[torch.Tensor] = None,
+        structure_emb: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Encode and fuse modalities.
 
@@ -305,10 +303,12 @@ class ContrastiveMultimodalEncoder(nn.Module):
 
         if structure_emb is not None:
             struct_proj = F.normalize(self.structure_proj(structure_emb), dim=-1)
-            fused = self.fusion({
-                "sequence": seq_proj,
-                "structure": struct_proj,
-            })
+            fused = self.fusion(
+                {
+                    "sequence": seq_proj,
+                    "structure": struct_proj,
+                }
+            )
             return fused
         else:
             return seq_proj
@@ -355,7 +355,7 @@ class LateFusion(nn.Module):
 
     def __init__(
         self,
-        modality_dims: Dict[str, int],
+        modality_dims: dict[str, int],
         output_dim: int,
         hidden_dim: int = 128,
     ):
@@ -369,21 +369,23 @@ class LateFusion(nn.Module):
         super().__init__()
 
         # Separate predictors
-        self.predictors = nn.ModuleDict({
-            name: nn.Sequential(
-                nn.Linear(dim, hidden_dim),
-                nn.SiLU(),
-                nn.Linear(hidden_dim, output_dim),
-            )
-            for name, dim in modality_dims.items()
-        })
+        self.predictors = nn.ModuleDict(
+            {
+                name: nn.Sequential(
+                    nn.Linear(dim, hidden_dim),
+                    nn.SiLU(),
+                    nn.Linear(hidden_dim, output_dim),
+                )
+                for name, dim in modality_dims.items()
+            }
+        )
 
         # Learned combination weights
         self.weights = nn.Parameter(torch.ones(len(modality_dims)))
 
     def forward(
         self,
-        modality_embeddings: Dict[str, torch.Tensor],
+        modality_embeddings: dict[str, torch.Tensor],
     ) -> torch.Tensor:
         """Combine modality predictions.
 
@@ -423,9 +425,9 @@ class EarlyFusion(nn.Module):
 
     def __init__(
         self,
-        modality_dims: Dict[str, int],
+        modality_dims: dict[str, int],
         output_dim: int,
-        hidden_dims: List[int] = [256, 128],
+        hidden_dims: list[int] = None,
     ):
         """Initialize early fusion.
 
@@ -434,6 +436,8 @@ class EarlyFusion(nn.Module):
             output_dim: Output dimension
             hidden_dims: Hidden layer dimensions
         """
+        if hidden_dims is None:
+            hidden_dims = [256, 128]
         super().__init__()
 
         total_dim = sum(modality_dims.values())
@@ -444,11 +448,13 @@ class EarlyFusion(nn.Module):
         prev_dim = total_dim
 
         for hidden_dim in hidden_dims:
-            layers.extend([
-                nn.Linear(prev_dim, hidden_dim),
-                nn.LayerNorm(hidden_dim),
-                nn.SiLU(),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(prev_dim, hidden_dim),
+                    nn.LayerNorm(hidden_dim),
+                    nn.SiLU(),
+                ]
+            )
             prev_dim = hidden_dim
 
         layers.append(nn.Linear(prev_dim, output_dim))
@@ -456,7 +462,7 @@ class EarlyFusion(nn.Module):
 
     def forward(
         self,
-        modality_embeddings: Dict[str, torch.Tensor],
+        modality_embeddings: dict[str, torch.Tensor],
     ) -> torch.Tensor:
         """Process concatenated inputs.
 

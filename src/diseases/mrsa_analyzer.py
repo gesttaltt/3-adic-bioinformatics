@@ -35,7 +35,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -117,15 +117,19 @@ class MRSAConfig(DiseaseConfig):
     name: str = "mrsa"
     display_name: str = "MRSA (S. aureus)"
     disease_type: DiseaseType = DiseaseType.BACTERIAL
-    tasks: list[TaskType] = field(default_factory=lambda: [
-        TaskType.RESISTANCE,
-    ])
+    tasks: list[TaskType] = field(
+        default_factory=lambda: [
+            TaskType.RESISTANCE,
+        ]
+    )
 
-    data_sources: dict[str, str] = field(default_factory=lambda: {
-        "patric": "https://www.patricbrc.org/",
-        "card": "https://card.mcmaster.ca/",
-        "ncbi_amr": "https://www.ncbi.nlm.nih.gov/pathogens/antimicrobial-resistance/",
-    })
+    data_sources: dict[str, str] = field(
+        default_factory=lambda: {
+            "patric": "https://www.patricbrc.org/",
+            "card": "https://card.mcmaster.ca/",
+            "ncbi_amr": "https://www.ncbi.nlm.nih.gov/pathogens/antimicrobial-resistance/",
+        }
+    )
 
 
 # GyrA mutations (fluoroquinolone resistance)
@@ -167,7 +171,7 @@ class MRSAAnalyzer(DiseaseAnalyzer):
     - Resistance gene detection
     """
 
-    def __init__(self, config: Optional[MRSAConfig] = None):
+    def __init__(self, config: MRSAConfig | None = None):
         """Initialize analyzer."""
         self.config = config or MRSAConfig()
         super().__init__(self.config)
@@ -178,7 +182,7 @@ class MRSAAnalyzer(DiseaseAnalyzer):
     def analyze(
         self,
         sequences: dict[StaphGene, list[str]],
-        embeddings: Optional[torch.Tensor] = None,
+        embeddings: torch.Tensor | None = None,
         **kwargs,
     ) -> dict[str, Any]:
         """Analyze S. aureus sequences for resistance.
@@ -192,7 +196,7 @@ class MRSAAnalyzer(DiseaseAnalyzer):
         """
         results = {
             "n_sequences": len(next(iter(sequences.values()))) if sequences else 0,
-            "genes_analyzed": [g.value for g in sequences.keys()],
+            "genes_analyzed": [g.value for g in sequences],
             "mrsa_status": [],
             "drug_resistance": {},
             "resistance_profile": [],
@@ -205,8 +209,7 @@ class MRSAAnalyzer(DiseaseAnalyzer):
         # Fluoroquinolone resistance
         if StaphGene.GYRA in sequences:
             results["drug_resistance"]["fluoroquinolones"] = self._analyze_fq(
-                sequences.get(StaphGene.GYRA, []),
-                sequences.get(StaphGene.GRLB, [])
+                sequences.get(StaphGene.GYRA, []), sequences.get(StaphGene.GRLB, [])
             )
 
         # Rifampicin resistance
@@ -223,17 +226,12 @@ class MRSAAnalyzer(DiseaseAnalyzer):
 
         # Overall resistance profile
         results["resistance_profile"] = self._compile_resistance_profile(
-            results["mrsa_status"],
-            results["drug_resistance"]
+            results["mrsa_status"], results["drug_resistance"]
         )
 
         return results
 
-    def _detect_mrsa(
-        self,
-        sequences: dict[StaphGene, list[str]],
-        n_seq: int
-    ) -> list[dict[str, Any]]:
+    def _detect_mrsa(self, sequences: dict[StaphGene, list[str]], n_seq: int) -> list[dict[str, Any]]:
         """Detect MRSA status via mecA/mecC."""
         mrsa_status = []
 
@@ -267,11 +265,7 @@ class MRSAAnalyzer(DiseaseAnalyzer):
 
         return mrsa_status
 
-    def _analyze_fq(
-        self,
-        gyra_seqs: list[str],
-        grlb_seqs: list[str]
-    ) -> dict[str, Any]:
+    def _analyze_fq(self, gyra_seqs: list[str], grlb_seqs: list[str]) -> dict[str, Any]:
         """Analyze fluoroquinolone resistance."""
         results = {
             "scores": [],
@@ -287,17 +281,13 @@ class MRSAAnalyzer(DiseaseAnalyzer):
 
             # Check gyrA
             if i < len(gyra_seqs):
-                gyra_score, gyra_muts = self._check_mutations(
-                    gyra_seqs[i], GYRA_MUTATIONS, "gyrA"
-                )
+                gyra_score, gyra_muts = self._check_mutations(gyra_seqs[i], GYRA_MUTATIONS, "gyrA")
                 score += gyra_score
                 mutations.extend(gyra_muts)
 
             # Check grlB
             if i < len(grlb_seqs):
-                grlb_score, grlb_muts = self._check_mutations(
-                    grlb_seqs[i], GRLB_MUTATIONS, "grlB"
-                )
+                grlb_score, grlb_muts = self._check_mutations(grlb_seqs[i], GRLB_MUTATIONS, "grlB")
                 score += grlb_score
                 mutations.extend(grlb_muts)
 
@@ -314,12 +304,7 @@ class MRSAAnalyzer(DiseaseAnalyzer):
 
         return results
 
-    def _check_mutations(
-        self,
-        seq: str,
-        mutation_db: dict,
-        gene: str
-    ) -> tuple[float, list[dict]]:
+    def _check_mutations(self, seq: str, mutation_db: dict, gene: str) -> tuple[float, list[dict]]:
         """Check for mutations in sequence."""
         score = 0.0
         mutations = []
@@ -336,13 +321,15 @@ class MRSAAnalyzer(DiseaseAnalyzer):
                 effect_scores = {"high": 1.0, "moderate": 0.5, "low": 0.2}
                 score += effect_scores.get(effect, 0.3)
 
-                mutations.append({
-                    "gene": gene,
-                    "position": pos,
-                    "ref": ref_aa,
-                    "alt": seq_aa,
-                    "effect": effect,
-                })
+                mutations.append(
+                    {
+                        "gene": gene,
+                        "position": pos,
+                        "ref": ref_aa,
+                        "alt": seq_aa,
+                        "effect": effect,
+                    }
+                )
 
         return score, mutations
 
@@ -376,11 +363,7 @@ class MRSAAnalyzer(DiseaseAnalyzer):
 
         return results
 
-    def _compile_resistance_profile(
-        self,
-        mrsa_status: list,
-        drug_resistance: dict
-    ) -> list[dict[str, Any]]:
+    def _compile_resistance_profile(self, mrsa_status: list, drug_resistance: dict) -> list[dict[str, Any]]:
         """Compile overall resistance profile."""
         profiles = []
 
@@ -560,7 +543,7 @@ def create_mrsa_simple_dataset(
         encoded = analyzer.encode_sequence(random_seq, max_length=max_length)
         mssa_X.append(encoded)
         mssa_y.append(0.0 + np.random.uniform(0, 0.15))  # Low resistance (0-0.15)
-        mssa_ids.append(f"MSSA_{i+1}")
+        mssa_ids.append(f"MSSA_{i + 1}")
 
     # Combine MRSA (from mutations) and MSSA samples
     if mssa_X:

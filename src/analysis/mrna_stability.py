@@ -24,58 +24,99 @@ Research References:
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
 import torch.nn as nn
 
-
 # Codon stability scores based on experimental data
 # Higher values = more stable mRNA
 CODON_STABILITY_SCORES = {
     # Phe (F)
-    "UUU": 0.45, "UUC": 0.72,
+    "UUU": 0.45,
+    "UUC": 0.72,
     # Leu (L)
-    "UUA": 0.28, "UUG": 0.51, "CUU": 0.48, "CUC": 0.68, "CUA": 0.35, "CUG": 0.85,
+    "UUA": 0.28,
+    "UUG": 0.51,
+    "CUU": 0.48,
+    "CUC": 0.68,
+    "CUA": 0.35,
+    "CUG": 0.85,
     # Ser (S)
-    "UCU": 0.52, "UCC": 0.71, "UCA": 0.42, "UCG": 0.38, "AGU": 0.44, "AGC": 0.73,
+    "UCU": 0.52,
+    "UCC": 0.71,
+    "UCA": 0.42,
+    "UCG": 0.38,
+    "AGU": 0.44,
+    "AGC": 0.73,
     # Tyr (Y)
-    "UAU": 0.43, "UAC": 0.75,
+    "UAU": 0.43,
+    "UAC": 0.75,
     # Stop
-    "UAA": 0.30, "UAG": 0.25, "UGA": 0.35,
+    "UAA": 0.30,
+    "UAG": 0.25,
+    "UGA": 0.35,
     # Cys (C)
-    "UGU": 0.41, "UGC": 0.69,
+    "UGU": 0.41,
+    "UGC": 0.69,
     # Trp (W)
     "UGG": 0.65,
     # Pro (P)
-    "CCU": 0.55, "CCC": 0.72, "CCA": 0.58, "CCG": 0.42,
+    "CCU": 0.55,
+    "CCC": 0.72,
+    "CCA": 0.58,
+    "CCG": 0.42,
     # His (H)
-    "CAU": 0.46, "CAC": 0.74,
+    "CAU": 0.46,
+    "CAC": 0.74,
     # Gln (Q)
-    "CAA": 0.48, "CAG": 0.82,
+    "CAA": 0.48,
+    "CAG": 0.82,
     # Arg (R)
-    "CGU": 0.38, "CGC": 0.52, "CGA": 0.32, "CGG": 0.45, "AGA": 0.55, "AGG": 0.58,
+    "CGU": 0.38,
+    "CGC": 0.52,
+    "CGA": 0.32,
+    "CGG": 0.45,
+    "AGA": 0.55,
+    "AGG": 0.58,
     # Ile (I)
-    "AUU": 0.51, "AUC": 0.78, "AUA": 0.35,
+    "AUU": 0.51,
+    "AUC": 0.78,
+    "AUA": 0.35,
     # Met (M) - Start
     "AUG": 0.75,
     # Thr (T)
-    "ACU": 0.53, "ACC": 0.79, "ACA": 0.48, "ACG": 0.42,
+    "ACU": 0.53,
+    "ACC": 0.79,
+    "ACA": 0.48,
+    "ACG": 0.42,
     # Asn (N)
-    "AAU": 0.47, "AAC": 0.76,
+    "AAU": 0.47,
+    "AAC": 0.76,
     # Lys (K)
-    "AAA": 0.52, "AAG": 0.78,
+    "AAA": 0.52,
+    "AAG": 0.78,
     # Val (V)
-    "GUU": 0.48, "GUC": 0.71, "GUA": 0.38, "GUG": 0.75,
+    "GUU": 0.48,
+    "GUC": 0.71,
+    "GUA": 0.38,
+    "GUG": 0.75,
     # Ala (A)
-    "GCU": 0.55, "GCC": 0.80, "GCA": 0.51, "GCG": 0.45,
+    "GCU": 0.55,
+    "GCC": 0.80,
+    "GCA": 0.51,
+    "GCG": 0.45,
     # Asp (D)
-    "GAU": 0.49, "GAC": 0.77,
+    "GAU": 0.49,
+    "GAC": 0.77,
     # Glu (E)
-    "GAA": 0.54, "GAG": 0.79,
+    "GAA": 0.54,
+    "GAG": 0.79,
     # Gly (G)
-    "GGU": 0.42, "GGC": 0.68, "GGA": 0.48, "GGG": 0.52,
+    "GGU": 0.42,
+    "GGC": 0.68,
+    "GGA": 0.48,
+    "GGG": 0.52,
 }
 
 
@@ -90,7 +131,7 @@ class StabilityPrediction:
     mfe_score: float  # Minimum free energy (normalized)
     utr_score: float  # UTR quality score
     rare_codon_count: int  # Number of rare codons
-    recommendations: List[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
 
 class SecondaryStructurePredictor(nn.Module):
@@ -144,7 +185,7 @@ class SecondaryStructurePredictor(nn.Module):
     def forward(
         self,
         sequence: torch.Tensor,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Predict secondary structure features.
 
         Args:
@@ -281,7 +322,7 @@ class UTROptimizer(nn.Module):
             nn.Sigmoid(),
         )
 
-    def count_motifs(self, sequence: str) -> Tuple[int, int]:
+    def count_motifs(self, sequence: str) -> tuple[int, int]:
         """Count stabilizing and destabilizing motifs.
 
         Args:
@@ -390,7 +431,7 @@ class mRNAStabilityPredictor(nn.Module):
             nn.Softplus(),  # Ensure positive
         )
 
-    def compute_codon_score(self, sequence: str) -> Tuple[float, int]:
+    def compute_codon_score(self, sequence: str) -> tuple[float, int]:
         """Compute codon optimality score.
 
         Args:
@@ -507,7 +548,7 @@ class mRNAStabilityPredictor(nn.Module):
         coding_sequence: str,
         target_stability: float = 0.8,
         preserve_amino_acids: bool = True,
-    ) -> Tuple[str, StabilityPrediction]:
+    ) -> tuple[str, StabilityPrediction]:
         """Optimize mRNA sequence for stability.
 
         Args:
@@ -526,26 +567,74 @@ class mRNAStabilityPredictor(nn.Module):
 
         # Codon optimization: replace with most stable synonymous codon
         # Build reverse mapping: amino acid -> best codon
-        aa_to_codons: Dict[str, List[Tuple[str, float]]] = {}
+        aa_to_codons: dict[str, list[tuple[str, float]]] = {}
 
         # Standard genetic code (simplified mapping)
         genetic_code = {
-            "UUU": "F", "UUC": "F", "UUA": "L", "UUG": "L",
-            "CUU": "L", "CUC": "L", "CUA": "L", "CUG": "L",
-            "AUU": "I", "AUC": "I", "AUA": "I", "AUG": "M",
-            "GUU": "V", "GUC": "V", "GUA": "V", "GUG": "V",
-            "UCU": "S", "UCC": "S", "UCA": "S", "UCG": "S",
-            "CCU": "P", "CCC": "P", "CCA": "P", "CCG": "P",
-            "ACU": "T", "ACC": "T", "ACA": "T", "ACG": "T",
-            "GCU": "A", "GCC": "A", "GCA": "A", "GCG": "A",
-            "UAU": "Y", "UAC": "Y", "UAA": "*", "UAG": "*",
-            "CAU": "H", "CAC": "H", "CAA": "Q", "CAG": "Q",
-            "AAU": "N", "AAC": "N", "AAA": "K", "AAG": "K",
-            "GAU": "D", "GAC": "D", "GAA": "E", "GAG": "E",
-            "UGU": "C", "UGC": "C", "UGA": "*", "UGG": "W",
-            "CGU": "R", "CGC": "R", "CGA": "R", "CGG": "R",
-            "AGU": "S", "AGC": "S", "AGA": "R", "AGG": "R",
-            "GGU": "G", "GGC": "G", "GGA": "G", "GGG": "G",
+            "UUU": "F",
+            "UUC": "F",
+            "UUA": "L",
+            "UUG": "L",
+            "CUU": "L",
+            "CUC": "L",
+            "CUA": "L",
+            "CUG": "L",
+            "AUU": "I",
+            "AUC": "I",
+            "AUA": "I",
+            "AUG": "M",
+            "GUU": "V",
+            "GUC": "V",
+            "GUA": "V",
+            "GUG": "V",
+            "UCU": "S",
+            "UCC": "S",
+            "UCA": "S",
+            "UCG": "S",
+            "CCU": "P",
+            "CCC": "P",
+            "CCA": "P",
+            "CCG": "P",
+            "ACU": "T",
+            "ACC": "T",
+            "ACA": "T",
+            "ACG": "T",
+            "GCU": "A",
+            "GCC": "A",
+            "GCA": "A",
+            "GCG": "A",
+            "UAU": "Y",
+            "UAC": "Y",
+            "UAA": "*",
+            "UAG": "*",
+            "CAU": "H",
+            "CAC": "H",
+            "CAA": "Q",
+            "CAG": "Q",
+            "AAU": "N",
+            "AAC": "N",
+            "AAA": "K",
+            "AAG": "K",
+            "GAU": "D",
+            "GAC": "D",
+            "GAA": "E",
+            "GAG": "E",
+            "UGU": "C",
+            "UGC": "C",
+            "UGA": "*",
+            "UGG": "W",
+            "CGU": "R",
+            "CGC": "R",
+            "CGA": "R",
+            "CGG": "R",
+            "AGU": "S",
+            "AGC": "S",
+            "AGA": "R",
+            "AGG": "R",
+            "GGU": "G",
+            "GGC": "G",
+            "GGA": "G",
+            "GGG": "G",
         }
 
         # Group codons by amino acid

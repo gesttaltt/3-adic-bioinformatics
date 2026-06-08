@@ -21,10 +21,10 @@ import json
 import logging
 import sys
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -32,29 +32,17 @@ import numpy as np
 root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(root))
 
-from src.experiments import ExperimentConfig
 from src.diseases import (
-    SARSCoV2Analyzer,
-    TuberculosisAnalyzer,
-    InfluenzaAnalyzer,
-    HCVAnalyzer,
-    HBVAnalyzer,
-    MalariaAnalyzer,
-    MRSAAnalyzer,
-    CandidaAnalyzer,
-    RSVAnalyzer,
-    CancerAnalyzer,
-    # Synthetic dataset generators
-    create_sars_cov2_dataset,
-    create_tb_synthetic_dataset,
-    create_influenza_synthetic_dataset,
-    create_hcv_synthetic_dataset,
+    create_cancer_synthetic_dataset,
+    create_candida_synthetic_dataset,
     create_hbv_synthetic_dataset,
+    create_hcv_synthetic_dataset,
+    create_influenza_synthetic_dataset,
     create_malaria_synthetic_dataset,
     create_mrsa_synthetic_dataset,
-    create_candida_synthetic_dataset,
     create_rsv_synthetic_dataset,
-    create_cancer_synthetic_dataset,
+    create_sars_cov2_dataset,
+    create_tb_synthetic_dataset,
 )
 
 logging.basicConfig(
@@ -136,14 +124,16 @@ class CrossDiseaseBenchmarkResult:
                 f"{r.rmse:.4f} | {r.runtime_seconds:.2f}s |"
             )
 
-        lines.extend([
-            "",
-            "## Configuration",
-            "",
-            "```json",
-            json.dumps(self.config, indent=2),
-            "```",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Configuration",
+                "",
+                "```json",
+                json.dumps(self.config, indent=2),
+                "```",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -212,8 +202,8 @@ def run_disease_benchmark(
 
     # Run cross-validation
     from scipy.stats import spearmanr
-    from sklearn.model_selection import KFold
     from sklearn.linear_model import Ridge
+    from sklearn.model_selection import KFold
 
     all_spearman = []
     all_rmse = []
@@ -222,7 +212,7 @@ def run_disease_benchmark(
         np.random.seed(seed + repeat)
         kf = KFold(n_splits=n_folds, shuffle=True, random_state=seed + repeat)
 
-        for fold, (train_idx, val_idx) in enumerate(kf.split(X)):
+        for _fold, (train_idx, val_idx) in enumerate(kf.split(X)):
             X_train, X_val = X[train_idx], X[val_idx]
             y_train, y_val = y[train_idx], y[val_idx]
 
@@ -259,11 +249,11 @@ def run_disease_benchmark(
 
 
 def run_cross_disease_benchmark(
-    diseases: Optional[list[str]] = None,
+    diseases: list[str] | None = None,
     n_folds: int = 5,
     n_repeats: int = 3,
     seed: int = 42,
-    output_dir: Optional[Path] = None,
+    output_dir: Path | None = None,
 ) -> CrossDiseaseBenchmarkResult:
     """Run benchmark across multiple diseases.
 
@@ -350,9 +340,7 @@ def run_cross_disease_benchmark(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Run cross-disease benchmark for drug resistance prediction"
-    )
+    parser = argparse.ArgumentParser(description="Run cross-disease benchmark for drug resistance prediction")
     parser.add_argument(
         "--diseases",
         nargs="+",

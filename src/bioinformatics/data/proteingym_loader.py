@@ -16,11 +16,10 @@ from __future__ import annotations
 
 import csv
 import gzip
-import json
-from dataclasses import dataclass, asdict
-from pathlib import Path
-from typing import Optional, Iterator
 import urllib.request
+from collections.abc import Iterator
+from dataclasses import asdict, dataclass
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -38,8 +37,8 @@ class ProteinGymRecord:
     protein_id: str
     mutation: str  # Format: "A123V" or "A123V:B456W" for multi-point
     fitness: float  # DMS fitness score
-    ddg: Optional[float] = None  # DDG if available
-    sequence: Optional[str] = None
+    ddg: float | None = None  # DDG if available
+    sequence: str | None = None
 
     @property
     def is_single_point(self) -> bool:
@@ -72,7 +71,7 @@ class ProteinGymRecord:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ProteinGymRecord":
+    def from_dict(cls, data: dict) -> ProteinGymRecord:
         return cls(**data)
 
 
@@ -82,7 +81,7 @@ class ProteinGymDataset(Dataset):
     def __init__(
         self,
         records: list[ProteinGymRecord],
-        aa_embeddings: Optional[dict[str, torch.Tensor]] = None,
+        aa_embeddings: dict[str, torch.Tensor] | None = None,
         curvature: float = 1.0,
         use_fitness_as_label: bool = True,
     ):
@@ -160,7 +159,7 @@ class ProteinGymIterableDataset(IterableDataset):
     def __init__(
         self,
         data_dir: Path,
-        aa_embeddings: Optional[dict[str, torch.Tensor]] = None,
+        aa_embeddings: dict[str, torch.Tensor] | None = None,
         curvature: float = 1.0,
         single_point_only: bool = True,
     ):
@@ -185,10 +184,7 @@ class ProteinGymIterableDataset(IterableDataset):
 
         for csv_file in self.csv_files:
             # Handle gzipped files
-            if csv_file.suffix == ".gz":
-                f = gzip.open(csv_file, "rt")
-            else:
-                f = open(csv_file, newline="")
+            f = gzip.open(csv_file, "rt") if csv_file.suffix == ".gz" else open(csv_file, newline="")
 
             try:
                 reader = csv.DictReader(f)
@@ -218,9 +214,7 @@ class ProteinGymIterableDataset(IterableDataset):
                     features = compute_features(wild_type=wt, mutant=mut)
 
                     if self.aa_embeddings is not None:
-                        features = add_hyperbolic_features(
-                            features, wt, mut, self.aa_embeddings, self.curvature
-                        )
+                        features = add_hyperbolic_features(features, wt, mut, self.aa_embeddings, self.curvature)
 
                     feature_array = features.to_array(include_hyperbolic=self.aa_embeddings is not None)
 
@@ -244,7 +238,7 @@ class ProteinGymLoader:
     VERSION = "v1.3"
     SUBSTITUTIONS_URL = f"{BASE_URL}/ProteinGym_{VERSION}/DMS_ProteinGym_substitutions.zip"
 
-    def __init__(self, data_dir: Optional[Path] = None):
+    def __init__(self, data_dir: Path | None = None):
         """Initialize loader.
 
         Args:
@@ -270,7 +264,7 @@ class ProteinGymLoader:
             print(f"ProteinGym data already exists at {zip_path}")
             return True
 
-        print(f"Downloading ProteinGym substitutions (~1GB)...")
+        print("Downloading ProteinGym substitutions (~1GB)...")
         print(f"URL: {self.SUBSTITUTIONS_URL}")
 
         try:
@@ -283,6 +277,7 @@ class ProteinGymLoader:
 
             # Extract
             import zipfile
+
             print("Extracting...")
             with zipfile.ZipFile(zip_path, "r") as zf:
                 zf.extractall(self.data_dir)
@@ -343,26 +338,30 @@ class ProteinGymLoader:
                     except ValueError:
                         continue
 
-                    records.append(ProteinGymRecord(
-                        protein_id=protein_id,
-                        mutation=mutation,
-                        fitness=fitness,
-                        sequence=row.get("sequence"),
-                    ))
+                    records.append(
+                        ProteinGymRecord(
+                            protein_id=protein_id,
+                            mutation=mutation,
+                            fitness=fitness,
+                            sequence=row.get("sequence"),
+                        )
+                    )
 
         return records
 
     # Proteins with non-standard DMS assay scales (binding affinities, enzyme kinetics, etc.)
     # These have scores in thousands/millions instead of typical log-enrichment ratios
-    NON_STANDARD_PROTEINS = frozenset([
-        "B2L11",   # Binding affinity (values ~10^7)
-        "D7PM05",  # Somermeyer_2022 enzyme kinetics (values ~10^4)
-        "Q6WV12",  # Somermeyer_2022 enzyme kinetics (values ~10^4)
-        "Q8WTC7",  # Somermeyer_2022 enzyme kinetics (values ~10^4)
-        "KCNH2",   # Ion channel function (values 0-130)
-        "CCDB",    # Toxicity survival (values -87 to -1)
-        "SCN5A",   # Channel function (values -205 to -10)
-    ])
+    NON_STANDARD_PROTEINS = frozenset(
+        [
+            "B2L11",  # Binding affinity (values ~10^7)
+            "D7PM05",  # Somermeyer_2022 enzyme kinetics (values ~10^4)
+            "Q6WV12",  # Somermeyer_2022 enzyme kinetics (values ~10^4)
+            "Q8WTC7",  # Somermeyer_2022 enzyme kinetics (values ~10^4)
+            "KCNH2",  # Ion channel function (values 0-130)
+            "CCDB",  # Toxicity survival (values -87 to -1)
+            "SCN5A",  # Channel function (values -205 to -10)
+        ]
+    )
 
     def load_all(
         self,
@@ -408,8 +407,8 @@ class ProteinGymLoader:
 
     def create_dataset(
         self,
-        records: Optional[list[ProteinGymRecord]] = None,
-        aa_embeddings: Optional[dict[str, torch.Tensor]] = None,
+        records: list[ProteinGymRecord] | None = None,
+        aa_embeddings: dict[str, torch.Tensor] | None = None,
         curvature: float = 1.0,
         use_fitness_as_label: bool = True,
         max_records: int = 100000,
@@ -442,7 +441,7 @@ class ProteinGymLoader:
 
     def create_streaming_dataset(
         self,
-        aa_embeddings: Optional[dict[str, torch.Tensor]] = None,
+        aa_embeddings: dict[str, torch.Tensor] | None = None,
         curvature: float = 1.0,
     ) -> ProteinGymIterableDataset:
         """Create streaming dataset for large-scale training.

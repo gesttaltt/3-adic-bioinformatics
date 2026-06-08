@@ -21,38 +21,29 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
 
-from src.analysis.set_theory.mutation_sets import (
-    Mutation,
-    MutationSet,
-    MutationSetAlgebra,
-    ResistanceProfile,
-    CrossResistanceAnalyzer,
-)
-from src.analysis.set_theory.rough_sets import (
-    ApproximationSpace,
-    RoughSet,
-    RoughClassifier,
-    VariablePrecisionRoughSet,
-    DecisionTable,
+from src.analysis.set_theory.formal_concepts import (
+    FormalConcept,
+    GenotypePhenotypeAnalyzer,
+    ImplicationMiner,
+    ImplicationRule,
 )
 from src.analysis.set_theory.lattice import (
-    ResistanceLevel,
     LatticeNode,
     ResistanceLattice,
-    PowerSetLattice,
+    ResistanceLevel,
 )
-from src.analysis.set_theory.formal_concepts import (
-    FormalContext,
-    FormalConcept,
-    ConceptLattice,
-    ImplicationRule,
-    ImplicationMiner,
-    GenotypePhenotypeAnalyzer,
+from src.analysis.set_theory.mutation_sets import (
+    CrossResistanceAnalyzer,
+    MutationSet,
+    ResistanceProfile,
+)
+from src.analysis.set_theory.rough_sets import (
+    RoughClassifier,
 )
 
 
@@ -61,7 +52,7 @@ class DecisionType(Enum):
 
     ACCEPT = "accept"  # Definitely resistant
     REJECT = "reject"  # Definitely susceptible
-    DEFER = "defer"    # Uncertain, needs more information
+    DEFER = "defer"  # Uncertain, needs more information
 
 
 @dataclass
@@ -73,28 +64,28 @@ class AnalysisResult:
     """
 
     # Primary prediction
-    prediction: Dict[str, float]  # Drug -> probability
-    predicted_class: Dict[str, str]  # Drug -> resistant/susceptible
+    prediction: dict[str, float]  # Drug -> probability
+    predicted_class: dict[str, str]  # Drug -> resistant/susceptible
 
     # Uncertainty quantification
-    neural_uncertainty: Dict[str, float]  # From MC Dropout/Ensemble
-    rough_classification: Dict[str, str]  # From rough sets
-    combined_confidence: Dict[str, float]  # Merged confidence
-    decision_type: Dict[str, DecisionType]  # Three-way decision
+    neural_uncertainty: dict[str, float]  # From MC Dropout/Ensemble
+    rough_classification: dict[str, str]  # From rough sets
+    combined_confidence: dict[str, float]  # Merged confidence
+    decision_type: dict[str, DecisionType]  # Three-way decision
 
     # Hierarchical classification
     resistance_level: ResistanceLevel
-    lattice_position: Optional[LatticeNode] = None
+    lattice_position: LatticeNode | None = None
 
     # Explainability
-    triggered_rules: List[ImplicationRule] = field(default_factory=list)
-    supporting_concepts: List[FormalConcept] = field(default_factory=list)
-    evidence_mutations: Dict[str, List[str]] = field(default_factory=dict)
+    triggered_rules: list[ImplicationRule] = field(default_factory=list)
+    supporting_concepts: list[FormalConcept] = field(default_factory=list)
+    evidence_mutations: dict[str, list[str]] = field(default_factory=dict)
 
     # Recommendations
-    recommendations: List[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "prediction": self.prediction,
@@ -123,10 +114,20 @@ class AnalyzerConfig:
         use_cross_attention: Enable cross-drug attention in predictions
     """
 
-    drug_names: List[str] = field(default_factory=lambda: [
-        "INH", "RIF", "EMB", "PZA", "STR",
-        "FQ", "AMK", "CAP", "KAN", "ETH",
-    ])
+    drug_names: list[str] = field(
+        default_factory=lambda: [
+            "INH",
+            "RIF",
+            "EMB",
+            "PZA",
+            "STR",
+            "FQ",
+            "AMK",
+            "CAP",
+            "KAN",
+            "ETH",
+        ]
+    )
     uncertainty_threshold: float = 0.3
     rough_lower_threshold: float = 0.9
     rough_upper_threshold: float = 0.1
@@ -163,12 +164,12 @@ class UnifiedResistanceAnalyzer:
 
     def __init__(
         self,
-        config: Optional[AnalyzerConfig] = None,
-        rough_classifiers: Optional[Dict[str, RoughClassifier]] = None,
-        lattice: Optional[ResistanceLattice] = None,
-        fca_analyzer: Optional[GenotypePhenotypeAnalyzer] = None,
-        neural_model: Optional[nn.Module] = None,
-        encoder: Optional[nn.Module] = None,
+        config: AnalyzerConfig | None = None,
+        rough_classifiers: dict[str, RoughClassifier] | None = None,
+        lattice: ResistanceLattice | None = None,
+        fca_analyzer: GenotypePhenotypeAnalyzer | None = None,
+        neural_model: nn.Module | None = None,
+        encoder: nn.Module | None = None,
     ):
         """Initialize unified analyzer.
 
@@ -191,7 +192,7 @@ class UnifiedResistanceAnalyzer:
         self.cross_analyzer = CrossResistanceAnalyzer()
 
         # Implication miner (if FCA available)
-        self.implications: List[ImplicationRule] = []
+        self.implications: list[ImplicationRule] = []
         if self.fca_analyzer:
             self._mine_implications()
 
@@ -203,7 +204,7 @@ class UnifiedResistanceAnalyzer:
 
     def analyze(
         self,
-        sample: Dict[str, Any],
+        sample: dict[str, Any],
         include_neural: bool = True,
         include_explanation: bool = True,
     ) -> AnalysisResult:
@@ -246,18 +247,13 @@ class UnifiedResistanceAnalyzer:
             supporting_concepts = explanation.get("supporting_concepts", [])
 
         # 7. Generate recommendations
-        recommendations = self._generate_recommendations(
-            rough_results, resistance_level, combined
-        )
+        recommendations = self._generate_recommendations(rough_results, resistance_level, combined)
 
         return AnalysisResult(
             prediction=combined["predictions"],
             predicted_class=combined["classes"],
             neural_uncertainty=neural_results.get("uncertainty", {}),
-            rough_classification={
-                drug: result["classification"]
-                for drug, result in rough_results.items()
-            },
+            rough_classification={drug: result["classification"] for drug, result in rough_results.items()},
             combined_confidence=combined["confidence"],
             decision_type=combined["decisions"],
             resistance_level=resistance_level,
@@ -271,7 +267,7 @@ class UnifiedResistanceAnalyzer:
     def _rough_classify(
         self,
         mutations: MutationSet,
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> dict[str, dict[str, Any]]:
         """Classify using rough sets for each drug.
 
         Args:
@@ -301,8 +297,8 @@ class UnifiedResistanceAnalyzer:
 
     def _neural_predict(
         self,
-        sample: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        sample: dict[str, Any],
+    ) -> dict[str, Any]:
         """Get neural model predictions with uncertainty.
 
         Args:
@@ -349,7 +345,7 @@ class UnifiedResistanceAnalyzer:
     def _get_lattice_position(
         self,
         mutations: MutationSet,
-    ) -> Optional[LatticeNode]:
+    ) -> LatticeNode | None:
         """Find position in resistance lattice.
 
         Args:
@@ -363,9 +359,9 @@ class UnifiedResistanceAnalyzer:
 
     def _combine_predictions(
         self,
-        rough_results: Dict[str, Dict[str, Any]],
-        neural_results: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        rough_results: dict[str, dict[str, Any]],
+        neural_results: dict[str, Any],
+    ) -> dict[str, Any]:
         """Combine rough and neural predictions.
 
         Args:
@@ -406,9 +402,7 @@ class UnifiedResistanceAnalyzer:
 
                 total_weight = neural_weight + rough_weight
                 if total_weight > 0:
-                    combined_pred = (
-                        neural_pred * neural_weight + rough_prob * rough_weight
-                    ) / total_weight
+                    combined_pred = (neural_pred * neural_weight + rough_prob * rough_weight) / total_weight
                 else:
                     combined_pred = 0.5
             else:
@@ -422,15 +416,11 @@ class UnifiedResistanceAnalyzer:
             classes[drug] = "resistant" if combined_pred > 0.5 else "susceptible"
 
             # Compute combined confidence
-            combined_conf = self._compute_combined_confidence(
-                rough_conf, neural_u, rough_class
-            )
+            combined_conf = self._compute_combined_confidence(rough_conf, neural_u, rough_class)
             confidence[drug] = combined_conf
 
             # Three-way decision
-            decisions[drug] = self._make_three_way_decision(
-                combined_pred, combined_conf, rough_class
-            )
+            decisions[drug] = self._make_three_way_decision(combined_pred, combined_conf, rough_class)
 
         return {
             "predictions": predictions,
@@ -500,7 +490,7 @@ class UnifiedResistanceAnalyzer:
     def _generate_explanation(
         self,
         mutations: MutationSet,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate FCA-based explanation.
 
         Args:
@@ -512,20 +502,14 @@ class UnifiedResistanceAnalyzer:
         mutation_attrs = set(str(m) for m in mutations)
 
         # Find triggered implication rules
-        triggered_rules = [
-            rule for rule in self.implications
-            if rule.applies_to(mutation_attrs)
-        ]
+        triggered_rules = [rule for rule in self.implications if rule.applies_to(mutation_attrs)]
 
         # Find supporting concepts
         supporting_concepts = []
         if self.fca_analyzer:
             for concept in self.fca_analyzer.lattice.concepts:
                 # Check if mutation set matches concept intent
-                concept_mutations = {
-                    attr for attr in concept.intent
-                    if not attr.endswith("_R")
-                }
+                concept_mutations = {attr for attr in concept.intent if not attr.endswith("_R")}
                 if concept_mutations.issubset(mutation_attrs):
                     supporting_concepts.append(concept)
 
@@ -538,8 +522,8 @@ class UnifiedResistanceAnalyzer:
     def _extract_evidence(
         self,
         mutations: MutationSet,
-        rough_results: Dict[str, Dict[str, Any]],
-    ) -> Dict[str, List[str]]:
+        rough_results: dict[str, dict[str, Any]],
+    ) -> dict[str, list[str]]:
         """Extract evidence mutations for each drug.
 
         Args:
@@ -568,10 +552,10 @@ class UnifiedResistanceAnalyzer:
 
     def _generate_recommendations(
         self,
-        rough_results: Dict[str, Dict[str, Any]],
+        rough_results: dict[str, dict[str, Any]],
         resistance_level: ResistanceLevel,
-        combined: Dict[str, Any],
-    ) -> List[str]:
+        combined: dict[str, Any],
+    ) -> list[str]:
         """Generate clinical recommendations.
 
         Args:
@@ -585,47 +569,32 @@ class UnifiedResistanceAnalyzer:
         recommendations = []
 
         # Deferred decisions need more testing
-        deferred_drugs = [
-            drug for drug, decision in combined["decisions"].items()
-            if decision == DecisionType.DEFER
-        ]
+        deferred_drugs = [drug for drug, decision in combined["decisions"].items() if decision == DecisionType.DEFER]
         if deferred_drugs:
-            recommendations.append(
-                f"Additional testing recommended for: {', '.join(deferred_drugs)}"
-            )
+            recommendations.append(f"Additional testing recommended for: {', '.join(deferred_drugs)}")
 
         # Resistance level recommendations
         if resistance_level == ResistanceLevel.XDR:
-            recommendations.append(
-                "XDR-TB detected. Consider specialized treatment regimen."
-            )
+            recommendations.append("XDR-TB detected. Consider specialized treatment regimen.")
         elif resistance_level == ResistanceLevel.PRE_XDR:
-            recommendations.append(
-                "Pre-XDR-TB detected. Monitor for additional resistance development."
-            )
+            recommendations.append("Pre-XDR-TB detected. Monitor for additional resistance development.")
         elif resistance_level == ResistanceLevel.MDR:
-            recommendations.append(
-                "MDR-TB detected. Standard MDR regimen recommended."
-            )
+            recommendations.append("MDR-TB detected. Standard MDR regimen recommended.")
 
         # Low confidence warnings
-        low_conf_drugs = [
-            drug for drug, conf in combined["confidence"].items()
-            if conf < 0.6
-        ]
+        low_conf_drugs = [drug for drug, conf in combined["confidence"].items() if conf < 0.6]
         if low_conf_drugs:
             recommendations.append(
-                f"Low confidence predictions for: {', '.join(low_conf_drugs)}. "
-                "Consider phenotypic testing."
+                f"Low confidence predictions for: {', '.join(low_conf_drugs)}. Consider phenotypic testing."
             )
 
         return recommendations
 
     def analyze_batch(
         self,
-        samples: List[Dict[str, Any]],
+        samples: list[dict[str, Any]],
         include_neural: bool = True,
-    ) -> List[AnalysisResult]:
+    ) -> list[AnalysisResult]:
         """Analyze multiple samples.
 
         Args:
@@ -635,16 +604,13 @@ class UnifiedResistanceAnalyzer:
         Returns:
             List of analysis results
         """
-        return [
-            self.analyze(sample, include_neural=include_neural)
-            for sample in samples
-        ]
+        return [self.analyze(sample, include_neural=include_neural) for sample in samples]
 
     def build_from_training_data(
         self,
-        samples: Dict[str, List[str]],
-        resistance: Dict[str, List[str]],
-        known_resistance_mutations: Optional[Dict[str, Dict[str, List[str]]]] = None,
+        samples: dict[str, list[str]],
+        resistance: dict[str, list[str]],
+        known_resistance_mutations: dict[str, dict[str, list[str]]] | None = None,
     ):
         """Build analyzer components from training data.
 
@@ -677,7 +643,7 @@ class UnifiedResistanceAnalyzer:
                 profile.add_drug(drug, muts)
             self.cross_analyzer.add_profile(profile)
 
-    def get_cross_resistance_matrix(self) -> Dict[Tuple[str, str], float]:
+    def get_cross_resistance_matrix(self) -> dict[tuple[str, str], float]:
         """Get cross-resistance similarity matrix.
 
         Returns:
@@ -688,7 +654,7 @@ class UnifiedResistanceAnalyzer:
     def find_minimal_resistance_sets(
         self,
         drug: str,
-    ) -> List[MutationSet]:
+    ) -> list[MutationSet]:
         """Find minimal mutation sets conferring resistance.
 
         Args:

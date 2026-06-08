@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import sys
 import time
-from typing import Callable, Dict, Tuple
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn
@@ -32,7 +32,7 @@ SEQ_LEN = 100
 HIDDEN_DIM = 64
 
 
-def time_function(fn: Callable, *args, **kwargs) -> Tuple[float, float]:
+def time_function(fn: Callable, *args, **kwargs) -> tuple[float, float]:
     """Time a function with warmup.
 
     Returns:
@@ -418,7 +418,7 @@ def benchmark_categorical():
     return results
 
 
-def print_summary(all_results: Dict[str, Dict[str, Tuple[float, float]]]):
+def print_summary(all_results: dict[str, dict[str, tuple[float, float]]]):
     """Print benchmark summary."""
     print("\n" + "=" * 60)
     print("BENCHMARK SUMMARY")
@@ -439,9 +439,7 @@ def print_summary(all_results: Dict[str, Dict[str, Tuple[float, float]]]):
 
     print("\n" + "=" * 60)
     print(f"Total operations benchmarked: {len(all_ops)}")
-    print(
-        f"Configuration: batch_size={BATCH_SIZE}, seq_len={SEQ_LEN}, hidden_dim={HIDDEN_DIM}"
-    )
+    print(f"Configuration: batch_size={BATCH_SIZE}, seq_len={SEQ_LEN}, hidden_dim={HIDDEN_DIM}")
     print(f"Device: {'CUDA' if torch.cuda.is_available() else 'CPU'}")
     print("=" * 60)
 
@@ -451,7 +449,7 @@ def main():
     print("=" * 60)
     print("PERFORMANCE BENCHMARKS FOR NEW MODULES")
     print("=" * 60)
-    print(f"\nConfiguration:")
+    print("\nConfiguration:")
     print(f"  Batch size: {BATCH_SIZE}")
     print(f"  Sequence length: {SEQ_LEN}")
     print(f"  Hidden dimension: {HIDDEN_DIM}")

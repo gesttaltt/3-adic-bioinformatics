@@ -10,29 +10,28 @@ Author: Claude Code
 Date: 2026-01-14
 """
 
-import torch
-import torch.nn as nn
-import numpy as np
-from pathlib import Path
 import sys
 import time
+from pathlib import Path
+
+import torch
+import torch.nn as nn
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.models.attention_encoder import (
-    AttentionEncoder,
-    HybridAttentionEncoder,
-    PositionalEncoding,
-    OperationEmbedding,
-    MultiHeadAttention,
     AttentionBlock,
     AttentionPooling,
+    MultiHeadAttention,
+    OperationEmbedding,
+    PositionalEncoding,
     create_attention_encoder,
-    create_lightweight_attention_encoder,
     create_hybrid_encoder,
+    create_lightweight_attention_encoder,
 )
+
 from src.models.improved_components import ImprovedEncoder
 
 
@@ -137,7 +136,7 @@ def test_encoder_compatibility():
     x_grad = torch.randint(-1, 2, (batch_size, input_dim)).float()
     x_grad.requires_grad_(True)
     mu, logvar = attention_encoder(x_grad)
-    loss = (mu.sum() + logvar.sum())
+    loss = mu.sum() + logvar.sum()
     loss.backward()
 
     assert x_grad.grad is not None, "No gradient through attention encoder"
@@ -153,12 +152,15 @@ def test_attention_interpretability():
 
     # Create test sequences with known patterns
     batch_size = 4
-    x = torch.tensor([
-        [-1, -1, -1,  0,  0,  0,  1,  1,  1],  # Clear pattern: negative → zero → positive
-        [ 1,  0, -1,  1,  0, -1,  1,  0, -1],  # Alternating pattern
-        [ 1,  1,  1,  1,  1,  1,  1,  1,  1],  # Constant positive
-        [-1,  0,  1, -1,  0,  1, -1,  0,  1],  # Repeating triplet
-    ], dtype=torch.float)
+    x = torch.tensor(
+        [
+            [-1, -1, -1, 0, 0, 0, 1, 1, 1],  # Clear pattern: negative → zero → positive
+            [1, 0, -1, 1, 0, -1, 1, 0, -1],  # Alternating pattern
+            [1, 1, 1, 1, 1, 1, 1, 1, 1],  # Constant positive
+            [-1, 0, 1, -1, 0, 1, -1, 0, 1],  # Repeating triplet
+        ],
+        dtype=torch.float,
+    )
 
     # Get attention weights
     attention_weights = encoder.get_attention_weights(x)
@@ -174,7 +176,7 @@ def test_attention_interpretability():
     # Display attention patterns
     pattern_names = ["Gradient", "Alternating", "Constant", "Repeating"]
     print("\n📊 Attention Weight Patterns:")
-    for i, (pattern, weights) in enumerate(zip(pattern_names, attention_weights)):
+    for _i, (pattern, weights) in enumerate(zip(pattern_names, attention_weights, strict=False)):
         print(f"   {pattern:10s}: {weights.detach().numpy()}")
 
     # Test that attention weights are differentiable
@@ -217,12 +219,10 @@ def test_sequence_dependency_learning():
 
     # Quick training simulation (just a few steps to test learning)
     optimizer_attn = torch.optim.Adam(
-        list(attention_encoder.parameters()) + list(classifier_attention.parameters()),
-        lr=0.01
+        list(attention_encoder.parameters()) + list(classifier_attention.parameters()), lr=0.01
     )
     optimizer_impr = torch.optim.Adam(
-        list(improved_encoder.parameters()) + list(classifier_improved.parameters()),
-        lr=0.01
+        list(improved_encoder.parameters()) + list(classifier_improved.parameters()), lr=0.01
     )
 
     criterion = nn.BCEWithLogitsLoss()
@@ -231,7 +231,7 @@ def test_sequence_dependency_learning():
     num_steps = 10
     batch_size = 32
 
-    for step in range(num_steps):
+    for _step in range(num_steps):
         # Sample batch
         indices = torch.randperm(len(train_x))[:batch_size]
         batch_x = train_x[indices]
@@ -265,7 +265,7 @@ def test_sequence_dependency_learning():
         pred_impr = torch.sigmoid(classifier_improved(mu_impr))
         acc_impr = ((pred_impr > 0.5) == test_y).float().mean()
 
-    print(f"   Position dependency task (pos 0,4,8 same sign):")
+    print("   Position dependency task (pos 0,4,8 same sign):")
     print(f"   AttentionEncoder accuracy: {acc_attn:.3f}")
     print(f"   ImprovedEncoder accuracy:  {acc_impr:.3f}")
 
@@ -276,11 +276,13 @@ def test_sequence_dependency_learning():
 
     # Check attention patterns for insight
     attention_weights = attention_encoder.get_attention_weights(test_x[:4])
-    print(f"\n📊 Sample attention weights for dependency task:")
+    print("\n📊 Sample attention weights for dependency task:")
     for i in range(4):
         weights = attention_weights[i].detach().numpy()
         key_positions = weights[[0, 4, 8]]  # Positions that matter
-        print(f"   Sample {i}: pos[0,4,8] weights = [{key_positions[0]:.3f}, {key_positions[1]:.3f}, {key_positions[2]:.3f}]")
+        print(
+            f"   Sample {i}: pos[0,4,8] weights = [{key_positions[0]:.3f}, {key_positions[1]:.3f}, {key_positions[2]:.3f}]"
+        )
 
 
 def test_performance_comparison():
@@ -303,7 +305,7 @@ def test_performance_comparison():
     # Test input
     x = torch.randint(-1, 2, (batch_size, input_dim)).float()
 
-    print(f"📊 Parameter counts:")
+    print("📊 Parameter counts:")
     for name, encoder in encoders.items():
         param_count = sum(p.numel() for p in encoder.parameters())
         print(f"   {name:25s}: {param_count:6d} parameters")
@@ -333,13 +335,13 @@ def test_performance_comparison():
 
     # Relative performance
     baseline = timing_results["ImprovedEncoder"]
-    print(f"\n📈 Relative performance (vs ImprovedEncoder):")
+    print("\n📈 Relative performance (vs ImprovedEncoder):")
     for name, elapsed in timing_results.items():
         ratio = elapsed / baseline
         print(f"   {name:25s}: {ratio:4.2f}x")
 
     # Memory usage estimation
-    print(f"\n💾 Estimated memory usage:")
+    print("\n💾 Estimated memory usage:")
     for name, encoder in encoders.items():
         # Rough calculation: parameters + activations
         param_memory = sum(p.numel() * 4 for p in encoder.parameters())  # 4 bytes per float32
@@ -368,14 +370,14 @@ def test_ternary_operation_patterns():
 
     # Define interesting ternary patterns
     patterns = {
-        "all_zeros":     torch.tensor([ 0,  0,  0,  0,  0,  0,  0,  0,  0], dtype=torch.float),
-        "all_ones":      torch.tensor([ 1,  1,  1,  1,  1,  1,  1,  1,  1], dtype=torch.float),
-        "all_minus":     torch.tensor([-1, -1, -1, -1, -1, -1, -1, -1, -1], dtype=torch.float),
-        "alternating":   torch.tensor([ 1, -1,  1, -1,  1, -1,  1, -1,  1], dtype=torch.float),
-        "gradient":      torch.tensor([-1, -1, -1,  0,  0,  0,  1,  1,  1], dtype=torch.float),
-        "center_peak":   torch.tensor([ 0,  0,  0,  0,  1,  0,  0,  0,  0], dtype=torch.float),
-        "edges_high":    torch.tensor([ 1,  0,  0,  0,  0,  0,  0,  0,  1], dtype=torch.float),
-        "random":        torch.randint(-1, 2, (9,)).float(),
+        "all_zeros": torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 0], dtype=torch.float),
+        "all_ones": torch.tensor([1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=torch.float),
+        "all_minus": torch.tensor([-1, -1, -1, -1, -1, -1, -1, -1, -1], dtype=torch.float),
+        "alternating": torch.tensor([1, -1, 1, -1, 1, -1, 1, -1, 1], dtype=torch.float),
+        "gradient": torch.tensor([-1, -1, -1, 0, 0, 0, 1, 1, 1], dtype=torch.float),
+        "center_peak": torch.tensor([0, 0, 0, 0, 1, 0, 0, 0, 0], dtype=torch.float),
+        "edges_high": torch.tensor([1, 0, 0, 0, 0, 0, 0, 0, 1], dtype=torch.float),
+        "random": torch.randint(-1, 2, (9,)).float(),
     }
 
     print("📊 Pattern analysis:")
@@ -395,7 +397,7 @@ def test_ternary_operation_patterns():
     print("✅ Attention patterns vary by input structure")
 
     # Test representation similarity
-    print(f"\n🔍 Representation similarity analysis:")
+    print("\n🔍 Representation similarity analysis:")
 
     with torch.no_grad():
         representations = {}
@@ -409,10 +411,7 @@ def test_ternary_operation_patterns():
 
     for i, name1 in enumerate(pattern_names):
         for j, name2 in enumerate(pattern_names):
-            sim = torch.cosine_similarity(
-                representations[name1].unsqueeze(0),
-                representations[name2].unsqueeze(0)
-            )
+            sim = torch.cosine_similarity(representations[name1].unsqueeze(0), representations[name2].unsqueeze(0))
             similarities[i, j] = sim
 
     # Print most and least similar pairs
@@ -426,8 +425,12 @@ def test_ternary_operation_patterns():
     max_pair = (flat_indices[max_sim_idx][0].item(), flat_indices[max_sim_idx][1].item())
     min_pair = (flat_indices[min_sim_idx][0].item(), flat_indices[min_sim_idx][1].item())
 
-    print(f"   Most similar:  {pattern_names[max_pair[0]]} ↔ {pattern_names[max_pair[1]]} (sim: {flat_similarities[max_sim_idx]:.3f})")
-    print(f"   Least similar: {pattern_names[min_pair[0]]} ↔ {pattern_names[min_pair[1]]} (sim: {flat_similarities[min_sim_idx]:.3f})")
+    print(
+        f"   Most similar:  {pattern_names[max_pair[0]]} ↔ {pattern_names[max_pair[1]]} (sim: {flat_similarities[max_sim_idx]:.3f})"
+    )
+    print(
+        f"   Least similar: {pattern_names[min_pair[0]]} ↔ {pattern_names[min_pair[1]]} (sim: {flat_similarities[min_sim_idx]:.3f})"
+    )
 
 
 def main():
@@ -457,6 +460,7 @@ def main():
     except Exception as e:
         print(f"\n❌ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

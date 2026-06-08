@@ -12,23 +12,22 @@ Author: Claude Code
 Date: December 28, 2024
 """
 
-import sys
 import io
 import json
+import sys
+import warnings
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional
 from scipy.stats import spearmanr
-from dataclasses import dataclass
-import warnings
 
 # Fix Windows encoding
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-warnings.filterwarnings('ignore')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+warnings.filterwarnings("ignore")
 
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -41,7 +40,8 @@ RESULTS_DIR.mkdir(exist_ok=True)
 # DATA LOADING
 # =============================================================================
 
-def load_stanford_data(drug: str, gene: str = "PI") -> Tuple[np.ndarray, np.ndarray, List[str]]:
+
+def load_stanford_data(drug: str, gene: str = "PI") -> tuple[np.ndarray, np.ndarray, list[str]]:
     """Load Stanford HIVDB data for a specific drug."""
     # Map gene to file
     gene_files = {
@@ -62,7 +62,7 @@ def load_stanford_data(drug: str, gene: str = "PI") -> Tuple[np.ndarray, np.ndar
     # Find sequence column
     seq_col = None
     for col in df.columns:
-        if 'seq' in col.lower():
+        if "seq" in col.lower():
             seq_col = col
             break
 
@@ -82,10 +82,10 @@ def load_stanford_data(drug: str, gene: str = "PI") -> Tuple[np.ndarray, np.ndar
 
     # Filter rows with valid data
     df = df[[seq_col, drug_col]].dropna()
-    df = df[df[drug_col] != '']
+    df = df[df[drug_col] != ""]
 
     # Convert to numeric
-    df[drug_col] = pd.to_numeric(df[drug_col], errors='coerce')
+    df[drug_col] = pd.to_numeric(df[drug_col], errors="coerce")
     df = df.dropna()
 
     if len(df) == 0:
@@ -95,25 +95,25 @@ def load_stanford_data(drug: str, gene: str = "PI") -> Tuple[np.ndarray, np.ndar
     resistances = df[drug_col].tolist()
 
     # Clean sequences
-    valid_aa = set('ACDEFGHIKLMNPQRSTVWY-X.')
+    set("ACDEFGHIKLMNPQRSTVWY-X.")
     cleaned_sequences = []
     for seq in raw_sequences:
-        seq = str(seq).upper().replace('.', '-').replace('~', '-').replace('*', 'X')
-        seq = ''.join(c if c in 'ACDEFGHIKLMNPQRSTVWY-X' else 'X' for c in seq)
+        seq = str(seq).upper().replace(".", "-").replace("~", "-").replace("*", "X")
+        seq = "".join(c if c in "ACDEFGHIKLMNPQRSTVWY-X" else "X" for c in seq)
         cleaned_sequences.append(seq)
 
     # Pad sequences to same length
     max_len = max(len(s) for s in cleaned_sequences)
-    padded_sequences = [s.ljust(max_len, '-') for s in cleaned_sequences]
+    padded_sequences = [s.ljust(max_len, "-") for s in cleaned_sequences]
 
     # One-hot encode
-    aa_to_idx = {aa: i for i, aa in enumerate('ACDEFGHIKLMNPQRSTVWY-X')}
+    aa_to_idx = {aa: i for i, aa in enumerate("ACDEFGHIKLMNPQRSTVWY-X")}
     n_aa = len(aa_to_idx)
 
     X = np.zeros((len(padded_sequences), max_len * n_aa), dtype=np.float32)
     for i, seq in enumerate(padded_sequences):
         for j, aa in enumerate(seq):
-            idx = aa_to_idx.get(aa, aa_to_idx['X'])
+            idx = aa_to_idx.get(aa, aa_to_idx["X"])
             X[i, j * n_aa + idx] = 1.0
 
     y = np.array(resistances, dtype=np.float32)
@@ -125,11 +125,12 @@ def load_stanford_data(drug: str, gene: str = "PI") -> Tuple[np.ndarray, np.ndar
 # ESM-2 EMBEDDINGS
 # =============================================================================
 
+
 class ESM2Embedder:
     """Extract ESM-2 embeddings for protein sequences."""
 
     def __init__(self, model_size: str = "small", device: str = None):
-        from transformers import AutoTokenizer, AutoModel
+        from transformers import AutoModel, AutoTokenizer
 
         models = {
             "small": "facebook/esm2_t6_8M_UR50D",
@@ -148,23 +149,19 @@ class ESM2Embedder:
         self.embedding_dim = self.model.config.hidden_size
         print(f"  Embedding dim: {self.embedding_dim}")
 
-    def embed_sequences(self, sequences: List[str], batch_size: int = 16) -> np.ndarray:
+    def embed_sequences(self, sequences: list[str], batch_size: int = 16) -> np.ndarray:
         """Embed multiple sequences."""
         embeddings = []
 
         for i in range(0, len(sequences), batch_size):
-            batch = sequences[i:i + batch_size]
+            batch = sequences[i : i + batch_size]
 
             # Clean sequences (remove gaps for ESM-2)
-            clean_batch = [s.replace('-', '').replace('X', 'A') for s in batch]
+            clean_batch = [s.replace("-", "").replace("X", "A") for s in batch]
 
-            inputs = self.tokenizer(
-                clean_batch,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=512
-            ).to(self.device)
+            inputs = self.tokenizer(clean_batch, return_tensors="pt", padding=True, truncation=True, max_length=512).to(
+                self.device
+            )
 
             with torch.no_grad():
                 outputs = self.model(**inputs)
@@ -193,7 +190,7 @@ RT_BINDING_SITE = [100, 101, 103, 106, 108, 181, 188, 190, 225, 227, 230, 318]
 IN_BINDING_SITE = [66, 92, 140, 143, 147, 148, 155, 263]
 
 
-def compute_structural_features(sequences: List[str], gene: str = "PI") -> np.ndarray:
+def compute_structural_features(sequences: list[str], gene: str = "PI") -> np.ndarray:
     """Compute structural features for sequences."""
     binding_sites = {
         "PI": PI_BINDING_SITE,
@@ -209,12 +206,12 @@ def compute_structural_features(sequences: List[str], gene: str = "PI") -> np.nd
         seq_features = []
 
         # Feature 1: Number of mutations at binding site
-        ref_seq = seq[0] if len(sequences) > 0 else seq  # Use first as reference
-        binding_mutations = sum(1 for pos in binding_site if pos < len(seq) and seq[pos] != '-')
+        seq[0] if len(sequences) > 0 else seq  # Use first as reference
+        binding_mutations = sum(1 for pos in binding_site if pos < len(seq) and seq[pos] != "-")
         seq_features.append(binding_mutations / len(binding_site))
 
         # Feature 2: Average distance to binding site for mutations
-        mutation_positions = [i for i, aa in enumerate(seq) if aa not in '-X']
+        mutation_positions = [i for i, aa in enumerate(seq) if aa not in "-X"]
         if mutation_positions and binding_site:
             avg_dist = np.mean([min(abs(pos - bs) for bs in binding_site) for pos in mutation_positions[:10]])
             seq_features.append(avg_dist / 100)  # Normalize
@@ -222,11 +219,11 @@ def compute_structural_features(sequences: List[str], gene: str = "PI") -> np.nd
             seq_features.append(0.5)
 
         # Feature 3: Sequence length ratio
-        seq_len = len(seq.replace('-', '').replace('X', ''))
+        seq_len = len(seq.replace("-", "").replace("X", ""))
         seq_features.append(seq_len / len(seq) if len(seq) > 0 else 0)
 
         # Feature 4: Hydrophobic content at binding site
-        hydrophobic = set('AVILMFYW')
+        hydrophobic = set("AVILMFYW")
         if binding_site:
             hydro_count = sum(1 for pos in binding_site if pos < len(seq) and seq[pos] in hydrophobic)
             seq_features.append(hydro_count / len(binding_site))
@@ -241,6 +238,7 @@ def compute_structural_features(sequences: List[str], gene: str = "PI") -> np.nd
 # =============================================================================
 # VAE MODELS
 # =============================================================================
+
 
 class BaseVAE(nn.Module):
     """Base VAE for drug resistance prediction."""
@@ -394,14 +392,9 @@ class TransferESM2VAE(nn.Module):
         )
 
         # Drug-specific prediction heads
-        self.drug_heads = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(latent_dim, 32),
-                nn.ReLU(),
-                nn.Linear(32, 1)
-            )
-            for _ in range(n_drugs)
-        ])
+        self.drug_heads = nn.ModuleList(
+            [nn.Sequential(nn.Linear(latent_dim, 32), nn.ReLU(), nn.Linear(32, 1)) for _ in range(n_drugs)]
+        )
 
     def encode(self, x):
         h = self.encoder(x)
@@ -423,6 +416,7 @@ class TransferESM2VAE(nn.Module):
 # =============================================================================
 # TRAINING FUNCTIONS
 # =============================================================================
+
 
 def listmle_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """ListMLE ranking loss."""
@@ -449,10 +443,10 @@ def train_model(
     epochs: int = 100,
     lr: float = 1e-3,
     drug_idx: int = 0,
-    verbose: bool = True
+    verbose: bool = True,
 ) -> float:
     """Train model and return best test correlation."""
-    device = next(model.parameters()).device
+    next(model.parameters()).device
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
 
     best_corr = -1.0
@@ -461,7 +455,7 @@ def train_model(
         model.train()
 
         # Forward pass
-        if hasattr(model, 'drug_heads'):
+        if hasattr(model, "drug_heads"):
             recon, pred, mu, logvar = model(X_train, drug_idx)
         else:
             recon, pred, mu, logvar = model(X_train)
@@ -483,7 +477,7 @@ def train_model(
         if (epoch + 1) % 10 == 0 or epoch == epochs - 1:
             model.eval()
             with torch.no_grad():
-                if hasattr(model, 'drug_heads'):
+                if hasattr(model, "drug_heads"):
                     _, test_pred, _, _ = model(X_test, drug_idx)
                 else:
                     _, test_pred, _, _ = model(X_test)
@@ -505,6 +499,7 @@ def train_model(
 # =============================================================================
 # EXPERIMENTS
 # =============================================================================
+
 
 def run_baseline_experiment(drug: str, gene: str) -> float:
     """Run baseline one-hot VAE experiment."""
@@ -596,7 +591,7 @@ def run_esm2_structural_experiment(drug: str, gene: str, embedder: ESM2Embedder)
     return corr
 
 
-def run_esm2_transfer_experiment(target_drug: str, all_drugs: List[str], gene: str, embedder: ESM2Embedder) -> float:
+def run_esm2_transfer_experiment(target_drug: str, all_drugs: list[str], gene: str, embedder: ESM2Embedder) -> float:
     """Run ESM-2 + Transfer Learning experiment."""
     print(f"\n--- ESM-2 Transfer Learning for {target_drug} ---")
 
@@ -627,11 +622,7 @@ def run_esm2_transfer_experiment(target_drug: str, all_drugs: List[str], gene: s
 
     # Pre-train on all drugs
     print("  Phase 1: Pre-training on all drugs...")
-    model = TransferESM2VAE(
-        esm_dim=embedder.embedding_dim,
-        latent_dim=16,
-        n_drugs=len(all_drugs)
-    ).cuda()
+    model = TransferESM2VAE(esm_dim=embedder.embedding_dim, latent_dim=16, n_drugs=len(all_drugs)).cuda()
 
     # Pre-training loop
     optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01)
@@ -693,11 +684,7 @@ def run_esm2_transfer_experiment(target_drug: str, all_drugs: List[str], gene: s
     for param in model.encoder.parameters():
         param.requires_grad = False
 
-    optimizer = optim.AdamW(
-        [p for p in model.parameters() if p.requires_grad],
-        lr=1e-4,
-        weight_decay=0.01
-    )
+    optimizer = optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=1e-4, weight_decay=0.01)
 
     # Phase 2a: Train head only
     for epoch in range(10):
@@ -747,6 +734,7 @@ def run_esm2_transfer_experiment(target_drug: str, all_drugs: List[str], gene: s
 # =============================================================================
 # MAIN
 # =============================================================================
+
 
 def main():
     print("=" * 70)
@@ -807,6 +795,7 @@ def main():
         except Exception as e:
             print(f"  ERROR: {e}")
             import traceback
+
             traceback.print_exc()
 
     # Print summary
@@ -827,7 +816,7 @@ def main():
 
     # Save results
     output_file = RESULTS_DIR / "esm2_experiment_results.json"
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\nResults saved to: {output_file}")
 

@@ -13,8 +13,6 @@ with proper splitting and configuration.
 Single responsibility: DataLoader creation only.
 """
 
-from typing import Optional, Tuple
-
 import torch
 from torch.utils.data import DataLoader, random_split
 
@@ -30,7 +28,7 @@ def create_ternary_data_loaders(
     num_workers: int = 0,
     seed: int = 42,
     pin_memory: bool = True,
-) -> Tuple[DataLoader, DataLoader, Optional[DataLoader]]:
+) -> tuple[DataLoader, DataLoader, DataLoader | None]:
     """Create train, validation, and test data loaders for ternary operations.
 
     Generates all 19,683 ternary operations and splits them into
@@ -69,7 +67,9 @@ def create_ternary_data_loaders(
 
     # Split dataset
     generator = torch.Generator().manual_seed(seed)
-    train_dataset, val_dataset, test_dataset = random_split(dataset, [train_size, val_size, test_size], generator=generator)
+    train_dataset, val_dataset, test_dataset = random_split(
+        dataset, [train_size, val_size, test_size], generator=generator
+    )
 
     # Create loaders
     train_loader = DataLoader(

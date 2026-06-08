@@ -28,9 +28,140 @@ Example:
     trainer.train()
 """
 
-from src.diseases.registry import DiseaseRegistry, get_disease_config
+from src.diseases.acinetobacter_analyzer import (
+    ABClonalComplex,
+    ABDrug,
+    ABGene,
+    AcinetobacterAnalyzer,
+    AcinetobacterConfig,
+)
 from src.diseases.base import DiseaseConfig, DiseaseDataset
+from src.diseases.cancer_analyzer import (
+    CancerAnalyzer,
+    CancerConfig,
+    CancerGene,
+    CancerType,
+    TargetedTherapy,
+    create_cancer_synthetic_dataset,
+)
+from src.diseases.candida_analyzer import (
+    Antifungal,
+    CandidaAnalyzer,
+    CandidaClade,
+    CandidaConfig,
+    CandidaGene,
+    create_candida_synthetic_dataset,
+)
+from src.diseases.cdiff_analyzer import (
+    CDiffAnalyzer,
+    CDiffConfig,
+    CDiffDrug,
+    CDiffGene,
+    CDiffRibotype,
+)
+from src.diseases.dengue_analyzer import (
+    DengueAnalyzer,
+    DengueConfig,
+    DengueDrug,
+    DengueGene,
+    DengueSerotype,
+)
+from src.diseases.ecoli_betalactam_analyzer import (
+    TEM1_REFERENCE,
+    TEM_MUTATIONS,
+    BetaLactam,
+    EcoliBetaLactamAnalyzer,
+    EcoliBetaLactamConfig,
+    EcoliGene,
+    TEMVariant,
+    create_ecoli_synthetic_dataset,
+)
+from src.diseases.gonorrhoeae_analyzer import (
+    GCDrug,
+    GCGene,
+    GCSequenceType,
+    GonorrhoeaeAnalyzer,
+    GonorrhoeaeConfig,
+)
+from src.diseases.hbv_analyzer import (
+    HBVAnalyzer,
+    HBVConfig,
+    HBVDrug,
+    HBVGene,
+    HBVGenotype,
+    create_hbv_synthetic_dataset,
+)
+from src.diseases.hcv_analyzer import (
+    HCVAnalyzer,
+    HCVConfig,
+    HCVDrug,
+    HCVGene,
+    HCVGenotype,
+    create_hcv_synthetic_dataset,
+)
+from src.diseases.hiv_analyzer import (
+    HIVAnalyzer,
+    HIVConfig,
+    HIVDrug,
+    HIVDrugClass,
+    HIVGene,
+    create_hiv_synthetic_dataset,
+)
+from src.diseases.influenza_analyzer import (
+    InfluenzaAnalyzer,
+    InfluenzaConfig,
+    InfluenzaDrug,
+    InfluenzaGene,
+    InfluenzaSubtype,
+    create_influenza_synthetic_dataset,
+)
 from src.diseases.losses import MultiDiseaseLoss
+from src.diseases.malaria_analyzer import (
+    MalariaAnalyzer,
+    MalariaConfig,
+    MalariaDrug,
+    MalariaGene,
+    PlasmodiumSpecies,
+    create_malaria_synthetic_dataset,
+)
+from src.diseases.mrsa_analyzer import (
+    Antibiotic,
+    MRSAAnalyzer,
+    MRSAConfig,
+    StaphGene,
+    create_mrsa_synthetic_dataset,
+)
+from src.diseases.registry import DiseaseRegistry, get_disease_config
+from src.diseases.rsv_analyzer import (
+    RSVAnalyzer,
+    RSVConfig,
+    RSVDrug,
+    RSVGene,
+    RSVSubtype,
+    create_rsv_synthetic_dataset,
+)
+from src.diseases.sars_cov2_analyzer import (
+    SARSCoV2Analyzer,
+    SARSCoV2Config,
+    SARSCoV2Gene,
+    SARSCoV2Variant,
+    create_sars_cov2_dataset,
+)
+from src.diseases.tuberculosis_analyzer import (
+    ResistanceLevel,
+    TBDrug,
+    TBGene,
+    TuberculosisAnalyzer,
+    TuberculosisConfig,
+    create_tb_synthetic_dataset,
+)
+from src.diseases.uncertainty_aware_analyzer import (
+    UncertaintyAwareAnalyzer,
+    UncertaintyConfig,
+    UncertaintyMethod,
+    UncertaintyResult,
+    create_uncertainty_analyzer,
+)
 from src.diseases.variant_escape import (
     DiseaseType,
     DrugResistancePredictor,
@@ -41,150 +172,19 @@ from src.diseases.variant_escape import (
     ReceptorBindingPredictor,
     VariantEscapeHead,
 )
-from src.diseases.sars_cov2_analyzer import (
-    SARSCoV2Analyzer,
-    SARSCoV2Config,
-    SARSCoV2Gene,
-    SARSCoV2Variant,
-    create_sars_cov2_dataset,
-)
-from src.diseases.tuberculosis_analyzer import (
-    TuberculosisAnalyzer,
-    TuberculosisConfig,
-    TBDrug,
-    TBGene,
-    ResistanceLevel,
-    create_tb_synthetic_dataset,
-)
-from src.diseases.influenza_analyzer import (
-    InfluenzaAnalyzer,
-    InfluenzaConfig,
-    InfluenzaSubtype,
-    InfluenzaGene,
-    InfluenzaDrug,
-    create_influenza_synthetic_dataset,
-)
-from src.diseases.hcv_analyzer import (
-    HCVAnalyzer,
-    HCVConfig,
-    HCVGenotype,
-    HCVGene,
-    HCVDrug,
-    create_hcv_synthetic_dataset,
-)
-from src.diseases.hbv_analyzer import (
-    HBVAnalyzer,
-    HBVConfig,
-    HBVGenotype,
-    HBVGene,
-    HBVDrug,
-    create_hbv_synthetic_dataset,
-)
-from src.diseases.malaria_analyzer import (
-    MalariaAnalyzer,
-    MalariaConfig,
-    PlasmodiumSpecies,
-    MalariaGene,
-    MalariaDrug,
-    create_malaria_synthetic_dataset,
-)
-from src.diseases.mrsa_analyzer import (
-    MRSAAnalyzer,
-    MRSAConfig,
-    StaphGene,
-    Antibiotic,
-    create_mrsa_synthetic_dataset,
-)
-from src.diseases.candida_analyzer import (
-    CandidaAnalyzer,
-    CandidaConfig,
-    CandidaClade,
-    CandidaGene,
-    Antifungal,
-    create_candida_synthetic_dataset,
-)
-from src.diseases.rsv_analyzer import (
-    RSVAnalyzer,
-    RSVConfig,
-    RSVSubtype,
-    RSVGene,
-    RSVDrug,
-    create_rsv_synthetic_dataset,
-)
-from src.diseases.cancer_analyzer import (
-    CancerAnalyzer,
-    CancerConfig,
-    CancerType,
-    CancerGene,
-    TargetedTherapy,
-    create_cancer_synthetic_dataset,
-)
-from src.diseases.ecoli_betalactam_analyzer import (
-    EcoliBetaLactamAnalyzer,
-    EcoliBetaLactamConfig,
-    EcoliGene,
-    BetaLactam,
-    TEMVariant,
-    TEM_MUTATIONS,
-    TEM1_REFERENCE,
-    create_ecoli_synthetic_dataset,
-)
-from src.diseases.hiv_analyzer import (
-    HIVAnalyzer,
-    HIVConfig,
-    HIVGene,
-    HIVDrug,
-    HIVDrugClass,
-    create_hiv_synthetic_dataset,
-)
-from src.diseases.dengue_analyzer import (
-    DengueAnalyzer,
-    DengueConfig,
-    DengueSerotype,
-    DengueGene,
-    DengueDrug,
+from src.diseases.vre_analyzer import (
+    EnterococcusSpecies,
+    VREAnalyzer,
+    VREConfig,
+    VREDrug,
+    VREGene,
 )
 from src.diseases.zika_analyzer import (
     ZikaAnalyzer,
     ZikaConfig,
-    ZikaLineage,
-    ZikaGene,
     ZikaDrug,
-)
-from src.diseases.cdiff_analyzer import (
-    CDiffAnalyzer,
-    CDiffConfig,
-    CDiffRibotype,
-    CDiffGene,
-    CDiffDrug,
-)
-from src.diseases.gonorrhoeae_analyzer import (
-    GonorrhoeaeAnalyzer,
-    GonorrhoeaeConfig,
-    GCSequenceType,
-    GCGene,
-    GCDrug,
-)
-from src.diseases.vre_analyzer import (
-    VREAnalyzer,
-    VREConfig,
-    EnterococcusSpecies,
-    VREGene,
-    VREDrug,
-)
-from src.diseases.acinetobacter_analyzer import (
-    AcinetobacterAnalyzer,
-    AcinetobacterConfig,
-    ABClonalComplex,
-    ABGene,
-    ABDrug,
-)
-from src.diseases.uncertainty_aware_analyzer import (
-    UncertaintyAwareAnalyzer,
-    UncertaintyConfig,
-    UncertaintyMethod,
-    UncertaintyResult,
-    create_uncertainty_analyzer,
+    ZikaGene,
+    ZikaLineage,
 )
 
 __all__ = [

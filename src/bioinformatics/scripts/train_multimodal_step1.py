@@ -11,6 +11,7 @@ latent spaces of specialist models.
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -19,22 +20,22 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from scipy.stats import spearmanr, pearsonr
+from scipy.stats import pearsonr, spearmanr
 from torch.utils.data import DataLoader, Dataset, random_split
 
-import sys
 sys.path.insert(0, str(Path(__file__).parents[3]))
 
-from src.bioinformatics.models.ddg_vae import DDGVAE
-from src.bioinformatics.models.ddg_mlp_refiner import DDGMLPRefiner, RefinerConfig
-from src.bioinformatics.data.protherm_loader import ProThermLoader
 from src.bioinformatics.data.preprocessing import compute_features
+from src.bioinformatics.data.protherm_loader import ProThermLoader
+from src.bioinformatics.models.ddg_mlp_refiner import DDGMLPRefiner, RefinerConfig
+from src.bioinformatics.models.ddg_vae import DDGVAE
 from src.bioinformatics.training.deterministic import set_deterministic_mode
 
 
 @dataclass
 class MetaVAEConfig:
     """Configuration for Meta-VAE."""
+
     # Input dimensions from specialist VAEs
     s669_dim: int = 16
     protherm_dim: int = 32
@@ -179,7 +180,7 @@ class TripleEmbeddingDataset(Dataset):
                 x_s669 = torch.tensor(basic_arr, dtype=torch.float32).unsqueeze(0).to(device)
 
                 # ProTherm features (20-dim, padded)
-                protherm_arr = np.pad(basic_arr, (0, 6), mode='constant')
+                protherm_arr = np.pad(basic_arr, (0, 6), mode="constant")
                 x_protherm = torch.tensor(protherm_arr, dtype=torch.float32).unsqueeze(0).to(device)
 
                 # Wide features (14-dim)
@@ -245,20 +246,21 @@ def train_step1():
     print("\n[1] Loading specialist VAEs...")
 
     vae_s669 = DDGVAE.create_s669_variant(use_hyperbolic=False)
-    ckpt = torch.load("outputs/ddg_vae_training_20260129_212316/vae_s669/best.pt",
-                      map_location=device, weights_only=False)
+    ckpt = torch.load(
+        "outputs/ddg_vae_training_20260129_212316/vae_s669/best.pt", map_location=device, weights_only=False
+    )
     vae_s669.load_state_dict(ckpt["model_state_dict"])
     print("  Loaded VAE-S669 (latent_dim=16)")
 
     vae_protherm = DDGVAE.create_protherm_variant(use_hyperbolic=False)
-    ckpt = torch.load("outputs/ddg_vae_training_20260129_212316/vae_protherm/best.pt",
-                      map_location=device, weights_only=False)
+    ckpt = torch.load(
+        "outputs/ddg_vae_training_20260129_212316/vae_protherm/best.pt", map_location=device, weights_only=False
+    )
     vae_protherm.load_state_dict(ckpt["model_state_dict"])
     print("  Loaded VAE-ProTherm (latent_dim=32)")
 
     vae_wide = DDGVAE.create_wide_variant(use_hyperbolic=False)
-    ckpt = torch.load("outputs/vae_wide_filtered_20260129_220019/best.pt",
-                      map_location=device, weights_only=False)
+    ckpt = torch.load("outputs/vae_wide_filtered_20260129_220019/best.pt", map_location=device, weights_only=False)
     vae_wide.load_state_dict(ckpt["model_state_dict"])
     print("  Loaded VAE-Wide (latent_dim=64)")
 
@@ -275,8 +277,7 @@ def train_step1():
     # Split
     n_val = int(len(dataset) * 0.2)
     n_train = len(dataset) - n_val
-    train_ds, val_ds = random_split(dataset, [n_train, n_val],
-                                    generator=torch.Generator().manual_seed(42))
+    train_ds, val_ds = random_split(dataset, [n_train, n_val], generator=torch.Generator().manual_seed(42))
     print(f"  Train: {n_train}, Val: {n_val}")
 
     train_loader = DataLoader(train_ds, batch_size=config.batch_size, shuffle=True)
@@ -346,18 +347,20 @@ def train_step1():
         scheduler.step()
 
         if epoch % 20 == 0 or val_spearman > best_spearman:
-            print(f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
-                  f"spearman={val_spearman:.4f}")
+            print(f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} spearman={val_spearman:.4f}")
 
         if val_spearman > best_spearman:
             best_spearman = val_spearman
             patience_counter = 0
-            torch.save({
-                "model_state_dict": meta_vae.state_dict(),
-                "epoch": epoch,
-                "val_spearman": val_spearman,
-                "config": config.__dict__,
-            }, output_dir / "meta_vae_best.pt")
+            torch.save(
+                {
+                    "model_state_dict": meta_vae.state_dict(),
+                    "epoch": epoch,
+                    "val_spearman": val_spearman,
+                    "config": config.__dict__,
+                },
+                output_dir / "meta_vae_best.pt",
+            )
         else:
             patience_counter += 1
             if patience_counter >= config.patience:
@@ -398,7 +401,7 @@ def train_step1():
                     if vae_pred.dim() > 0:
                         vae_pred = vae_pred.squeeze()
                     self.vae_preds.append(vae_pred.item() if vae_pred.numel() == 1 else vae_pred[0].item())
-                    self.labels.append(item["ddg"].item() if hasattr(item["ddg"], 'item') else item["ddg"])
+                    self.labels.append(item["ddg"].item() if hasattr(item["ddg"], "item") else item["ddg"])
 
             self.embeddings = torch.stack(self.embeddings)
             self.vae_preds = torch.tensor(self.vae_preds, dtype=torch.float32)
@@ -492,23 +495,32 @@ def train_step1():
 
         if epoch % 20 == 0 or val_spearman > best_refiner_spearman:
             rw = torch.sigmoid(refiner.residual_weight).item()
-            print(f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
-                  f"spearman={val_spearman:.4f} res_w={rw:.3f}")
+            print(
+                f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
+                f"spearman={val_spearman:.4f} res_w={rw:.3f}"
+            )
 
         if val_spearman > best_refiner_spearman:
             best_refiner_spearman = val_spearman
-            torch.save({
-                "model_state_dict": refiner.state_dict(),
-                "epoch": epoch,
-                "val_spearman": val_spearman,
-            }, output_dir / "mlp_refiner_best.pt")
+            torch.save(
+                {
+                    "model_state_dict": refiner.state_dict(),
+                    "epoch": epoch,
+                    "val_spearman": val_spearman,
+                },
+                output_dir / "mlp_refiner_best.pt",
+            )
 
     # Save histories
     with open(output_dir / "training_history.json", "w") as f:
-        json.dump({
-            "meta_vae": history,
-            "mlp_refiner": refiner_history,
-        }, f, indent=2)
+        json.dump(
+            {
+                "meta_vae": history,
+                "mlp_refiner": refiner_history,
+            },
+            f,
+            indent=2,
+        )
 
     # ========================================
     # Correlation Analysis
@@ -555,8 +567,12 @@ def train_step1():
         "refiner_pearson": float(pearsonr(all_targets, all_preds["refiner"])[0]),
     }
 
-    print(f"\n  Meta-VAE alone:      Spearman={results['meta_vae_spearman']:.4f}, Pearson={results['meta_vae_pearson']:.4f}")
-    print(f"  Meta-VAE + Refiner:  Spearman={results['refiner_spearman']:.4f}, Pearson={results['refiner_pearson']:.4f}")
+    print(
+        f"\n  Meta-VAE alone:      Spearman={results['meta_vae_spearman']:.4f}, Pearson={results['meta_vae_pearson']:.4f}"
+    )
+    print(
+        f"  Meta-VAE + Refiner:  Spearman={results['refiner_spearman']:.4f}, Pearson={results['refiner_pearson']:.4f}"
+    )
 
     # Save results
     with open(output_dir / "correlation_results.json", "w") as f:
@@ -568,12 +584,12 @@ def train_step1():
     print("\n" + "=" * 70)
     print("STEP 1 COMPLETE")
     print("=" * 70)
-    print(f"\nResults:")
+    print("\nResults:")
     print(f"  Meta-VAE Spearman:           {best_spearman:.4f}")
     print(f"  Meta-VAE + Refiner Spearman: {best_refiner_spearman:.4f}")
-    print(f"\nBaselines:")
-    print(f"  VAE-ProTherm alone:          0.64")
-    print(f"  VAE-ProTherm + MLP Refiner:  0.78")
+    print("\nBaselines:")
+    print("  VAE-ProTherm alone:          0.64")
+    print("  VAE-ProTherm + MLP Refiner:  0.78")
     print(f"\nCheckpoints: {output_dir}")
 
     return {

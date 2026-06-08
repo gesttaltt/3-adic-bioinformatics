@@ -38,7 +38,6 @@ References:
 from __future__ import annotations
 
 import math
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -196,8 +195,8 @@ class TernaryMotorEncoder(nn.Module):
     def forward(
         self,
         state_indices: torch.Tensor,
-        subunit_indices: Optional[torch.Tensor] = None,
-        phase: Optional[torch.Tensor] = None,
+        subunit_indices: torch.Tensor | None = None,
+        phase: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Encode motor states.
 
@@ -331,8 +330,8 @@ class ATPSynthaseEncoder(TernaryMotorEncoder):
     def forward(
         self,
         beta_states: torch.Tensor,
-        gamma_angle: Optional[torch.Tensor] = None,
-        proton_count: Optional[torch.Tensor] = None,
+        gamma_angle: torch.Tensor | None = None,
+        proton_count: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Encode ATP Synthase state.
 

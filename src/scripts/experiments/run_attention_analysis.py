@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -83,7 +82,8 @@ KNOWN_MUTATIONS = {
 # Data Loading
 # =============================================================================
 
-def load_data(drug_class: str) -> Tuple[pd.DataFrame, List[str], List[str]]:
+
+def load_data(drug_class: str) -> tuple[pd.DataFrame, list[str], list[str]]:
     """Load Stanford HIVDB data."""
     data_dir = project_root / "data" / "research"
 
@@ -105,13 +105,13 @@ def load_data(drug_class: str) -> Tuple[pd.DataFrame, List[str], List[str]]:
     df = pd.read_csv(filepath, sep="\t", low_memory=False)
 
     prefix = "P"
-    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix):].isdigit()]
-    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix):]))
+    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix) :].isdigit()]
+    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix) :]))
 
     return df, position_cols, drug_columns[drug_class]
 
 
-def encode_sequences(df: pd.DataFrame, position_cols: List[str]) -> np.ndarray:
+def encode_sequences(df: pd.DataFrame, position_cols: list[str]) -> np.ndarray:
     """One-hot encode amino acid sequences."""
     aa_alphabet = "ACDEFGHIKLMNPQRSTVWY*-"
     aa_to_idx = {aa: i for i, aa in enumerate(aa_alphabet)}
@@ -135,6 +135,7 @@ def encode_sequences(df: pd.DataFrame, position_cols: List[str]) -> np.ndarray:
 # =============================================================================
 # Attention Model
 # =============================================================================
+
 
 class AttentionVAE(nn.Module):
     """VAE with extractable attention weights."""
@@ -186,7 +187,10 @@ class AttentionVAE(nn.Module):
 # Analysis Functions
 # =============================================================================
 
-def train_attention_model(drug_class: str, drug: str, epochs: int = 50, device: str = "cuda") -> Tuple[AttentionVAE, float]:
+
+def train_attention_model(
+    drug_class: str, drug: str, epochs: int = 50, device: str = "cuda"
+) -> tuple[AttentionVAE, float]:
     """Train attention model and return it with test correlation."""
     df, position_cols, _ = load_data(drug_class)
     df_valid = df[df[drug].notna() & (df[drug] > 0)].copy()
@@ -209,7 +213,7 @@ def train_attention_model(drug_class: str, drug: str, epochs: int = 50, device: 
     train_x = torch.tensor(X_train)
     train_y = torch.tensor(y_train)
     test_x = torch.tensor(X_test)
-    test_y = torch.tensor(y_test)
+    torch.tensor(y_test)
 
     loader = DataLoader(TensorDataset(train_x, train_y), batch_size=32, shuffle=True)
 
@@ -297,11 +301,11 @@ def compute_gradient_importance(model: AttentionVAE, test_x: torch.Tensor, devic
 
 def compare_with_known_mutations(
     position_importance: np.ndarray,
-    position_cols: List[str],
+    position_cols: list[str],
     drug_class: str,
     drug: str,
     top_k: int = 20,
-) -> Dict:
+) -> dict:
     """Compare model attention with known resistance mutations."""
     # Get top attended positions
     top_indices = np.argsort(position_importance)[::-1][:top_k]
@@ -336,6 +340,7 @@ def compare_with_known_mutations(
 # Main
 # =============================================================================
 
+
 def main():
     import argparse
 
@@ -363,7 +368,7 @@ def main():
     all_results = []
 
     for drug_class, drug in drugs_to_analyze:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"ATTENTION ANALYSIS: {drug} ({drug_class.upper()})")
         print("=" * 60)
 
@@ -386,34 +391,41 @@ def main():
             attn_results = compare_with_known_mutations(attn_importance, position_cols, drug_class, drug)
             grad_results = compare_with_known_mutations(grad_importance, position_cols, drug_class, drug)
 
-            print(f"\n--- Attention-based Analysis ---")
+            print("\n--- Attention-based Analysis ---")
             print(f"Top 20 positions: {attn_results['top_positions']}")
             print(f"Known major:      {attn_results['known_major']}")
             print(f"Known drug-spec:  {attn_results['known_drug_specific']}")
             print(f"Overlap:          {attn_results['overlap']}")
-            print(f"Precision: {attn_results['precision']:.2%} | Recall: {attn_results['recall']:.2%} | F1: {attn_results['f1']:.2%}")
+            print(
+                f"Precision: {attn_results['precision']:.2%} | Recall: {attn_results['recall']:.2%} | F1: {attn_results['f1']:.2%}"
+            )
 
-            print(f"\n--- Gradient-based Analysis ---")
+            print("\n--- Gradient-based Analysis ---")
             print(f"Top 20 positions: {grad_results['top_positions']}")
             print(f"Overlap:          {grad_results['overlap']}")
-            print(f"Precision: {grad_results['precision']:.2%} | Recall: {grad_results['recall']:.2%} | F1: {grad_results['f1']:.2%}")
+            print(
+                f"Precision: {grad_results['precision']:.2%} | Recall: {grad_results['recall']:.2%} | F1: {grad_results['f1']:.2%}"
+            )
 
-            all_results.append({
-                "drug": drug,
-                "class": drug_class,
-                "correlation": corr,
-                "attn_precision": attn_results["precision"],
-                "attn_recall": attn_results["recall"],
-                "attn_f1": attn_results["f1"],
-                "grad_precision": grad_results["precision"],
-                "grad_recall": grad_results["recall"],
-                "grad_f1": grad_results["f1"],
-                "n_known": len(attn_results["known_major"]) + len(attn_results["known_drug_specific"]),
-            })
+            all_results.append(
+                {
+                    "drug": drug,
+                    "class": drug_class,
+                    "correlation": corr,
+                    "attn_precision": attn_results["precision"],
+                    "attn_recall": attn_results["recall"],
+                    "attn_f1": attn_results["f1"],
+                    "grad_precision": grad_results["precision"],
+                    "grad_recall": grad_results["recall"],
+                    "grad_f1": grad_results["f1"],
+                    "n_known": len(attn_results["known_major"]) + len(attn_results["known_drug_specific"]),
+                }
+            )
 
         except Exception as e:
             print(f"Error: {e}")
             import traceback
+
             traceback.print_exc()
 
     # Summary
@@ -422,7 +434,9 @@ def main():
         print("ATTENTION ANALYSIS SUMMARY")
         print("=" * 60)
 
-        print(f"\n{'Drug':<8} {'Corr':>8} {'Attn P':>8} {'Attn R':>8} {'Attn F1':>8} {'Grad P':>8} {'Grad R':>8} {'Grad F1':>8}")
+        print(
+            f"\n{'Drug':<8} {'Corr':>8} {'Attn P':>8} {'Attn R':>8} {'Attn F1':>8} {'Grad P':>8} {'Grad R':>8} {'Grad F1':>8}"
+        )
         print("-" * 72)
         for r in all_results:
             print(

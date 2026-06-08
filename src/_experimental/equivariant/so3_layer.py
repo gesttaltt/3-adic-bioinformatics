@@ -16,8 +16,6 @@ References:
 
 from __future__ import annotations
 
-from typing import Optional
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -177,7 +175,7 @@ class SO3Linear(nn.Module):
         else:
             self.register_parameter("bias", None)
 
-    def forward(self, x: Tensor, l_indices: Optional[Tensor] = None) -> Tensor:
+    def forward(self, x: Tensor, l_indices: Tensor | None = None) -> Tensor:
         """Apply SO(3)-equivariant linear transformation.
 
         Args:
@@ -266,7 +264,7 @@ class SO3Convolution(nn.Module):
         x: Tensor,
         edge_index: Tensor,
         edge_vec: Tensor,
-        edge_dist: Optional[Tensor] = None,
+        edge_dist: Tensor | None = None,
     ) -> Tensor:
         """Perform SO(3)-equivariant convolution.
 
@@ -387,7 +385,7 @@ class SO3Layer(nn.Module):
         x: Tensor,
         edge_index: Tensor,
         edge_vec: Tensor,
-        edge_dist: Optional[Tensor] = None,
+        edge_dist: Tensor | None = None,
     ) -> Tensor:
         """Apply SO(3)-equivariant layer.
 
@@ -462,7 +460,7 @@ class SO3GNN(nn.Module):
 
         # SO(3) layers
         self.layers = nn.ModuleList()
-        for i in range(n_layers):
+        for _i in range(n_layers):
             self.layers.append(
                 SO3Layer(
                     in_features=hidden_features,
@@ -486,7 +484,7 @@ class SO3GNN(nn.Module):
         x: Tensor,
         pos: Tensor,
         edge_index: Tensor,
-        batch: Optional[Tensor] = None,
+        batch: Tensor | None = None,
     ) -> Tensor:
         """Forward pass through SO(3) GNN.
 

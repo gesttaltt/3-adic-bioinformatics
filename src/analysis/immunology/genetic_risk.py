@@ -13,7 +13,6 @@ Provides a unified interface for computing HLA-based genetic risk across disease
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from .types import HLAAlleleRisk
 
@@ -93,7 +92,7 @@ class HLARiskProfile:
 def compute_hla_genetic_risk(
     hla_alleles: list[str],
     disease: str,
-    additional_factors: Optional[dict[str, float]] = None,
+    additional_factors: dict[str, float] | None = None,
 ) -> HLARiskProfile:
     """Compute HLA-based genetic risk for a disease.
 
@@ -141,7 +140,7 @@ def compute_hla_genetic_risk(
 
     # Apply additional factors
     additional = additional_factors or {}
-    for factor, risk in additional.items():
+    for _factor, risk in additional.items():
         risk_score *= risk
 
     return HLARiskProfile(

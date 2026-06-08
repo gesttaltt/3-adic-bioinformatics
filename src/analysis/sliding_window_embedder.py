@@ -8,7 +8,6 @@ embeds them using the Ternary VAE, and creates a "Hyperbolic Trajectory" tensor.
 import argparse
 import sys
 from pathlib import Path
-from typing import List, Tuple
 
 import numpy as np
 import torch
@@ -30,7 +29,7 @@ except ImportError:
     AA_TO_CODON = {}
 
 
-def sliding_window(seq: str, window_size: int, stride: int) -> List[str]:
+def sliding_window(seq: str, window_size: int, stride: int) -> list[str]:
     """Generator for sliding windows."""
     windows = []
     for i in range(0, len(seq) - window_size + 1, stride):

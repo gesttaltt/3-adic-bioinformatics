@@ -37,8 +37,8 @@ References:
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterator, Optional
 
 import torch
 import torch.nn as nn
@@ -88,8 +88,8 @@ class VAEFisherEstimator:
         self.ema_decay = ema_decay
 
         # Running estimates (diagonal approximation)
-        self._mean_fisher: Optional[Dict[str, torch.Tensor]] = None
-        self._var_fisher: Optional[Dict[str, torch.Tensor]] = None
+        self._mean_fisher: dict[str, torch.Tensor] | None = None
+        self._var_fisher: dict[str, torch.Tensor] | None = None
         self._step = 0
 
     def update(
@@ -145,17 +145,11 @@ class VAEFisherEstimator:
         for name in self._mean_fisher:
             if name in mean_grads:
                 g_sq = mean_grads[name] ** 2
-                self._mean_fisher[name] = (
-                    self.ema_decay * self._mean_fisher[name]
-                    + (1 - self.ema_decay) * g_sq
-                )
+                self._mean_fisher[name] = self.ema_decay * self._mean_fisher[name] + (1 - self.ema_decay) * g_sq
 
             if name in var_grads:
                 g_sq = var_grads[name] ** 2
-                self._var_fisher[name] = (
-                    self.ema_decay * self._var_fisher[name]
-                    + (1 - self.ema_decay) * g_sq
-                )
+                self._var_fisher[name] = self.ema_decay * self._var_fisher[name] + (1 - self.ema_decay) * g_sq
 
         # Compute summary statistics
         all_fisher = []
@@ -167,11 +161,11 @@ class VAEFisherEstimator:
         fisher_diag = fisher_diag.clamp(min=self.damping)
 
         condition_number = (fisher_diag.max() / fisher_diag.min()).item()
-        effective_rank = (fisher_diag.sum() ** 2 / (fisher_diag ** 2).sum()).item()
+        effective_rank = (fisher_diag.sum() ** 2 / (fisher_diag**2).sum()).item()
 
         return FisherEstimate(
-            mean_fisher=fisher_diag[:len(fisher_diag)//2],
-            var_fisher=fisher_diag[len(fisher_diag)//2:],
+            mean_fisher=fisher_diag[: len(fisher_diag) // 2],
+            var_fisher=fisher_diag[len(fisher_diag) // 2 :],
             condition_number=condition_number,
             effective_rank=effective_rank,
         )
@@ -180,7 +174,7 @@ class VAEFisherEstimator:
         self,
         output: torch.Tensor,
         score: torch.Tensor,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Compute parameter gradients via backpropagation.
 
         Args:
@@ -271,7 +265,7 @@ class VAENaturalGradient(Optimizer):
     def set_variance_estimate(
         self,
         variance: torch.Tensor,
-        param_groups: Optional[list] = None,
+        param_groups: list | None = None,
     ):
         """Set current variance estimate from encoder for preconditioning.
 
@@ -286,7 +280,7 @@ class VAENaturalGradient(Optimizer):
             self.param_groups[group_idx]["current_variance"] = mean_var
 
     @torch.no_grad()
-    def step(self, closure: Optional[Callable] = None) -> Optional[torch.Tensor]:
+    def step(self, closure: Callable | None = None) -> torch.Tensor | None:
         """Perform optimization step.
 
         Args:
@@ -394,9 +388,9 @@ class AdaptiveNaturalGradient(Optimizer):
     @torch.no_grad()
     def step(
         self,
-        closure: Optional[Callable] = None,
-        loss: Optional[torch.Tensor] = None,
-    ) -> Optional[torch.Tensor]:
+        closure: Callable | None = None,
+        loss: torch.Tensor | None = None,
+    ) -> torch.Tensor | None:
         """Perform optimization step with adaptive damping.
 
         Args:
@@ -420,16 +414,10 @@ class AdaptiveNaturalGradient(Optimizer):
             for group in self.param_groups:
                 if improvement > 0:
                     # Good step, reduce damping
-                    group["damping"] = max(
-                        self.min_damping,
-                        group["damping"] * self.damping_decay
-                    )
+                    group["damping"] = max(self.min_damping, group["damping"] * self.damping_decay)
                 else:
                     # Bad step, increase damping
-                    group["damping"] = min(
-                        self.max_damping,
-                        group["damping"] / self.damping_decay
-                    )
+                    group["damping"] = min(self.max_damping, group["damping"] / self.damping_decay)
 
         if loss is not None:
             self._prev_loss = loss.item() if torch.is_tensor(loss) else loss
@@ -516,7 +504,7 @@ class FisherRaoSGD(Optimizer):
 
         self.min_preconditioner = min_preconditioner
         self.max_preconditioner = max_preconditioner
-        self._preconditioners: Dict[int, torch.Tensor] = {}
+        self._preconditioners: dict[int, torch.Tensor] = {}
 
     def set_preconditioner(
         self,
@@ -559,7 +547,7 @@ class FisherRaoSGD(Optimizer):
                 self._preconditioners[id(param)] = precond.expand_as(param)
 
     @torch.no_grad()
-    def step(self, closure: Optional[Callable] = None) -> Optional[torch.Tensor]:
+    def step(self, closure: Callable | None = None) -> torch.Tensor | None:
         """Perform optimization step.
 
         Args:
@@ -603,10 +591,7 @@ class FisherRaoSGD(Optimizer):
                         buf = state["momentum_buffer"]
                         buf.mul_(momentum).add_(grad, alpha=1 - dampening)
 
-                    if nesterov:
-                        grad = grad.add(buf, alpha=momentum)
-                    else:
-                        grad = buf
+                    grad = grad.add(buf, alpha=momentum) if nesterov else buf
 
                 p.add_(grad, alpha=-group["lr"])
 

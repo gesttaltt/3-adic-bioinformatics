@@ -18,13 +18,12 @@ complementary information from each data regime.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.bioinformatics.models.ddg_vae import DDGVAE, DDGVAEConfig
+from src.bioinformatics.models.ddg_vae import DDGVAE
 
 
 @dataclass
@@ -206,11 +205,7 @@ class CrossModalFusion(nn.Module):
         gates = self.gate(h_concat)  # (batch, 3)
 
         # Weighted combination
-        h_fused = (
-            gates[:, 0:1] * h_s669 +
-            gates[:, 1:2] * h_protherm +
-            gates[:, 2:3] * h_wide
-        )
+        h_fused = gates[:, 0:1] * h_s669 + gates[:, 1:2] * h_protherm + gates[:, 2:3] * h_wide
 
         return h_fused
 
@@ -226,15 +221,17 @@ class MultimodalDecoder(nn.Module):
         in_dim = config.fused_dim
 
         for i in range(config.decoder_n_layers):
-            out_dim = config.decoder_hidden_dim // (2 ** i)
+            out_dim = config.decoder_hidden_dim // (2**i)
             out_dim = max(out_dim, 32)
 
-            layers.extend([
-                nn.Linear(in_dim, out_dim),
-                nn.LayerNorm(out_dim),
-                nn.SiLU(),
-                nn.Dropout(config.decoder_dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, out_dim),
+                    nn.LayerNorm(out_dim),
+                    nn.SiLU(),
+                    nn.Dropout(config.decoder_dropout),
+                ]
+            )
             in_dim = out_dim
 
         # Final prediction
@@ -266,7 +263,7 @@ class MultimodalDDGVAE(nn.Module):
         vae_s669: DDGVAE,
         vae_protherm: DDGVAE,
         vae_wide: DDGVAE,
-        config: Optional[MultimodalConfig] = None,
+        config: MultimodalConfig | None = None,
         freeze_specialists: bool = True,
     ):
         """Initialize multimodal VAE.
@@ -399,9 +396,7 @@ class MultimodalDDGVAE(nn.Module):
             Dictionary with predictions and latent info
         """
         # Encode with specialists
-        z_s669, z_protherm, z_wide = self.encode_specialists(
-            x_s669, x_protherm, x_wide
-        )
+        z_s669, z_protherm, z_wide = self.encode_specialists(x_s669, x_protherm, x_wide)
 
         # Fuse and get distribution
         mu, logvar = self.fuse_and_encode(z_s669, z_protherm, z_wide)
@@ -419,12 +414,14 @@ class MultimodalDDGVAE(nn.Module):
         }
 
         if return_latent:
-            result.update({
-                "z_fused": z_fused,
-                "z_s669": z_s669,
-                "z_protherm": z_protherm,
-                "z_wide": z_wide,
-            })
+            result.update(
+                {
+                    "z_fused": z_fused,
+                    "z_s669": z_s669,
+                    "z_protherm": z_protherm,
+                    "z_wide": z_wide,
+                }
+            )
 
         return result
 
@@ -489,9 +486,7 @@ class MultimodalDDGVAE(nn.Module):
         """
         self.eval()
         with torch.no_grad():
-            z_s669, z_protherm, z_wide = self.encode_specialists(
-                x_s669, x_protherm, x_wide
-            )
+            z_s669, z_protherm, z_wide = self.encode_specialists(x_s669, x_protherm, x_wide)
             mu, _ = self.fuse_and_encode(z_s669, z_protherm, z_wide)
             return self.decode(mu)
 
@@ -511,9 +506,7 @@ class MultimodalDDGVAE(nn.Module):
         """
         self.eval()
         with torch.no_grad():
-            z_s669, z_protherm, z_wide = self.encode_specialists(
-                x_s669, x_protherm, x_wide
-            )
+            z_s669, z_protherm, z_wide = self.encode_specialists(x_s669, x_protherm, x_wide)
             mu, _ = self.fuse_and_encode(z_s669, z_protherm, z_wide)
             return mu
 

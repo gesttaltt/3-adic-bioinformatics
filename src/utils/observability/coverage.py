@@ -22,7 +22,6 @@ Usage:
 """
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
 
 import torch
 
@@ -38,7 +37,7 @@ class CoverageStats:
     total_possible: int = TERNARY.N_OPERATIONS
 
     # Valuation distribution (how many operations at each tree depth)
-    valuation_histogram: Optional[Dict[int, int]] = None
+    valuation_histogram: dict[int, int] | None = None
 
     @property
     def missing_count(self) -> int:
@@ -69,7 +68,7 @@ class CoverageEvaluator:
         self.device = device
         self.batch_size = batch_size
 
-    def evaluate(self, vae: str = "A", n_samples: int = 10000) -> Tuple[int, float]:
+    def evaluate(self, vae: str = "A", n_samples: int = 10000) -> tuple[int, float]:
         """Evaluate operation coverage.
 
         Uses vectorized torch.unique - O(n log n) instead of O(n) with Python sets,
@@ -139,7 +138,7 @@ class CoverageEvaluator:
             valuation_histogram=valuation_hist,
         )
 
-    def evaluate_union(self, n_samples: int = 10000) -> Tuple[int, float, int, float]:
+    def evaluate_union(self, n_samples: int = 10000) -> tuple[int, float, int, float]:
         """Evaluate coverage for both VAEs and their union.
 
         Args:
@@ -158,7 +157,7 @@ def evaluate_model_coverage(
     device: str = "cuda",
     n_samples: int = 10000,
     vae: str = "A",
-) -> Tuple[int, float]:
+) -> tuple[int, float]:
     """Convenience function for one-off coverage evaluation.
 
     Args:

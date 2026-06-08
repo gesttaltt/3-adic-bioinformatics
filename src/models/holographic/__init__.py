@@ -15,14 +15,14 @@ hyperbolic space. Holographic decoders propagate signals along geodesics,
 making them more parameter-efficient and interpretable.
 """
 
-from src.models.holographic.decoder import (
-    HolographicDecoder,
-    HolographicDecoderConfig,
-)
 from src.models.holographic.bulk_boundary import (
     BulkBoundaryPropagator,
     GeodesicPropagator,
     RadialDecayFunction,
+)
+from src.models.holographic.decoder import (
+    HolographicDecoder,
+    HolographicDecoderConfig,
 )
 
 __all__ = [

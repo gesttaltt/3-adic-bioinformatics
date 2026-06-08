@@ -44,12 +44,10 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 
 
 @dataclass
@@ -117,20 +115,17 @@ class PAdicRNNCell(nn.Module):
         self.U_h = nn.Linear(hidden_dim, hidden_dim, bias=False)
 
         # Per-digit processing (for p-adic structure)
-        self.digit_transforms = nn.ModuleList([
-            nn.Linear(hidden_dim // precision, hidden_dim // precision)
-            for _ in range(precision)
-        ])
+        self.digit_transforms = nn.ModuleList(
+            [nn.Linear(hidden_dim // precision, hidden_dim // precision) for _ in range(precision)]
+        )
 
         # Valuation-based attention
-        self.valuation_attention = nn.Parameter(
-            torch.ones(precision) / precision
-        )
+        self.valuation_attention = nn.Parameter(torch.ones(precision) / precision)
 
     def forward(
         self,
         x: torch.Tensor,
-        h: Optional[torch.Tensor] = None,
+        h: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Forward pass of RNN cell.
 
@@ -252,17 +247,13 @@ class PAdicRNN(nn.Module):
         self.cells = nn.ModuleList()
         for i in range(n_layers):
             cell_input = input_dim if i == 0 else hidden_dim
-            self.cells.append(PAdicRNNCell(
-                cell_input, hidden_dim, p, precision
-            ))
+            self.cells.append(PAdicRNNCell(cell_input, hidden_dim, p, precision))
 
         if bidirectional:
             self.cells_backward = nn.ModuleList()
             for i in range(n_layers):
                 cell_input = input_dim if i == 0 else hidden_dim
-                self.cells_backward.append(PAdicRNNCell(
-                    cell_input, hidden_dim, p, precision
-                ))
+                self.cells_backward.append(PAdicRNNCell(cell_input, hidden_dim, p, precision))
 
         # Output projection
         output_mult = 2 if bidirectional else 1
@@ -273,8 +264,8 @@ class PAdicRNN(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        h0: Optional[List[torch.Tensor]] = None,
-    ) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+        h0: list[torch.Tensor] | None = None,
+    ) -> tuple[torch.Tensor, list[torch.Tensor]]:
         """Forward pass through P-adic RNN.
 
         Args:
@@ -289,8 +280,7 @@ class PAdicRNN(nn.Module):
 
         # Initialize hidden states if not provided
         if h0 is None:
-            h0 = [torch.zeros(batch_size, self.hidden_dim, device=device)
-                  for _ in range(self.n_layers)]
+            h0 = [torch.zeros(batch_size, self.hidden_dim, device=device) for _ in range(self.n_layers)]
 
         # Forward pass
         h_forward = h0
@@ -311,8 +301,7 @@ class PAdicRNN(nn.Module):
 
         # Backward pass if bidirectional
         if self.bidirectional:
-            h_backward = [torch.zeros(batch_size, self.hidden_dim, device=device)
-                          for _ in range(self.n_layers)]
+            h_backward = [torch.zeros(batch_size, self.hidden_dim, device=device) for _ in range(self.n_layers)]
             outputs_backward = []
 
             for t in range(seq_len - 1, -1, -1):
@@ -402,9 +391,7 @@ class ErgodicPredictor(nn.Module):
         self.dynamics_coeffs = nn.Parameter(torch.randn(3, hidden_dim))
 
         # Ergodic averaging weights (learned)
-        self.averaging_weights = nn.Parameter(
-            torch.ones(averaging_window) / averaging_window
-        )
+        self.averaging_weights = nn.Parameter(torch.ones(averaging_window) / averaging_window)
 
         # Output projection
         self.output_net = nn.Sequential(
@@ -415,10 +402,7 @@ class ErgodicPredictor(nn.Module):
 
         # Haar measure prior (for p-adic integration)
         if use_haar_prior:
-            self.register_buffer(
-                "haar_weights",
-                self._compute_haar_weights(hidden_dim)
-            )
+            self.register_buffer("haar_weights", self._compute_haar_weights(hidden_dim))
 
     def _compute_haar_weights(self, dim: int) -> torch.Tensor:
         """Compute discretized Haar measure weights.
@@ -436,7 +420,7 @@ class ErgodicPredictor(nn.Module):
         for i in range(dim):
             # Weight inversely proportional to p-adic "level"
             level = i % self.p
-            weights[i] = 1.0 / (self.p ** level)
+            weights[i] = 1.0 / (self.p**level)
 
         return weights / weights.sum()
 
@@ -458,7 +442,7 @@ class ErgodicPredictor(nn.Module):
         """
         a0, a1, a2 = self.dynamics_coeffs[0], self.dynamics_coeffs[1], self.dynamics_coeffs[2]
 
-        return a0 + a1 * x + a2 * (x ** 2)
+        return a0 + a1 * x + a2 * (x**2)
 
     def ergodic_average(
         self,
@@ -495,7 +479,7 @@ class ErgodicPredictor(nn.Module):
         self,
         x: torch.Tensor,
         return_trajectory: bool = False,
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """Forward pass with ergodic prediction.
 
         Args:
@@ -589,7 +573,7 @@ class MutationDynamicsPredictor(nn.Module):
     def forward(
         self,
         sequence: torch.Tensor,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Predict mutation trajectory.
 
         Args:

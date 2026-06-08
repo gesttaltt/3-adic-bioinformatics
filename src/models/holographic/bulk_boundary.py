@@ -24,7 +24,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -300,7 +299,7 @@ class BulkBoundaryPropagator(nn.Module):
       output[i] = sum_j K(d(bulk, boundary[j])) * W[j] * bulk
     """
 
-    def __init__(self, config: Optional[PropagatorConfig] = None):
+    def __init__(self, config: PropagatorConfig | None = None):
         """Initialize bulk-to-boundary propagator.
 
         Args:
@@ -329,9 +328,7 @@ class BulkBoundaryPropagator(nn.Module):
 
         # Angular harmonics for position-dependent modulation
         # Encodes "where" on the boundary we're looking
-        self.position_encoding = nn.Parameter(
-            torch.randn(self.config.n_harmonics, self.config.latent_dim) * 0.02
-        )
+        self.position_encoding = nn.Parameter(torch.randn(self.config.n_harmonics, self.config.latent_dim) * 0.02)
 
         # Combine radial and angular information
         self.combine = nn.Linear(
@@ -343,7 +340,7 @@ class BulkBoundaryPropagator(nn.Module):
         self,
         bulk_points: torch.Tensor,
         n_boundary_points: int,
-        boundary_positions: Optional[torch.Tensor] = None,
+        boundary_positions: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Propagate bulk field to boundary.
 
@@ -361,14 +358,10 @@ class BulkBoundaryPropagator(nn.Module):
 
         # Generate boundary positions if not provided
         if boundary_positions is None:
-            boundary_positions = self._generate_boundary_positions(
-                batch_size, n_boundary_points, device
-            )
+            boundary_positions = self._generate_boundary_positions(batch_size, n_boundary_points, device)
 
         # Compute geodesic distances from bulk to each boundary position
-        distances = self.geodesic.poincare_distance(
-            bulk_points, boundary_positions
-        )  # (batch, n_positions)
+        distances = self.geodesic.poincare_distance(bulk_points, boundary_positions)  # (batch, n_positions)
 
         # Compute decay factors
         decay_factors = self.decay(distances)  # (batch, n_positions)
@@ -385,9 +378,7 @@ class BulkBoundaryPropagator(nn.Module):
 
         # Compute angular harmonics for each position
         # This encodes position-specific information
-        angular = self._compute_angular_harmonics(
-            bulk_points, boundary_positions
-        )  # (batch, n_positions, n_harmonics)
+        angular = self._compute_angular_harmonics(bulk_points, boundary_positions)  # (batch, n_positions, n_harmonics)
 
         # Combine radial and angular
         combined = torch.cat([radial_contribution, angular], dim=-1)
@@ -416,7 +407,8 @@ class BulkBoundaryPropagator(nn.Module):
         """
         # Generate angles uniformly around the circle
         angles = torch.linspace(
-            0, 2 * torch.pi * (1 - 1 / n_positions),
+            0,
+            2 * torch.pi * (1 - 1 / n_positions),
             n_positions,
             device=device,
         )
@@ -427,9 +419,7 @@ class BulkBoundaryPropagator(nn.Module):
         y = self.config.max_radius * torch.sin(angles)
 
         # Embed in full latent dimension
-        boundary = torch.zeros(
-            n_positions, self.config.latent_dim, device=device
-        )
+        boundary = torch.zeros(n_positions, self.config.latent_dim, device=device)
         boundary[:, 0] = x
         boundary[:, 1] = y
 

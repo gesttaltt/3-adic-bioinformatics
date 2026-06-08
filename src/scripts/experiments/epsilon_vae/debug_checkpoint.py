@@ -3,17 +3,16 @@
 
 import sys
 from pathlib import Path
-import torch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.models import TernaryVAEV5_11_PartialFreeze
-from src.utils.checkpoint import load_checkpoint_compat, get_model_state_dict
+from src.utils.checkpoint import get_model_state_dict, load_checkpoint_compat
 
 
 def main():
-    device = 'cpu'
+    device = "cpu"
 
     ckpt_path = PROJECT_ROOT / "checkpoints/v5_11_homeostasis/best.pt"
     print(f"Checkpoint: {ckpt_path}")
@@ -30,13 +29,18 @@ def main():
     print(f"Total keys: {len(model_state)}")
 
     # Check config if present
-    if 'config' in ckpt:
+    if "config" in ckpt:
         print(f"\nStored config: {ckpt['config']}")
 
     # Create model and check expected keys
     model = TernaryVAEV5_11_PartialFreeze(
-        latent_dim=16, hidden_dim=64, max_radius=0.99, curvature=2.0,
-        use_controller=False, use_dual_projection=True, freeze_encoder_b=False,
+        latent_dim=16,
+        hidden_dim=64,
+        max_radius=0.99,
+        curvature=2.0,
+        use_controller=False,
+        use_dual_projection=True,
+        freeze_encoder_b=False,
     )
 
     expected_keys = set(model.state_dict().keys())
@@ -68,14 +72,14 @@ def main():
 
     # Check if there's hidden_dim mismatch
     print("\n=== Checking dimensions ===")
-    for key in ['encoder_A.layers.0.weight', 'encoder_B.layers.0.weight', 'decoder_A.layers.0.weight']:
+    for key in ["encoder_A.layers.0.weight", "encoder_B.layers.0.weight", "decoder_A.layers.0.weight"]:
         if key in model_state:
             print(f"Loaded {key}: {model_state[key].shape}")
 
-    for key in ['encoder_A.layers.0.weight', 'encoder_B.layers.0.weight', 'decoder_A.layers.0.weight']:
+    for key in ["encoder_A.layers.0.weight", "encoder_B.layers.0.weight", "decoder_A.layers.0.weight"]:
         if key in model.state_dict():
             print(f"Expected {key}: {model.state_dict()[key].shape}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

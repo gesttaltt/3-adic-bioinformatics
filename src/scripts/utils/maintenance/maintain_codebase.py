@@ -66,7 +66,7 @@ def add_words_to_dictionary(words):
         settings = {CSPELL_KEY: []}
     else:
         try:
-            with open(SETTINGS_FILE, "r") as f:
+            with open(SETTINGS_FILE) as f:
                 settings = json.load(f)
         except json.JSONDecodeError:
             settings = {CSPELL_KEY: []}
@@ -160,7 +160,7 @@ def run_integrity_audit():
 
 def _check_file_integrity(path, pattern, missing_files_list):
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             content = f.read()
             matches = pattern.findall(content)
             for match in matches:
@@ -181,9 +181,7 @@ def _dependency_exists(source_path, filename):
     if (source_path.parent / filename).exists():
         return True
     # Check relative to project root
-    if (PROJECT_ROOT / filename).exists():
-        return True
-    return False
+    return bool((PROJECT_ROOT / filename).exists())
 
 
 def clean_artifacts():
@@ -242,7 +240,7 @@ def main():
     if auto_vocab_file.exists():
         print(f"Found auto-generated vocabulary: {auto_vocab_file}")
         try:
-            with open(auto_vocab_file, "r", encoding="utf-8") as f:
+            with open(auto_vocab_file, encoding="utf-8") as f:
                 auto_terms = [line.strip() for line in f if line.strip()]
             print(f"Loaded {len(auto_terms)} terms from scan.")
             BIO_TERMS.extend(auto_terms)

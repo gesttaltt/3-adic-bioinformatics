@@ -31,12 +31,12 @@ from sklearn.manifold import TSNE
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config.paths import CHECKPOINTS_DIR, OUTPUT_DIR
 from scripts.epsilon_vae.extract_embeddings import (
-    load_model_from_checkpoint,
     select_anchor_operations,
 )
 from scripts.epsilon_vae.train_epsilon_vae_hybrid import HybridEpsilonVAE
+
+from src.config.paths import CHECKPOINTS_DIR, OUTPUT_DIR
 from src.models.epsilon_vae import extract_key_weights
 
 
@@ -86,11 +86,7 @@ def extract_weights_from_checkpoint(checkpoint_path: Path, device: str = "cpu"):
         ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
         model_state = (
-            ckpt.get("model_state_dict") or
-            ckpt.get("model_state") or
-            ckpt.get("state_dict") or
-            ckpt.get("model") or
-            {}
+            ckpt.get("model_state_dict") or ckpt.get("model_state") or ckpt.get("state_dict") or ckpt.get("model") or {}
         )
 
         if not model_state:
@@ -174,7 +170,7 @@ def analyze_run(
         weights, actual_metrics = extract_weights_from_checkpoint(ckpt_path, device)
 
         if weights is None:
-            print(f"    Skipping - failed to extract weights")
+            print("    Skipping - failed to extract weights")
             continue
 
         # Check weight dimension
@@ -197,11 +193,13 @@ def analyze_run(
         trajectory["latent_z"].append(z.cpu().numpy().squeeze())
         trajectory["predicted_embeddings"].append(pred_embeddings.cpu().numpy().squeeze())
         trajectory["predicted_metrics"].append(pred_metrics.cpu().numpy().squeeze())
-        trajectory["actual_metrics"].append({
-            "coverage": actual_metrics.get("coverage", 0.0),
-            "distance_corr_A": actual_metrics.get("distance_corr_A", 0.0),
-            "radial_corr_A": actual_metrics.get("radial_corr_A", 0.0),
-        })
+        trajectory["actual_metrics"].append(
+            {
+                "coverage": actual_metrics.get("coverage", 0.0),
+                "distance_corr_A": actual_metrics.get("distance_corr_A", 0.0),
+                "radial_corr_A": actual_metrics.get("radial_corr_A", 0.0),
+            }
+        )
         trajectory["checkpoint_paths"].append(str(ckpt_path))
 
     # Convert to arrays
@@ -306,21 +304,29 @@ def visualize_trajectories(
         epochs = traj["epochs"]
 
         # Plot trajectory
-        ax1.plot(points[:, 0], points[:, 1], 'o-',
-                color=colors[i], label=traj["run_name"],
-                markersize=6, linewidth=2, alpha=0.8)
+        ax1.plot(
+            points[:, 0],
+            points[:, 1],
+            "o-",
+            color=colors[i],
+            label=traj["run_name"],
+            markersize=6,
+            linewidth=2,
+            alpha=0.8,
+        )
 
         # Mark start and end
-        ax1.scatter(points[0, 0], points[0, 1], s=150, c=[colors[i]],
-                   marker='s', edgecolors='black', linewidths=2, zorder=5)
-        ax1.scatter(points[-1, 0], points[-1, 1], s=150, c=[colors[i]],
-                   marker='*', edgecolors='black', linewidths=2, zorder=5)
+        ax1.scatter(
+            points[0, 0], points[0, 1], s=150, c=[colors[i]], marker="s", edgecolors="black", linewidths=2, zorder=5
+        )
+        ax1.scatter(
+            points[-1, 0], points[-1, 1], s=150, c=[colors[i]], marker="*", edgecolors="black", linewidths=2, zorder=5
+        )
 
         # Add epoch labels
         for j, (x, y) in enumerate(points):
             epoch_label = "best" if epochs[j] == -1 else str(epochs[j])
-            ax1.annotate(epoch_label, (x, y), textcoords="offset points",
-                        xytext=(5, 5), fontsize=8, alpha=0.7)
+            ax1.annotate(epoch_label, (x, y), textcoords="offset points", xytext=(5, 5), fontsize=8, alpha=0.7)
 
         start_idx = end_idx
 
@@ -340,13 +346,25 @@ def visualize_trajectories(
         # Replace -1 (best) with max epoch + 10 for plotting
         plot_epochs = np.where(epochs == -1, epochs.max() + 10, epochs)
 
-        ax2.plot(plot_epochs, pred_metrics[:, 0], 'o-',
-                color=colors[i], label=f"{traj['run_name']} coverage",
-                linewidth=2, markersize=6)
-        ax2.plot(plot_epochs, pred_metrics[:, 1], 's--',
-                color=colors[i], alpha=0.6,
-                label=f"{traj['run_name']} dist_corr",
-                linewidth=2, markersize=6)
+        ax2.plot(
+            plot_epochs,
+            pred_metrics[:, 0],
+            "o-",
+            color=colors[i],
+            label=f"{traj['run_name']} coverage",
+            linewidth=2,
+            markersize=6,
+        )
+        ax2.plot(
+            plot_epochs,
+            pred_metrics[:, 1],
+            "s--",
+            color=colors[i],
+            alpha=0.6,
+            label=f"{traj['run_name']} dist_corr",
+            linewidth=2,
+            markersize=6,
+        )
 
     ax2.set_xlabel("Epoch")
     ax2.set_ylabel("Predicted Metric Value")
@@ -369,13 +387,25 @@ def visualize_trajectories(
         epochs = np.array(traj["epochs"])
         plot_epochs = np.where(epochs == -1, epochs.max() + 10, epochs)
 
-        ax.plot(plot_epochs, pred_coverage, 'o-',
-               color=colors[i], label=f"{traj['run_name']} predicted",
-               linewidth=2, markersize=6)
-        ax.plot(plot_epochs, actual_coverage, 's--',
-               color=colors[i], alpha=0.6,
-               label=f"{traj['run_name']} actual",
-               linewidth=2, markersize=4)
+        ax.plot(
+            plot_epochs,
+            pred_coverage,
+            "o-",
+            color=colors[i],
+            label=f"{traj['run_name']} predicted",
+            linewidth=2,
+            markersize=6,
+        )
+        ax.plot(
+            plot_epochs,
+            actual_coverage,
+            "s--",
+            color=colors[i],
+            alpha=0.6,
+            label=f"{traj['run_name']} actual",
+            linewidth=2,
+            markersize=4,
+        )
 
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Coverage")
@@ -408,20 +438,20 @@ def visualize_embedding_evolution(trajectory: dict, output_dir: Path):
         return
 
     # Select a few key epochs to visualize
-    key_indices = [0, len(epochs)//2, -1]
+    key_indices = [0, len(epochs) // 2, -1]
     key_embeddings = [embeddings[i] for i in key_indices]
     key_epochs = [epochs[i] for i in key_indices]
 
     # Reduce all embeddings for context
     all_flat = embeddings.reshape(len(embeddings), -1)
     pca = PCA(n_components=2)
-    all_2d = pca.fit_transform(all_flat)
+    pca.fit_transform(all_flat)
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-    for ax, emb, epoch in zip(axes, key_embeddings, key_epochs):
+    for ax, emb, epoch in zip(axes, key_embeddings, key_epochs, strict=False):
         # Each embedding is (256, 16) - show as image
-        im = ax.imshow(emb.T, aspect='auto', cmap='RdBu_r')
+        im = ax.imshow(emb.T, aspect="auto", cmap="RdBu_r")
         epoch_label = "best" if epoch == -1 else f"epoch {epoch}"
         ax.set_title(f"{run_name}\n{epoch_label}")
         ax.set_xlabel("Anchor Index")
@@ -437,20 +467,20 @@ def visualize_embedding_evolution(trajectory: dict, output_dir: Path):
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze progressive checkpoints with Epsilon-VAE")
-    parser.add_argument("--epsilon_vae_path", type=str,
-                       default=str(OUTPUT_DIR / "epsilon_vae_hybrid_models" / "best.pt"),
-                       help="Path to trained Epsilon-VAE")
-    parser.add_argument("--checkpoint_dir", type=str,
-                       default=str(CHECKPOINTS_DIR),
-                       help="Root checkpoint directory")
-    parser.add_argument("--output_dir", type=str,
-                       default=str(OUTPUT_DIR / "epsilon_vae_analysis"),
-                       help="Output directory for results")
-    parser.add_argument("--runs", nargs="+",
-                       default=["progressive_tiny_lr", "progressive_conservative"],
-                       help="Run names to analyze")
-    parser.add_argument("--device", type=str, default="cuda",
-                       help="Device to use")
+    parser.add_argument(
+        "--epsilon_vae_path",
+        type=str,
+        default=str(OUTPUT_DIR / "epsilon_vae_hybrid_models" / "best.pt"),
+        help="Path to trained Epsilon-VAE",
+    )
+    parser.add_argument("--checkpoint_dir", type=str, default=str(CHECKPOINTS_DIR), help="Root checkpoint directory")
+    parser.add_argument(
+        "--output_dir", type=str, default=str(OUTPUT_DIR / "epsilon_vae_analysis"), help="Output directory for results"
+    )
+    parser.add_argument(
+        "--runs", nargs="+", default=["progressive_tiny_lr", "progressive_conservative"], help="Run names to analyze"
+    )
+    parser.add_argument("--device", type=str, default="cuda", help="Device to use")
     args = parser.parse_args()
 
     epsilon_vae_path = Path(args.epsilon_vae_path)
@@ -462,18 +492,18 @@ def main():
     print(f"Using device: {device}")
 
     # Load Epsilon-VAE
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("LOADING EPSILON-VAE")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     epsilon_vae, config = load_epsilon_vae(epsilon_vae_path, device)
 
     # Load anchor operations
     anchor_ops = select_anchor_operations(config["n_anchors"])
 
     # Analyze each run
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("ANALYZING TRAINING RUNS")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     trajectories = []
     for run_name in args.runs:
@@ -493,9 +523,9 @@ def main():
         return
 
     # Compute trajectory metrics
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("TRAJECTORY METRICS")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     all_metrics = []
     for traj in trajectories:
@@ -506,8 +536,12 @@ def main():
         print(f"\n{traj['run_name']}:")
         print(f"  Trajectory length: {metrics['trajectory_length']:.3f}")
         print(f"  Efficiency: {metrics['efficiency']:.3f}")
-        print(f"  Coverage: {metrics['coverage_start']:.3f} -> {metrics['coverage_end']:.3f} (delta: {metrics['coverage_delta']:+.3f})")
-        print(f"  Dist Corr: {metrics['dist_corr_start']:.3f} -> {metrics['dist_corr_end']:.3f} (delta: {metrics['dist_corr_delta']:+.3f})")
+        print(
+            f"  Coverage: {metrics['coverage_start']:.3f} -> {metrics['coverage_end']:.3f} (delta: {metrics['coverage_delta']:+.3f})"
+        )
+        print(
+            f"  Dist Corr: {metrics['dist_corr_start']:.3f} -> {metrics['dist_corr_end']:.3f} (delta: {metrics['dist_corr_delta']:+.3f})"
+        )
 
     # Save metrics (convert numpy types to Python types)
     def convert_numpy(obj):
@@ -523,9 +557,9 @@ def main():
         json.dump([convert_numpy(m) for m in all_metrics], f, indent=2)
 
     # Visualize
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("GENERATING VISUALIZATIONS")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     visualize_trajectories(trajectories, output_dir)
 
@@ -533,25 +567,25 @@ def main():
         visualize_embedding_evolution(traj, output_dir)
 
     # Print sample predictions
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("SAMPLE PREDICTIONS")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     for traj in trajectories:
         print(f"\n{traj['run_name']}:")
-        for i, (epoch, pred, actual) in enumerate(zip(
-            traj["epochs"],
-            traj["predicted_metrics"],
-            traj["actual_metrics"]
-        )):
+        for _i, (epoch, pred, actual) in enumerate(
+            zip(traj["epochs"], traj["predicted_metrics"], traj["actual_metrics"], strict=False)
+        ):
             epoch_label = "best" if epoch == -1 else f"epoch_{epoch}"
             print(f"\n  [{epoch_label}]")
             print(f"    Predicted: cov={pred[0]:.3f}, dist={pred[1]:.3f}, rad={pred[2]:.3f}")
-            print(f"    Actual:    cov={actual['coverage']:.3f}, dist={actual['distance_corr_A']:.3f}, rad={actual['radial_corr_A']:.3f}")
+            print(
+                f"    Actual:    cov={actual['coverage']:.3f}, dist={actual['distance_corr_A']:.3f}, rad={actual['radial_corr_A']:.3f}"
+            )
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"Analysis complete! Results saved to {output_dir}")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
 
 if __name__ == "__main__":

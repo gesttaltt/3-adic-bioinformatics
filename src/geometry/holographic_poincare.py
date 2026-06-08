@@ -20,7 +20,6 @@ Research Reference:
 """
 
 import math
-from typing import Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -43,7 +42,7 @@ class BoundaryPoint:
         self,
         direction: torch.Tensor,
         conformal_weight: float = 1.0,
-        encoded_info: Optional[torch.Tensor] = None,
+        encoded_info: torch.Tensor | None = None,
     ):
         """Initialize boundary point.
 
@@ -112,7 +111,7 @@ class HolographicPoincareManifold(PoincareModule):
         self,
         z: torch.Tensor,
         eps: float = 1e-6,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Project bulk points to boundary while preserving information.
 
         Uses conformal mapping to encode bulk information in boundary data.
@@ -130,7 +129,7 @@ class HolographicPoincareManifold(PoincareModule):
         # V5.12.2: Use poincare_distance for proper hyperbolic radial coordinate
         origin = torch.zeros_like(z)
         hyp_dist = poincare_distance(z, origin, c=self.c).unsqueeze(-1)
-        max_hyp_dist = float("inf")  # In hyperbolic space, distance to boundary is infinite
+        float("inf")  # In hyperbolic space, distance to boundary is infinite
         # Normalize by arctanh of max_norm for finite ratio
         radial_info = hyp_dist / (torch.arctanh(torch.tensor(self.max_norm)) + eps)
 
@@ -368,7 +367,7 @@ class HolographicPoincareManifold(PoincareModule):
     def bulk_boundary_correspondence(
         self,
         bulk_points: torch.Tensor,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Compute full AdS/CFT-like correspondence data.
 
         Args:
@@ -389,9 +388,7 @@ class HolographicPoincareManifold(PoincareModule):
         # Reconstruction error - compare with original bulk points
         # reconstructed is (B, latent_dim), bulk_points is (B, dim)
         min_dim = min(reconstructed.shape[1], bulk_points.shape[1])
-        recon_error = F.mse_loss(
-            reconstructed[:, :min_dim], bulk_points[:, :min_dim], reduction="none"
-        ).mean(dim=-1)
+        recon_error = F.mse_loss(reconstructed[:, :min_dim], bulk_points[:, :min_dim], reduction="none").mean(dim=-1)
 
         # Horizon entropy
         entropy = self.horizon_entropy(bulk_points)
@@ -436,9 +433,7 @@ class HolographicPoincareManifold(PoincareModule):
             radius = torch.sqrt(1 - y * y)
             theta = phi * idx
 
-            points = torch.stack(
-                [torch.cos(theta) * radius, y, torch.sin(theta) * radius], dim=1
-            )
+            points = torch.stack([torch.cos(theta) * radius, y, torch.sin(theta) * radius], dim=1)
             return points
 
         else:
@@ -474,9 +469,7 @@ class HolographicLoss(nn.Module):
             boundary_resolution: Resolution for boundary encoding
         """
         super().__init__()
-        self.manifold = HolographicPoincareManifold(
-            c=c, latent_dim=latent_dim, boundary_resolution=boundary_resolution
-        )
+        self.manifold = HolographicPoincareManifold(c=c, latent_dim=latent_dim, boundary_resolution=boundary_resolution)
         self.reconstruction_weight = reconstruction_weight
         self.entropy_weight = entropy_weight
         self.consistency_weight = consistency_weight
@@ -484,8 +477,8 @@ class HolographicLoss(nn.Module):
     def forward(
         self,
         z: torch.Tensor,
-        z_target: Optional[torch.Tensor] = None,
-    ) -> Dict[str, torch.Tensor]:
+        z_target: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Compute holographic loss.
 
         Args:
@@ -581,11 +574,9 @@ class HolographicProjection(nn.Module):
 
         # Holographic enhancement layer - use 16 samples for encoding
         self.n_boundary_samples = 16
-        self.holographic_enhance = nn.Linear(
-            output_dim + self.n_boundary_samples, output_dim
-        )
+        self.holographic_enhance = nn.Linear(output_dim + self.n_boundary_samples, output_dim)
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
         """Project input with holographic enhancement.
 
         Args:

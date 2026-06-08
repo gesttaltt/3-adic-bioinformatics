@@ -10,23 +10,23 @@ Author: Claude Code
 Date: December 28, 2024
 """
 
-import sys
+import gc
 import io
 import json
+import sys
+import warnings
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from pathlib import Path
-from typing import Dict, List, Tuple
 from scipy.stats import spearmanr
-import warnings
-import gc
 
 # Fix Windows encoding
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-warnings.filterwarnings('ignore')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+warnings.filterwarnings("ignore")
 
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -39,7 +39,8 @@ RESULTS_DIR.mkdir(exist_ok=True)
 # DATA LOADING
 # =============================================================================
 
-def load_stanford_data(drug: str, gene: str = "PI") -> Tuple[np.ndarray, List[str]]:
+
+def load_stanford_data(drug: str, gene: str = "PI") -> tuple[np.ndarray, list[str]]:
     """Load Stanford HIVDB data for a specific drug."""
     gene_files = {
         "PI": "stanford_hivdb_pi.txt",
@@ -58,7 +59,7 @@ def load_stanford_data(drug: str, gene: str = "PI") -> Tuple[np.ndarray, List[st
     # Find sequence column
     seq_col = None
     for col in df.columns:
-        if 'seq' in col.lower():
+        if "seq" in col.lower():
             seq_col = col
             break
     if seq_col is None:
@@ -76,8 +77,8 @@ def load_stanford_data(drug: str, gene: str = "PI") -> Tuple[np.ndarray, List[st
 
     # Filter rows with valid data
     df = df[[seq_col, drug_col]].dropna()
-    df = df[df[drug_col] != '']
-    df[drug_col] = pd.to_numeric(df[drug_col], errors='coerce')
+    df = df[df[drug_col] != ""]
+    df[drug_col] = pd.to_numeric(df[drug_col], errors="coerce")
     df = df.dropna()
 
     if len(df) == 0:
@@ -89,8 +90,8 @@ def load_stanford_data(drug: str, gene: str = "PI") -> Tuple[np.ndarray, List[st
     # Clean sequences
     cleaned_sequences = []
     for seq in raw_sequences:
-        seq = str(seq).upper().replace('.', '-').replace('~', '-').replace('*', 'X')
-        seq = ''.join(c if c in 'ACDEFGHIKLMNPQRSTVWY-X' else 'X' for c in seq)
+        seq = str(seq).upper().replace(".", "-").replace("~", "-").replace("*", "X")
+        seq = "".join(c if c in "ACDEFGHIKLMNPQRSTVWY-X" else "X" for c in seq)
         cleaned_sequences.append(seq)
 
     return resistances, cleaned_sequences
@@ -100,29 +101,18 @@ def load_stanford_data(drug: str, gene: str = "PI") -> Tuple[np.ndarray, List[st
 # ESM-2 EMBEDDER
 # =============================================================================
 
+
 class ESM2Embedder:
     """Extract ESM-2 embeddings with support for large models."""
 
     MODELS = {
-        "small": {
-            "name": "facebook/esm2_t6_8M_UR50D",
-            "dim": 320,
-            "params": "8M"
-        },
-        "medium": {
-            "name": "facebook/esm2_t12_35M_UR50D",
-            "dim": 480,
-            "params": "35M"
-        },
-        "large": {
-            "name": "facebook/esm2_t33_650M_UR50D",
-            "dim": 1280,
-            "params": "650M"
-        },
+        "small": {"name": "facebook/esm2_t6_8M_UR50D", "dim": 320, "params": "8M"},
+        "medium": {"name": "facebook/esm2_t12_35M_UR50D", "dim": 480, "params": "35M"},
+        "large": {"name": "facebook/esm2_t33_650M_UR50D", "dim": 1280, "params": "650M"},
     }
 
     def __init__(self, model_size: str = "small", device: str = None, half_precision: bool = False):
-        from transformers import AutoTokenizer, AutoModel
+        from transformers import AutoModel, AutoTokenizer
 
         if model_size not in self.MODELS:
             raise ValueError(f"Unknown model size: {model_size}")
@@ -136,8 +126,8 @@ class ESM2Embedder:
         print(f"  Device: {self.device}")
         print(f"  Half precision: {self.half_precision}")
 
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_info['name'])
-        self.model = AutoModel.from_pretrained(self.model_info['name'])
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_info["name"])
+        self.model = AutoModel.from_pretrained(self.model_info["name"])
 
         if self.half_precision:
             self.model = self.model.half()
@@ -146,15 +136,15 @@ class ESM2Embedder:
         self.model = self.model.to(self.device)
         self.model.eval()
 
-        self.embedding_dim = self.model_info['dim']
+        self.embedding_dim = self.model_info["dim"]
         print(f"  Embedding dim: {self.embedding_dim}")
         print("  Model loaded successfully!")
 
-    def embed_sequences(self, sequences: List[str], batch_size: int = None) -> np.ndarray:
+    def embed_sequences(self, sequences: list[str], batch_size: int = None) -> np.ndarray:
         """Embed multiple sequences."""
         # Adjust batch size based on model size
         if batch_size is None:
-            if self.model_info['params'] == "650M":
+            if self.model_info["params"] == "650M":
                 batch_size = 4  # Smaller batches for large model
             else:
                 batch_size = 16
@@ -163,18 +153,14 @@ class ESM2Embedder:
         total = len(sequences)
 
         for i in range(0, total, batch_size):
-            batch = sequences[i:i + batch_size]
+            batch = sequences[i : i + batch_size]
 
             # Clean sequences (remove gaps for ESM-2)
-            clean_batch = [s.replace('-', '').replace('X', 'A') for s in batch]
+            clean_batch = [s.replace("-", "").replace("X", "A") for s in batch]
 
-            inputs = self.tokenizer(
-                clean_batch,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=512
-            ).to(self.device)
+            inputs = self.tokenizer(clean_batch, return_tensors="pt", padding=True, truncation=True, max_length=512).to(
+                self.device
+            )
 
             with torch.no_grad():
                 if self.half_precision:
@@ -195,7 +181,7 @@ class ESM2Embedder:
                 print(f"  Embedded {min(i + batch_size, total)}/{total}")
 
             # Clear cache for large model
-            if self.model_info['params'] == "650M":
+            if self.model_info["params"] == "650M":
                 torch.cuda.empty_cache()
 
         return np.vstack(embeddings)
@@ -211,6 +197,7 @@ class ESM2Embedder:
 # =============================================================================
 # VAE MODEL
 # =============================================================================
+
 
 class ESM2VAE(nn.Module):
     """VAE using ESM-2 embeddings as input."""
@@ -272,6 +259,7 @@ class ESM2VAE(nn.Module):
 # TRAINING
 # =============================================================================
 
+
 def listmle_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """ListMLE ranking loss."""
     sorted_idx = torch.argsort(target, descending=True)
@@ -288,13 +276,7 @@ def listmle_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     return total_loss / n
 
 
-def train_and_evaluate(
-    X: np.ndarray,
-    y: np.ndarray,
-    esm_dim: int,
-    epochs: int = 100,
-    verbose: bool = True
-) -> float:
+def train_and_evaluate(X: np.ndarray, y: np.ndarray, esm_dim: int, epochs: int = 100, verbose: bool = True) -> float:
     """Train VAE and return best test correlation."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -347,6 +329,7 @@ def train_and_evaluate(
 # =============================================================================
 # MAIN EXPERIMENT
 # =============================================================================
+
 
 def main():
     print("=" * 70)
@@ -440,6 +423,7 @@ def main():
             except Exception as e:
                 print(f"  ERROR: {e}")
                 import traceback
+
                 traceback.print_exc()
                 results["large_650M"][drug] = 0.0
 
@@ -475,9 +459,11 @@ def main():
         print(f"{drug:<8} {small:>+14.3f} {large:>+16.3f} {imp_str:>12}")
 
     # Average improvement
-    valid_pairs = [(results["small_8M"].get(d, 0), results["large_650M"].get(d, 0))
-                   for d in problem_drugs
-                   if results["small_8M"].get(d, 0) > 0 and results["large_650M"].get(d, 0) > 0]
+    valid_pairs = [
+        (results["small_8M"].get(d, 0), results["large_650M"].get(d, 0))
+        for d in problem_drugs
+        if results["small_8M"].get(d, 0) > 0 and results["large_650M"].get(d, 0) > 0
+    ]
 
     if valid_pairs:
         avg_small = np.mean([p[0] for p in valid_pairs])
@@ -489,7 +475,7 @@ def main():
 
     # Save results
     output_file = RESULTS_DIR / "esm2_model_comparison.json"
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
     print(f"\nResults saved to: {output_file}")
 

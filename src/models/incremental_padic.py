@@ -22,13 +22,11 @@ Usage:
 import argparse
 import json
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -46,11 +44,7 @@ def load_baseline_model(checkpoint_path: Path, device: str = "cpu"):
     """Load the v5_11_progressive baseline model."""
     ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
-    model_state = (
-        ckpt.get("model_state_dict") or
-        ckpt.get("model_state") or
-        {}
-    )
+    model_state = ckpt.get("model_state_dict") or ckpt.get("model_state") or {}
 
     latent_dim = 16
     for key, value in model_state.items():
@@ -93,7 +87,7 @@ def generate_fractional_operations(p: float, base_ops: np.ndarray, seed: int = 4
     rng = np.random.RandomState(seed)
 
     n_base = len(base_ops)  # 19683
-    n_target = int(np.floor(p ** 9))
+    n_target = int(np.floor(p**9))
     n_additional = n_target - n_base
 
     if n_additional <= 0:
@@ -161,7 +155,7 @@ def compute_dual_coverage(model, base_ops: torch.Tensor, extended_ops: torch.Ten
         # Check for collisions in extended space
         dists = torch.cdist(z_ext, z_ext)
         mask = torch.eye(len(z_ext), device=device).bool()
-        dists.masked_fill_(mask, float('inf'))
+        dists.masked_fill_(mask, float("inf"))
         min_dists = dists.min(dim=1)[0]
         collisions = (min_dists < 0.01).sum().item()
 
@@ -213,7 +207,7 @@ def train_incremental(
     extended_tensor = torch.tensor(extended_ops, dtype=torch.float32)
 
     # Save reference encoder state (to constrain drift)
-    reference_state = {k: v.clone() for k, v in model.state_dict().items() if "encoder" in k}
+    {k: v.clone() for k, v in model.state_dict().items() if "encoder" in k}
 
     # Only train projection layers (freeze encoder initially)
     trainable_params = []
@@ -229,7 +223,7 @@ def train_incremental(
 
     # Initial evaluation (before training decision)
     init_metrics = compute_dual_coverage(model, base_tensor, extended_tensor, device)
-    print(f"\nInitial metrics:")
+    print("\nInitial metrics:")
     print(f"  Base coverage: {init_metrics['coverage_base']:.4f}")
     print(f"  Extended coverage: {init_metrics['coverage_extended']:.4f}")
 
@@ -237,8 +231,12 @@ def train_incremental(
         # No trainable params - just evaluate, model already works
         print("No trainable parameters - model already generalizes!")
         return {
-            "history": {"epochs": [], "coverage_base": [init_metrics["coverage_base"]],
-                       "coverage_extended": [init_metrics["coverage_extended"]], "loss": []},
+            "history": {
+                "epochs": [],
+                "coverage_base": [init_metrics["coverage_base"]],
+                "coverage_extended": [init_metrics["coverage_extended"]],
+                "loss": [],
+            },
             "final_metrics": init_metrics,
             "best_state": model.state_dict(),
         }
@@ -261,7 +259,7 @@ def train_incremental(
     best_extended_coverage = init_metrics["coverage_extended"]
     best_state = model.state_dict().copy()
 
-    print(f"\nTraining with frozen encoder...")
+    print("\nTraining with frozen encoder...")
 
     for epoch in range(epochs):
         model.train()
@@ -296,9 +294,11 @@ def train_incremental(
             history["coverage_base"].append(metrics["coverage_base"])
             history["coverage_extended"].append(metrics["coverage_extended"])
 
-            print(f"Epoch {epoch:3d} | Loss: {avg_loss:.4f} | "
-                  f"Base: {metrics['coverage_base']:.4f} | "
-                  f"Extended: {metrics['coverage_extended']:.4f}")
+            print(
+                f"Epoch {epoch:3d} | Loss: {avg_loss:.4f} | "
+                f"Base: {metrics['coverage_base']:.4f} | "
+                f"Extended: {metrics['coverage_extended']:.4f}"
+            )
 
             # Save best
             if metrics["coverage_extended"] > best_extended_coverage and metrics["coverage_base"] >= 0.99:
@@ -324,26 +324,24 @@ def train_incremental(
 
 def main():
     parser = argparse.ArgumentParser(description="Incremental p-adic expansion")
-    parser.add_argument("--baseline_checkpoint", type=str,
-                       default=str(CHECKPOINTS_DIR / "v5_11_progressive" / "best.pt"))
-    parser.add_argument("--target_p", type=float, default=3.1,
-                       help="Target p value")
-    parser.add_argument("--steps", type=int, default=1,
-                       help="Number of intermediate steps (for gradual increase)")
+    parser.add_argument(
+        "--baseline_checkpoint", type=str, default=str(CHECKPOINTS_DIR / "v5_11_progressive" / "best.pt")
+    )
+    parser.add_argument("--target_p", type=float, default=3.1, help="Target p value")
+    parser.add_argument("--steps", type=int, default=1, help="Number of intermediate steps (for gradual increase)")
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--lr", type=float, default=1e-5)
     parser.add_argument("--device", type=str, default="cuda")
-    parser.add_argument("--output_dir", type=str,
-                       default=str(OUTPUT_DIR / "incremental_padic"))
+    parser.add_argument("--output_dir", type=str, default=str(OUTPUT_DIR / "incremental_padic"))
     args = parser.parse_args()
 
     device = args.device if torch.cuda.is_available() else "cpu"
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("INCREMENTAL P-ADIC EXPANSION")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     print(f"Baseline: {args.baseline_checkpoint}")
     print(f"Target p: {args.target_p}")
     print(f"Device: {device}")
@@ -368,11 +366,11 @@ def main():
     all_results = []
 
     for p in p_values:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"EXPANDING TO p = {p:.4f}")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
 
-        n_ops = int(np.floor(p ** 9))
+        n_ops = int(np.floor(p**9))
         print(f"Target operations: {n_ops:,}")
 
         results = train_incremental(
@@ -384,17 +382,22 @@ def main():
             lr=args.lr,
         )
 
-        all_results.append({
-            "p": p,
-            "metrics": results["final_metrics"],
-        })
+        all_results.append(
+            {
+                "p": p,
+                "metrics": results["final_metrics"],
+            }
+        )
 
         # Save checkpoint
-        torch.save({
-            "p": p,
-            "model_state_dict": results["best_state"],
-            "metrics": results["final_metrics"],
-        }, output_dir / f"checkpoint_p{p:.3f}.pt")
+        torch.save(
+            {
+                "p": p,
+                "model_state_dict": results["best_state"],
+                "metrics": results["final_metrics"],
+            },
+            output_dir / f"checkpoint_p{p:.3f}.pt",
+        )
 
         print(f"\nFinal at p={p:.3f}:")
         print(f"  Base coverage: {results['final_metrics']['coverage_base']:.4f}")
@@ -402,22 +405,29 @@ def main():
         print(f"  Collisions: {results['final_metrics']['collisions']}")
 
     # Summary
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("SUMMARY")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     for r in all_results:
         status = "OK" if r["metrics"]["coverage_base"] >= 0.99 else "DEGRADED"
-        print(f"  p={r['p']:.3f}: base={r['metrics']['coverage_base']:.4f}, "
-              f"extended={r['metrics']['coverage_extended']:.4f}, status={status}")
+        print(
+            f"  p={r['p']:.3f}: base={r['metrics']['coverage_base']:.4f}, "
+            f"extended={r['metrics']['coverage_extended']:.4f}, status={status}"
+        )
 
     # Save summary
     with open(output_dir / "results.json", "w") as f:
-        json.dump({
-            "target_p": args.target_p,
-            "results": all_results,
-            "timestamp": datetime.now().isoformat(),
-        }, f, indent=2, default=float)
+        json.dump(
+            {
+                "target_p": args.target_p,
+                "results": all_results,
+                "timestamp": datetime.now().isoformat(),
+            },
+            f,
+            indent=2,
+            default=float,
+        )
 
     print(f"\nResults saved to {output_dir}")
 

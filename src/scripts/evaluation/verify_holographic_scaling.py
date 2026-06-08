@@ -36,14 +36,12 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn.functional as F
 from scipy import stats
-from scipy.optimize import curve_fit
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -175,7 +173,7 @@ def power_law(x: np.ndarray, alpha: float, c: float) -> np.ndarray:
 def fit_power_law(
     distances: np.ndarray,
     mi_values: np.ndarray,
-) -> Tuple[float, float, float]:
+) -> tuple[float, float, float]:
     """Fit power law to MI vs distance data.
 
     Args:
@@ -202,7 +200,7 @@ def fit_power_law(
 
         exponent = -slope
         coefficient = np.exp(intercept)
-        r_squared = r_value ** 2
+        r_squared = r_value**2
 
         return exponent, coefficient, r_squared
 
@@ -215,7 +213,7 @@ def kolmogorov_smirnov_test(
     distances: np.ndarray,
     mi_values: np.ndarray,
     exponent: float,
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """Test if data follows power law using KS test.
 
     Args:
@@ -247,7 +245,7 @@ def kolmogorov_smirnov_test(
 
 def verify_holographic_scaling(
     embeddings: torch.Tensor,
-    sequences: Optional[List[torch.Tensor]] = None,
+    sequences: list[torch.Tensor] | None = None,
     curvature: float = 1.0,
     n_samples: int = 1000,
     use_sequence_mi: bool = False,
@@ -283,12 +281,10 @@ def verify_holographic_scaling(
     mi_values = []
 
     with torch.no_grad():
-        for i, j in zip(idx1, idx2):
+        for i, j in zip(idx1, idx2, strict=False):
             # Hyperbolic distance
             z1, z2 = embeddings[i], embeddings[j]
-            dist = compute_hyperbolic_distance(
-                z1.unsqueeze(0), z2.unsqueeze(0), curvature
-            ).item()
+            dist = compute_hyperbolic_distance(z1.unsqueeze(0), z2.unsqueeze(0), curvature).item()
             distances.append(dist)
 
             # Mutual information
@@ -359,8 +355,7 @@ def plot_holographic_scaling(
     # Fit line
     x_fit = np.linspace(x.min(), x.max(), 100)
     y_fit = power_law(x_fit, result.scaling_exponent, y.mean() * (x.mean() ** result.scaling_exponent))
-    ax1.plot(x_fit, y_fit, "r-", linewidth=2,
-             label=f"Fit: MI ~ d^{{-{result.scaling_exponent:.2f}}}")
+    ax1.plot(x_fit, y_fit, "r-", linewidth=2, label=f"Fit: MI ~ d^{{-{result.scaling_exponent:.2f}}}")
 
     ax1.set_xscale("log")
     ax1.set_yscale("log")
@@ -372,8 +367,9 @@ def plot_holographic_scaling(
 
     # Plot 2: Residuals
     ax2 = axes[1]
-    log_residuals = np.log(y) - np.log(power_law(x, result.scaling_exponent,
-                                                   y.mean() * (x.mean() ** result.scaling_exponent)))
+    log_residuals = np.log(y) - np.log(
+        power_law(x, result.scaling_exponent, y.mean() * (x.mean() ** result.scaling_exponent))
+    )
     ax2.hist(log_residuals, bins=50, density=True, alpha=0.7)
     ax2.axvline(0, color="r", linestyle="--", label="Expected")
     ax2.set_xlabel("Log Residuals")
@@ -389,8 +385,8 @@ def plot_holographic_scaling(
 
 
 def run_validation(
-    model_path: Optional[Path] = None,
-    data_path: Optional[Path] = None,
+    model_path: Path | None = None,
+    data_path: Path | None = None,
     output_dir: Path = Path("results/holographic_validation"),
     n_synthetic: int = 500,
     curvature: float = 1.0,
@@ -444,11 +440,9 @@ def run_validation(
     distances = []
     mi_values = []
     with torch.no_grad():
-        for i, j in zip(idx1, idx2):
+        for i, j in zip(idx1, idx2, strict=False):
             z1, z2 = embeddings[i], embeddings[j]
-            dist = compute_hyperbolic_distance(
-                z1.unsqueeze(0), z2.unsqueeze(0), curvature
-            ).item()
+            dist = compute_hyperbolic_distance(z1.unsqueeze(0), z2.unsqueeze(0), curvature).item()
             distances.append(dist)
             mi_values.append(estimate_mi_from_embeddings(z1, z2))
 
@@ -544,9 +538,7 @@ def generate_synthetic_holographic_data(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Verify holographic scaling in hyperbolic VAE"
-    )
+    parser = argparse.ArgumentParser(description="Verify holographic scaling in hyperbolic VAE")
     parser.add_argument(
         "--model_path",
         type=Path,

@@ -24,6 +24,7 @@ import numpy as np
 
 try:
     import pandas as pd
+
     HAS_PANDAS = True
 except ImportError:
     HAS_PANDAS = False
@@ -32,36 +33,40 @@ except ImportError:
 
 try:
     import pyarrow.parquet as pq
+
     HAS_PARQUET = True
 except ImportError:
     HAS_PARQUET = False
 
 from scipy import stats
-from scipy.spatial.distance import pdist, squareform
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score, accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.model_selection import cross_val_score, train_test_split
-from sklearn.cluster import KMeans
-from sklearn.manifold import TSNE
-
-import torch
-import torch.nn as nn
 
 # =============================================================================
 # CONSTANTS (imported from centralized biology module)
 # =============================================================================
-
-from src.biology.codons import GENETIC_CODE, CODON_TO_INDEX
+from src.biology.codons import CODON_TO_INDEX, GENETIC_CODE
 
 CODONS = list(GENETIC_CODE.keys())
 AA_TO_IDX = {aa: i for i, aa in enumerate("ACDEFGHIKLMNPQRSTVWY*")}
 
 # Known druggable protein families (simplified list)
 DRUGGABLE_FAMILIES = {
-    "kinase", "receptor", "channel", "transporter", "protease",
-    "polymerase", "integrase", "helicase", "ligase", "phosphatase",
-    "dehydrogenase", "oxidase", "reductase", "transferase"
+    "kinase",
+    "receptor",
+    "channel",
+    "transporter",
+    "protease",
+    "polymerase",
+    "integrase",
+    "helicase",
+    "ligase",
+    "phosphatase",
+    "dehydrogenase",
+    "oxidase",
+    "reductase",
+    "transferase",
 }
 
 
@@ -69,12 +74,13 @@ DRUGGABLE_FAMILIES = {
 # UTILITY FUNCTIONS
 # =============================================================================
 
+
 def parse_fasta(filepath: Path) -> list[tuple[str, str]]:
     """Parse FASTA file."""
     sequences = []
     current_name = None
     current_seq = []
-    with open(filepath, "r", errors="ignore") as f:
+    with open(filepath, errors="ignore") as f:
         for line in f:
             line = line.strip()
             if line.startswith(">"):
@@ -93,7 +99,7 @@ def compute_padic_distance(codon1: str, codon2: str, p: int = 3) -> float:
     """Compute p-adic distance between codons."""
     if codon1 == codon2:
         return 0.0
-    for i, (b1, b2) in enumerate(zip(codon1, codon2)):
+    for i, (b1, b2) in enumerate(zip(codon1, codon2, strict=False)):
         if b1 != b2:
             return p ** (-(i + 1))
     return 0.0
@@ -104,7 +110,7 @@ def sequence_to_codons(seq: str) -> list[str]:
     codons = []
     seq = seq.upper().replace("U", "T")
     for i in range(0, len(seq) - 2, 3):
-        codon = seq[i:i+3]
+        codon = seq[i : i + 3]
         if codon in CODON_TO_INDEX:
             codons.append(codon)
     return codons
@@ -117,7 +123,7 @@ def compute_hamming_distance(seq1: str, seq2: str) -> float:
         seq1, seq2 = seq1[:min_len], seq2[:min_len]
     if len(seq1) == 0:
         return 1.0
-    mismatches = sum(c1 != c2 for c1, c2 in zip(seq1, seq2))
+    mismatches = sum(c1 != c2 for c1, c2 in zip(seq1, seq2, strict=False))
     return mismatches / len(seq1)
 
 
@@ -137,6 +143,7 @@ def compute_padic_sequence_distance(seq1: str, seq2: str) -> float:
 # =============================================================================
 # RESEARCH 1: VACCINE TARGETS + ESCAPE VELOCITY
 # =============================================================================
+
 
 def research_1_vaccine_escape_crosslink(results_dir: Path) -> dict:
     """Cross-link vaccine targets with escape velocity data."""
@@ -167,9 +174,7 @@ def research_1_vaccine_escape_crosslink(results_dir: Path) -> dict:
         if epitope_path.exists():
             epitope_df = pd.read_csv(epitope_path)
             # Compute escape velocity per protein as std of radii
-            escape_df = epitope_df.groupby("protein").agg({
-                "radius": ["mean", "std", "count"]
-            }).reset_index()
+            escape_df = epitope_df.groupby("protein").agg({"radius": ["mean", "std", "count"]}).reset_index()
             escape_df.columns = ["protein", "mean_radius", "escape_velocity", "n_epitopes"]
             escape_df["escape_velocity"] = escape_df["escape_velocity"].fillna(0.1)
         else:
@@ -180,13 +185,11 @@ def research_1_vaccine_escape_crosslink(results_dir: Path) -> dict:
 
     # Cross-link: Add escape velocity to vaccine targets
     # Map protein names
-    protein_escape = dict(zip(escape_df["protein"], escape_df["escape_velocity"]))
+    protein_escape = dict(zip(escape_df["protein"], escape_df["escape_velocity"], strict=False))
 
     # Add escape velocity column
     vaccine_df["escape_velocity"] = vaccine_df["protein"].map(protein_escape)
-    vaccine_df["escape_velocity"] = vaccine_df["escape_velocity"].fillna(
-        escape_df["escape_velocity"].mean()
-    )
+    vaccine_df["escape_velocity"] = vaccine_df["escape_velocity"].fillna(escape_df["escape_velocity"].mean())
 
     # Compute composite score: high HLA coverage + low escape velocity
     vaccine_df["hla_count"] = vaccine_df["n_hla_restrictions"] if "n_hla_restrictions" in vaccine_df.columns else 10
@@ -200,7 +203,7 @@ def research_1_vaccine_escape_crosslink(results_dir: Path) -> dict:
 
     print("\n  TOP 20 EVOLUTIONARILY STABLE VACCINE TARGETS:")
     print("  " + "-" * 60)
-    for i, row in top_stable.iterrows():
+    for _i, row in top_stable.iterrows():
         epitope = row.get("epitope", row.get("Epitope", "Unknown"))[:20]
         protein = row.get("protein", row.get("Protein", "Unknown"))
         escape_v = row["escape_velocity"]
@@ -220,17 +223,19 @@ def research_1_vaccine_escape_crosslink(results_dir: Path) -> dict:
         "protein": str(top_stable.iloc[0].get("protein", top_stable.iloc[0].get("Protein", "Unknown"))),
         "stability_score": float(top_stable.iloc[0]["stability_score"]),
     }
-    findings["discoveries"].append(
-        f"Identified {len(vaccine_df)} vaccine targets ranked by evolutionary stability"
-    )
+    findings["discoveries"].append(f"Identified {len(vaccine_df)} vaccine targets ranked by evolutionary stability")
     findings["discoveries"].append(
         f"Top target: {findings['top_stable_target']['epitope']} in {findings['top_stable_target']['protein']}"
     )
 
     # Discovery: Which proteins have most stable epitopes?
-    protein_stability = vaccine_df.groupby(
-        vaccine_df["protein"] if "protein" in vaccine_df.columns else vaccine_df["Protein"]
-    )["stability_score"].mean().sort_values(ascending=False)
+    protein_stability = (
+        vaccine_df.groupby(vaccine_df["protein"] if "protein" in vaccine_df.columns else vaccine_df["Protein"])[
+            "stability_score"
+        ]
+        .mean()
+        .sort_values(ascending=False)
+    )
 
     print("\n  PROTEIN STABILITY RANKING:")
     for prot, score in protein_stability.head(10).items():
@@ -245,6 +250,7 @@ def research_1_vaccine_escape_crosslink(results_dir: Path) -> dict:
 # RESEARCH 2: VALIDATE P-ADIC GEOMETRY
 # =============================================================================
 
+
 def research_2_validate_padic_geometry(data_dir: Path) -> dict:
     """Validate p-adic geometry against phylogenetic distances."""
     print("\n" + "=" * 70)
@@ -254,7 +260,9 @@ def research_2_validate_padic_geometry(data_dir: Path) -> dict:
     findings = {"status": "failed", "discoveries": []}
 
     # Load sequences
-    fasta_dir = data_dir / "external" / "github" / "HIV-1_Paper" / "Individual_Representative_Sequences_Used_for_Subtyping"
+    fasta_dir = (
+        data_dir / "external" / "github" / "HIV-1_Paper" / "Individual_Representative_Sequences_Used_for_Subtyping"
+    )
 
     all_sequences = []
     for fasta_path in fasta_dir.glob("*.fasta"):
@@ -297,7 +305,7 @@ def research_2_validate_padic_geometry(data_dir: Path) -> dict:
     pearson_r, pearson_p = stats.pearsonr(hamming_flat, padic_flat)
     spearman_r, spearman_p = stats.spearmanr(hamming_flat, padic_flat)
 
-    print(f"\n  CORRELATION RESULTS:")
+    print("\n  CORRELATION RESULTS:")
     print(f"    Pearson r:  {pearson_r:.4f} (p={pearson_p:.2e})")
     print(f"    Spearman r: {spearman_r:.4f} (p={spearman_p:.2e})")
 
@@ -320,9 +328,7 @@ def research_2_validate_padic_geometry(data_dir: Path) -> dict:
     findings["spearman_r"] = float(spearman_r)
     findings["spearman_p"] = float(spearman_p)
     findings["interpretation"] = interpretation
-    findings["discoveries"].append(
-        f"P-adic vs Hamming correlation: Spearman r = {spearman_r:.4f}"
-    )
+    findings["discoveries"].append(f"P-adic vs Hamming correlation: Spearman r = {spearman_r:.4f}")
     findings["discoveries"].append(interpretation)
 
     # Additional: Test if p-adic distances cluster by sequence type
@@ -362,9 +368,7 @@ def research_2_validate_padic_geometry(data_dir: Path) -> dict:
             print(f"  T-test p-value: {t_p:.2e}")
 
             if t_p < 0.05 and between_mean > within_mean:
-                findings["discoveries"].append(
-                    f"P-adic distances distinguish sequence types (p={t_p:.2e})"
-                )
+                findings["discoveries"].append(f"P-adic distances distinguish sequence types (p={t_p:.2e})")
 
     return findings
 
@@ -372,6 +376,7 @@ def research_2_validate_padic_geometry(data_dir: Path) -> dict:
 # =============================================================================
 # RESEARCH 3: P-ADIC TROPISM PREDICTION
 # =============================================================================
+
 
 def research_3_padic_tropism_prediction(data_dir: Path) -> dict:
     """Test p-adic embeddings for tropism prediction improvement."""
@@ -428,7 +433,7 @@ def research_3_padic_tropism_prediction(data_dir: Path) -> dict:
                 continue
 
             # Find group
-            for g_idx, (group_name, group_aas) in enumerate(AA_GROUPS.items()):
+            for g_idx, (_group_name, group_aas) in enumerate(AA_GROUPS.items()):
                 if aa in group_aas:
                     # Hierarchical encoding
                     encoding[i, 0] = g_idx / 6  # Group level
@@ -448,12 +453,8 @@ def research_3_padic_tropism_prediction(data_dir: Path) -> dict:
     y = np.array(labels)
 
     # Split data
-    X_oh_train, X_oh_test, y_train, y_test = train_test_split(
-        X_onehot, y, test_size=0.2, random_state=42, stratify=y
-    )
-    X_pa_train, X_pa_test, _, _ = train_test_split(
-        X_padic, y, test_size=0.2, random_state=42, stratify=y
-    )
+    X_oh_train, X_oh_test, y_train, y_test = train_test_split(X_onehot, y, test_size=0.2, random_state=42, stratify=y)
+    X_pa_train, X_pa_test, _, _ = train_test_split(X_padic, y, test_size=0.2, random_state=42, stratify=y)
 
     # Train classifiers
     print("\n  Training classifiers...")
@@ -501,9 +502,7 @@ def research_3_padic_tropism_prediction(data_dir: Path) -> dict:
             f"P-adic features improve tropism prediction: {improvement:+.2f}% AUC improvement"
         )
     else:
-        findings["discoveries"].append(
-            "P-adic features did not improve over baseline for tropism prediction"
-        )
+        findings["discoveries"].append("P-adic features did not improve over baseline for tropism prediction")
 
     # Cross-validation for robustness
     print("\n  Cross-validation (5-fold)...")
@@ -523,6 +522,7 @@ def research_3_padic_tropism_prediction(data_dir: Path) -> dict:
 # RESEARCH 4: BNAB ESCAPE + DRUG RESISTANCE CORRELATION
 # =============================================================================
 
+
 def research_4_bnab_resistance_correlation(data_dir: Path, results_dir: Path) -> dict:
     """Correlate bnAb escape with drug resistance patterns."""
     print("\n" + "=" * 70)
@@ -539,7 +539,7 @@ def research_4_bnab_resistance_correlation(data_dir: Path, results_dir: Path) ->
         catnap_path = results_dir / "catnap_neutralization" / "bnab_sensitivity.csv"
 
     if not catnap_path.exists():
-        print(f"  CATNAP data not found")
+        print("  CATNAP data not found")
         return findings
 
     # Load Stanford HIVDB data
@@ -588,6 +588,7 @@ def research_4_bnab_resistance_correlation(data_dir: Path, results_dir: Path) ->
             all_mutations.extend(muts)
 
         from collections import Counter
+
         mutation_counts = Counter(all_mutations)
         top_mutations = mutation_counts.most_common(20)
 
@@ -595,12 +596,12 @@ def research_4_bnab_resistance_correlation(data_dir: Path, results_dir: Path) ->
         for mut, count in top_mutations:
             print(f"    {mut}: {count} occurrences")
 
-        findings["top_resistance_mutations"] = [
-            {"mutation": m, "count": c} for m, c in top_mutations
-        ]
+        findings["top_resistance_mutations"] = [{"mutation": m, "count": c} for m, c in top_mutations]
 
     # Key analysis: Resistance level distribution
-    drug_cols = [c for c in hivdb_df.columns if c not in ["SeqID", "CompMutList", "drug_class"] and not c.startswith("P")]
+    drug_cols = [
+        c for c in hivdb_df.columns if c not in ["SeqID", "CompMutList", "drug_class"] and not c.startswith("P")
+    ]
 
     if drug_cols:
         print("\n  RESISTANCE LEVELS BY DRUG CLASS:")
@@ -629,7 +630,9 @@ def research_4_bnab_resistance_correlation(data_dir: Path, results_dir: Path) ->
         hivdb_df["total_resistance_score"] = resistance_scores
 
         # Find multi-drug resistant sequences
-        high_resistance = hivdb_df[hivdb_df["total_resistance_score"] > hivdb_df["total_resistance_score"].quantile(0.9)]
+        high_resistance = hivdb_df[
+            hivdb_df["total_resistance_score"] > hivdb_df["total_resistance_score"].quantile(0.9)
+        ]
         print(f"\n  High-resistance sequences (top 10%): {len(high_resistance)}")
 
         if len(high_resistance) > 0 and "CompMutList" in high_resistance.columns:
@@ -645,7 +648,7 @@ def research_4_bnab_resistance_correlation(data_dir: Path, results_dir: Path) ->
                 print(f"    {mut}: {count} ({pct:.1f}% of MDR sequences)")
 
             findings["mdr_enriched_mutations"] = [
-                {"mutation": m, "count": c, "pct": c/len(high_resistance)*100}
+                {"mutation": m, "count": c, "pct": c / len(high_resistance) * 100}
                 for m, c in hr_mutation_counts.most_common(10)
             ]
             findings["discoveries"].append(
@@ -662,6 +665,7 @@ def research_4_bnab_resistance_correlation(data_dir: Path, results_dir: Path) ->
 # =============================================================================
 # RESEARCH 5: HIV-HUMAN PPI DRUGGABILITY
 # =============================================================================
+
 
 def research_5_ppi_druggability(data_dir: Path) -> dict:
     """Map HIV-human PPI to druggable targets."""
@@ -696,10 +700,7 @@ def research_5_ppi_druggability(data_dir: Path) -> dict:
         if not isinstance(name, str):
             return False
         name_lower = name.lower()
-        for family in DRUGGABLE_FAMILIES:
-            if family in name_lower:
-                return True
-        return False
+        return any(family in name_lower for family in DRUGGABLE_FAMILIES)
 
     df["potentially_druggable"] = df["human_protein_name"].apply(is_potentially_druggable)
     druggable_interactions = df[df["potentially_druggable"]]
@@ -722,15 +723,19 @@ def research_5_ppi_druggability(data_dir: Path) -> dict:
     # Detailed analysis of top candidates
     top_candidates = []
     for hiv_protein in multi_target_hiv.index[:5]:
-        targets = druggable_interactions[
-            druggable_interactions["hiv_protein_name"] == hiv_protein
-        ]["human_protein_name"].unique().tolist()
+        targets = (
+            druggable_interactions[druggable_interactions["hiv_protein_name"] == hiv_protein]["human_protein_name"]
+            .unique()
+            .tolist()
+        )
 
-        top_candidates.append({
-            "hiv_protein": hiv_protein,
-            "n_druggable_targets": len(targets),
-            "targets": targets[:10],  # Limit for readability
-        })
+        top_candidates.append(
+            {
+                "hiv_protein": hiv_protein,
+                "n_druggable_targets": len(targets),
+                "targets": targets[:10],  # Limit for readability
+            }
+        )
 
         print(f"\n  {hiv_protein} ({len(targets)} druggable targets):")
         for t in targets[:5]:
@@ -762,6 +767,7 @@ def research_5_ppi_druggability(data_dir: Path) -> dict:
 # =============================================================================
 # MAIN
 # =============================================================================
+
 
 def main():
     print("=" * 70)
@@ -815,10 +821,7 @@ def main():
     print("RESEARCH SUMMARY")
     print("=" * 70)
 
-    successful = sum(
-        1 for f in all_findings["research_areas"].values()
-        if f.get("status") == "success"
-    )
+    successful = sum(1 for f in all_findings["research_areas"].values() if f.get("status") == "success")
     print(f"\nCompleted: {successful}/5 research directions")
 
     print("\n" + "-" * 70)

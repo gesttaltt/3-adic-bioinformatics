@@ -33,9 +33,9 @@ Context-sensitivity is captured through features/attributes on rules.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Dict, List, Optional, Set, Tuple
 
 import torch
 
@@ -63,7 +63,7 @@ class ProteinMotif:
     end: int  # End position
     sequence: str  # Matched sequence
     confidence: float = 1.0
-    attributes: Dict[str, any] = field(default_factory=dict)
+    attributes: dict[str, any] = field(default_factory=dict)
 
 
 @dataclass
@@ -72,9 +72,9 @@ class GrammarRule:
 
     name: str
     lhs: str  # Left-hand side (non-terminal)
-    rhs: List[str]  # Right-hand side (terminals/non-terminals)
-    pattern: Optional[str] = None  # Regex pattern
-    constraint: Optional[Callable[[str], bool]] = None  # Context constraint
+    rhs: list[str]  # Right-hand side (terminals/non-terminals)
+    pattern: str | None = None  # Regex pattern
+    constraint: Callable[[str], bool] | None = None  # Context constraint
     priority: int = 0  # Higher = applied first
     motif_type: MotifType = MotifType.UNKNOWN
 
@@ -84,17 +84,17 @@ class ParseTree:
     """Parse tree node for a peptide sequence."""
 
     symbol: str  # Non-terminal or terminal
-    children: List["ParseTree"] = field(default_factory=list)
-    span: Tuple[int, int] = (0, 0)  # (start, end) in original sequence
+    children: list[ParseTree] = field(default_factory=list)
+    span: tuple[int, int] = (0, 0)  # (start, end) in original sequence
     sequence: str = ""
-    rule: Optional[GrammarRule] = None
-    embedding: Optional[torch.Tensor] = None
+    rule: GrammarRule | None = None
+    embedding: torch.Tensor | None = None
 
     def is_leaf(self) -> bool:
         """Check if this is a leaf (terminal) node."""
         return len(self.children) == 0
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary for serialization."""
         return {
             "symbol": self.symbol,
@@ -128,93 +128,109 @@ class PeptideGrammar:
 
     def __init__(self):
         """Initialize peptide grammar with standard rules."""
-        self.rules: List[GrammarRule] = []
-        self.non_terminals: Set[str] = set()
-        self.terminals: Set[str] = self.AMINO_ACIDS.copy()
+        self.rules: list[GrammarRule] = []
+        self.non_terminals: set[str] = set()
+        self.terminals: set[str] = self.AMINO_ACIDS.copy()
 
         self._add_standard_rules()
 
     def _add_standard_rules(self):
         """Add standard protein motif rules."""
         # N-glycosylation motif: N-[^P]-[ST]
-        self.add_rule(GrammarRule(
-            name="n_glycosylation",
-            lhs="GLYCO",
-            rhs=["N", "X", "ST"],
-            pattern=r"N[^P][ST]",
-            motif_type=MotifType.GLYCOSYLATION,
-            priority=10,
-        ))
+        self.add_rule(
+            GrammarRule(
+                name="n_glycosylation",
+                lhs="GLYCO",
+                rhs=["N", "X", "ST"],
+                pattern=r"N[^P][ST]",
+                motif_type=MotifType.GLYCOSYLATION,
+                priority=10,
+            )
+        )
 
         # Phosphorylation motifs
-        self.add_rule(GrammarRule(
-            name="pka_site",
-            lhs="PHOSPHO",
-            rhs=["RR", "X", "S"],
-            pattern=r"RR.S",
-            motif_type=MotifType.PHOSPHORYLATION,
-            priority=10,
-        ))
+        self.add_rule(
+            GrammarRule(
+                name="pka_site",
+                lhs="PHOSPHO",
+                rhs=["RR", "X", "S"],
+                pattern=r"RR.S",
+                motif_type=MotifType.PHOSPHORYLATION,
+                priority=10,
+            )
+        )
 
-        self.add_rule(GrammarRule(
-            name="ck2_site",
-            lhs="PHOSPHO",
-            rhs=["S", "X", "X", "E"],
-            pattern=r"S..E",
-            motif_type=MotifType.PHOSPHORYLATION,
-            priority=8,
-        ))
+        self.add_rule(
+            GrammarRule(
+                name="ck2_site",
+                lhs="PHOSPHO",
+                rhs=["S", "X", "X", "E"],
+                pattern=r"S..E",
+                motif_type=MotifType.PHOSPHORYLATION,
+                priority=8,
+            )
+        )
 
         # RGD cell adhesion motif
-        self.add_rule(GrammarRule(
-            name="rgd_motif",
-            lhs="BINDING",
-            rhs=["R", "G", "D"],
-            pattern=r"RGD",
-            motif_type=MotifType.BINDING,
-            priority=10,
-        ))
+        self.add_rule(
+            GrammarRule(
+                name="rgd_motif",
+                lhs="BINDING",
+                rhs=["R", "G", "D"],
+                pattern=r"RGD",
+                motif_type=MotifType.BINDING,
+                priority=10,
+            )
+        )
 
         # PEST sequence (degradation signal)
-        self.add_rule(GrammarRule(
-            name="pest_sequence",
-            lhs="PEST",
-            rhs=["PEST_REGION"],
-            pattern=r"[PEST]{4,}",
-            constraint=lambda s: sum(c in "PEST" for c in s) / len(s) > 0.5,
-            motif_type=MotifType.STRUCTURAL,
-            priority=5,
-        ))
+        self.add_rule(
+            GrammarRule(
+                name="pest_sequence",
+                lhs="PEST",
+                rhs=["PEST_REGION"],
+                pattern=r"[PEST]{4,}",
+                constraint=lambda s: sum(c in "PEST" for c in s) / len(s) > 0.5,
+                motif_type=MotifType.STRUCTURAL,
+                priority=5,
+            )
+        )
 
         # Nuclear localization signal
-        self.add_rule(GrammarRule(
-            name="nls_monopartite",
-            lhs="NLS",
-            rhs=["K", "RK", "X", "RK"],
-            pattern=r"K[RK].[RK]",
-            motif_type=MotifType.SIGNAL_PEPTIDE,
-            priority=8,
-        ))
+        self.add_rule(
+            GrammarRule(
+                name="nls_monopartite",
+                lhs="NLS",
+                rhs=["K", "RK", "X", "RK"],
+                pattern=r"K[RK].[RK]",
+                motif_type=MotifType.SIGNAL_PEPTIDE,
+                priority=8,
+            )
+        )
 
         # Transmembrane region (hydrophobic stretch)
-        self.add_rule(GrammarRule(
-            name="transmembrane",
-            lhs="TM",
-            rhs=["HYDRO_REGION"],
-            pattern=r"[AILMFVWY]{15,25}",
-            motif_type=MotifType.TRANSMEMBRANE,
-            priority=5,
-        ))
+        self.add_rule(
+            GrammarRule(
+                name="transmembrane",
+                lhs="TM",
+                rhs=["HYDRO_REGION"],
+                pattern=r"[AILMFVWY]{15,25}",
+                motif_type=MotifType.TRANSMEMBRANE,
+                priority=5,
+            )
+        )
 
         # Zinc finger motif
-        self.add_rule(GrammarRule(
-            name="zinc_finger",
-            lhs="ZINC",
-            rhs=["C", "X2", "C", "X15", "H", "X3", "H"],
-            pattern=r"C.{2}C.{15}H.{3}H",
-            motif_type=MotifType.CATALYTIC,
-            priority=7,
-        ))
+        self.add_rule(
+            GrammarRule(
+                name="zinc_finger",
+                lhs="ZINC",
+                rhs=["C", "X2", "C", "X15", "H", "X3", "H"],
+                pattern=r"C.{2}C.{15}H.{3}H",
+                motif_type=MotifType.CATALYTIC,
+                priority=7,
+            )
+        )
 
     def add_rule(self, rule: GrammarRule):
         """Add a production rule to the grammar.
@@ -230,7 +246,7 @@ class PeptideGrammar:
         self,
         sequence: str,
         max_depth: int = 10,
-    ) -> List[ParseTree]:
+    ) -> list[ParseTree]:
         """Parse a peptide sequence using the grammar.
 
         Args:
@@ -264,17 +280,19 @@ class PeptideGrammar:
 
                     # Add children for each character
                     for i, aa in enumerate(matched_seq):
-                        tree.children.append(ParseTree(
-                            symbol=aa,
-                            span=(start + i, start + i + 1),
-                            sequence=aa,
-                        ))
+                        tree.children.append(
+                            ParseTree(
+                                symbol=aa,
+                                span=(start + i, start + i + 1),
+                                sequence=aa,
+                            )
+                        )
 
                     trees.append(tree)
 
         return trees
 
-    def get_motifs(self, sequence: str) -> List[ProteinMotif]:
+    def get_motifs(self, sequence: str) -> list[ProteinMotif]:
         """Extract all motifs from a sequence.
 
         Args:
@@ -309,20 +327,20 @@ class MotifParser:
     and compositional motif detection.
     """
 
-    def __init__(self, grammar: Optional[PeptideGrammar] = None):
+    def __init__(self, grammar: PeptideGrammar | None = None):
         """Initialize motif parser.
 
         Args:
             grammar: Peptide grammar to use (creates default if None)
         """
         self.grammar = grammar or PeptideGrammar()
-        self.motif_cache: Dict[str, List[ProteinMotif]] = {}
+        self.motif_cache: dict[str, list[ProteinMotif]] = {}
 
     def parse_with_context(
         self,
         sequence: str,
         context_window: int = 10,
-    ) -> List[ProteinMotif]:
+    ) -> list[ProteinMotif]:
         """Parse sequence considering local context.
 
         Args:
@@ -341,8 +359,8 @@ class MotifParser:
             ctx_start = max(0, motif.start - context_window)
             ctx_end = min(len(sequence), motif.end + context_window)
 
-            left_context = sequence[ctx_start:motif.start]
-            right_context = sequence[motif.end:ctx_end]
+            left_context = sequence[ctx_start : motif.start]
+            right_context = sequence[motif.end : ctx_end]
 
             # Adjust confidence based on context features
             confidence = motif.confidence
@@ -434,15 +452,17 @@ class MotifParser:
                 region = ParseTree(
                     symbol="REGION",
                     span=(current_pos, motif.start),
-                    sequence=sequence[current_pos:motif.start],
+                    sequence=sequence[current_pos : motif.start],
                 )
                 # Add individual amino acids as leaves
                 for i, aa in enumerate(region.sequence):
-                    region.children.append(ParseTree(
-                        symbol=aa,
-                        span=(current_pos + i, current_pos + i + 1),
-                        sequence=aa,
-                    ))
+                    region.children.append(
+                        ParseTree(
+                            symbol=aa,
+                            span=(current_pos + i, current_pos + i + 1),
+                            sequence=aa,
+                        )
+                    )
                 root.children.append(region)
 
             # Add motif node
@@ -452,11 +472,13 @@ class MotifParser:
                 sequence=motif.sequence,
             )
             for i, aa in enumerate(motif.sequence):
-                motif_node.children.append(ParseTree(
-                    symbol=aa,
-                    span=(motif.start + i, motif.start + i + 1),
-                    sequence=aa,
-                ))
+                motif_node.children.append(
+                    ParseTree(
+                        symbol=aa,
+                        span=(motif.start + i, motif.start + i + 1),
+                        sequence=aa,
+                    )
+                )
             root.children.append(motif_node)
 
             current_pos = motif.end
@@ -469,11 +491,13 @@ class MotifParser:
                 sequence=sequence[current_pos:],
             )
             for i, aa in enumerate(region.sequence):
-                region.children.append(ParseTree(
-                    symbol=aa,
-                    span=(current_pos + i, current_pos + i + 1),
-                    sequence=aa,
-                ))
+                region.children.append(
+                    ParseTree(
+                        symbol=aa,
+                        span=(current_pos + i, current_pos + i + 1),
+                        sequence=aa,
+                    )
+                )
             root.children.append(region)
 
         return root
@@ -482,7 +506,7 @@ class MotifParser:
 def extract_secondary_structure_grammar(
     sequence: str,
     structure: str,
-) -> List[GrammarRule]:
+) -> list[GrammarRule]:
     """Extract grammar rules from known secondary structure.
 
     Args:
@@ -499,26 +523,30 @@ def extract_secondary_structure_grammar(
         start, end = match.span()
         helix_seq = sequence[start:end]
 
-        rules.append(GrammarRule(
-            name=f"helix_{start}",
-            lhs="HELIX",
-            rhs=list(helix_seq),
-            pattern=helix_seq,
-            motif_type=MotifType.STRUCTURAL,
-        ))
+        rules.append(
+            GrammarRule(
+                name=f"helix_{start}",
+                lhs="HELIX",
+                rhs=list(helix_seq),
+                pattern=helix_seq,
+                motif_type=MotifType.STRUCTURAL,
+            )
+        )
 
     # Find sheet regions
     for match in re.finditer(r"E{3,}", structure):
         start, end = match.span()
         sheet_seq = sequence[start:end]
 
-        rules.append(GrammarRule(
-            name=f"sheet_{start}",
-            lhs="SHEET",
-            rhs=list(sheet_seq),
-            pattern=sheet_seq,
-            motif_type=MotifType.STRUCTURAL,
-        ))
+        rules.append(
+            GrammarRule(
+                name=f"sheet_{start}",
+                lhs="SHEET",
+                rhs=list(sheet_seq),
+                pattern=sheet_seq,
+                motif_type=MotifType.STRUCTURAL,
+            )
+        )
 
     return rules
 

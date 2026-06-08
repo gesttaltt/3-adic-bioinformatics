@@ -23,7 +23,7 @@ enabling exploration of higher Q values while maintaining coverage floors.
 """
 
 from collections import deque
-from typing import Any, Dict, Optional
+from typing import Any
 
 from src.config.constants import (
     HOMEOSTATIC_ANNEALING_STEP,
@@ -151,8 +151,8 @@ class HomeostasisController:
         hierarchy_A: float,
         hierarchy_B: float,
         dist_corr_A: float = 0.0,
-        controller_grad_norm: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        controller_grad_norm: float | None = None,
+    ) -> dict[str, Any]:
         """Update homeostasis state based on current metrics.
 
         Args:
@@ -225,25 +225,24 @@ class HomeostasisController:
                         events.append(anneal_event)
 
         # === Controller: Gradient-gated ===
-        if controller_grad_norm is not None:
-            if self._can_change_state(epoch, self.controller_last_change):
-                controller_decision = self._decide_controller()
-                if controller_decision is not None:
-                    was_frozen = self.controller_frozen
-                    self.controller_frozen = controller_decision
-                    self.controller_last_change = epoch
-                    events.append(f"controller {'frozen' if controller_decision else 'unfrozen'}")
+        if controller_grad_norm is not None and self._can_change_state(epoch, self.controller_last_change):
+            controller_decision = self._decide_controller()
+            if controller_decision is not None:
+                was_frozen = self.controller_frozen
+                self.controller_frozen = controller_decision
+                self.controller_last_change = epoch
+                events.append(f"controller {'frozen' if controller_decision else 'unfrozen'}")
 
-                    # Q-gated annealing
-                    if self.enable_annealing:
-                        anneal_event = self._handle_cycle(
-                            "controller",
-                            was_frozen,
-                            controller_decision,
-                            current_Q,
-                        )
-                        if anneal_event:
-                            events.append(anneal_event)
+                # Q-gated annealing
+                if self.enable_annealing:
+                    anneal_event = self._handle_cycle(
+                        "controller",
+                        was_frozen,
+                        controller_decision,
+                        current_Q,
+                    )
+                    if anneal_event:
+                        events.append(anneal_event)
 
         return {
             "encoder_a_frozen": self.encoder_a_frozen,
@@ -260,7 +259,7 @@ class HomeostasisController:
         was_frozen: bool,
         now_frozen: bool,
         current_Q: float,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Handle Q-gated annealing when a cycle completes.
 
         A cycle is: unfrozen -> frozen (component adapted then consolidated)
@@ -325,10 +324,12 @@ class HomeostasisController:
             # Relax hierarchy patience (more epochs before freeze)
             new_patience = self.hierarchy_plateau_patience + (1 if relax else -1)
 
-            if relax and new_patience <= self.hierarchy_patience_ceiling:
-                self.hierarchy_plateau_patience = new_patience
-                return f"encoder_B patience {direction} (patience={self.hierarchy_plateau_patience}, Q_delta={Q_delta:+.3f})"
-            elif not relax and new_patience >= self._initial_hierarchy_patience:
+            if (
+                relax
+                and new_patience <= self.hierarchy_patience_ceiling
+                or not relax
+                and new_patience >= self._initial_hierarchy_patience
+            ):
                 self.hierarchy_plateau_patience = new_patience
                 return f"encoder_B patience {direction} (patience={self.hierarchy_plateau_patience}, Q_delta={Q_delta:+.3f})"
             else:
@@ -339,10 +340,12 @@ class HomeostasisController:
             # Relax controller patience
             new_patience = self.controller_grad_patience + (1 if relax else -1)
 
-            if relax and new_patience <= self.controller_patience_ceiling:
-                self.controller_grad_patience = new_patience
-                return f"controller patience {direction} (patience={self.controller_grad_patience}, Q_delta={Q_delta:+.3f})"
-            elif not relax and new_patience >= self._initial_controller_patience:
+            if (
+                relax
+                and new_patience <= self.controller_patience_ceiling
+                or not relax
+                and new_patience >= self._initial_controller_patience
+            ):
                 self.controller_grad_patience = new_patience
                 return f"controller patience {direction} (patience={self.controller_grad_patience}, Q_delta={Q_delta:+.3f})"
             else:
@@ -355,7 +358,7 @@ class HomeostasisController:
         """Check if enough epochs have passed since last state change (hysteresis)."""
         return epoch - last_change >= self.hysteresis_epochs
 
-    def _decide_encoder_a(self, coverage: float) -> Optional[bool]:
+    def _decide_encoder_a(self, coverage: float) -> bool | None:
         """Decide encoder_A freeze state based on coverage.
 
         Logic:
@@ -395,7 +398,7 @@ class HomeostasisController:
 
         return self.hierarchy_a_stall_count >= self.hierarchy_stall_patience
 
-    def _decide_encoder_b(self) -> Optional[bool]:
+    def _decide_encoder_b(self) -> bool | None:
         """Decide encoder_B freeze state based on VAE-B hierarchy.
 
         Logic:
@@ -429,7 +432,7 @@ class HomeostasisController:
 
         return None
 
-    def _decide_controller(self) -> Optional[bool]:
+    def _decide_controller(self) -> bool | None:
         """Decide controller freeze state based on gradient norm.
 
         Logic:

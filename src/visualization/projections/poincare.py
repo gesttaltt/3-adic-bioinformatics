@@ -27,7 +27,6 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -135,9 +134,9 @@ def project_to_2d_poincare(
 
 def plot_3d_poincare_ball(
     embeddings: np.ndarray,
-    labels: Optional[np.ndarray] = None,
+    labels: np.ndarray | None = None,
     title: str = "3D Poincare Ball",
-    figsize: Tuple[float, float] = (10, 10),
+    figsize: tuple[float, float] = (10, 10),
     show_surface: bool = True,
     surface_alpha: float = 0.1,
     elevation: float = 20,
@@ -145,7 +144,7 @@ def plot_3d_poincare_ball(
     marker_size: float = 30,
     use_hyperbolic: bool = True,
     curvature: float = 1.0,
-) -> Tuple[Figure, Axes3D]:
+) -> tuple[Figure, Axes3D]:
     """Plot embeddings in 3D Poincare ball.
 
     Args:
@@ -233,15 +232,15 @@ def plot_3d_poincare_ball(
 
 def plot_hierarchy_tree(
     embeddings: np.ndarray,
-    parent_indices: Optional[np.ndarray] = None,
-    node_labels: Optional[List[str]] = None,
+    parent_indices: np.ndarray | None = None,
+    node_labels: list[str] | None = None,
     title: str = "Hierarchical Structure",
-    ax: Optional[Axes] = None,
-    figsize: Tuple[float, float] = (12, 10),
-    max_depth: Optional[int] = None,
+    ax: Axes | None = None,
+    figsize: tuple[float, float] = (12, 10),
+    max_depth: int | None = None,
     use_hyperbolic: bool = True,
     curvature: float = 1.0,
-) -> Tuple[Figure, Axes]:
+) -> tuple[Figure, Axes]:
     """Plot hierarchical tree structure on Poincare disk.
 
     Visualizes parent-child relationships by drawing edges from parent
@@ -370,7 +369,7 @@ def compute_hyperbolic_centroids(
 def create_poincare_animation_data(
     trajectory: np.ndarray,
     n_frames: int = 100,
-) -> Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """Prepare animation data for embedding trajectory.
 
     Args:

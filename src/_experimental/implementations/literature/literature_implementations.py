@@ -18,13 +18,11 @@ Based on 200+ papers from the comprehensive literature review.
 import json
 import math
 import sys
+import warnings
 from collections import Counter, defaultdict
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
-import warnings
 warnings.filterwarnings("ignore")
 
 import numpy as np
@@ -33,6 +31,7 @@ try:
     import torch
     import torch.nn as nn
     import torch.nn.functional as F
+
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
@@ -40,15 +39,17 @@ except ImportError:
 
 try:
     from scipy import stats
-    from scipy.spatial.distance import pdist, squareform
-    from scipy.cluster.hierarchy import linkage, fcluster
+    from scipy.cluster.hierarchy import fcluster, linkage
     from scipy.linalg import expm
+    from scipy.spatial.distance import pdist, squareform
+
     HAS_SCIPY = True
 except ImportError:
     HAS_SCIPY = False
 
 try:
     import pandas as pd
+
     HAS_PANDAS = True
 except ImportError:
     HAS_PANDAS = False
@@ -63,49 +64,97 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 # Genetic code mapping (standard)
 CODON_TABLE = {
-    'TTT': 'F', 'TTC': 'F', 'TTA': 'L', 'TTG': 'L',
-    'TCT': 'S', 'TCC': 'S', 'TCA': 'S', 'TCG': 'S',
-    'TAT': 'Y', 'TAC': 'Y', 'TAA': '*', 'TAG': '*',
-    'TGT': 'C', 'TGC': 'C', 'TGA': '*', 'TGG': 'W',
-    'CTT': 'L', 'CTC': 'L', 'CTA': 'L', 'CTG': 'L',
-    'CCT': 'P', 'CCC': 'P', 'CCA': 'P', 'CCG': 'P',
-    'CAT': 'H', 'CAC': 'H', 'CAA': 'Q', 'CAG': 'Q',
-    'CGT': 'R', 'CGC': 'R', 'CGA': 'R', 'CGG': 'R',
-    'ATT': 'I', 'ATC': 'I', 'ATA': 'I', 'ATG': 'M',
-    'ACT': 'T', 'ACC': 'T', 'ACA': 'T', 'ACG': 'T',
-    'AAT': 'N', 'AAC': 'N', 'AAA': 'K', 'AAG': 'K',
-    'AGT': 'S', 'AGC': 'S', 'AGA': 'R', 'AGG': 'R',
-    'GTT': 'V', 'GTC': 'V', 'GTA': 'V', 'GTG': 'V',
-    'GCT': 'A', 'GCC': 'A', 'GCA': 'A', 'GCG': 'A',
-    'GAT': 'D', 'GAC': 'D', 'GAA': 'E', 'GAG': 'E',
-    'GGT': 'G', 'GGC': 'G', 'GGA': 'G', 'GGG': 'G',
+    "TTT": "F",
+    "TTC": "F",
+    "TTA": "L",
+    "TTG": "L",
+    "TCT": "S",
+    "TCC": "S",
+    "TCA": "S",
+    "TCG": "S",
+    "TAT": "Y",
+    "TAC": "Y",
+    "TAA": "*",
+    "TAG": "*",
+    "TGT": "C",
+    "TGC": "C",
+    "TGA": "*",
+    "TGG": "W",
+    "CTT": "L",
+    "CTC": "L",
+    "CTA": "L",
+    "CTG": "L",
+    "CCT": "P",
+    "CCC": "P",
+    "CCA": "P",
+    "CCG": "P",
+    "CAT": "H",
+    "CAC": "H",
+    "CAA": "Q",
+    "CAG": "Q",
+    "CGT": "R",
+    "CGC": "R",
+    "CGA": "R",
+    "CGG": "R",
+    "ATT": "I",
+    "ATC": "I",
+    "ATA": "I",
+    "ATG": "M",
+    "ACT": "T",
+    "ACC": "T",
+    "ACA": "T",
+    "ACG": "T",
+    "AAT": "N",
+    "AAC": "N",
+    "AAA": "K",
+    "AAG": "K",
+    "AGT": "S",
+    "AGC": "S",
+    "AGA": "R",
+    "AGG": "R",
+    "GTT": "V",
+    "GTC": "V",
+    "GTA": "V",
+    "GTG": "V",
+    "GCT": "A",
+    "GCC": "A",
+    "GCA": "A",
+    "GCG": "A",
+    "GAT": "D",
+    "GAC": "D",
+    "GAA": "E",
+    "GAG": "E",
+    "GGT": "G",
+    "GGC": "G",
+    "GGA": "G",
+    "GGG": "G",
 }
 
 # Nucleotide to 2-adic encoding (from Dragovich papers)
-NUCLEOTIDE_2ADIC = {'T': 0, 'C': 1, 'A': 2, 'G': 3}
+NUCLEOTIDE_2ADIC = {"T": 0, "C": 1, "A": 2, "G": 3}
 
 # Amino acid properties for fitness calculations
 AA_PROPERTIES = {
-    'A': {'hydropathy': 1.8, 'volume': 88.6, 'charge': 0, 'polar': False},
-    'R': {'hydropathy': -4.5, 'volume': 173.4, 'charge': 1, 'polar': True},
-    'N': {'hydropathy': -3.5, 'volume': 114.1, 'charge': 0, 'polar': True},
-    'D': {'hydropathy': -3.5, 'volume': 111.1, 'charge': -1, 'polar': True},
-    'C': {'hydropathy': 2.5, 'volume': 108.5, 'charge': 0, 'polar': False},
-    'E': {'hydropathy': -3.5, 'volume': 138.4, 'charge': -1, 'polar': True},
-    'Q': {'hydropathy': -3.5, 'volume': 143.8, 'charge': 0, 'polar': True},
-    'G': {'hydropathy': -0.4, 'volume': 60.1, 'charge': 0, 'polar': False},
-    'H': {'hydropathy': -3.2, 'volume': 153.2, 'charge': 0.5, 'polar': True},
-    'I': {'hydropathy': 4.5, 'volume': 166.7, 'charge': 0, 'polar': False},
-    'L': {'hydropathy': 3.8, 'volume': 166.7, 'charge': 0, 'polar': False},
-    'K': {'hydropathy': -3.9, 'volume': 168.6, 'charge': 1, 'polar': True},
-    'M': {'hydropathy': 1.9, 'volume': 162.9, 'charge': 0, 'polar': False},
-    'F': {'hydropathy': 2.8, 'volume': 189.9, 'charge': 0, 'polar': False},
-    'P': {'hydropathy': -1.6, 'volume': 112.7, 'charge': 0, 'polar': False},
-    'S': {'hydropathy': -0.8, 'volume': 89.0, 'charge': 0, 'polar': True},
-    'T': {'hydropathy': -0.7, 'volume': 116.1, 'charge': 0, 'polar': True},
-    'W': {'hydropathy': -0.9, 'volume': 227.8, 'charge': 0, 'polar': False},
-    'Y': {'hydropathy': -1.3, 'volume': 193.6, 'charge': 0, 'polar': True},
-    'V': {'hydropathy': 4.2, 'volume': 140.0, 'charge': 0, 'polar': False},
+    "A": {"hydropathy": 1.8, "volume": 88.6, "charge": 0, "polar": False},
+    "R": {"hydropathy": -4.5, "volume": 173.4, "charge": 1, "polar": True},
+    "N": {"hydropathy": -3.5, "volume": 114.1, "charge": 0, "polar": True},
+    "D": {"hydropathy": -3.5, "volume": 111.1, "charge": -1, "polar": True},
+    "C": {"hydropathy": 2.5, "volume": 108.5, "charge": 0, "polar": False},
+    "E": {"hydropathy": -3.5, "volume": 138.4, "charge": -1, "polar": True},
+    "Q": {"hydropathy": -3.5, "volume": 143.8, "charge": 0, "polar": True},
+    "G": {"hydropathy": -0.4, "volume": 60.1, "charge": 0, "polar": False},
+    "H": {"hydropathy": -3.2, "volume": 153.2, "charge": 0.5, "polar": True},
+    "I": {"hydropathy": 4.5, "volume": 166.7, "charge": 0, "polar": False},
+    "L": {"hydropathy": 3.8, "volume": 166.7, "charge": 0, "polar": False},
+    "K": {"hydropathy": -3.9, "volume": 168.6, "charge": 1, "polar": True},
+    "M": {"hydropathy": 1.9, "volume": 162.9, "charge": 0, "polar": False},
+    "F": {"hydropathy": 2.8, "volume": 189.9, "charge": 0, "polar": False},
+    "P": {"hydropathy": -1.6, "volume": 112.7, "charge": 0, "polar": False},
+    "S": {"hydropathy": -0.8, "volume": 89.0, "charge": 0, "polar": True},
+    "T": {"hydropathy": -0.7, "volume": 116.1, "charge": 0, "polar": True},
+    "W": {"hydropathy": -0.9, "volume": 227.8, "charge": 0, "polar": False},
+    "Y": {"hydropathy": -1.3, "volume": 193.6, "charge": 0, "polar": True},
+    "V": {"hydropathy": 4.2, "volume": 140.0, "charge": 0, "polar": False},
 }
 
 
@@ -113,6 +162,7 @@ AA_PROPERTIES = {
 # 1. ENHANCED P-ADIC CODON ENCODER
 # Based on: "The genetic code and its p-adic ultrametric modeling" (2024)
 # =============================================================================
+
 
 class PAdicCodonEncoder:
     """
@@ -135,7 +185,7 @@ class PAdicCodonEncoder:
 
     def _build_encoding(self):
         """Build 2-adic representation for all 64 codons."""
-        for codon in CODON_TABLE.keys():
+        for codon in CODON_TABLE:
             # Convert codon to p-adic number
             # Position 1 (first nucleotide) has weight p^0
             # Position 2 has weight p^2 (since each position uses 2 bits)
@@ -181,7 +231,7 @@ class PAdicCodonEncoder:
 
         return self.p ** (-valuation)
 
-    def ultrametric_distance_matrix(self, codons: List[str]) -> np.ndarray:
+    def ultrametric_distance_matrix(self, codons: list[str]) -> np.ndarray:
         """Compute pairwise p-adic distance matrix for codons."""
         n = len(codons)
         dist_matrix = np.zeros((n, n))
@@ -201,7 +251,7 @@ class PAdicCodonEncoder:
         In 2-adic encoding, codons encoding the same amino acid
         often differ only in the third position (wobble position).
         """
-        aa = CODON_TABLE.get(codon.upper(), '*')
+        aa = CODON_TABLE.get(codon.upper(), "*")
         synonymous = [c for c, a in CODON_TABLE.items() if a == aa]
         return len(synonymous)
 
@@ -248,12 +298,12 @@ if HAS_TORCH:
         @staticmethod
         def mobius_add(x: torch.Tensor, y: torch.Tensor, c: float = 1.0) -> torch.Tensor:
             """Mobius addition in the Poincare ball."""
-            x_norm_sq = torch.sum(x ** 2, dim=-1, keepdim=True)
-            y_norm_sq = torch.sum(y ** 2, dim=-1, keepdim=True)
+            x_norm_sq = torch.sum(x**2, dim=-1, keepdim=True)
+            y_norm_sq = torch.sum(y**2, dim=-1, keepdim=True)
             xy = torch.sum(x * y, dim=-1, keepdim=True)
 
             num = (1 + 2 * c * xy + c * y_norm_sq) * x + (1 - c * x_norm_sq) * y
-            denom = 1 + 2 * c * xy + c ** 2 * x_norm_sq * y_norm_sq
+            denom = 1 + 2 * c * xy + c**2 * x_norm_sq * y_norm_sq
 
             return num / (denom + 1e-8)
 
@@ -261,9 +311,9 @@ if HAS_TORCH:
         def poincare_distance(x: torch.Tensor, y: torch.Tensor, c: float = 1.0) -> torch.Tensor:
             """Poincare distance between points in the ball."""
             diff = x - y
-            diff_norm_sq = torch.sum(diff ** 2, dim=-1)
-            x_norm_sq = torch.sum(x ** 2, dim=-1)
-            y_norm_sq = torch.sum(y ** 2, dim=-1)
+            diff_norm_sq = torch.sum(diff**2, dim=-1)
+            x_norm_sq = torch.sum(x**2, dim=-1)
+            y_norm_sq = torch.sum(y**2, dim=-1)
 
             num = diff_norm_sq
             denom = (1 - c * x_norm_sq) * (1 - c * y_norm_sq)
@@ -276,7 +326,7 @@ if HAS_TORCH:
         def exp_map(v: torch.Tensor, x: torch.Tensor, c: float = 1.0) -> torch.Tensor:
             """Exponential map from tangent space at x."""
             v_norm = torch.norm(v, dim=-1, keepdim=True)
-            x_norm_sq = torch.sum(x ** 2, dim=-1, keepdim=True)
+            x_norm_sq = torch.sum(x**2, dim=-1, keepdim=True)
 
             lambda_x = 2 / (1 - c * x_norm_sq + 1e-8)
 
@@ -297,17 +347,16 @@ if HAS_TORCH:
             """Logarithmic map to tangent space at x."""
             diff = PoincareOperations.mobius_add(-x, y, c)
             diff_norm = torch.norm(diff, dim=-1, keepdim=True)
-            x_norm_sq = torch.sum(x ** 2, dim=-1, keepdim=True)
+            x_norm_sq = torch.sum(x**2, dim=-1, keepdim=True)
 
             lambda_x = 2 / (1 - c * x_norm_sq + 1e-8)
 
             direction = diff / (diff_norm + 1e-8)
-            factor = 2 / (math.sqrt(c) * lambda_x + 1e-8) * torch.atanh(
-                torch.clamp(math.sqrt(c) * diff_norm, max=1 - 1e-5)
+            factor = (
+                2 / (math.sqrt(c) * lambda_x + 1e-8) * torch.atanh(torch.clamp(math.sqrt(c) * diff_norm, max=1 - 1e-5))
             )
 
             return factor * direction
-
 
     class HyperbolicVAEEncoder(nn.Module):
         """
@@ -331,7 +380,7 @@ if HAS_TORCH:
             self.fc_mu = nn.Linear(hidden_dim, latent_dim)
             self.fc_logvar = nn.Linear(hidden_dim, latent_dim)
 
-        def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
             h = self.encoder(x)
 
             # Get Euclidean mean and variance
@@ -348,7 +397,6 @@ if HAS_TORCH:
             z_hyp = PoincareOperations.exp_map(z_tangent, origin, self.curvature)
 
             return z_hyp, mu_eucl, logvar
-
 
     class HyperbolicVAEDecoder(nn.Module):
         """Decoder from hyperbolic latent space."""
@@ -372,7 +420,6 @@ if HAS_TORCH:
 
             return self.decoder(z_tangent)
 
-
     class HyperbolicVAE(nn.Module):
         """
         Complete Hyperbolic VAE with Poincare ball latent space.
@@ -386,7 +433,7 @@ if HAS_TORCH:
             self.decoder = HyperbolicVAEDecoder(latent_dim, hidden_dim, input_dim, curvature)
             self.curvature = curvature
 
-        def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
             z_hyp, mu, logvar = self.encoder(x)
             x_recon = self.decoder(z_hyp)
             return x_recon, z_hyp, mu, logvar
@@ -400,7 +447,7 @@ if HAS_TORCH:
 
             # Curvature correction factor
             mu_norm = torch.norm(mu, dim=-1)
-            correction = 1 + self.curvature * mu_norm ** 2 / 4
+            correction = 1 + self.curvature * mu_norm**2 / 4
 
             return (kl_eucl * correction).mean()
 
@@ -409,6 +456,7 @@ if HAS_TORCH:
 # 3. POTTS MODEL FITNESS LANDSCAPE
 # Based on: "Kinetic coevolutionary models predict HIV-1 resistance" (PNAS 2024)
 # =============================================================================
+
 
 class PottsModelFitness:
     """
@@ -431,10 +479,10 @@ class PottsModelFitness:
         self.h = np.zeros((self.L, self.q))  # Single-site fields
         self.J = np.zeros((self.L, self.L, self.q, self.q))  # Pairwise couplings
 
-        self.aa_to_idx = {aa: i for i, aa in enumerate('ACDEFGHIKLMNPQRSTVWY-')}
+        self.aa_to_idx = {aa: i for i, aa in enumerate("ACDEFGHIKLMNPQRSTVWY-")}
         self.idx_to_aa = {i: aa for aa, i in self.aa_to_idx.items()}
 
-    def fit_from_msa(self, sequences: List[str], pseudocount: float = 0.5, regularization: float = 0.01):
+    def fit_from_msa(self, sequences: list[str], pseudocount: float = 0.5, regularization: float = 0.01):
         """
         Fit Potts model parameters from multiple sequence alignment.
 
@@ -445,7 +493,7 @@ class PottsModelFitness:
         # Compute single-site frequencies
         f_i = np.zeros((self.L, self.q))
         for seq in sequences:
-            for i, aa in enumerate(seq[:self.L]):
+            for i, aa in enumerate(seq[: self.L]):
                 if aa in self.aa_to_idx:
                     f_i[i, self.aa_to_idx[aa]] += 1
 
@@ -503,7 +551,7 @@ class PottsModelFitness:
         Lower energy = higher fitness/probability
         """
         if len(sequence) < self.L:
-            sequence = sequence + '-' * (self.L - len(sequence))
+            sequence = sequence + "-" * (self.L - len(sequence))
 
         energy = 0.0
 
@@ -568,10 +616,10 @@ class PottsModelFitness:
         where A, B are single mutants and AB is double mutant.
         """
         # Single mutation effects
-        effect1 = self.mutation_effect(sequence, pos1, aa1)
+        self.mutation_effect(sequence, pos1, aa1)
 
         # Create single mutant for second effect calculation
-        seq1 = sequence[:pos1] + aa1 + sequence[pos1 + 1:]
+        seq1 = sequence[:pos1] + aa1 + sequence[pos1 + 1 :]
         effect2_given_1 = self.mutation_effect(seq1, pos2, aa2)
 
         # Independent effects (if no epistasis)
@@ -588,6 +636,7 @@ class PottsModelFitness:
 # Based on: "Persistent homology reveals phylogenetic signal" (PNAS Nexus 2024)
 # =============================================================================
 
+
 class PersistentHomologyAnalyzer:
     """
     Compute persistent homology features for protein sequences.
@@ -601,6 +650,7 @@ class PersistentHomologyAnalyzer:
         self.has_ripser = False
         try:
             import ripser
+
             self.ripser = ripser
             self.has_ripser = True
         except ImportError:
@@ -617,22 +667,24 @@ class PersistentHomologyAnalyzer:
             if aa in AA_PROPERTIES:
                 props = AA_PROPERTIES[aa]
                 point = [
-                    props['hydropathy'] / 5,  # Normalize
-                    props['volume'] / 250,
-                    props['charge'],
+                    props["hydropathy"] / 5,  # Normalize
+                    props["volume"] / 250,
+                    props["charge"],
                 ]
                 if embedding_dim > 3:
-                    point.extend([
-                        1 if props['polar'] else 0,
-                        0,  # Placeholder for additional features
-                    ][:embedding_dim - 3])
+                    point.extend(
+                        [
+                            1 if props["polar"] else 0,
+                            0,  # Placeholder for additional features
+                        ][: embedding_dim - 3]
+                    )
                 points.append(point[:embedding_dim])
             else:
                 points.append([0] * embedding_dim)
 
         return np.array(points)
 
-    def compute_persistence_diagram(self, sequence: str, max_dim: int = 1) -> List[np.ndarray]:
+    def compute_persistence_diagram(self, sequence: str, max_dim: int = 1) -> list[np.ndarray]:
         """
         Compute persistence diagram for a protein sequence.
 
@@ -645,9 +697,9 @@ class PersistentHomologyAnalyzer:
         points = self.sequence_to_point_cloud(sequence)
         result = self.ripser.ripser(points, maxdim=max_dim)
 
-        return result['dgms']
+        return result["dgms"]
 
-    def _fallback_persistence(self, sequence: str) -> List[np.ndarray]:
+    def _fallback_persistence(self, sequence: str) -> list[np.ndarray]:
         """Fallback when ripser not available."""
         points = self.sequence_to_point_cloud(sequence)
 
@@ -659,7 +711,7 @@ class PersistentHomologyAnalyzer:
         dists = pdist(points)
 
         # Create fake persistence diagram from hierarchical clustering
-        Z = linkage(dists, method='single')
+        Z = linkage(dists, method="single")
 
         # Birth times are 0, death times are merge distances
         births = np.zeros(n - 1)
@@ -668,7 +720,7 @@ class PersistentHomologyAnalyzer:
         diagram = np.column_stack([births, deaths])
         return [diagram]
 
-    def persistence_statistics(self, sequence: str) -> Dict[str, float]:
+    def persistence_statistics(self, sequence: str) -> dict[str, float]:
         """
         Compute statistical summaries of persistence diagrams.
 
@@ -690,23 +742,23 @@ class PersistentHomologyAnalyzer:
             finite_bars = dgm[np.isfinite(dgm[:, 1])]
 
             if len(finite_bars) == 0:
-                stats[f'dim{dim}_total_pers'] = 0
-                stats[f'dim{dim}_max_pers'] = 0
-                stats[f'dim{dim}_mean_pers'] = 0
-                stats[f'dim{dim}_n_bars'] = 0
+                stats[f"dim{dim}_total_pers"] = 0
+                stats[f"dim{dim}_max_pers"] = 0
+                stats[f"dim{dim}_mean_pers"] = 0
+                stats[f"dim{dim}_n_bars"] = 0
                 continue
 
             lifetimes = finite_bars[:, 1] - finite_bars[:, 0]
 
-            stats[f'dim{dim}_total_pers'] = np.sum(lifetimes)
-            stats[f'dim{dim}_max_pers'] = np.max(lifetimes)
-            stats[f'dim{dim}_mean_pers'] = np.mean(lifetimes)
-            stats[f'dim{dim}_n_bars'] = len(finite_bars)
+            stats[f"dim{dim}_total_pers"] = np.sum(lifetimes)
+            stats[f"dim{dim}_max_pers"] = np.max(lifetimes)
+            stats[f"dim{dim}_mean_pers"] = np.mean(lifetimes)
+            stats[f"dim{dim}_n_bars"] = len(finite_bars)
 
             # Persistence entropy
             lifetimes_norm = lifetimes / (np.sum(lifetimes) + 1e-10)
             entropy = -np.sum(lifetimes_norm * np.log(lifetimes_norm + 1e-10))
-            stats[f'dim{dim}_entropy'] = entropy
+            stats[f"dim{dim}_entropy"] = entropy
 
         return stats
 
@@ -716,8 +768,8 @@ class PersistentHomologyAnalyzer:
 
         Uses bottleneck or Wasserstein distance between persistence diagrams.
         """
-        dgm1 = self.compute_persistence_diagram(seq1)
-        dgm2 = self.compute_persistence_diagram(seq2)
+        self.compute_persistence_diagram(seq1)
+        self.compute_persistence_diagram(seq2)
 
         # Simple approximation: compare statistics
         stats1 = self.persistence_statistics(seq1)
@@ -736,6 +788,7 @@ class PersistentHomologyAnalyzer:
 # Based on: "ProMEP: Zero-shot mutation effect prediction" (Cell Research 2024)
 # =============================================================================
 
+
 class ZeroShotMutationPredictor:
     """
     Predict mutation effects without training on specific protein family.
@@ -748,28 +801,37 @@ class ZeroShotMutationPredictor:
     def __init__(self):
         self.blosum62 = self._load_blosum62()
 
-    def _load_blosum62(self) -> Dict[Tuple[str, str], int]:
+    def _load_blosum62(self) -> dict[tuple[str, str], int]:
         """Load BLOSUM62 substitution matrix."""
         # Simplified BLOSUM62 diagonal and common substitutions
         blosum = {}
-        aa_list = 'ARNDCQEGHILKMFPSTWYV'
+        aa_list = "ARNDCQEGHILKMFPSTWYV"
 
         # Diagonal values (self-substitution)
         diag = [4, 5, 6, 6, 9, 5, 5, 6, 8, 4, 4, 5, 5, 6, 7, 4, 5, 11, 7, 4]
-        for aa, score in zip(aa_list, diag):
+        for aa, score in zip(aa_list, diag, strict=False):
             blosum[(aa, aa)] = score
 
         # Common substitutions (simplified)
         common_subs = {
-            ('D', 'E'): 2, ('E', 'D'): 2,
-            ('K', 'R'): 2, ('R', 'K'): 2,
-            ('N', 'D'): 1, ('D', 'N'): 1,
-            ('Q', 'E'): 2, ('E', 'Q'): 2,
-            ('S', 'T'): 1, ('T', 'S'): 1,
-            ('I', 'V'): 3, ('V', 'I'): 3,
-            ('I', 'L'): 2, ('L', 'I'): 2,
-            ('L', 'V'): 1, ('V', 'L'): 1,
-            ('F', 'Y'): 3, ('Y', 'F'): 3,
+            ("D", "E"): 2,
+            ("E", "D"): 2,
+            ("K", "R"): 2,
+            ("R", "K"): 2,
+            ("N", "D"): 1,
+            ("D", "N"): 1,
+            ("Q", "E"): 2,
+            ("E", "Q"): 2,
+            ("S", "T"): 1,
+            ("T", "S"): 1,
+            ("I", "V"): 3,
+            ("V", "I"): 3,
+            ("I", "L"): 2,
+            ("L", "I"): 2,
+            ("L", "V"): 1,
+            ("V", "L"): 1,
+            ("F", "Y"): 3,
+            ("Y", "F"): 3,
         }
         blosum.update(common_subs)
 
@@ -781,8 +843,7 @@ class ZeroShotMutationPredictor:
 
         return blosum
 
-    def predict_mutation_effect(self, sequence: str, position: int,
-                                 wildtype: str, mutant: str) -> Dict[str, float]:
+    def predict_mutation_effect(self, sequence: str, position: int, wildtype: str, mutant: str) -> dict[str, float]:
         """
         Predict effect of mutation without training.
 
@@ -796,17 +857,17 @@ class ZeroShotMutationPredictor:
 
         # 1. BLOSUM62 score
         blosum_score = self.blosum62.get((wildtype, mutant), -4)
-        results['blosum_score'] = blosum_score
+        results["blosum_score"] = blosum_score
 
         # 2. Physicochemical changes
         if wildtype in AA_PROPERTIES and mutant in AA_PROPERTIES:
             wt_props = AA_PROPERTIES[wildtype]
             mt_props = AA_PROPERTIES[mutant]
 
-            results['hydropathy_change'] = mt_props['hydropathy'] - wt_props['hydropathy']
-            results['volume_change'] = mt_props['volume'] - wt_props['volume']
-            results['charge_change'] = mt_props['charge'] - wt_props['charge']
-            results['polarity_change'] = int(mt_props['polar']) - int(wt_props['polar'])
+            results["hydropathy_change"] = mt_props["hydropathy"] - wt_props["hydropathy"]
+            results["volume_change"] = mt_props["volume"] - wt_props["volume"]
+            results["charge_change"] = mt_props["charge"] - wt_props["charge"]
+            results["polarity_change"] = int(mt_props["polar"]) - int(wt_props["polar"])
 
         # 3. Local context features
         window = 5
@@ -815,40 +876,36 @@ class ZeroShotMutationPredictor:
         local_seq = sequence[start:end]
 
         # Local hydrophobicity
-        local_hydro = np.mean([
-            AA_PROPERTIES.get(aa, {}).get('hydropathy', 0)
-            for aa in local_seq if aa in AA_PROPERTIES
-        ])
-        results['local_hydropathy'] = local_hydro
+        local_hydro = np.mean(
+            [AA_PROPERTIES.get(aa, {}).get("hydropathy", 0) for aa in local_seq if aa in AA_PROPERTIES]
+        )
+        results["local_hydropathy"] = local_hydro
 
         # Local charge
-        local_charge = sum([
-            AA_PROPERTIES.get(aa, {}).get('charge', 0)
-            for aa in local_seq if aa in AA_PROPERTIES
-        ])
-        results['local_charge'] = local_charge
+        local_charge = sum([AA_PROPERTIES.get(aa, {}).get("charge", 0) for aa in local_seq if aa in AA_PROPERTIES])
+        results["local_charge"] = local_charge
 
         # 4. Position features
-        results['relative_position'] = position / len(sequence)
-        results['is_terminal'] = 1 if position < 10 or position > len(sequence) - 10 else 0
+        results["relative_position"] = position / len(sequence)
+        results["is_terminal"] = 1 if position < 10 or position > len(sequence) - 10 else 0
 
         # 5. Composite score (weighted combination)
         # Negative = deleterious, Positive = neutral/beneficial
         composite = (
-            0.3 * (blosum_score / 4) +  # Normalize BLOSUM
-            0.2 * (1 - abs(results.get('hydropathy_change', 0)) / 9) +
-            0.2 * (1 - abs(results.get('charge_change', 0)) / 2) +
-            0.3 * (1 - abs(results.get('volume_change', 0)) / 200)
+            0.3 * (blosum_score / 4)  # Normalize BLOSUM
+            + 0.2 * (1 - abs(results.get("hydropathy_change", 0)) / 9)
+            + 0.2 * (1 - abs(results.get("charge_change", 0)) / 2)
+            + 0.3 * (1 - abs(results.get("volume_change", 0)) / 200)
         )
-        results['predicted_effect'] = composite
-        results['classification'] = 'deleterious' if composite < 0.3 else 'neutral' if composite < 0.7 else 'beneficial'
+        results["predicted_effect"] = composite
+        results["classification"] = "deleterious" if composite < 0.3 else "neutral" if composite < 0.7 else "beneficial"
 
         return results
 
-    def scan_all_mutations(self, sequence: str) -> List[Dict]:
+    def scan_all_mutations(self, sequence: str) -> list[dict]:
         """Scan all possible single mutations in a sequence."""
         mutations = []
-        aa_list = 'ACDEFGHIKLMNPQRSTVWY'
+        aa_list = "ACDEFGHIKLMNPQRSTVWY"
 
         for pos, wt in enumerate(sequence):
             if wt not in aa_list:
@@ -856,10 +913,10 @@ class ZeroShotMutationPredictor:
             for mt in aa_list:
                 if mt != wt:
                     effect = self.predict_mutation_effect(sequence, pos, wt, mt)
-                    effect['position'] = pos
-                    effect['wildtype'] = wt
-                    effect['mutant'] = mt
-                    effect['mutation'] = f"{wt}{pos + 1}{mt}"
+                    effect["position"] = pos
+                    effect["wildtype"] = wt
+                    effect["mutant"] = mt
+                    effect["mutation"] = f"{wt}{pos + 1}{mt}"
                     mutations.append(effect)
 
         return mutations
@@ -869,6 +926,7 @@ class ZeroShotMutationPredictor:
 # 6. EPISTASIS DETECTION VIA COVARIANCE
 # Based on: "Efficient epistasis inference via covariance factorization" (2024)
 # =============================================================================
+
 
 class EpistasisDetector:
     """
@@ -883,7 +941,7 @@ class EpistasisDetector:
         self.covariance_matrix = None
         self.mutual_info_matrix = None
 
-    def compute_covariance_matrix(self, sequences: List[str]) -> np.ndarray:
+    def compute_covariance_matrix(self, sequences: list[str]) -> np.ndarray:
         """
         Compute position-wise covariance matrix from MSA.
         """
@@ -894,7 +952,7 @@ class EpistasisDetector:
         n = len(sequences)
 
         # Encode sequences as numeric
-        aa_to_num = {aa: i for i, aa in enumerate('ACDEFGHIKLMNPQRSTVWY-')}
+        aa_to_num = {aa: i for i, aa in enumerate("ACDEFGHIKLMNPQRSTVWY-")}
 
         encoded = np.zeros((n, L))
         for i, seq in enumerate(sequences):
@@ -906,7 +964,7 @@ class EpistasisDetector:
 
         return self.covariance_matrix
 
-    def compute_mutual_information(self, sequences: List[str]) -> np.ndarray:
+    def compute_mutual_information(self, sequences: list[str]) -> np.ndarray:
         """
         Compute mutual information between all position pairs.
 
@@ -916,15 +974,15 @@ class EpistasisDetector:
             return np.array([])
 
         L = len(sequences[0])
-        n = len(sequences)
+        len(sequences)
 
         mi_matrix = np.zeros((L, L))
 
         for i in range(L):
             for j in range(i, L):
                 # Extract columns
-                col_i = [seq[i] if i < len(seq) else '-' for seq in sequences]
-                col_j = [seq[j] if j < len(seq) else '-' for seq in sequences]
+                col_i = [seq[i] if i < len(seq) else "-" for seq in sequences]
+                col_j = [seq[j] if j < len(seq) else "-" for seq in sequences]
 
                 # Compute entropies
                 h_i = self._entropy(col_i)
@@ -938,22 +996,22 @@ class EpistasisDetector:
         self.mutual_info_matrix = mi_matrix
         return mi_matrix
 
-    def _entropy(self, column: List[str]) -> float:
+    def _entropy(self, column: list[str]) -> float:
         """Compute Shannon entropy of a column."""
         counts = Counter(column)
         n = len(column)
         probs = [c / n for c in counts.values()]
         return -sum(p * np.log2(p + 1e-10) for p in probs)
 
-    def _joint_entropy(self, col1: List[str], col2: List[str]) -> float:
+    def _joint_entropy(self, col1: list[str], col2: list[str]) -> float:
         """Compute joint entropy of two columns."""
-        pairs = list(zip(col1, col2))
+        pairs = list(zip(col1, col2, strict=False))
         counts = Counter(pairs)
         n = len(pairs)
         probs = [c / n for c in counts.values()]
         return -sum(p * np.log2(p + 1e-10) for p in probs)
 
-    def find_epistatic_pairs(self, sequences: List[str], threshold: float = 0.5) -> List[Tuple[int, int, float]]:
+    def find_epistatic_pairs(self, sequences: list[str], threshold: float = 0.5) -> list[tuple[int, int, float]]:
         """
         Find pairs of positions with significant epistatic interactions.
 
@@ -981,25 +1039,25 @@ class EpistasisDetector:
 
         return epistatic_pairs
 
-    def epistasis_network(self, sequences: List[str], threshold: float = 0.5) -> Dict:
+    def epistasis_network(self, sequences: list[str], threshold: float = 0.5) -> dict:
         """
         Build network of epistatic interactions.
         """
         pairs = self.find_epistatic_pairs(sequences, threshold)
 
         network = {
-            'nodes': set(),
-            'edges': [],
-            'weights': {},
+            "nodes": set(),
+            "edges": [],
+            "weights": {},
         }
 
         for i, j, mi in pairs:
-            network['nodes'].add(i)
-            network['nodes'].add(j)
-            network['edges'].append((i, j))
-            network['weights'][(i, j)] = mi
+            network["nodes"].add(i)
+            network["nodes"].add(j)
+            network["edges"].append((i, j))
+            network["weights"][(i, j)] = mi
 
-        network['nodes'] = sorted(list(network['nodes']))
+        network["nodes"] = sorted(list(network["nodes"]))
 
         return network
 
@@ -1008,6 +1066,7 @@ class EpistasisDetector:
 # 7. QUASISPECIES DYNAMICS SIMULATOR
 # Based on: "Quasispecies theory and emerging viruses" (npj Viruses 2024)
 # =============================================================================
+
 
 class QuasispeciesSimulator:
     """
@@ -1021,7 +1080,7 @@ class QuasispeciesSimulator:
     def __init__(self, sequence_length: int, mutation_rate: float = 0.001):
         self.L = sequence_length
         self.mu = mutation_rate  # Per-site per-replication
-        self.alphabet = 'ACGT'
+        self.alphabet = "ACGT"
 
     def mutate_sequence(self, sequence: str) -> str:
         """Apply random mutations based on mutation rate."""
@@ -1033,7 +1092,7 @@ class QuasispeciesSimulator:
                 alternatives = [n for n in self.alphabet if n != current]
                 mutated[i] = np.random.choice(alternatives)
 
-        return ''.join(mutated)
+        return "".join(mutated)
 
     def fitness_function(self, sequence: str, master_sequence: str) -> float:
         """
@@ -1041,24 +1100,22 @@ class QuasispeciesSimulator:
 
         Uses exponential fitness landscape.
         """
-        hamming = sum(1 for a, b in zip(sequence, master_sequence) if a != b)
+        hamming = sum(1 for a, b in zip(sequence, master_sequence, strict=False) if a != b)
 
         # Selection coefficient per mutation
         s = 0.1
 
         return np.exp(-s * hamming)
 
-    def replicate(self, population: Dict[str, int], master_sequence: str,
-                  carrying_capacity: int = 10000) -> Dict[str, int]:
+    def replicate(
+        self, population: dict[str, int], master_sequence: str, carrying_capacity: int = 10000
+    ) -> dict[str, int]:
         """
         One round of replication with mutation and selection.
         """
         new_population = defaultdict(int)
 
-        total_fitness = sum(
-            count * self.fitness_function(seq, master_sequence)
-            for seq, count in population.items()
-        )
+        total_fitness = sum(count * self.fitness_function(seq, master_sequence) for seq, count in population.items())
 
         for seq, count in population.items():
             fitness = self.fitness_function(seq, master_sequence)
@@ -1073,8 +1130,7 @@ class QuasispeciesSimulator:
 
         return dict(new_population)
 
-    def simulate(self, master_sequence: str, generations: int = 100,
-                 initial_population: int = 1000) -> Dict:
+    def simulate(self, master_sequence: str, generations: int = 100, initial_population: int = 1000) -> dict:
         """
         Run quasispecies simulation.
 
@@ -1084,10 +1140,10 @@ class QuasispeciesSimulator:
         population = {master_sequence: initial_population}
 
         history = {
-            'generations': [],
-            'diversity': [],
-            'mean_fitness': [],
-            'master_fraction': [],
+            "generations": [],
+            "diversity": [],
+            "mean_fitness": [],
+            "master_fraction": [],
         }
 
         for gen in range(generations):
@@ -1103,23 +1159,20 @@ class QuasispeciesSimulator:
             diversity = len(population)
 
             # Mean fitness
-            mean_fitness = np.mean([
-                self.fitness_function(seq, master_sequence)
-                for seq in population.keys()
-            ])
+            mean_fitness = np.mean([self.fitness_function(seq, master_sequence) for seq in population])
 
             # Master sequence fraction
             master_fraction = population.get(master_sequence, 0) / total
 
-            history['generations'].append(gen)
-            history['diversity'].append(diversity)
-            history['mean_fitness'].append(mean_fitness)
-            history['master_fraction'].append(master_fraction)
+            history["generations"].append(gen)
+            history["diversity"].append(diversity)
+            history["mean_fitness"].append(mean_fitness)
+            history["master_fraction"].append(master_fraction)
 
         return {
-            'final_population': population,
-            'history': history,
-            'error_threshold': self._estimate_error_threshold(master_sequence),
+            "final_population": population,
+            "history": history,
+            "error_threshold": self._estimate_error_threshold(master_sequence),
         }
 
     def _estimate_error_threshold(self, master_sequence: str) -> float:
@@ -1139,6 +1192,7 @@ class QuasispeciesSimulator:
 # MAIN - RUN ALL IMPLEMENTATIONS
 # =============================================================================
 
+
 def main():
     """Run all literature-derived implementations."""
     print("=" * 70)
@@ -1156,11 +1210,11 @@ def main():
     encoder = PAdicCodonEncoder(p=2)
 
     # Test encoding
-    test_codons = ['ATG', 'TTT', 'TTC', 'TAA', 'TGA']
+    test_codons = ["ATG", "TTT", "TTC", "TAA", "TGA"]
     print("\nCodon encodings:")
     for codon in test_codons:
         padic = encoder.encode(codon)
-        aa = CODON_TABLE.get(codon, '?')
+        aa = CODON_TABLE.get(codon, "?")
         print(f"  {codon} -> p-adic: {padic:3d}, AA: {aa}")
 
     # Distance matrix
@@ -1169,10 +1223,10 @@ def main():
     print(f"  d(TTT, TTA) = {encoder.padic_distance('TTT', 'TTA'):.4f}")
     print(f"  d(TTT, ATG) = {encoder.padic_distance('TTT', 'ATG'):.4f}")
 
-    results['padic_encoder'] = {
-        'status': 'success',
-        'n_codons': 64,
-        'synonymous_distance': encoder.padic_distance('TTT', 'TTC'),
+    results["padic_encoder"] = {
+        "status": "success",
+        "n_codons": 64,
+        "synonymous_distance": encoder.padic_distance("TTT", "TTC"),
     }
 
     # 2. Hyperbolic VAE (if PyTorch available)
@@ -1201,14 +1255,14 @@ def main():
         hyp_dist = PoincareOperations.poincare_distance(z1, z2, c=1.0)
         print(f"  Sample hyperbolic distance: {hyp_dist.item():.4f}")
 
-        results['hyperbolic_vae'] = {
-            'status': 'success',
-            'max_latent_norm': max_norm,
-            'in_poincare_ball': max_norm < 1,
+        results["hyperbolic_vae"] = {
+            "status": "success",
+            "max_latent_norm": max_norm,
+            "in_poincare_ball": max_norm < 1,
         }
     else:
         print("  PyTorch not available - skipping")
-        results['hyperbolic_vae'] = {'status': 'skipped'}
+        results["hyperbolic_vae"] = {"status": "skipped"}
 
     # 3. Potts Model Fitness
     print("\n" + "=" * 70)
@@ -1225,8 +1279,8 @@ def main():
         n_mutations = np.random.randint(0, 4)
         for _ in range(n_mutations):
             pos = np.random.randint(0, len(mutated))
-            mutated[pos] = np.random.choice(list('ACDEFGHIKLMNPQRSTVWY'))
-        sequences.append(''.join(mutated))
+            mutated[pos] = np.random.choice(list("ACDEFGHIKLMNPQRSTVWY"))
+        sequences.append("".join(mutated))
 
     potts = PottsModelFitness(sequence_length=10)
     potts.fit_from_msa(sequences)
@@ -1239,14 +1293,14 @@ def main():
 
     # Mutation effects
     print("\n  Mutation effects (position 5, Ala):")
-    for new_aa in ['A', 'G', 'P', 'W']:
+    for new_aa in ["A", "G", "P", "W"]:
         effect = potts.mutation_effect(master_seq, 5, new_aa)
         print(f"    V5{new_aa}: delta_E = {effect:+.4f}")
 
-    results['potts_model'] = {
-        'status': 'success',
-        'master_energy': potts.compute_energy(master_seq),
-        'master_fitness': potts.predict_fitness(master_seq),
+    results["potts_model"] = {
+        "status": "success",
+        "master_energy": potts.compute_energy(master_seq),
+        "master_fitness": potts.predict_fitness(master_seq),
     }
 
     # 4. Persistent Homology
@@ -1269,10 +1323,10 @@ def main():
     topo_dist = ph_analyzer.topological_distance(test_seq, seq2)
     print(f"\n  Topological distance (1 mutation): {topo_dist:.4f}")
 
-    results['persistent_homology'] = {
-        'status': 'success',
-        'n_statistics': len(stats),
-        'topological_distance': topo_dist,
+    results["persistent_homology"] = {
+        "status": "success",
+        "n_statistics": len(stats),
+        "topological_distance": topo_dist,
     }
 
     # 5. Zero-shot Mutation Predictor
@@ -1286,10 +1340,10 @@ def main():
     hiv_seq = "MGARASVLSGGELDRWEKIRLRPGGKKKYKLKHIVWASRELERFAVNPGLLETSEG"
 
     test_mutations = [
-        (10, 'G', 'R'),  # G10R
-        (25, 'K', 'R'),  # K25R (conservative)
-        (25, 'K', 'E'),  # K25E (charge reversal)
-        (30, 'H', 'Y'),  # H30Y
+        (10, "G", "R"),  # G10R
+        (25, "K", "R"),  # K25R (conservative)
+        (25, "K", "E"),  # K25E (charge reversal)
+        (30, "H", "Y"),  # H30Y
     ]
 
     print("\n  HIV Gag mutation effects:")
@@ -1298,9 +1352,9 @@ def main():
             effect = predictor.predict_mutation_effect(hiv_seq, pos, wt, mt)
             print(f"    {wt}{pos + 1}{mt}: score={effect['predicted_effect']:.3f}, class={effect['classification']}")
 
-    results['zero_shot_predictor'] = {
-        'status': 'success',
-        'n_test_mutations': len(test_mutations),
+    results["zero_shot_predictor"] = {
+        "status": "success",
+        "n_test_mutations": len(test_mutations),
     }
 
     # 6. Epistasis Detection
@@ -1325,11 +1379,11 @@ def main():
     network = detector.epistasis_network(sequences, threshold=1.0)
     print(f"\n  Epistasis network: {len(network['nodes'])} nodes, {len(network['edges'])} edges")
 
-    results['epistasis_detection'] = {
-        'status': 'success',
-        'n_pairs': len(epistatic_pairs),
-        'network_nodes': len(network['nodes']),
-        'network_edges': len(network['edges']),
+    results["epistasis_detection"] = {
+        "status": "success",
+        "n_pairs": len(epistatic_pairs),
+        "network_nodes": len(network["nodes"]),
+        "network_edges": len(network["edges"]),
     }
 
     # 7. Quasispecies Simulation
@@ -1342,22 +1396,22 @@ def main():
     master = "ATGC" * 25  # 100 nt master sequence
     sim_result = qs_sim.simulate(master, generations=50, initial_population=500)
 
-    history = sim_result['history']
-    print(f"\n  Simulated 50 generations")
-    print(f"  Initial population: 500")
+    history = sim_result["history"]
+    print("\n  Simulated 50 generations")
+    print("  Initial population: 500")
     print(f"  Mutation rate: {qs_sim.mu}")
     print(f"  Error threshold: {sim_result['error_threshold']:.6f}")
 
-    if history['generations']:
+    if history["generations"]:
         print(f"\n  Final statistics (gen {history['generations'][-1]}):")
         print(f"    Diversity: {history['diversity'][-1]} unique sequences")
         print(f"    Mean fitness: {history['mean_fitness'][-1]:.4f}")
         print(f"    Master fraction: {history['master_fraction'][-1]:.4f}")
 
-    results['quasispecies'] = {
-        'status': 'success',
-        'final_diversity': history['diversity'][-1] if history['diversity'] else 0,
-        'error_threshold': sim_result['error_threshold'],
+    results["quasispecies"] = {
+        "status": "success",
+        "final_diversity": history["diversity"][-1] if history["diversity"] else 0,
+        "error_threshold": sim_result["error_threshold"],
     }
 
     # Save results
@@ -1372,7 +1426,7 @@ def main():
     print("=" * 70)
 
     for impl, result in results.items():
-        status = result.get('status', 'unknown')
+        status = result.get("status", "unknown")
         print(f"  {impl}: {status}")
 
     print(f"\nResults saved to: {output_dir}")

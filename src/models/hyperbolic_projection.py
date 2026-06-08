@@ -26,7 +26,7 @@ Architecture:
 Single responsibility: Euclidean to hyperbolic projection.
 """
 
-from typing import Tuple, Union
+from typing import Union
 
 # Import geoopt for manifold-aware operations
 import geoopt
@@ -200,7 +200,7 @@ class HyperbolicProjection(nn.Module):
         c = self.manifold.c
         return c.item() if hasattr(c, "item") else float(c)
 
-    def forward_with_components(self, z_euclidean: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward_with_components(self, z_euclidean: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Project with explicit direction/radius outputs.
 
         Useful for monitoring and debugging.
@@ -287,7 +287,9 @@ class DualHyperbolicProjection(nn.Module):
                 learnable_curvature=learnable_curvature,
             )
 
-    def forward(self, z_A: torch.Tensor, z_B: torch.Tensor, as_manifold: bool = False) -> Tuple[
+    def forward(
+        self, z_A: torch.Tensor, z_B: torch.Tensor, as_manifold: bool = False
+    ) -> tuple[
         Union[torch.Tensor, "ManifoldParameter"],
         Union[torch.Tensor, "ManifoldParameter"],
     ]:

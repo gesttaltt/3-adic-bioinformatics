@@ -7,10 +7,11 @@ Author: Claude Code
 Date: 2026-01-14
 """
 
+import sys
+from pathlib import Path
+
 import torch
 import torch.nn as nn
-from pathlib import Path
-import sys
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -18,12 +19,12 @@ sys.path.insert(0, str(project_root))
 
 from src.utils.nn_factory import (
     MLPBuilder,
-    create_encoder_mlp,
-    create_decoder_mlp,
+    MLPMigrationHelper,
     create_controller_mlp,
+    create_decoder_mlp,
+    create_encoder_mlp,
     create_simple_mlp,
     validate_mlp_architecture,
-    MLPMigrationHelper,
 )
 
 
@@ -69,7 +70,9 @@ def demonstrate_existing_patterns():
     )
     print("   NEW (1 line):")
     print("   encoder = create_encoder_mlp(9, [256, 128], 64, dropout=0.1)")
-    print(f"   ✅ Layers: {len(improved_encoder)} | Parameters: {sum(p.numel() for p in improved_encoder.parameters())}")
+    print(
+        f"   ✅ Layers: {len(improved_encoder)} | Parameters: {sum(p.numel() for p in improved_encoder.parameters())}"
+    )
 
     # 3. DifferentiableController Pattern (from differentiable_controller.py)
     print("\n3. DifferentiableController Pattern (8 → 32 → 32 → 6)")
@@ -108,9 +111,9 @@ def demonstrate_existing_patterns():
     print(f"   ✅ Layers: {len(test_mlp)} | Parameters: {sum(p.numel() for p in test_mlp.parameters())}")
 
     print("\n📊 Code Reduction Summary:")
-    print(f"   OLD: ~46 lines across 4 patterns")
-    print(f"   NEW: ~4 lines (89% reduction)")
-    print(f"   Extrapolated codebase savings: ~400 LOC")
+    print("   OLD: ~46 lines across 4 patterns")
+    print("   NEW: ~4 lines (89% reduction)")
+    print("   Extrapolated codebase savings: ~400 LOC")
 
 
 def test_functionality():
@@ -226,16 +229,16 @@ def test_migration_helper():
 
     # Create the replacement
     new_mlp = MLPBuilder.create(
-        input_dim=config['input_dim'],
-        hidden_dims=config['hidden_dims'],
-        output_dim=config['output_dim'],
-        activation=config['activation'],
-        normalization=config['normalization'],
-        dropout=config['dropout'],
+        input_dim=config["input_dim"],
+        hidden_dims=config["hidden_dims"],
+        output_dim=config["output_dim"],
+        activation=config["activation"],
+        normalization=config["normalization"],
+        dropout=config["dropout"],
     )
 
     # Test equivalence (structure, not weights)
-    x = torch.randn(4, 10)
+    torch.randn(4, 10)
     existing_mlp.eval()
     new_mlp.eval()
 
@@ -261,7 +264,7 @@ def demonstrate_advanced_features():
     print(f"1. Deep MLP (10→128→64→32→16→5): {len(deep_mlp)} layers")
 
     # 2. Different initialization
-    kaiming_mlp = MLPBuilder.create(
+    MLPBuilder.create(
         input_dim=10,
         hidden_dims=32,
         output_dim=5,
@@ -286,11 +289,13 @@ def demonstrate_advanced_features():
     for act in activations:
         mlp = MLPBuilder.create(10, 32, 5, activation=act, normalization="none")
         # Find activation layer
-        act_layer = next(layer for layer in mlp if isinstance(layer, (nn.ReLU, nn.GELU, nn.SiLU, nn.Tanh, nn.LeakyReLU)))
+        act_layer = next(
+            layer for layer in mlp if isinstance(layer, (nn.ReLU, nn.GELU, nn.SiLU, nn.Tanh, nn.LeakyReLU))
+        )
         print(f"4. {act} activation: {type(act_layer).__name__}")
 
     # 5. BatchNorm instead of LayerNorm
-    batchnorm_mlp = MLPBuilder.create(
+    MLPBuilder.create(
         input_dim=10,
         hidden_dims=32,
         output_dim=5,
@@ -325,7 +330,9 @@ def estimate_code_savings():
         total_old_lines += old_lines
         total_new_lines += new_lines
 
-        print(f"{pattern:25} {info['files']:2} files × {info['lines_per_file']:2} lines = {old_lines:3} → {new_lines:2} lines (saves {saved_lines:3})")
+        print(
+            f"{pattern:25} {info['files']:2} files × {info['lines_per_file']:2} lines = {old_lines:3} → {new_lines:2} lines (saves {saved_lines:3})"
+        )
 
     total_saved = total_old_lines - total_new_lines
     reduction_percent = (total_saved / total_old_lines) * 100
@@ -364,6 +371,7 @@ def main():
     except Exception as e:
         print(f"\n❌ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

@@ -14,19 +14,43 @@ This package provides:
 """
 
 from .annotations import (  # Statistical annotations; Zone annotations; Legend helpers; Arrow annotations; Scale indicators
-    add_annotation_arrow, add_category_legend, add_colorbar_annotation,
-    add_correlation_annotation, add_goldilocks_zones, add_pvalue_annotation,
-    add_reference_region, add_scale_bar, add_significance_bracket,
-    add_threshold_line, create_legend_handles)
+    add_annotation_arrow,
+    add_category_legend,
+    add_colorbar_annotation,
+    add_correlation_annotation,
+    add_goldilocks_zones,
+    add_pvalue_annotation,
+    add_reference_region,
+    add_scale_bar,
+    add_significance_bracket,
+    add_threshold_line,
+    create_legend_handles,
+)
 from .base import (  # Figure creation; Axes utilities; Colorbar and legend
-    add_colorbar, add_inset_axes, add_legend, add_panel_label,
-    create_3d_figure, create_figure, create_panel_figure, create_pitch_figure,
-    create_scientific_figure, despine, set_axis_style)
-from .export import figure_to_array  # Export functions; Utilities
-from .export import (figure_to_base64, get_figure_size_inches, save_figure,
-                     save_figure_batch, save_plotly_figure,
-                     save_presentation_figure, save_publication_figure,
-                     save_web_figure, set_figure_size_inches)
+    add_colorbar,
+    add_inset_axes,
+    add_legend,
+    add_panel_label,
+    create_3d_figure,
+    create_figure,
+    create_panel_figure,
+    create_pitch_figure,
+    create_scientific_figure,
+    despine,
+    set_axis_style,
+)
+from .export import (
+    figure_to_array,  # Export functions; Utilities
+    figure_to_base64,
+    get_figure_size_inches,
+    save_figure,
+    save_figure_batch,
+    save_plotly_figure,
+    save_presentation_figure,
+    save_publication_figure,
+    save_web_figure,
+    set_figure_size_inches,
+)
 
 __all__ = [
     # Figure creation

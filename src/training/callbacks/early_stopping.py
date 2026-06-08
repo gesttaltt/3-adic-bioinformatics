@@ -22,7 +22,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING
 
 from .base import TrainingCallback
 
@@ -65,19 +65,17 @@ class EarlyStoppingCallback(TrainingCallback):
         self.mode = mode
         self.verbose = verbose
 
-        self.best_value: Optional[float] = None
+        self.best_value: float | None = None
         self.counter = 0
         self.best_epoch = 0
 
-    def on_train_start(self, trainer: "BaseTrainer") -> None:
+    def on_train_start(self, trainer: BaseTrainer) -> None:
         """Reset state at training start."""
         self.best_value = None
         self.counter = 0
         self.best_epoch = 0
 
-    def on_epoch_end(
-        self, epoch: int, metrics: Dict[str, float], trainer: "BaseTrainer"
-    ) -> Optional[bool]:
+    def on_epoch_end(self, epoch: int, metrics: dict[str, float], trainer: BaseTrainer) -> bool | None:
         """Check if training should stop.
 
         Returns:
@@ -86,9 +84,7 @@ class EarlyStoppingCallback(TrainingCallback):
         current = metrics.get(self.monitor)
 
         if current is None:
-            logger.warning(
-                f"EarlyStopping: metric '{self.monitor}' not found in metrics"
-            )
+            logger.warning(f"EarlyStopping: metric '{self.monitor}' not found in metrics")
             return None
 
         if self.best_value is None:
@@ -152,16 +148,10 @@ class CoveragePlateauCallback(TrainingCallback):
         self.counter = 0
         self.best_epoch = 0
 
-    def on_epoch_end(
-        self, epoch: int, metrics: Dict[str, float], trainer: "BaseTrainer"
-    ) -> Optional[bool]:
+    def on_epoch_end(self, epoch: int, metrics: dict[str, float], trainer: BaseTrainer) -> bool | None:
         """Check for coverage plateau or target reached."""
         # Try different metric names
-        coverage = (
-            metrics.get("coverage")
-            or metrics.get("coverage_A")
-            or metrics.get("coverage_percent")
-        )
+        coverage = metrics.get("coverage") or metrics.get("coverage_A") or metrics.get("coverage_percent")
 
         if coverage is None:
             return None
@@ -169,10 +159,7 @@ class CoveragePlateauCallback(TrainingCallback):
         # Check if target reached
         if coverage >= self.target_coverage:
             if self.verbose:
-                logger.info(
-                    f"Target coverage {self.target_coverage}% reached "
-                    f"({coverage:.2f}%) at epoch {epoch}"
-                )
+                logger.info(f"Target coverage {self.target_coverage}% reached ({coverage:.2f}%) at epoch {epoch}")
             return True
 
         # Check for improvement
@@ -224,15 +211,9 @@ class CorrelationDropCallback(TrainingCallback):
         self.best_correlation = 0.0
         self.counter = 0
 
-    def on_epoch_end(
-        self, epoch: int, metrics: Dict[str, float], trainer: "BaseTrainer"
-    ) -> Optional[bool]:
+    def on_epoch_end(self, epoch: int, metrics: dict[str, float], trainer: BaseTrainer) -> bool | None:
         """Check for correlation drop."""
-        correlation = (
-            metrics.get("correlation")
-            or metrics.get("ranking_correlation")
-            or metrics.get("correlation_A")
-        )
+        correlation = metrics.get("correlation") or metrics.get("ranking_correlation") or metrics.get("correlation_A")
 
         if correlation is None:
             return None
@@ -251,8 +232,7 @@ class CorrelationDropCallback(TrainingCallback):
             if self.counter >= self.patience:
                 if self.verbose:
                     logger.info(
-                        f"Correlation drop: {correlation:.4f} is {drop:.4f} "
-                        f"below best ({self.best_correlation:.4f})"
+                        f"Correlation drop: {correlation:.4f} is {drop:.4f} below best ({self.best_correlation:.4f})"
                     )
                 return True
 

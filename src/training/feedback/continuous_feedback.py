@@ -15,7 +15,7 @@ Single responsibility: Coverage-based ranking weight computation.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 import torch
 
@@ -55,7 +55,7 @@ class ContinuousFeedbackConfig:
     coverage_ema_alpha: float = DEFAULT_EMA_ALPHA
 
     @classmethod
-    def from_dict(cls, config: Dict[str, Any]) -> ContinuousFeedbackConfig:
+    def from_dict(cls, config: dict[str, Any]) -> ContinuousFeedbackConfig:
         """Create config from dictionary.
 
         Args:
@@ -69,9 +69,7 @@ class ContinuousFeedbackConfig:
             base_ranking_weight=config.get("base_ranking_weight", DEFAULT_RANKING_WEIGHT),
             coverage_threshold=config.get("coverage_threshold", DEFAULT_COVERAGE_THRESHOLD),
             coverage_sensitivity=config.get("coverage_sensitivity", DEFAULT_COVERAGE_SENSITIVITY),
-            coverage_trend_sensitivity=config.get(
-                "coverage_trend_sensitivity", DEFAULT_COVERAGE_TREND_SENSITIVITY
-            ),
+            coverage_trend_sensitivity=config.get("coverage_trend_sensitivity", DEFAULT_COVERAGE_TREND_SENSITIVITY),
             min_ranking_weight=config.get("min_ranking_weight", DEFAULT_MIN_RANKING_WEIGHT),
             max_ranking_weight=config.get("max_ranking_weight", DEFAULT_MAX_RANKING_WEIGHT),
             coverage_ema_alpha=config.get("coverage_ema_alpha", DEFAULT_EMA_ALPHA),
@@ -97,11 +95,11 @@ class ContinuousFeedbackController:
     """
 
     config: ContinuousFeedbackConfig
-    coverage_ema: Optional[float] = field(default=None)
-    prev_coverage: Optional[float] = field(default=None)
+    coverage_ema: float | None = field(default=None)
+    prev_coverage: float | None = field(default=None)
 
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> ContinuousFeedbackController:
+    def from_dict(cls, config_dict: dict[str, Any]) -> ContinuousFeedbackController:
         """Create controller from configuration dictionary.
 
         Args:
@@ -137,18 +135,14 @@ class ContinuousFeedbackController:
             self.coverage_ema = alpha * self.coverage_ema + (1 - alpha) * current_coverage
 
         # Compute coverage trend
-        if self.prev_coverage is None:
-            coverage_trend = 0.0
-        else:
-            coverage_trend = current_coverage - self.prev_coverage
+        coverage_trend = 0.0 if self.prev_coverage is None else current_coverage - self.prev_coverage
 
         self.prev_coverage = current_coverage
 
         # Sigmoid modulation
         coverage_gap = current_coverage - self.config.coverage_threshold
         signal = (
-            self.config.coverage_sensitivity * coverage_gap
-            + self.config.coverage_trend_sensitivity * coverage_trend
+            self.config.coverage_sensitivity * coverage_gap + self.config.coverage_trend_sensitivity * coverage_trend
         )
 
         modulation = torch.sigmoid(torch.tensor(signal)).item()
@@ -165,7 +159,7 @@ class ContinuousFeedbackController:
         self.coverage_ema = None
         self.prev_coverage = None
 
-    def get_state(self) -> Dict[str, Any]:
+    def get_state(self) -> dict[str, Any]:
         """Get current controller state for checkpointing.
 
         Returns:
@@ -176,7 +170,7 @@ class ContinuousFeedbackController:
             "prev_coverage": self.prev_coverage,
         }
 
-    def restore_state(self, state: Dict[str, Any]) -> None:
+    def restore_state(self, state: dict[str, Any]) -> None:
         """Restore controller state from checkpoint.
 
         Args:

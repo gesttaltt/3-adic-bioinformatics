@@ -16,7 +16,6 @@ Reference:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Union
 
 import torch
 import torch.nn as nn
@@ -42,7 +41,7 @@ class ESM2Config:
     pooling: str = "mean"
     freeze_backbone: bool = True
     use_flash_attention: bool = False
-    quantize: Optional[int] = None
+    quantize: int | None = None
     max_length: int = 1024
 
 
@@ -81,7 +80,7 @@ class ESM2Encoder(PLMEncoderBase):
 
     def __init__(
         self,
-        config: Optional[ESM2Config] = None,
+        config: ESM2Config | None = None,
         device: str = "cuda",
     ):
         """Initialize ESM-2 encoder.
@@ -91,10 +90,7 @@ class ESM2Encoder(PLMEncoderBase):
             device: Device for computation
         """
         if not HAS_TRANSFORMERS:
-            raise ImportError(
-                "transformers package required for ESM-2. "
-                "Install with: pip install transformers"
-            )
+            raise ImportError("transformers package required for ESM-2. Install with: pip install transformers")
 
         self.config = config or ESM2Config()
 
@@ -124,9 +120,7 @@ class ESM2Encoder(PLMEncoderBase):
             try:
                 from transformers import BitsAndBytesConfig
 
-                load_kwargs["quantization_config"] = BitsAndBytesConfig(
-                    load_in_8bit=True
-                )
+                load_kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
             except ImportError:
                 pass
         elif self.config.quantize == 4:
@@ -161,9 +155,9 @@ class ESM2Encoder(PLMEncoderBase):
 
     def encode(
         self,
-        sequences: Union[str, list[str]],
+        sequences: str | list[str],
         return_attention: bool = False,
-    ) -> Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """Encode protein sequences to embeddings.
 
         Args:
@@ -236,7 +230,7 @@ class ESM2Encoder(PLMEncoderBase):
 
     def get_layer_embeddings(
         self,
-        sequences: Union[str, list[str]],
+        sequences: str | list[str],
         layers: list[int],
     ) -> dict[int, torch.Tensor]:
         """Get embeddings from specific transformer layers.
@@ -279,7 +273,7 @@ class ESM2Encoder(PLMEncoderBase):
 
     def get_per_residue_embeddings(
         self,
-        sequences: Union[str, list[str]],
+        sequences: str | list[str],
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Get per-residue embeddings without pooling.
 
@@ -352,9 +346,9 @@ class ESM2EncoderLite(PLMEncoderBase):
 
     def encode(
         self,
-        sequences: Union[str, list[str]],
+        sequences: str | list[str],
         return_attention: bool = False,
-    ) -> Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """Fast encoding with minimal overhead."""
         if isinstance(sequences, str):
             sequences = [sequences]
@@ -392,7 +386,7 @@ class ESM2EncoderLite(PLMEncoderBase):
 
     def get_layer_embeddings(
         self,
-        sequences: Union[str, list[str]],
+        sequences: str | list[str],
         layers: list[int],
     ) -> dict[int, torch.Tensor]:
         """Get layer embeddings."""
@@ -414,9 +408,7 @@ class ESM2EncoderLite(PLMEncoderBase):
         for layer in layers:
             if layer < len(outputs.hidden_states):
                 embeddings = outputs.hidden_states[layer]
-                pooled = self.pool_embeddings(
-                    embeddings, inputs.get("attention_mask"), "mean"
-                )
+                pooled = self.pool_embeddings(embeddings, inputs.get("attention_mask"), "mean")
                 result[layer] = pooled
 
         return result

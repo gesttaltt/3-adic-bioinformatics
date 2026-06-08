@@ -27,14 +27,12 @@ Note: Uses geoopt backend when available for numerical stability.
 """
 
 import math
-from typing import Tuple
 
 import torch
 import torch.nn as nn
 
 # Import from geometry module for stable operations
-from src.geometry import (exp_map_zero, lambda_x, log_map_zero,
-                          poincare_distance, project_to_poincare)
+from src.geometry import exp_map_zero, lambda_x, log_map_zero, poincare_distance, project_to_poincare
 
 
 class HyperbolicPrior(nn.Module):
@@ -201,7 +199,7 @@ class HyperbolicPrior(nn.Module):
 
         return z
 
-    def forward(self, mu: torch.Tensor, logvar: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, mu: torch.Tensor, logvar: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute KL divergence and return projected samples.
 
         Args:

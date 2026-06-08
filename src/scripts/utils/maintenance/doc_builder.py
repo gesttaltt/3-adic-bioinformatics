@@ -17,7 +17,7 @@ EMBED_REGEX = re.compile(r"<!--\s*embed:\s*(.*?)\s*-->")
 
 def read_file(path):
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
         print(f"Warning: File not found {path}")
@@ -84,7 +84,7 @@ def inject_diagrams(content, file_path):
 
 def process_docs():
     print("Starting Documentation hydration...")
-    for root, dirs, files in os.walk(DOCS_ROOT):
+    for root, _dirs, files in os.walk(DOCS_ROOT):
         for file in files:
             if file.endswith(".md"):
                 file_path = os.path.join(root, file)

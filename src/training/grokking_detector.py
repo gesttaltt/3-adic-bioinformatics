@@ -36,7 +36,6 @@ from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -60,16 +59,16 @@ class EpochMetrics:
     epoch: int
     train_loss: float
     val_loss: float
-    train_accuracy: Optional[float] = None
-    val_accuracy: Optional[float] = None
-    correlation: Optional[float] = None
-    coverage: Optional[float] = None
-    weight_norm: Optional[float] = None
-    gradient_norm: Optional[float] = None
-    local_complexity: Optional[float] = None
-    learning_rate: Optional[float] = None
+    train_accuracy: float | None = None
+    val_accuracy: float | None = None
+    correlation: float | None = None
+    coverage: float | None = None
+    weight_norm: float | None = None
+    gradient_norm: float | None = None
+    local_complexity: float | None = None
+    learning_rate: float | None = None
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {k: v for k, v in self.__dict__.items() if v is not None}
 
@@ -107,10 +106,10 @@ class GrokAnalysis:
     best_generalization_epoch: int
     current_generalization_gap: float
     trend_direction: str  # "improving", "stable", "degrading"
-    recommendations: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
             "current_phase": self.current_phase.value,
@@ -153,14 +152,14 @@ class GrokDetector:
                 print("Performance degrading, consider early stopping.")
     """
 
-    def __init__(self, config: Optional[GrokDetectorConfig] = None):
+    def __init__(self, config: GrokDetectorConfig | None = None):
         """Initialize the grokking detector.
 
         Args:
             config: Detection configuration
         """
         self.config = config or GrokDetectorConfig()
-        self.history: List[EpochMetrics] = []
+        self.history: list[EpochMetrics] = []
 
         # Moving average buffers
         self._train_loss_short = deque(maxlen=self.config.short_window)
@@ -170,7 +169,7 @@ class GrokDetector:
         self._correlation_history = deque(maxlen=self.config.long_window)
 
         # State tracking
-        self._memorization_start: Optional[int] = None
+        self._memorization_start: int | None = None
         self._best_val_loss = float("inf")
         self._best_val_epoch = 0
         self._best_correlation = 0.0
@@ -179,7 +178,7 @@ class GrokDetector:
         self._best_coverage_epoch = 0
 
         # Phase transition detection
-        self._phase_transitions: List[Tuple[int, TrainingPhase, TrainingPhase]] = []
+        self._phase_transitions: list[tuple[int, TrainingPhase, TrainingPhase]] = []
         self._current_phase = TrainingPhase.WARMUP
 
     def update(self, metrics: EpochMetrics) -> GrokAnalysis:
@@ -372,9 +371,7 @@ class GrokDetector:
             return "degrading"
         return "stable"
 
-    def _generate_recommendations(
-        self, metrics: EpochMetrics, trend: str
-    ) -> Tuple[List[str], List[str]]:
+    def _generate_recommendations(self, metrics: EpochMetrics, trend: str) -> tuple[list[str], list[str]]:
         """Generate actionable recommendations and warnings."""
         recommendations = []
         warnings = []
@@ -415,13 +412,11 @@ class GrokDetector:
 
         # Grokking opportunity
         if self._current_phase == TrainingPhase.MEMORIZATION and trend == "stable":
-            recommendations.append(
-                "In memorization phase - grokking may occur with continued training"
-            )
+            recommendations.append("In memorization phase - grokking may occur with continued training")
 
         return recommendations, warnings
 
-    def get_summary(self) -> Dict:
+    def get_summary(self) -> dict:
         """Get comprehensive training summary."""
         if not self.history:
             return {"status": "no_data"}
@@ -437,10 +432,7 @@ class GrokDetector:
                 },
                 "coverage": {"value": self._best_coverage, "epoch": self._best_coverage_epoch},
             },
-            "phase_transitions": [
-                {"epoch": e, "from": f.value, "to": t.value}
-                for e, f, t in self._phase_transitions
-            ],
+            "phase_transitions": [{"epoch": e, "from": f.value, "to": t.value} for e, f, t in self._phase_transitions],
             "memorization_started_at": self._memorization_start,
             "final_metrics": self.history[-1].to_dict() if self.history else None,
         }
@@ -473,7 +465,7 @@ class LocalComplexityEstimator:
         """
         self.n_samples = n_samples
         self.eps = eps
-        self.history: List[float] = []
+        self.history: list[float] = []
 
     @torch.no_grad()
     def estimate(self, model: nn.Module, sample_input: torch.Tensor) -> float:
@@ -514,7 +506,7 @@ class LocalComplexityEstimator:
         self.history.append(lc)
         return lc
 
-    def detect_double_descent(self) -> Tuple[bool, Optional[int]]:
+    def detect_double_descent(self) -> tuple[bool, int | None]:
         """Detect double-descent pattern in LC history.
 
         Returns:
@@ -561,10 +553,10 @@ class WeightNormTracker:
 
     def __init__(self):
         """Initialize weight norm tracker."""
-        self.history: List[Dict[str, float]] = []
+        self.history: list[dict[str, float]] = []
 
     @torch.no_grad()
-    def compute_norms(self, model: nn.Module) -> Dict[str, float]:
+    def compute_norms(self, model: nn.Module) -> dict[str, float]:
         """Compute weight norms for all layers.
 
         Args:
@@ -586,7 +578,7 @@ class WeightNormTracker:
         self.history.append(norms)
         return norms
 
-    def detect_compression_phase(self) -> Tuple[bool, Optional[int]]:
+    def detect_compression_phase(self) -> tuple[bool, int | None]:
         """Detect if model is in weight compression phase.
 
         Returns:

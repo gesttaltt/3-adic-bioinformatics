@@ -15,9 +15,9 @@ import argparse
 import sys
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
 from scipy.stats import spearmanr
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -26,7 +26,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.core import TERNARY
 from src.data.generation import generate_all_ternary_operations
 from src.models import TernaryVAEV5_11_PartialFreeze
-from src.utils.checkpoint import load_checkpoint_compat, get_model_state_dict
+from src.utils.checkpoint import get_model_state_dict, load_checkpoint_compat
 
 
 class RadialSnapProjection(nn.Module):
@@ -53,11 +53,10 @@ class RadialSnapProjection(nn.Module):
 
         # Precompute exact target radii for each valuation level
         # v=0 -> outer (0.95), v=9 -> inner (0.05)
-        targets = torch.tensor([
-            outer_radius - (v / max_valuation) * (outer_radius - inner_radius)
-            for v in range(max_valuation + 1)
-        ])
-        self.register_buffer('target_radii', targets)
+        targets = torch.tensor(
+            [outer_radius - (v / max_valuation) * (outer_radius - inner_radius) for v in range(max_valuation + 1)]
+        )
+        self.register_buffer("target_radii", targets)
 
     def forward(self, z_hyp: torch.Tensor, valuations: torch.Tensor) -> torch.Tensor:
         """Snap radii to exact targets while preserving direction.
@@ -119,20 +118,20 @@ class SnappedTernaryVAE(nn.Module):
         valuations = TERNARY.valuation(indices).long().to(x.device)
 
         # Snap radii to exact targets
-        z_A_snapped = self.snap(out['z_A_hyp'], valuations)
-        z_B_snapped = self.snap(out['z_B_hyp'], valuations)
+        z_A_snapped = self.snap(out["z_A_hyp"], valuations)
+        z_B_snapped = self.snap(out["z_B_hyp"], valuations)
 
         # Decode from snapped embeddings (use mu for deterministic)
         # Note: decoder_A expects Euclidean, but we can test with snapped hyperbolic
 
         return {
-            'z_A_hyp': out['z_A_hyp'],
-            'z_A_snapped': z_A_snapped,
-            'z_B_hyp': out['z_B_hyp'],
-            'z_B_snapped': z_B_snapped,
-            'mu_A': out['mu_A'],
-            'mu_B': out['mu_B'],
-            'valuations': valuations,
+            "z_A_hyp": out["z_A_hyp"],
+            "z_A_snapped": z_A_snapped,
+            "z_B_hyp": out["z_B_hyp"],
+            "z_B_snapped": z_B_snapped,
+            "mu_A": out["mu_A"],
+            "mu_B": out["mu_B"],
+            "valuations": valuations,
         }
 
 
@@ -145,23 +144,22 @@ def evaluate_model(model, all_ops, indices, device, use_snapped=False):
     all_radii = []
     all_radii_snapped = []
     all_correct = []
-    all_valuations = []
 
     with torch.no_grad():
         for i in range(0, n_samples, batch_size):
-            batch_ops = all_ops[i:i+batch_size].to(device)
-            batch_idx = indices[i:i+batch_size].to(device)
+            batch_ops = all_ops[i : i + batch_size].to(device)
+            batch_idx = indices[i : i + batch_size].to(device)
 
             if isinstance(model, SnappedTernaryVAE):
                 out = model(batch_ops, batch_idx)
-                radii = out['z_A_hyp'].norm(dim=-1).cpu().numpy()
-                radii_snapped = out['z_A_snapped'].norm(dim=-1).cpu().numpy()
-                mu_A = out['mu_A']
+                radii = out["z_A_hyp"].norm(dim=-1).cpu().numpy()
+                radii_snapped = out["z_A_snapped"].norm(dim=-1).cpu().numpy()
+                mu_A = out["mu_A"]
             else:
                 out = model(batch_ops, compute_control=False)
-                radii = out['z_A_hyp'].norm(dim=-1).cpu().numpy()
+                radii = out["z_A_hyp"].norm(dim=-1).cpu().numpy()
                 radii_snapped = radii  # No snapping
-                mu_A = out['mu_A']
+                mu_A = out["mu_A"]
 
             all_radii.append(radii)
             all_radii_snapped.append(radii_snapped)
@@ -200,30 +198,28 @@ def evaluate_model(model, all_ops, indices, device, use_snapped=False):
     r_v9 = all_radii_snapped[valuations >= 8].mean() if (valuations >= 8).any() else 0.5
 
     return {
-        'coverage': coverage,
-        'hierarchy_original': hierarchy_original,
-        'hierarchy_snapped': hierarchy_snapped,
-        'variance_original': var_original,
-        'variance_snapped': var_snapped,
-        'r_v0': r_v0,
-        'r_v9': r_v9,
-        'unique_radii_original': len(np.unique(np.round(all_radii, 8))),
-        'unique_radii_snapped': len(np.unique(all_radii_snapped_rounded)),
+        "coverage": coverage,
+        "hierarchy_original": hierarchy_original,
+        "hierarchy_snapped": hierarchy_snapped,
+        "variance_original": var_original,
+        "variance_snapped": var_snapped,
+        "r_v0": r_v0,
+        "r_v9": r_v9,
+        "unique_radii_original": len(np.unique(np.round(all_radii, 8))),
+        "unique_radii_snapped": len(np.unique(all_radii_snapped_rounded)),
     }
 
 
 def main():
     parser = argparse.ArgumentParser(description="Apply RadialSnapProjection")
-    parser.add_argument("--checkpoint", type=str,
-                        default="checkpoints/radial_target/best.pt")
+    parser.add_argument("--checkpoint", type=str, default="checkpoints/radial_target/best.pt")
     parser.add_argument("--inner_radius", type=float, default=0.05)
     parser.add_argument("--outer_radius", type=float, default=0.95)
-    parser.add_argument("--save_dir", type=str,
-                        default="checkpoints/radial_snapped")
+    parser.add_argument("--save_dir", type=str, default="checkpoints/radial_snapped")
     parser.add_argument("--device", type=str, default="cuda")
     args = parser.parse_args()
 
-    device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
 
     # === Load Base Model ===
@@ -273,10 +269,10 @@ def main():
     print("\n=== Evaluating ===")
     metrics = evaluate_model(snapped_model, all_ops, indices, device)
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("RESULTS")
-    print("="*60)
-    print(f"\nCoverage: {metrics['coverage']*100:.2f}%")
+    print("=" * 60)
+    print(f"\nCoverage: {metrics['coverage'] * 100:.2f}%")
     print(f"\nHierarchy (original radii):  {metrics['hierarchy_original']:.4f}")
     print(f"Hierarchy (snapped radii):   {metrics['hierarchy_snapped']:.4f}")
     print(f"\nVariance (original): {metrics['variance_original']:.8f}")
@@ -285,26 +281,29 @@ def main():
     print(f"Unique radii (snapped):  {metrics['unique_radii_snapped']}")
     print(f"\nRadius v0: {metrics['r_v0']:.4f} (target: {args.outer_radius})")
     print(f"Radius v9: {metrics['r_v9']:.4f} (target: {args.inner_radius})")
-    print("="*60)
+    print("=" * 60)
 
     # === Save ===
-    if metrics['hierarchy_snapped'] <= -0.99:
+    if metrics["hierarchy_snapped"] <= -0.99:
         save_dir = PROJECT_ROOT / args.save_dir
         save_dir.mkdir(parents=True, exist_ok=True)
 
         print(f"\n=== Saving to {save_dir} ===")
 
         # Save the snapped model
-        torch.save({
-            'base_model_state_dict': base_model.state_dict(),
-            'snap_state_dict': snapped_model.snap.state_dict(),
-            'metrics': metrics,
-            'config': {
-                'inner_radius': args.inner_radius,
-                'outer_radius': args.outer_radius,
-                'source_checkpoint': args.checkpoint,
+        torch.save(
+            {
+                "base_model_state_dict": base_model.state_dict(),
+                "snap_state_dict": snapped_model.snap.state_dict(),
+                "metrics": metrics,
+                "config": {
+                    "inner_radius": args.inner_radius,
+                    "outer_radius": args.outer_radius,
+                    "source_checkpoint": args.checkpoint,
+                },
             },
-        }, save_dir / 'best.pt')
+            save_dir / "best.pt",
+        )
 
         print(f"Saved snapped model with hierarchy={metrics['hierarchy_snapped']:.4f}")
     else:
@@ -313,5 +312,5 @@ def main():
     print("\n=== Complete ===")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

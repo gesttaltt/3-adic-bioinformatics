@@ -19,7 +19,6 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import torch
@@ -32,6 +31,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 @dataclass
 class ExperimentConfig:
     """Configuration for a single experiment."""
+
     name: str
     epochs: int = 50
     beta: float = 0.01
@@ -40,13 +40,14 @@ class ExperimentConfig:
     use_padic: bool = False
     hidden_dims: tuple = (64, 32)
     latent_dim: int = 16
-    freeze_decoder_at: Optional[int] = None  # Epoch to freeze decoder
+    freeze_decoder_at: int | None = None  # Epoch to freeze decoder
     recon_weight: float = 1.0  # Can reduce reconstruction weight
 
 
 @dataclass
 class ExperimentResult:
     """Results from experiment."""
+
     name: str
     final_accuracy: float
     final_recon_loss: float
@@ -83,7 +84,7 @@ def evaluate_embeddings(embeddings: np.ndarray, n_samples: int = 5000) -> dict:
     mask = i_idx != j_idx
     i_idx, j_idx = i_idx[mask], j_idx[mask]
 
-    padic_dists = np.array([compute_padic_distance(i, j) for i, j in zip(i_idx, j_idx)])
+    padic_dists = np.array([compute_padic_distance(i, j) for i, j in zip(i_idx, j_idx, strict=False)])
     latent_dists = np.linalg.norm(embeddings[i_idx] - embeddings[j_idx], axis=1)
 
     corr, _ = spearmanr(padic_dists, latent_dists)
@@ -105,9 +106,9 @@ def evaluate_embeddings(embeddings: np.ndarray, n_samples: int = 5000) -> dict:
 def run_experiment(config: ExperimentConfig) -> ExperimentResult:
     """Run a single experiment."""
     from src.data.generation import generate_all_ternary_operations
-    from src.models.simple_vae import SimpleVAE, SimpleVAEWithHyperbolic
-    from src.losses.dual_vae_loss import ReconstructionLoss, KLDivergenceLoss
+    from src.losses.dual_vae_loss import KLDivergenceLoss, ReconstructionLoss
     from src.losses.padic import PAdicRankingLoss
+    from src.models.simple_vae import SimpleVAE, SimpleVAEWithHyperbolic
     from src.training import TernaryDataset
 
     start_time = time.time()
@@ -152,10 +153,7 @@ def run_experiment(config: ExperimentConfig) -> ExperimentResult:
             for param in model.decoder.parameters():
                 param.requires_grad = False
             # Re-create optimizer with only encoder params
-            optimizer = torch.optim.Adam(
-                [p for p in model.parameters() if p.requires_grad],
-                lr=1e-3
-            )
+            optimizer = torch.optim.Adam([p for p in model.parameters() if p.requires_grad], lr=1e-3)
 
         epoch_recon = 0.0
         epoch_padic = 0.0
@@ -232,33 +230,67 @@ EXPERIMENTS = [
     ExperimentConfig(name="hyperbolic_only", epochs=50, beta=0.01, use_padic=False, use_hyperbolic=True),
     ExperimentConfig(name="padic_only", epochs=50, beta=0.01, padic_weight=0.3, use_padic=True, use_hyperbolic=False),
     ExperimentConfig(name="hyp_padic", epochs=50, beta=0.01, padic_weight=0.3, use_padic=True, use_hyperbolic=True),
-
     # P-adic weight sweep
     ExperimentConfig(name="padic_w0.1", epochs=50, beta=0.01, padic_weight=0.1, use_padic=True, use_hyperbolic=True),
     ExperimentConfig(name="padic_w0.5", epochs=50, beta=0.01, padic_weight=0.5, use_padic=True, use_hyperbolic=True),
     ExperimentConfig(name="padic_w1.0", epochs=50, beta=0.01, padic_weight=1.0, use_padic=True, use_hyperbolic=True),
     ExperimentConfig(name="padic_w2.0", epochs=50, beta=0.01, padic_weight=2.0, use_padic=True, use_hyperbolic=True),
-
     # Beta sweep (KL weight)
     ExperimentConfig(name="beta_0.001", epochs=50, beta=0.001, padic_weight=0.3, use_padic=True, use_hyperbolic=True),
     ExperimentConfig(name="beta_0.1", epochs=50, beta=0.1, padic_weight=0.3, use_padic=True, use_hyperbolic=True),
     ExperimentConfig(name="beta_0.5", epochs=50, beta=0.5, padic_weight=0.3, use_padic=True, use_hyperbolic=True),
-
     # Two-stage training
-    ExperimentConfig(name="2stage_freeze25", epochs=50, beta=0.01, padic_weight=0.5, use_padic=True, use_hyperbolic=True, freeze_decoder_at=25),
-    ExperimentConfig(name="2stage_freeze10", epochs=50, beta=0.01, padic_weight=1.0, use_padic=True, use_hyperbolic=True, freeze_decoder_at=10),
-
+    ExperimentConfig(
+        name="2stage_freeze25",
+        epochs=50,
+        beta=0.01,
+        padic_weight=0.5,
+        use_padic=True,
+        use_hyperbolic=True,
+        freeze_decoder_at=25,
+    ),
+    ExperimentConfig(
+        name="2stage_freeze10",
+        epochs=50,
+        beta=0.01,
+        padic_weight=1.0,
+        use_padic=True,
+        use_hyperbolic=True,
+        freeze_decoder_at=10,
+    ),
     # Reduced reconstruction weight
-    ExperimentConfig(name="recon_w0.5", epochs=50, beta=0.01, padic_weight=0.3, use_padic=True, use_hyperbolic=True, recon_weight=0.5),
-    ExperimentConfig(name="recon_w0.1", epochs=50, beta=0.01, padic_weight=0.3, use_padic=True, use_hyperbolic=True, recon_weight=0.1),
-
+    ExperimentConfig(
+        name="recon_w0.5", epochs=50, beta=0.01, padic_weight=0.3, use_padic=True, use_hyperbolic=True, recon_weight=0.5
+    ),
+    ExperimentConfig(
+        name="recon_w0.1", epochs=50, beta=0.01, padic_weight=0.3, use_padic=True, use_hyperbolic=True, recon_weight=0.1
+    ),
     # Pure p-adic (no reconstruction)
-    ExperimentConfig(name="pure_padic", epochs=50, beta=0.0, padic_weight=1.0, use_padic=True, use_hyperbolic=True, recon_weight=0.0),
-
+    ExperimentConfig(
+        name="pure_padic", epochs=50, beta=0.0, padic_weight=1.0, use_padic=True, use_hyperbolic=True, recon_weight=0.0
+    ),
     # Architecture variations
-    ExperimentConfig(name="deeper_net", epochs=50, beta=0.01, padic_weight=0.3, use_padic=True, use_hyperbolic=True, hidden_dims=(128, 64, 32)),
-    ExperimentConfig(name="wider_net", epochs=50, beta=0.01, padic_weight=0.3, use_padic=True, use_hyperbolic=True, hidden_dims=(128, 64)),
-    ExperimentConfig(name="latent32", epochs=50, beta=0.01, padic_weight=0.3, use_padic=True, use_hyperbolic=True, latent_dim=32),
+    ExperimentConfig(
+        name="deeper_net",
+        epochs=50,
+        beta=0.01,
+        padic_weight=0.3,
+        use_padic=True,
+        use_hyperbolic=True,
+        hidden_dims=(128, 64, 32),
+    ),
+    ExperimentConfig(
+        name="wider_net",
+        epochs=50,
+        beta=0.01,
+        padic_weight=0.3,
+        use_padic=True,
+        use_hyperbolic=True,
+        hidden_dims=(128, 64),
+    ),
+    ExperimentConfig(
+        name="latent32", epochs=50, beta=0.01, padic_weight=0.3, use_padic=True, use_hyperbolic=True, latent_dim=32
+    ),
 ]
 
 
@@ -308,7 +340,9 @@ def main():
     print("-" * 100)
 
     for r in results:
-        print(f"{r.name:<20} {r.final_accuracy:>7.1%} {r.final_recon_loss:>8.4f} {r.final_padic_loss:>8.4f} {r.spearman_correlation:>10.4f} {r.silhouette_score:>10.4f} {r.training_time:>7.1f}s")
+        print(
+            f"{r.name:<20} {r.final_accuracy:>7.1%} {r.final_recon_loss:>8.4f} {r.final_padic_loss:>8.4f} {r.spearman_correlation:>10.4f} {r.silhouette_score:>10.4f} {r.training_time:>7.1f}s"
+        )
 
     # Analysis sections
     print("\n" + "=" * 80)
@@ -333,7 +367,9 @@ def main():
     print("\n2. P-ADIC WEIGHT EFFECT")
     print("-" * 40)
     for r in sorted(padic_sweep, key=lambda x: x.config.padic_weight):
-        print(f"  w={r.config.padic_weight:<4}: corr={r.spearman_correlation:+.4f}, padic_loss={r.final_padic_loss:.4f}, acc={r.final_accuracy:.1%}")
+        print(
+            f"  w={r.config.padic_weight:<4}: corr={r.spearman_correlation:+.4f}, padic_loss={r.final_padic_loss:.4f}, acc={r.final_accuracy:.1%}"
+        )
 
     print("\n3. BETA (KL WEIGHT) EFFECT")
     print("-" * 40)
@@ -366,14 +402,18 @@ def main():
 
     print(f"\n  Best correlation:     {best_corr.name} (corr={best_corr.spearman_correlation:+.4f})")
     print(f"  Best accuracy:        {best_acc.name} (acc={best_acc.final_accuracy:.1%})")
-    print(f"  Best combined:        {best_combined.name} (corr={best_combined.spearman_correlation:+.4f}, acc={best_combined.final_accuracy:.1%})")
+    print(
+        f"  Best combined:        {best_combined.name} (corr={best_combined.spearman_correlation:+.4f}, acc={best_combined.final_accuracy:.1%})"
+    )
 
     # Correlation vs Accuracy trade-off
     print("\n  TRADE-OFF ANALYSIS:")
     high_acc = [r for r in results if r.final_accuracy > 0.95]
     if high_acc:
         best_corr_high_acc = max(high_acc, key=lambda r: r.spearman_correlation)
-        print(f"  Best corr with acc>95%: {best_corr_high_acc.name} (corr={best_corr_high_acc.spearman_correlation:+.4f})")
+        print(
+            f"  Best corr with acc>95%: {best_corr_high_acc.name} (corr={best_corr_high_acc.spearman_correlation:+.4f})"
+        )
 
     positive_corr = [r for r in results if r.spearman_correlation > 0]
     if positive_corr:

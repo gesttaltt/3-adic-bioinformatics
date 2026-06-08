@@ -273,10 +273,7 @@ def create_tube_mesh(path, radius=0.012, n_sides=8):
         t = t / (np.linalg.norm(t) + 1e-8)
 
         # Perpendiculars
-        if abs(t[0]) < 0.9:
-            p1 = np.cross(t, [1, 0, 0])
-        else:
-            p1 = np.cross(t, [0, 1, 0])
+        p1 = np.cross(t, [1, 0, 0]) if abs(t[0]) < 0.9 else np.cross(t, [0, 1, 0])
         p1 = p1 / (np.linalg.norm(p1) + 1e-8)
         p2 = np.cross(t, p1)
 
@@ -426,7 +423,8 @@ for idx, (name, result) in enumerate(all_results.items()):
     ax2.set_aspect("equal")
 
 plt.suptitle(
-    "v5.8 Multi-Layer Embeddings: Calabi-Yau Fibration Projections\n" f'Coverage: {ckpt["best_coverage"]:.1f}%, Correlation: {ckpt["best_corr"]:.3f}',
+    "v5.8 Multi-Layer Embeddings: Calabi-Yau Fibration Projections\n"
+    f"Coverage: {ckpt['best_coverage']:.1f}%, Correlation: {ckpt['best_corr']:.3f}",
     fontsize=14,
 )
 plt.tight_layout()
@@ -441,4 +439,4 @@ print("\n" + "=" * 60)
 print("Generated files:")
 for f in sorted(os.listdir(OUTPUT_DIR)):
     size = os.path.getsize(os.path.join(OUTPUT_DIR, f))
-    print(f"  {f}: {size/1024:.1f} KB")
+    print(f"  {f}: {size / 1024:.1f} KB")

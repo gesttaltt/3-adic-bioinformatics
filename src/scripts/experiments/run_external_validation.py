@@ -18,7 +18,6 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -29,16 +28,13 @@ from sklearn.metrics import (
     mean_absolute_error,
     mean_squared_error,
     r2_score,
-    roc_auc_score,
 )
-from sklearn.model_selection import KFold
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.data.hiv_data_loader import HIVDrugResistanceDataset
-from src.encoders.tam_aware_encoder import TAMAwareEncoder
 from src.models import TernaryVAE
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -68,9 +64,7 @@ class ValidationConfig:
     temporal_split_year: int = 2020  # Train pre-2020, test 2020+
 
     # Cross-cohort validation
-    cohorts: list = field(
-        default_factory=lambda: ["North_America", "Europe", "Africa", "Asia"]
-    )
+    cohorts: list = field(default_factory=lambda: ["North_America", "Europe", "Africa", "Asia"])
 
     # Model settings
     latent_dim: int = 32
@@ -90,7 +84,7 @@ class ExternalValidator:
         # Create results directory
         Path(config.results_dir).mkdir(parents=True, exist_ok=True)
 
-    def load_stanford_data(self) -> Optional[pd.DataFrame]:
+    def load_stanford_data(self) -> pd.DataFrame | None:
         """Load Stanford HIVdb reference data.
 
         Returns:
@@ -107,9 +101,7 @@ class ExternalValidator:
         logger.info(f"Loaded Stanford reference: {len(df)} entries")
         return df
 
-    def validate_against_stanford(
-        self, model: nn.Module, dataset: HIVDrugResistanceDataset, drug: str
-    ) -> dict:
+    def validate_against_stanford(self, model: nn.Module, dataset: HIVDrugResistanceDataset, drug: str) -> dict:
         """Validate model predictions against Stanford HIVdb.
 
         Args:
@@ -167,9 +159,7 @@ class ExternalValidator:
 
         return metrics
 
-    def temporal_validation(
-        self, dataset: HIVDrugResistanceDataset, drug: str, model_factory: callable
-    ) -> dict:
+    def temporal_validation(self, dataset: HIVDrugResistanceDataset, drug: str, model_factory: callable) -> dict:
         """Temporal hold-out validation: train on pre-2020, test on 2020+.
 
         Args:
@@ -204,18 +194,14 @@ class ExternalValidator:
         train_subset = torch.utils.data.Subset(dataset, train_indices)
         test_subset = torch.utils.data.Subset(dataset, test_indices)
 
-        train_loader = torch.utils.data.DataLoader(
-            train_subset, batch_size=self.config.batch_size, shuffle=True
-        )
-        test_loader = torch.utils.data.DataLoader(
-            test_subset, batch_size=self.config.batch_size, shuffle=False
-        )
+        train_loader = torch.utils.data.DataLoader(train_subset, batch_size=self.config.batch_size, shuffle=True)
+        test_loader = torch.utils.data.DataLoader(test_subset, batch_size=self.config.batch_size, shuffle=False)
 
         # Train model on historical data
         model = model_factory().to(self.device)
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-        for epoch in range(50):  # Quick training
+        for _epoch in range(50):  # Quick training
             model.train()
             for batch in train_loader:
                 x = batch["sequence"].to(self.device)
@@ -243,9 +229,7 @@ class ExternalValidator:
 
         return metrics
 
-    def cross_cohort_validation(
-        self, drug: str, model_factory: callable
-    ) -> dict:
+    def cross_cohort_validation(self, drug: str, model_factory: callable) -> dict:
         """Cross-cohort validation: train on one region, test on others.
 
         Args:
@@ -266,10 +250,10 @@ class ExternalValidator:
                 logger.warning(f"Cohort data not found: {train_path}")
                 continue
 
-            train_data = pd.read_csv(train_path)
+            pd.read_csv(train_path)
 
             # Train model on this cohort
-            model = model_factory().to(self.device)
+            model_factory().to(self.device)
             # ... training code would go here
 
             # Test on other cohorts
@@ -293,9 +277,7 @@ class ExternalValidator:
 
         return cohort_metrics
 
-    def leave_one_drug_out(
-        self, drug_class: str, model_factory: callable
-    ) -> dict:
+    def leave_one_drug_out(self, drug_class: str, model_factory: callable) -> dict:
         """Leave-one-drug-out cross-validation within a drug class.
 
         Args:
@@ -398,9 +380,7 @@ class ExternalValidator:
             return torch.tensor(0.0, device=self.device)
         return nn.functional.cross_entropy(logits.view(-1, 3), x.view(-1).long())
 
-    def _get_predictions(
-        self, model: nn.Module, loader: torch.utils.data.DataLoader
-    ) -> tuple:
+    def _get_predictions(self, model: nn.Module, loader: torch.utils.data.DataLoader) -> tuple:
         """Get predictions and actuals from a data loader."""
         predictions = []
         actuals = []
@@ -452,9 +432,7 @@ class ClinicalRelevanceChecker:
     }
 
     @classmethod
-    def check_mutation_detection(
-        cls, model_attention: np.ndarray, drug_class: str, top_k: int = 10
-    ) -> dict:
+    def check_mutation_detection(cls, model_attention: np.ndarray, drug_class: str, top_k: int = 10) -> dict:
         """Check if model attention aligns with known key mutations.
 
         Args:

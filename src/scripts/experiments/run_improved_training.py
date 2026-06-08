@@ -18,7 +18,6 @@ import argparse
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -54,9 +53,9 @@ DRUG_INTERACTIONS = {
     "TDF": {
         "positions": [65, 70, 41, 210, 215],
         "interactions": [
-            (65, 184),   # K65R + M184V
-            (41, 215),   # M41L + T215Y (TAM1)
-            (70, 219),   # K70R + K219Q (TAM2)
+            (65, 184),  # K65R + M184V
+            (41, 215),  # M41L + T215Y (TAM1)
+            (70, 219),  # K70R + K219Q (TAM2)
         ],
     },
     "ETR": {
@@ -75,7 +74,7 @@ class ImprovedConfig:
 
     input_dim: int = 99
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [128, 64, 32])
+    hidden_dims: list[int] = field(default_factory=lambda: [128, 64, 32])
     batch_size: int = 32
     epochs: int = 100
     lr: float = 0.001
@@ -105,7 +104,7 @@ class ImprovedConfig:
 class ImprovedVAE(nn.Module):
     """VAE with stable architecture (BatchNorm + ReLU)."""
 
-    def __init__(self, cfg: ImprovedConfig, onehot_dim: Optional[int] = None):
+    def __init__(self, cfg: ImprovedConfig, onehot_dim: int | None = None):
         super().__init__()
         self.cfg = cfg
         self.onehot_dim = onehot_dim or cfg.input_dim
@@ -114,12 +113,7 @@ class ImprovedVAE(nn.Module):
         layers = []
         in_dim = cfg.input_dim
         for h in cfg.hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, h),
-                nn.ReLU(),
-                nn.BatchNorm1d(h),
-                nn.Dropout(0.1)
-            ])
+            layers.extend([nn.Linear(in_dim, h), nn.ReLU(), nn.BatchNorm1d(h), nn.Dropout(0.1)])
             in_dim = h
         self.encoder = nn.Sequential(*layers)
         self.fc_mu = nn.Linear(in_dim, cfg.latent_dim)
@@ -129,17 +123,12 @@ class ImprovedVAE(nn.Module):
         layers = []
         in_dim = cfg.latent_dim
         for h in reversed(cfg.hidden_dims):
-            layers.extend([
-                nn.Linear(in_dim, h),
-                nn.ReLU(),
-                nn.BatchNorm1d(h),
-                nn.Dropout(0.1)
-            ])
+            layers.extend([nn.Linear(in_dim, h), nn.ReLU(), nn.BatchNorm1d(h), nn.Dropout(0.1)])
             in_dim = h
         layers.append(nn.Linear(in_dim, self.onehot_dim))
         self.decoder = nn.Sequential(*layers)
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         h = self.encoder(x)
         mu = self.fc_mu(h)
         logvar = self.fc_logvar(h)
@@ -153,12 +142,7 @@ class ImprovedVAE(nn.Module):
         return {"x_recon": x_recon, "mu": mu, "logvar": logvar, "z": z}
 
 
-def create_position_weights(
-    n_positions: int,
-    n_aa: int,
-    drug_class: str,
-    weight_factor: float = 2.0
-) -> torch.Tensor:
+def create_position_weights(n_positions: int, n_aa: int, drug_class: str, weight_factor: float = 2.0) -> torch.Tensor:
     """Create position weight tensor for reconstruction loss."""
     weights = torch.ones(n_positions * n_aa)
 
@@ -174,12 +158,12 @@ def create_position_weights(
 
 def compute_improved_loss(
     cfg: ImprovedConfig,
-    out: Dict[str, torch.Tensor],
+    out: dict[str, torch.Tensor],
     x: torch.Tensor,
     fitness: torch.Tensor,
-    position_weights: Optional[torch.Tensor] = None,
-    onehot_dim: Optional[int] = None,
-) -> Dict[str, torch.Tensor]:
+    position_weights: torch.Tensor | None = None,
+    onehot_dim: int | None = None,
+) -> dict[str, torch.Tensor]:
     """Compute losses with position weighting."""
     losses = {}
     onehot_dim = onehot_dim or x.shape[1]
@@ -220,7 +204,7 @@ def compute_improved_loss(
     return losses
 
 
-def load_stanford_data(drug_class: str = "pi") -> Tuple[pd.DataFrame, List[str], List[str]]:
+def load_stanford_data(drug_class: str = "pi") -> tuple[pd.DataFrame, list[str], list[str]]:
     """Load Stanford HIVDB data."""
     data_dir = project_root / "data" / "research"
 
@@ -246,13 +230,13 @@ def load_stanford_data(drug_class: str = "pi") -> Tuple[pd.DataFrame, List[str],
 
     # Get position columns
     prefix = "P"
-    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix):].isdigit()]
-    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix):]))
+    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix) :].isdigit()]
+    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix) :]))
 
     return df, position_cols, drug_columns[drug_class]
 
 
-def encode_amino_acids(df: pd.DataFrame, position_cols: List[str]) -> np.ndarray:
+def encode_amino_acids(df: pd.DataFrame, position_cols: list[str]) -> np.ndarray:
     """Standard one-hot encoding."""
     aa_alphabet = "ACDEFGHIKLMNPQRSTVWY*-"
     aa_to_idx = {aa: i for i, aa in enumerate(aa_alphabet)}
@@ -272,7 +256,7 @@ def encode_amino_acids(df: pd.DataFrame, position_cols: List[str]) -> np.ndarray
     return X
 
 
-def encode_with_tam(df: pd.DataFrame, position_cols: List[str]) -> Tuple[np.ndarray, int]:
+def encode_with_tam(df: pd.DataFrame, position_cols: list[str]) -> tuple[np.ndarray, int]:
     """Encode with TAM features for NRTI/NNRTI."""
     from src.encoders.tam_aware_encoder import TAMAwareEncoder
 
@@ -281,11 +265,7 @@ def encode_with_tam(df: pd.DataFrame, position_cols: List[str]) -> Tuple[np.ndar
     return X, tam_encoder.onehot_dim
 
 
-def compute_drug_interactions(
-    df: pd.DataFrame,
-    position_cols: List[str],
-    drug: str
-) -> np.ndarray:
+def compute_drug_interactions(df: pd.DataFrame, position_cols: list[str], drug: str) -> np.ndarray:
     """Compute drug-specific interaction features."""
     if drug not in DRUG_INTERACTIONS:
         return np.zeros((len(df), 0), dtype=np.float32)
@@ -293,8 +273,6 @@ def compute_drug_interactions(
     config = DRUG_INTERACTIONS[drug]
     n_features = len(config["positions"]) + len(config["interactions"])
     features = np.zeros((len(df), n_features), dtype=np.float32)
-
-    aa_alphabet = "ACDEFGHIKLMNPQRSTVWY*-"
 
     # Create position lookup
     pos_to_col = {}
@@ -336,7 +314,7 @@ def prepare_data(
     use_interactions: bool = True,
     test_size: float = 0.2,
     seed: int = 42,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int, int]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int, int]:
     """Prepare data with all improvements."""
     df, position_cols, drugs = load_stanford_data(drug_class)
 
@@ -369,9 +347,7 @@ def prepare_data(
     y = (y - y.min()) / (y.max() - y.min() + 1e-8)
 
     # Split
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=seed
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=seed)
 
     return (
         torch.tensor(X_train, dtype=torch.float32),
@@ -390,7 +366,7 @@ def train_single_model(
     test_x: torch.Tensor,
     test_y: torch.Tensor,
     onehot_dim: int,
-) -> Tuple[nn.Module, float, Dict]:
+) -> tuple[nn.Module, float, dict]:
     """Train a single model."""
     device = torch.device(cfg.device)
 
@@ -404,9 +380,7 @@ def train_single_model(
 
     # Position weights
     n_positions = onehot_dim // 22  # 22 AA alphabet
-    position_weights = create_position_weights(
-        n_positions, 22, cfg.drug_class, cfg.position_weight_factor
-    )
+    position_weights = create_position_weights(n_positions, 22, cfg.drug_class, cfg.position_weight_factor)
 
     # Data loader
     dataset = TensorDataset(train_x, train_y)
@@ -424,9 +398,7 @@ def train_single_model(
 
             optimizer.zero_grad()
             out = model(x)
-            losses = compute_improved_loss(
-                cfg, out, x, y, position_weights, onehot_dim
-            )
+            losses = compute_improved_loss(cfg, out, x, y, position_weights, onehot_dim)
             losses["total"].backward()
             optimizer.step()
 
@@ -467,7 +439,7 @@ def train_ensemble(
     test_x: torch.Tensor,
     test_y: torch.Tensor,
     onehot_dim: int,
-) -> Tuple[List[nn.Module], float, float]:
+) -> tuple[list[nn.Module], float, float]:
     """Train ensemble of models."""
     models = []
     correlations = []
@@ -476,9 +448,7 @@ def train_ensemble(
 
     for i in range(cfg.n_ensemble):
         cfg.seed = 42 + i
-        model, best_corr, _ = train_single_model(
-            cfg, train_x, train_y, test_x, test_y, onehot_dim
-        )
+        model, best_corr, _ = train_single_model(cfg, train_x, train_y, test_x, test_y, onehot_dim)
         models.append(model)
         correlations.append(best_corr)
         print(f"    Model {i + 1}: {best_corr:+.4f}")
@@ -505,9 +475,9 @@ def train_ensemble(
 
 def run_drug_class(
     drug_class: str,
-    drugs: List[str],
+    drugs: list[str],
     cfg: ImprovedConfig,
-) -> List[Dict]:
+) -> list[dict]:
     """Run training for a drug class."""
     results = []
 
@@ -516,7 +486,8 @@ def run_drug_class(
         try:
             # Prepare data
             train_x, train_y, test_x, test_y, input_dim, onehot_dim = prepare_data(
-                drug_class, drug,
+                drug_class,
+                drug,
                 use_tam=cfg.use_tam,
                 use_interactions=cfg.use_interactions,
                 seed=cfg.seed,
@@ -529,44 +500,43 @@ def run_drug_class(
 
             # Train
             if cfg.n_ensemble > 1:
-                models, best_corr, std = train_ensemble(
-                    cfg, train_x, train_y, test_x, test_y, onehot_dim
-                )
+                models, best_corr, std = train_ensemble(cfg, train_x, train_y, test_x, test_y, onehot_dim)
             else:
-                model, best_corr, history = train_single_model(
-                    cfg, train_x, train_y, test_x, test_y, onehot_dim
-                )
+                model, best_corr, history = train_single_model(cfg, train_x, train_y, test_x, test_y, onehot_dim)
                 std = 0.0
 
             print(f"  Best test correlation: {best_corr:+.4f}")
 
-            results.append({
-                "drug_class": drug_class,
-                "drug": drug,
-                "n_train": len(train_x),
-                "n_test": len(test_x),
-                "best_test_corr": best_corr,
-                "std": std,
-                "use_tam": cfg.use_tam,
-                "use_interactions": cfg.use_interactions,
-                "n_ensemble": cfg.n_ensemble,
-            })
+            results.append(
+                {
+                    "drug_class": drug_class,
+                    "drug": drug,
+                    "n_train": len(train_x),
+                    "n_test": len(test_x),
+                    "best_test_corr": best_corr,
+                    "std": std,
+                    "use_tam": cfg.use_tam,
+                    "use_interactions": cfg.use_interactions,
+                    "n_ensemble": cfg.n_ensemble,
+                }
+            )
 
         except Exception as e:
             print(f"  Error: {e}")
-            results.append({
-                "drug_class": drug_class,
-                "drug": drug,
-                "error": str(e),
-            })
+            results.append(
+                {
+                    "drug_class": drug_class,
+                    "drug": drug,
+                    "error": str(e),
+                }
+            )
 
     return results
 
 
 def main():
     parser = argparse.ArgumentParser(description="Improved VAE Training")
-    parser.add_argument("--drug-class", type=str, default="all",
-                        choices=["pi", "nrti", "nnrti", "ini", "all"])
+    parser.add_argument("--drug-class", type=str, default="all", choices=["pi", "nrti", "nnrti", "ini", "all"])
     parser.add_argument("--drug", type=str, default=None, help="Specific drug to train")
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--use-tam", action="store_true", help="Use TAM encoding for NRTI/NNRTI")
@@ -579,7 +549,7 @@ def main():
     print("=" * 80)
     print("IMPROVED VAE TRAINING")
     print("=" * 80)
-    print(f"\nSettings:")
+    print("\nSettings:")
     print(f"  epochs={args.epochs}")
     print(f"  use_tam={args.use_tam}")
     print(f"  use_interactions={args.use_interactions}")

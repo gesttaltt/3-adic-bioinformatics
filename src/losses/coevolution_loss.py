@@ -24,7 +24,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 # Amino acid biosynthetic pathway families
 # Based on Wong's co-evolution theory
 BIOSYNTHETIC_FAMILIES: dict[str, list[str]] = {

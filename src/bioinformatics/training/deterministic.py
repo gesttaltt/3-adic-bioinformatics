@@ -16,11 +16,10 @@ from __future__ import annotations
 import os
 import random
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 
 @dataclass
@@ -148,7 +147,7 @@ class DeterministicTrainer:
     - Checkpointing with RNG states
     """
 
-    def __init__(self, config: Optional[DeterministicConfig] = None):
+    def __init__(self, config: DeterministicConfig | None = None):
         """Initialize deterministic trainer.
 
         Args:
@@ -232,7 +231,7 @@ class DeterministicTrainer:
         model: torch.nn.Module,
         optimizer: torch.optim.Optimizer,
         epoch: int,
-        metrics: Optional[dict] = None,
+        metrics: dict | None = None,
     ) -> None:
         """Save checkpoint with RNG states.
 
@@ -260,7 +259,7 @@ class DeterministicTrainer:
         self,
         path: str,
         model: torch.nn.Module,
-        optimizer: Optional[torch.optim.Optimizer] = None,
+        optimizer: torch.optim.Optimizer | None = None,
     ) -> dict:
         """Load checkpoint and restore RNG states.
 

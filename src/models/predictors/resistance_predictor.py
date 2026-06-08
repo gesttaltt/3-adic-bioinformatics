@@ -7,16 +7,15 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 
 from .base_predictor import BasePredictor
 
 try:
+    from scipy.stats import spearmanr
     from sklearn.ensemble import GradientBoostingRegressor
     from sklearn.metrics import mean_squared_error, r2_score
-    from scipy.stats import spearmanr
+
     HAS_SKLEARN = True
 except ImportError:
     HAS_SKLEARN = False
@@ -31,7 +30,7 @@ class ResistancePredictor(BasePredictor):
 
     def __init__(
         self,
-        model: Optional[any] = None,
+        model: any | None = None,
         n_estimators: int = 100,
         max_depth: int = 5,
         learning_rate: float = 0.1,
@@ -55,7 +54,7 @@ class ResistancePredictor(BasePredictor):
         y: np.ndarray,
         log_transform: bool = True,
         **kwargs,
-    ) -> "ResistancePredictor":
+    ) -> ResistancePredictor:
         """Train the resistance predictor.
 
         Args:
@@ -99,7 +98,7 @@ class ResistancePredictor(BasePredictor):
         predictions = self.model.predict(X)
 
         if getattr(self, "_log_transform", True):
-            predictions = 10 ** predictions
+            predictions = 10**predictions
 
         return predictions
 
@@ -115,10 +114,7 @@ class ResistancePredictor(BasePredictor):
         Returns:
             Predicted fold-change values
         """
-        X = np.array([
-            self.feature_extractor.mutation_features(wt, mut)
-            for wt, mut in mutations
-        ])
+        X = np.array([self.feature_extractor.mutation_features(wt, mut) for wt, mut in mutations])
         return self.predict(X)
 
     def _compute_metrics(
@@ -168,4 +164,4 @@ class ResistancePredictor(BasePredictor):
         ]
 
         importances = self.model.feature_importances_
-        return dict(zip(feature_names[:len(importances)], importances))
+        return dict(zip(feature_names[: len(importances)], importances, strict=False))

@@ -13,20 +13,19 @@ This module provides:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Optional, Callable
-import warnings
 
 import numpy as np
+from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.model_selection import (
-    LeaveOneOut,
     KFold,
+    LeaveOneOut,
     StratifiedKFold,
     cross_val_predict,
 )
-from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
-from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.preprocessing import StandardScaler
 
 from src.bioinformatics.evaluation.metrics import DDGMetrics, compute_all_metrics
 
@@ -40,7 +39,7 @@ class CVResult:
     metrics: DDGMetrics
     cv_type: str
     n_folds: int
-    fold_metrics: Optional[list[DDGMetrics]] = None
+    fold_metrics: list[DDGMetrics] | None = None
 
 
 class CrossValidator:
@@ -107,7 +106,8 @@ class CrossValidator:
 
         # Compute metrics
         metrics = compute_all_metrics(
-            y, y_pred,
+            y,
+            y_pred,
             bootstrap_ci=bootstrap_ci,
             seed=self.seed,
         )
@@ -181,7 +181,8 @@ class CrossValidator:
         all_y_pred = np.array(all_y_pred)
 
         metrics = compute_all_metrics(
-            all_y_true, all_y_pred,
+            all_y_true,
+            all_y_pred,
             bootstrap_ci=bootstrap_ci,
             seed=self.seed,
         )
@@ -250,7 +251,8 @@ def kfold_cv(
     """
     cv = CrossValidator(model_factory, scaler=scaler, seed=seed)
     return cv.kfold_cv(
-        X, y,
+        X,
+        y,
         n_folds=n_folds,
         n_repeats=n_repeats,
         stratify=stratify,
@@ -288,10 +290,9 @@ class PyTorchModelWrapper(BaseEstimator, RegressorMixin):
         self.device = device
         self.model_ = None
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "PyTorchModelWrapper":
+    def fit(self, X: np.ndarray, y: np.ndarray) -> PyTorchModelWrapper:
         """Fit model on training data."""
         import torch
-        import torch.nn as nn
         from torch.optim import Adam
 
         X_tensor = torch.tensor(X, dtype=torch.float32, device=self.device)

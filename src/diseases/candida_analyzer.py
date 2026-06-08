@@ -42,7 +42,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -53,11 +53,11 @@ from .base import DiseaseAnalyzer, DiseaseConfig, DiseaseType, TaskType
 class CandidaClade(Enum):
     """C. auris geographic clades."""
 
-    CLADE_I = "I"      # South Asian
-    CLADE_II = "II"    # East Asian
+    CLADE_I = "I"  # South Asian
+    CLADE_II = "II"  # East Asian
     CLADE_III = "III"  # African
-    CLADE_IV = "IV"    # South American
-    CLADE_V = "V"      # Iranian
+    CLADE_IV = "IV"  # South American
+    CLADE_V = "V"  # Iranian
 
 
 class CandidaGene(Enum):
@@ -69,8 +69,8 @@ class CandidaGene(Enum):
     # Azole resistance
     ERG11 = "ERG11"  # Lanosterol 14-alpha-demethylase
     TAC1B = "TAC1B"  # Transcription factor
-    CDR1 = "CDR1"    # Efflux pump
-    MDR1 = "MDR1"    # Efflux pump
+    CDR1 = "CDR1"  # Efflux pump
+    MDR1 = "MDR1"  # Efflux pump
 
     # Amphotericin B resistance
     ERG3 = "ERG3"
@@ -106,15 +106,19 @@ class CandidaConfig(DiseaseConfig):
     name: str = "candida_auris"
     display_name: str = "Candida auris"
     disease_type: DiseaseType = DiseaseType.FUNGAL
-    tasks: list[TaskType] = field(default_factory=lambda: [
-        TaskType.RESISTANCE,
-    ])
+    tasks: list[TaskType] = field(
+        default_factory=lambda: [
+            TaskType.RESISTANCE,
+        ]
+    )
 
-    data_sources: dict[str, str] = field(default_factory=lambda: {
-        "cdc_ar": "https://www.cdc.gov/candida-auris/",
-        "fungidb": "https://fungidb.org/",
-        "clsi": "https://clsi.org/",
-    })
+    data_sources: dict[str, str] = field(
+        default_factory=lambda: {
+            "cdc_ar": "https://www.cdc.gov/candida-auris/",
+            "fungidb": "https://fungidb.org/",
+            "clsi": "https://clsi.org/",
+        }
+    )
 
 
 # FKS1 Hot Spot Mutations (Echinocandin resistance)
@@ -165,7 +169,7 @@ class CandidaAnalyzer(DiseaseAnalyzer):
     - Pan-resistance detection
     """
 
-    def __init__(self, config: Optional[CandidaConfig] = None):
+    def __init__(self, config: CandidaConfig | None = None):
         """Initialize analyzer."""
         self.config = config or CandidaConfig()
         super().__init__(self.config)
@@ -177,7 +181,7 @@ class CandidaAnalyzer(DiseaseAnalyzer):
         self,
         sequences: dict[CandidaGene, list[str]],
         clade: CandidaClade = CandidaClade.CLADE_I,
-        embeddings: Optional[torch.Tensor] = None,
+        embeddings: torch.Tensor | None = None,
         **kwargs,
     ) -> dict[str, Any]:
         """Analyze C. auris sequences for antifungal resistance.
@@ -193,33 +197,25 @@ class CandidaAnalyzer(DiseaseAnalyzer):
         results = {
             "n_sequences": len(next(iter(sequences.values()))) if sequences else 0,
             "clade": clade.value,
-            "genes_analyzed": [g.value for g in sequences.keys()],
+            "genes_analyzed": [g.value for g in sequences],
             "drug_resistance": {},
             "pan_resistance_alert": [],
         }
 
         # Echinocandin resistance (FKS1)
         if CandidaGene.FKS1 in sequences:
-            results["drug_resistance"]["echinocandins"] = self._analyze_fks1(
-                sequences[CandidaGene.FKS1]
-            )
+            results["drug_resistance"]["echinocandins"] = self._analyze_fks1(sequences[CandidaGene.FKS1])
 
         # Azole resistance (ERG11)
         if CandidaGene.ERG11 in sequences:
-            results["drug_resistance"]["azoles"] = self._analyze_erg11(
-                sequences[CandidaGene.ERG11]
-            )
+            results["drug_resistance"]["azoles"] = self._analyze_erg11(sequences[CandidaGene.ERG11])
 
         # Amphotericin B resistance (ERG3)
         if CandidaGene.ERG3 in sequences:
-            results["drug_resistance"]["amphotericin_b"] = self._analyze_erg3(
-                sequences[CandidaGene.ERG3]
-            )
+            results["drug_resistance"]["amphotericin_b"] = self._analyze_erg3(sequences[CandidaGene.ERG3])
 
         # Pan-resistance check
-        results["pan_resistance_alert"] = self._check_pan_resistance(
-            results["drug_resistance"]
-        )
+        results["pan_resistance_alert"] = self._check_pan_resistance(results["drug_resistance"])
 
         return results
 
@@ -320,12 +316,14 @@ class CandidaAnalyzer(DiseaseAnalyzer):
                         effect_scores = {"high": 1.0, "moderate": 0.5, "low": 0.2}
                         score += effect_scores.get(effect, 0.3)
 
-                        mutations.append({
-                            "position": pos,
-                            "ref": ref_aa,
-                            "alt": seq_aa,
-                            "effect": effect,
-                        })
+                        mutations.append(
+                            {
+                                "position": pos,
+                                "ref": ref_aa,
+                                "alt": seq_aa,
+                                "effect": effect,
+                            }
+                        )
 
             normalized = min(score / 3.0, 1.0)
             results["scores"].append(normalized)
@@ -361,12 +359,14 @@ class CandidaAnalyzer(DiseaseAnalyzer):
                     if seq_aa != ref_aa and seq_aa in info[ref_aa]["mutations"]:
                         effect = info[ref_aa]["effect"]
                         score += 1.0
-                        mutations.append({
-                            "position": pos,
-                            "ref": ref_aa,
-                            "alt": seq_aa,
-                            "effect": effect,
-                        })
+                        mutations.append(
+                            {
+                                "position": pos,
+                                "ref": ref_aa,
+                                "alt": seq_aa,
+                                "effect": effect,
+                            }
+                        )
 
             normalized = min(score, 1.0)
             results["scores"].append(normalized)
@@ -379,9 +379,7 @@ class CandidaAnalyzer(DiseaseAnalyzer):
 
         return results
 
-    def _check_pan_resistance(
-        self, drug_resistance: dict
-    ) -> list[dict[str, Any]]:
+    def _check_pan_resistance(self, drug_resistance: dict) -> list[dict[str, Any]]:
         """Check for pan-resistance (resistance to all 3 classes)."""
         alerts = []
 
@@ -414,10 +412,12 @@ class CandidaAnalyzer(DiseaseAnalyzer):
                 "azole_resistant": azole_r,
                 "amphotericin_b_resistant": ampho_r,
                 "pan_resistant": echo_r and azole_r and ampho_r,
-                "alert_level": "critical" if (echo_r and azole_r and ampho_r) else (
-                    "high" if (echo_r and azole_r) or (echo_r and ampho_r) else (
-                        "moderate" if echo_r or ampho_r else "low"
-                    )
+                "alert_level": "critical"
+                if (echo_r and azole_r and ampho_r)
+                else (
+                    "high"
+                    if (echo_r and azole_r) or (echo_r and ampho_r)
+                    else ("moderate" if echo_r or ampho_r else "low")
                 ),
             }
             alerts.append(alert)

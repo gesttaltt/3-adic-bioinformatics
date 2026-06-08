@@ -27,9 +27,9 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
 
 import numpy as np
 
@@ -40,12 +40,14 @@ from src.config.paths import RESULTS_DIR
 
 try:
     import torch  # noqa: F401
+
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
 
 try:
     import pandas as pd
+
     HAS_PANDAS = True
 except ImportError:
     HAS_PANDAS = False
@@ -59,7 +61,7 @@ class Individual:
     objectives: np.ndarray  # Objective values (to minimize)
     rank: int = 0  # Pareto rank
     crowding_distance: float = 0.0
-    decoded_sequence: Optional[str] = None
+    decoded_sequence: str | None = None
 
 
 @dataclass
@@ -88,7 +90,7 @@ class LatentNSGA2:
         self,
         config: OptimizationConfig,
         objective_functions: list[Callable[[np.ndarray], float]],
-        decoder: Optional[Callable[[np.ndarray], str]] = None,
+        decoder: Callable[[np.ndarray], str] | None = None,
     ):
         """Initialize NSGA-II optimizer.
 
@@ -123,13 +125,9 @@ class LatentNSGA2:
     def evaluate_population(self, population: list[Individual]) -> None:
         """Evaluate objective functions for all individuals."""
         for ind in population:
-            ind.objectives = np.array([
-                obj(ind.latent) for obj in self.objectives
-            ])
+            ind.objectives = np.array([obj(ind.latent) for obj in self.objectives])
 
-    def fast_non_dominated_sort(
-        self, population: list[Individual]
-    ) -> list[list[Individual]]:
+    def fast_non_dominated_sort(self, population: list[Individual]) -> list[list[Individual]]:
         """Perform fast non-dominated sorting.
 
         Returns:
@@ -173,7 +171,7 @@ class LatentNSGA2:
     def _dominates(self, p: Individual, q: Individual) -> bool:
         """Check if p dominates q (all objectives <= and at least one <)."""
         at_least_one_better = False
-        for pi, qi in zip(p.objectives, q.objectives):
+        for pi, qi in zip(p.objectives, q.objectives, strict=False):
             if pi > qi:
                 return False
             if pi < qi:
@@ -197,21 +195,16 @@ class LatentNSGA2:
             front[0].crowding_distance = float("inf")
             front[-1].crowding_distance = float("inf")
 
-            obj_range = (
-                front[-1].objectives[m] - front[0].objectives[m]
-            )
+            obj_range = front[-1].objectives[m] - front[0].objectives[m]
             if obj_range == 0:
                 continue
 
             for i in range(1, len(front) - 1):
-                front[i].crowding_distance += (
-                    front[i + 1].objectives[m] - front[i - 1].objectives[m]
-                ) / obj_range
+                front[i].crowding_distance += (front[i + 1].objectives[m] - front[i - 1].objectives[m]) / obj_range
 
-    def select_parents(
-        self, population: list[Individual]
-    ) -> tuple[Individual, Individual]:
+    def select_parents(self, population: list[Individual]) -> tuple[Individual, Individual]:
         """Binary tournament selection based on rank and crowding distance."""
+
         def tournament(pop: list[Individual]) -> Individual:
             i, j = np.random.choice(len(pop), 2, replace=False)
             a, b = pop[i], pop[j]
@@ -224,9 +217,7 @@ class LatentNSGA2:
 
         return tournament(population), tournament(population)
 
-    def crossover(
-        self, parent1: Individual, parent2: Individual
-    ) -> tuple[Individual, Individual]:
+    def crossover(self, parent1: Individual, parent2: Individual) -> tuple[Individual, Individual]:
         """Simulated Binary Crossover (SBX) for real-valued vectors."""
         if np.random.random() > self.config.crossover_prob:
             return (
@@ -290,9 +281,9 @@ class LatentNSGA2:
                         1.0 / (eta_m + 1.0)
                     ) - 1.0
                 else:
-                    deltaq = 1.0 - (
-                        2.0 * (1.0 - rand) + 2.0 * (rand - 0.5) * (1.0 - delta) ** (eta_m + 1.0)
-                    ) ** (1.0 / (eta_m + 1.0))
+                    deltaq = 1.0 - (2.0 * (1.0 - rand) + 2.0 * (rand - 0.5) * (1.0 - delta) ** (eta_m + 1.0)) ** (
+                        1.0 / (eta_m + 1.0)
+                    )
 
                 mutant[i] = np.clip(y + deltaq * (yu - yl), yl, yu)
 
@@ -342,8 +333,7 @@ class LatentNSGA2:
             if verbose and gen % 10 == 0:
                 front_size = len([p for p in population if p.rank == 0])
                 best_objs = np.min([p.objectives for p in population], axis=0)
-                print(f"Gen {gen:4d}: Pareto front size = {front_size}, "
-                      f"Best objectives = {best_objs}")
+                print(f"Gen {gen:4d}: Pareto front size = {front_size}, Best objectives = {best_objs}")
 
         # Decode final Pareto front if decoder available
         pareto_front = [p for p in population if p.rank == 0]
@@ -362,7 +352,7 @@ def create_mock_objectives() -> list[Callable[[np.ndarray], float]]:
 
     def reconstruction_loss(z: np.ndarray) -> float:
         """Mock: Penalize extreme latent values."""
-        return np.sum(z ** 2) / len(z)
+        return np.sum(z**2) / len(z)
 
     def toxicity(z: np.ndarray) -> float:
         """Mock: Simple toxicity based on latent structure."""
@@ -413,9 +403,7 @@ def export_pareto_front(
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="NSGA-II Multi-Objective Optimization in VAE Latent Space"
-    )
+    parser = argparse.ArgumentParser(description="NSGA-II Multi-Objective Optimization in VAE Latent Space")
     parser.add_argument(
         "--vae_checkpoint",
         type=str,

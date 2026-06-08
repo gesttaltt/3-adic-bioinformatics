@@ -35,27 +35,25 @@ Usage:
 from __future__ import annotations
 
 import math
-from typing import Optional
 
-import numpy as np
 import torch
 import torch.nn as nn
 from geoopt import ManifoldParameter
 
 from src.biology.codons import (
-    GENETIC_CODE,
-    CODON_TO_INDEX,
     AMINO_ACID_TO_CODONS,
+    CODON_TO_INDEX,
+    GENETIC_CODE,
     codon_index_to_triplet,
 )
+from src.encoders.codon_encoder import AA_PROPERTIES
 from src.geometry import (
-    get_manifold,
-    poincare_distance,
     exp_map_zero,
+    get_manifold,
     log_map_zero,
+    poincare_distance,
     project_to_poincare,
 )
-from src.encoders.codon_encoder import AA_PROPERTIES
 
 
 def compute_codon_padic_valuation(idx: int, p: int = 3) -> int:
@@ -151,7 +149,7 @@ class HyperbolicCodonEncoder(nn.Module):
                 manifold=self.manifold,
             )
         else:
-            self.register_buffer('embeddings', init_embeddings)
+            self.register_buffer("embeddings", init_embeddings)
 
         # Cache amino acid to codon index mapping
         self._aa_to_indices = {}
@@ -177,7 +175,7 @@ class HyperbolicCodonEncoder(nn.Module):
 
         for idx in range(self.num_codons):
             triplet = codon_index_to_triplet(idx)
-            aa = GENETIC_CODE.get(triplet, '*')
+            aa = GENETIC_CODE.get(triplet, "*")
 
             # Compute target radius from valuation
             valuation = compute_codon_padic_valuation(idx)
@@ -243,7 +241,7 @@ class HyperbolicCodonEncoder(nn.Module):
         """
         return self.embeddings[x]
 
-    def get_hyperbolic_radius(self, idx: Optional[int] = None) -> torch.Tensor:
+    def get_hyperbolic_radius(self, idx: int | None = None) -> torch.Tensor:
         """Get hyperbolic radius (distance from origin) for codon(s).
 
         Args:
@@ -255,12 +253,12 @@ class HyperbolicCodonEncoder(nn.Module):
         origin = torch.zeros(1, self.embedding_dim, device=self.embeddings.device)
 
         if idx is not None:
-            emb = self.embeddings[idx:idx+1]
+            emb = self.embeddings[idx : idx + 1]
             return poincare_distance(emb, origin, c=self.curvature).squeeze()
         else:
             radii = []
             for i in range(self.num_codons):
-                emb = self.embeddings[i:i+1]
+                emb = self.embeddings[i : i + 1]
                 radii.append(poincare_distance(emb, origin, c=self.curvature))
             return torch.cat(radii)
 
@@ -274,11 +272,7 @@ class HyperbolicCodonEncoder(nn.Module):
 
         for i in range(self.num_codons):
             for j in range(i + 1, self.num_codons):
-                d = poincare_distance(
-                    self.embeddings[i:i+1],
-                    self.embeddings[j:j+1],
-                    c=self.curvature
-                )
+                d = poincare_distance(self.embeddings[i : i + 1], self.embeddings[j : j + 1], c=self.curvature)
                 dist_matrix[i, j] = d
                 dist_matrix[j, i] = d
 
@@ -329,7 +323,7 @@ class HyperbolicCodonEncoder(nn.Module):
 
         return mean
 
-    def get_amino_acid_embedding(self, aa: str, method: str = 'frechet') -> torch.Tensor:
+    def get_amino_acid_embedding(self, aa: str, method: str = "frechet") -> torch.Tensor:
         """Get aggregated embedding for an amino acid.
 
         Aggregates embeddings of all synonymous codons encoding this AA.
@@ -346,7 +340,7 @@ class HyperbolicCodonEncoder(nn.Module):
         if len(indices) == 0:
             return torch.zeros(self.embedding_dim, device=self.embeddings.device)
 
-        if method == 'frechet':
+        if method == "frechet":
             return self.frechet_mean(indices)
         else:
             # Euclidean centroid (faster but geometrically incorrect)
@@ -354,7 +348,7 @@ class HyperbolicCodonEncoder(nn.Module):
             centroid = embs.mean(dim=0)
             return project_to_poincare(centroid.unsqueeze(0), self.max_radius, self.curvature).squeeze(0)
 
-    def get_all_amino_acid_embeddings(self, method: str = 'frechet') -> dict[str, torch.Tensor]:
+    def get_all_amino_acid_embeddings(self, method: str = "frechet") -> dict[str, torch.Tensor]:
         """Get embeddings for all 20 standard amino acids.
 
         Args:
@@ -363,12 +357,9 @@ class HyperbolicCodonEncoder(nn.Module):
         Returns:
             Dictionary mapping AA letter to embedding tensor
         """
-        return {
-            aa: self.get_amino_acid_embedding(aa, method)
-            for aa in 'ACDEFGHIKLMNPQRSTVWY'
-        }
+        return {aa: self.get_amino_acid_embedding(aa, method) for aa in "ACDEFGHIKLMNPQRSTVWY"}
 
-    def compute_aa_hyperbolic_distance(self, aa1: str, aa2: str, method: str = 'frechet') -> float:
+    def compute_aa_hyperbolic_distance(self, aa1: str, aa2: str, method: str = "frechet") -> float:
         """Compute hyperbolic distance between amino acids.
 
         Args:
@@ -395,10 +386,13 @@ class HyperbolicCodonEncoder(nn.Module):
         radii = self.get_hyperbolic_radius()
 
         # Compute target radii
-        target_radii = torch.tensor([
-            compute_target_radius(compute_codon_padic_valuation(i), self.max_radius, self.min_radius)
-            for i in range(self.num_codons)
-        ], device=radii.device)
+        target_radii = torch.tensor(
+            [
+                compute_target_radius(compute_codon_padic_valuation(i), self.max_radius, self.min_radius)
+                for i in range(self.num_codons)
+            ],
+            device=radii.device,
+        )
 
         # MSE between actual and target radii
         return torch.mean((radii - target_radii) ** 2)
@@ -414,7 +408,7 @@ class HyperbolicCodonEncoder(nn.Module):
         total_loss = torch.tensor(0.0, device=self.embeddings.device)
         count = 0
 
-        for aa, indices in self._aa_to_indices.items():
+        for _aa, indices in self._aa_to_indices.items():
             if len(indices) < 2:
                 continue
 
@@ -422,9 +416,9 @@ class HyperbolicCodonEncoder(nn.Module):
             for i in range(len(indices)):
                 for j in range(i + 1, len(indices)):
                     d = poincare_distance(
-                        self.embeddings[indices[i]:indices[i]+1],
-                        self.embeddings[indices[j]:indices[j]+1],
-                        c=self.curvature
+                        self.embeddings[indices[i] : indices[i] + 1],
+                        self.embeddings[indices[j] : indices[j] + 1],
+                        c=self.curvature,
                     )
                     total_loss = total_loss + d
                     count += 1
@@ -437,9 +431,9 @@ class HyperbolicCodonEncoder(nn.Module):
         checkpoint_path: str,
         embedding_dim: int = 16,
         curvature: float = 1.0,
-        use_encoder: str = 'B',
-        device: str = 'cpu',
-    ) -> 'HyperbolicCodonEncoder':
+        use_encoder: str = "B",
+        device: str = "cpu",
+    ) -> HyperbolicCodonEncoder:
         """Create encoder initialized from VAE checkpoint embeddings.
 
         Extracts the 64 codon embeddings by mapping codon indices through
@@ -467,9 +461,9 @@ class HyperbolicCodonEncoder(nn.Module):
         ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
         # Determine model architecture from config
-        config = ckpt.get('config', {})
-        latent_dim = config.get('latent_dim', 16)
-        hidden_dim = config.get('hidden_dim', 64)
+        config = ckpt.get("config", {})
+        latent_dim = config.get("latent_dim", 16)
+        hidden_dim = config.get("hidden_dim", 64)
 
         # Import model class
         from src.models.ternary_vae import TernaryVAEV5_11_PartialFreeze
@@ -480,10 +474,10 @@ class HyperbolicCodonEncoder(nn.Module):
             hidden_dim=hidden_dim,
             max_radius=0.99,
             curvature=curvature,
-            use_controller=config.get('use_controller', False),
-            use_dual_projection=config.get('use_dual_projection', True),
+            use_controller=config.get("use_controller", False),
+            use_dual_projection=config.get("use_dual_projection", True),
         )
-        model.load_state_dict(ckpt['model_state_dict'])
+        model.load_state_dict(ckpt["model_state_dict"])
         model.eval()
         model.to(device)
 
@@ -509,10 +503,10 @@ class HyperbolicCodonEncoder(nn.Module):
                 out = model(op_tensor, compute_control=False)
 
                 # Get hyperbolic embedding from chosen encoder
-                if use_encoder == 'B':
-                    z_hyp = out['z_B_hyp'][0]  # Shape: (latent_dim,)
+                if use_encoder == "B":
+                    z_hyp = out["z_B_hyp"][0]  # Shape: (latent_dim,)
                 else:
-                    z_hyp = out['z_A_hyp'][0]
+                    z_hyp = out["z_A_hyp"][0]
 
                 all_embeddings.append(z_hyp)
 
@@ -528,8 +522,8 @@ class HyperbolicCodonEncoder(nn.Module):
 # Convenience function for extraction
 def extract_codon_embeddings_from_vae(
     checkpoint_path: str,
-    use_encoder: str = 'B',
-    device: str = 'cpu',
+    use_encoder: str = "B",
+    device: str = "cpu",
 ) -> dict:
     """Extract all codon and amino acid embeddings from a VAE checkpoint.
 
@@ -546,12 +540,10 @@ def extract_codon_embeddings_from_vae(
         - 'aa_radii': dict of AA -> float
         - 'metadata': dict with config info
     """
-    encoder = HyperbolicCodonEncoder.from_vae_checkpoint(
-        checkpoint_path, use_encoder=use_encoder, device=device
-    )
+    encoder = HyperbolicCodonEncoder.from_vae_checkpoint(checkpoint_path, use_encoder=use_encoder, device=device)
 
     # Get AA embeddings
-    aa_embeddings = encoder.get_all_amino_acid_embeddings(method='frechet')
+    aa_embeddings = encoder.get_all_amino_acid_embeddings(method="frechet")
 
     # Compute radii
     codon_radii = encoder.get_hyperbolic_radius()
@@ -561,13 +553,13 @@ def extract_codon_embeddings_from_vae(
         aa_radii[aa] = poincare_distance(emb.unsqueeze(0), origin, c=encoder.curvature).item()
 
     return {
-        'codon_embeddings': encoder.embeddings,
-        'codon_radii': codon_radii,
-        'aa_embeddings': aa_embeddings,
-        'aa_radii': aa_radii,
-        'metadata': {
-            'embedding_dim': encoder.embedding_dim,
-            'curvature': encoder.curvature,
-            'encoder_used': use_encoder,
-        }
+        "codon_embeddings": encoder.embeddings,
+        "codon_radii": codon_radii,
+        "aa_embeddings": aa_embeddings,
+        "aa_radii": aa_radii,
+        "metadata": {
+            "embedding_dim": encoder.embedding_dim,
+            "curvature": encoder.curvature,
+            "encoder_used": use_encoder,
+        },
     }

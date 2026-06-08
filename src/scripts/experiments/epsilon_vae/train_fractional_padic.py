@@ -25,8 +25,8 @@ Usage:
 import argparse
 import json
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -41,13 +41,12 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config.paths import CHECKPOINTS_DIR, OUTPUT_DIR
 from src.data.generation import generate_all_ternary_operations
-from src.utils.checkpoint import load_checkpoint_compat, get_model_state_dict
 from src.models.fractional_padic_architecture import (
     compute_padic_dimensions,
-    interpolate_operation_space,
     create_interpolation_schedule,
-    FractionalPadicEncoder,
+    interpolate_operation_space,
 )
+from src.utils.checkpoint import get_model_state_dict, load_checkpoint_compat
 
 
 class FractionalPadicVAE(nn.Module):
@@ -105,24 +104,26 @@ class FractionalPadicVAE(nn.Module):
         """Build encoder with scaled capacity."""
         scaled_hidden = int(hidden_dim * self.capacity_scale)
 
-        return nn.ModuleDict({
-            "input_proj": nn.Linear(self.dims["input_dim"], self.base_input_dim)
-                         if self.dims["input_dim"] != self.base_input_dim
-                         else nn.Identity(),
-            "layers": nn.Sequential(
-                nn.Linear(self.base_input_dim, scaled_hidden),
-                nn.LayerNorm(scaled_hidden),
-                nn.GELU(),
-                nn.Linear(scaled_hidden, scaled_hidden // 2),
-                nn.LayerNorm(scaled_hidden // 2),
-                nn.GELU(),
-                nn.Linear(scaled_hidden // 2, scaled_hidden // 4),
-                nn.LayerNorm(scaled_hidden // 4),
-                nn.GELU(),
-            ),
-            "fc_mu": nn.Linear(scaled_hidden // 4, self.latent_dim),
-            "fc_logvar": nn.Linear(scaled_hidden // 4, self.latent_dim),
-        })
+        return nn.ModuleDict(
+            {
+                "input_proj": nn.Linear(self.dims["input_dim"], self.base_input_dim)
+                if self.dims["input_dim"] != self.base_input_dim
+                else nn.Identity(),
+                "layers": nn.Sequential(
+                    nn.Linear(self.base_input_dim, scaled_hidden),
+                    nn.LayerNorm(scaled_hidden),
+                    nn.GELU(),
+                    nn.Linear(scaled_hidden, scaled_hidden // 2),
+                    nn.LayerNorm(scaled_hidden // 2),
+                    nn.GELU(),
+                    nn.Linear(scaled_hidden // 2, scaled_hidden // 4),
+                    nn.LayerNorm(scaled_hidden // 4),
+                    nn.GELU(),
+                ),
+                "fc_mu": nn.Linear(scaled_hidden // 4, self.latent_dim),
+                "fc_logvar": nn.Linear(scaled_hidden // 4, self.latent_dim),
+            }
+        )
 
     def _build_decoder(self, hidden_dim: int) -> nn.Module:
         """Build decoder."""
@@ -158,21 +159,14 @@ class FractionalPadicVAE(nn.Module):
         # Clamp to Poincare ball
         norm = z_proj.norm(dim=-1, keepdim=True)
         max_norm = 0.99
-        z_proj = torch.where(
-            norm > max_norm,
-            z_proj * max_norm / norm,
-            z_proj
-        )
+        z_proj = torch.where(norm > max_norm, z_proj * max_norm / norm, z_proj)
         return z_proj
 
     def forward(self, x: torch.Tensor):
         """Forward pass."""
         # Pad input if needed for higher p
         if x.shape[-1] < self.dims["input_dim"]:
-            padding = torch.zeros(
-                *x.shape[:-1], self.dims["input_dim"] - x.shape[-1],
-                device=x.device, dtype=x.dtype
-            )
+            padding = torch.zeros(*x.shape[:-1], self.dims["input_dim"] - x.shape[-1], device=x.device, dtype=x.dtype)
             x = torch.cat([x, padding], dim=-1)
 
         # Encode
@@ -192,11 +186,10 @@ class FractionalPadicVAE(nn.Module):
         x_recon = self.decoder(z_combined)
 
         # Losses
-        recon_loss = nn.functional.mse_loss(x_recon, x[..., :self.base_input_dim])
+        recon_loss = nn.functional.mse_loss(x_recon, x[..., : self.base_input_dim])
 
         kl_loss = -0.5 * torch.mean(
-            1 + logvar_A - mu_A.pow(2) - logvar_A.exp() +
-            1 + logvar_B - mu_B.pow(2) - logvar_B.exp()
+            1 + logvar_A - mu_A.pow(2) - logvar_A.exp() + 1 + logvar_B - mu_B.pow(2) - logvar_B.exp()
         )
 
         return {
@@ -230,10 +223,7 @@ def compute_coverage_for_p(model, p: float, device: str = "cpu") -> dict:
     base_ops = generate_all_ternary_operations()
 
     # Interpolate for fractional p
-    if p > 3.0:
-        ops = interpolate_operation_space(p, base_ops)
-    else:
-        ops = base_ops
+    ops = interpolate_operation_space(p, base_ops) if p > 3.0 else base_ops
 
     ops_tensor = torch.tensor(ops, dtype=torch.float32, device=device)
 
@@ -249,7 +239,7 @@ def compute_coverage_for_p(model, p: float, device: str = "cpu") -> dict:
         # Uniqueness (check for collisions)
         dists = torch.cdist(z_hyp, z_hyp)
         mask = torch.eye(len(z_hyp), device=device).bool()
-        dists.masked_fill_(mask, float('inf'))
+        dists.masked_fill_(mask, float("inf"))
         min_dists = dists.min(dim=1)[0]
 
         collisions = (min_dists < 0.01).sum().item()
@@ -301,7 +291,7 @@ def transfer_weights(
                 transferred += 1
             elif len(src_shape) == len(tgt_shape):
                 # Need to resize - use interpolation or padding
-                if all(s <= t for s, t in zip(src_shape, tgt_shape)):
+                if all(s <= t for s, t in zip(src_shape, tgt_shape, strict=False)):
                     # Target is larger - pad with zeros (preserve source structure)
                     src_data = source_state[key]
                     slices = tuple(slice(0, s) for s in src_shape)
@@ -344,10 +334,7 @@ def train_at_p(
 
     # Get operations for this p
     base_ops = generate_all_ternary_operations()
-    if p > 3.0:
-        ops = interpolate_operation_space(p, base_ops)
-    else:
-        ops = base_ops
+    ops = interpolate_operation_space(p, base_ops) if p > 3.0 else base_ops
 
     ops_tensor = torch.tensor(ops, dtype=torch.float32)
     dataset = TensorDataset(ops_tensor)
@@ -385,9 +372,11 @@ def train_at_p(
         if epoch % 10 == 0 or epoch == epochs - 1:
             metrics = compute_coverage_for_p(model, p, device)
             history["coverage"].append(metrics["coverage"])
-            print(f"  Epoch {epoch:3d} | Loss: {avg_loss:.4f} | "
-                  f"Coverage: {metrics['coverage']:.4f} | "
-                  f"Collisions: {metrics['collisions']}")
+            print(
+                f"  Epoch {epoch:3d} | Loss: {avg_loss:.4f} | "
+                f"Coverage: {metrics['coverage']:.4f} | "
+                f"Collisions: {metrics['collisions']}"
+            )
             model.train()
 
     return history
@@ -481,18 +470,21 @@ def run_interpolation(
             p_values = p_values[1:]  # Skip p=3, already have it
 
             # Save baseline as p=3.0 checkpoint
-            torch.save({
-                "p": 3.0,
-                "model_state_dict": baseline_model.state_dict(),
-                "coverage": baseline_coverage,
-            }, output_dir / "checkpoint_p3.00.pt")
+            torch.save(
+                {
+                    "p": 3.0,
+                    "model_state_dict": baseline_model.state_dict(),
+                    "coverage": baseline_coverage,
+                },
+                output_dir / "checkpoint_p3.00.pt",
+            )
 
     model = None
 
     for i, p in enumerate(p_values):
-        print(f"\n{'='*70}")
-        print(f"TRAINING AT p = {p:.4f} ({i+1}/{len(p_values)})")
-        print(f"{'='*70}")
+        print(f"\n{'=' * 70}")
+        print(f"TRAINING AT p = {p:.4f} ({i + 1}/{len(p_values)})")
+        print(f"{'=' * 70}")
 
         dims = compute_padic_dimensions(p)
         print(f"  Operations: {dims['n_operations_int']:,}")
@@ -504,10 +496,9 @@ def run_interpolation(
 
         # Transfer weights from previous model
         if model is not None:
-            prev_p = p_values[i-1]
+            prev_p = p_values[i - 1]
             transfer_info = transfer_weights(model, new_model, prev_p, p)
-            print(f"  Transferred {transfer_info['transferred']} weights, "
-                  f"resized {transfer_info['resized']}")
+            print(f"  Transferred {transfer_info['transferred']} weights, resized {transfer_info['resized']}")
 
         model = new_model
 
@@ -529,26 +520,34 @@ def run_interpolation(
         print(f"  Collisions: {metrics['collisions']}")
 
         # Save checkpoint
-        torch.save({
-            "p": p,
-            "model_state_dict": model.state_dict(),
-            "metrics": metrics,
-            "history": history,
-        }, output_dir / f"checkpoint_p{p:.2f}.pt")
+        torch.save(
+            {
+                "p": p,
+                "model_state_dict": model.state_dict(),
+                "metrics": metrics,
+                "history": history,
+            },
+            output_dir / f"checkpoint_p{p:.2f}.pt",
+        )
 
         # Check if we should stop (coverage dropped too much)
         if metrics["coverage"] < 0.8:
-            print(f"\n  WARNING: Coverage dropped below 80%, stopping interpolation")
+            print("\n  WARNING: Coverage dropped below 80%, stopping interpolation")
             break
 
     # Visualize results
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
     ax1 = axes[0]
-    ax1.plot(results["p_values"][:len(results["coverage_trajectory"])],
-             results["coverage_trajectory"], 'b-o', linewidth=2, markersize=8)
-    ax1.axhline(y=1.0, color='g', linestyle='--', label='Perfect coverage')
-    ax1.axhline(y=0.8, color='r', linestyle='--', label='Minimum threshold')
+    ax1.plot(
+        results["p_values"][: len(results["coverage_trajectory"])],
+        results["coverage_trajectory"],
+        "b-o",
+        linewidth=2,
+        markersize=8,
+    )
+    ax1.axhline(y=1.0, color="g", linestyle="--", label="Perfect coverage")
+    ax1.axhline(y=0.8, color="r", linestyle="--", label="Minimum threshold")
     ax1.set_xlabel("p value")
     ax1.set_ylabel("Coverage")
     ax1.set_title("Coverage vs p-adic Base")
@@ -556,8 +555,13 @@ def run_interpolation(
     ax1.grid(True, alpha=0.3)
 
     ax2 = axes[1]
-    ax2.plot(results["p_values"][:len(results["collision_trajectory"])],
-             results["collision_trajectory"], 'r-o', linewidth=2, markersize=8)
+    ax2.plot(
+        results["p_values"][: len(results["collision_trajectory"])],
+        results["collision_trajectory"],
+        "r-o",
+        linewidth=2,
+        markersize=8,
+    )
     ax2.set_xlabel("p value")
     ax2.set_ylabel("Collisions")
     ax2.set_title("Latent Space Collisions vs p")
@@ -571,9 +575,9 @@ def run_interpolation(
     with open(output_dir / "interpolation_results.json", "w") as f:
         json.dump(results, f, indent=2)
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("INTERPOLATION COMPLETE")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     print(f"Results saved to {output_dir}")
 
     return results
@@ -583,14 +587,11 @@ def main():
     parser = argparse.ArgumentParser(description="Train with fractional p-adic interpolation")
     parser.add_argument("--p_start", type=float, default=3.0)
     parser.add_argument("--p_end", type=float, default=3.5)
-    parser.add_argument("--steps", type=int, default=6,
-                       help="Number of interpolation steps")
+    parser.add_argument("--steps", type=int, default=6, help="Number of interpolation steps")
     parser.add_argument("--epochs_per_p", type=int, default=30)
     parser.add_argument("--device", type=str, default="cuda")
-    parser.add_argument("--output_dir", type=str,
-                       default=str(OUTPUT_DIR / "fractional_padic"))
-    parser.add_argument("--full_run", action="store_true",
-                       help="Run full interpolation to p=6")
+    parser.add_argument("--output_dir", type=str, default=str(OUTPUT_DIR / "fractional_padic"))
+    parser.add_argument("--full_run", action="store_true", help="Run full interpolation to p=6")
     args = parser.parse_args()
 
     device = args.device if torch.cuda.is_available() else "cpu"
@@ -602,9 +603,9 @@ def main():
     else:
         p_values = list(np.linspace(args.p_start, args.p_end, args.steps))
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("FRACTIONAL P-ADIC INTERPOLATION")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     print(f"P values: {[f'{p:.2f}' for p in p_values]}")
     print(f"Device: {device}")
     print(f"Epochs per p: {args.epochs_per_p}")
@@ -618,11 +619,11 @@ def main():
     )
 
     # Summary
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("SUMMARY")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
-    for i, p in enumerate(p_values[:len(results["coverage_trajectory"])]):
+    for i, p in enumerate(p_values[: len(results["coverage_trajectory"])]):
         cov = results["coverage_trajectory"][i]
         col = results["collision_trajectory"][i]
         status = "OK" if cov >= 0.95 else "DEGRADED" if cov >= 0.8 else "FAILED"

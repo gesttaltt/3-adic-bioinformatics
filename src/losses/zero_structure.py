@@ -21,7 +21,7 @@ matching p-adic geometry where d(a, 0) = 3^{-v(a)}.
 V5.11.9: Zero-structure exploitation.
 """
 
-from typing import Any, Dict, Tuple, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -131,7 +131,7 @@ class ZeroValuationLoss(nn.Module):
         z: torch.Tensor,
         operations: torch.Tensor,
         return_metrics: bool = False,
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, Any]]]:
+    ) -> torch.Tensor | tuple[torch.Tensor, dict[str, Any]]:
         """Compute zero-valuation radial loss.
 
         Args:
@@ -170,8 +170,12 @@ class ZeroValuationLoss(nn.Module):
                     "zero_val_loss": loss.item(),
                     "zero_val_radius_corr": (corr.item() if not torch.isnan(corr) else 0.0),
                     "mean_zero_valuation": valuations.mean().item(),
-                    "high_val_radius": (actual_radius[valuations >= 3].mean().item() if (valuations >= 3).any() else 0.0),
-                    "low_val_radius": (actual_radius[valuations == 0].mean().item() if (valuations == 0).any() else 0.0),
+                    "high_val_radius": (
+                        actual_radius[valuations >= 3].mean().item() if (valuations >= 3).any() else 0.0
+                    ),
+                    "low_val_radius": (
+                        actual_radius[valuations == 0].mean().item() if (valuations == 0).any() else 0.0
+                    ),
                 }
                 return loss, metrics
 
@@ -208,7 +212,7 @@ class ZeroSparsityLoss(nn.Module):
         z: torch.Tensor,
         operations: torch.Tensor,
         return_metrics: bool = False,
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, Any]]]:
+    ) -> torch.Tensor | tuple[torch.Tensor, dict[str, Any]]:
         """Compute zero-sparsity loss.
 
         Args:
@@ -304,7 +308,7 @@ class CombinedZeroStructureLoss(nn.Module):
         z: torch.Tensor,
         operations: torch.Tensor,
         return_metrics: bool = False,
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, Any]]]:
+    ) -> torch.Tensor | tuple[torch.Tensor, dict[str, Any]]:
         """Compute combined zero-structure loss.
 
         Args:

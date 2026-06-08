@@ -24,8 +24,6 @@ References:
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -122,13 +120,13 @@ def index_to_codon(idx: int) -> str:
     return IDX_TO_NUC[n1] + IDX_TO_NUC[n2] + IDX_TO_NUC[n3]
 
 
-def get_synonymous_groups() -> Dict[str, List[int]]:
+def get_synonymous_groups() -> dict[str, list[int]]:
     """Get synonymous codon groups for each amino acid.
 
     Returns:
         Dictionary mapping amino acid to list of codon indices
     """
-    groups: Dict[str, List[int]] = {}
+    groups: dict[str, list[int]] = {}
     for codon, aa in GENETIC_CODE.items():
         if aa not in groups:
             groups[aa] = []
@@ -136,7 +134,7 @@ def get_synonymous_groups() -> Dict[str, List[int]]:
     return groups
 
 
-def get_wobble_equivalences() -> List[Tuple[int, int]]:
+def get_wobble_equivalences() -> list[tuple[int, int]]:
     """Get pairs of codons that differ only at wobble position.
 
     The wobble position (3rd nucleotide) often allows flexibility
@@ -413,7 +411,7 @@ class CodonSymmetryLayer(nn.Module):
         codon_to_group = torch.zeros(64, dtype=torch.long)
         group_masks = []
 
-        for group_idx, (aa, codons) in enumerate(syn_groups.items()):
+        for group_idx, (_aa, codons) in enumerate(syn_groups.items()):
             mask = torch.zeros(64)
             for codon_idx in codons:
                 codon_to_group[codon_idx] = group_idx
@@ -526,7 +524,7 @@ class CodonAttention(nn.Module):
         # Build synonymy bias matrix
         syn_groups = get_synonymous_groups()
         syn_bias = torch.zeros(64, 64)
-        for aa, codons in syn_groups.items():
+        for _aa, codons in syn_groups.items():
             for i in codons:
                 for j in codons:
                     syn_bias[i, j] = synonymy_bias
@@ -535,7 +533,7 @@ class CodonAttention(nn.Module):
     def forward(
         self,
         x: Tensor,
-        codons: Optional[Tensor] = None,
+        codons: Tensor | None = None,
     ) -> Tensor:
         """Apply codon-aware attention.
 
@@ -681,7 +679,7 @@ class CodonTransformerLayer(nn.Module):
         self.norm1 = nn.LayerNorm(hidden_dim)
         self.norm2 = nn.LayerNorm(hidden_dim)
 
-    def forward(self, x: Tensor, codons: Optional[Tensor] = None) -> Tensor:
+    def forward(self, x: Tensor, codons: Tensor | None = None) -> Tensor:
         """Forward pass."""
         # Self-attention with residual
         if self.respect_synonymy:

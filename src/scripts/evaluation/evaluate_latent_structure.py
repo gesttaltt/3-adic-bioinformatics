@@ -26,17 +26,17 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from scipy.stats import spearmanr, kendalltau
+from scipy.stats import kendalltau, spearmanr
 from sklearn.cluster import KMeans
-from sklearn.metrics import adjusted_rand_score, silhouette_score
+from sklearn.metrics import silhouette_score
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.data.generation import generate_all_ternary_operations
-from src.models.simple_vae import SimpleVAE, SimpleVAEWithHyperbolic
 from src.models.optimal_vae import OptimalVAE, OptimalVAEConfig
+from src.models.simple_vae import SimpleVAE
 
 
 def compute_padic_distance(idx1: int, idx2: int, p: int = 3) -> float:
@@ -194,10 +194,14 @@ def load_model(checkpoint_path: Path = None, use_hyperbolic: bool = False):
             enable_hyp = getattr(config, "enable_hyperbolic", False)
 
         if enable_hyp:
-            model = OptimalVAE(OptimalVAEConfig(
-                enable_hyperbolic=True,
-                enable_padic_ranking=config.get("enable_padic_ranking", True) if isinstance(config, dict) else getattr(config, "enable_padic_ranking", True),
-            ))
+            model = OptimalVAE(
+                OptimalVAEConfig(
+                    enable_hyperbolic=True,
+                    enable_padic_ranking=config.get("enable_padic_ranking", True)
+                    if isinstance(config, dict)
+                    else getattr(config, "enable_padic_ranking", True),
+                )
+            )
         else:
             model = SimpleVAE()
 
@@ -257,7 +261,7 @@ def main():
 
         if args.train_first:
             print("\n--- Training models first ---")
-            from src.losses.dual_vae_loss import ReconstructionLoss, KLDivergenceLoss
+            from src.losses.dual_vae_loss import KLDivergenceLoss, ReconstructionLoss
             from src.training import TernaryDataset
 
             dataset = TernaryDataset(operations, torch.arange(len(operations)))
@@ -299,19 +303,19 @@ def main():
 
             # Evaluate distance preservation
             dist_metrics = evaluate_distance_preservation(embeddings_sub, padic_distances)
-            print(f"Distance Preservation:")
+            print("Distance Preservation:")
             print(f"  Spearman correlation: {dist_metrics['spearman_correlation']:.4f}")
             print(f"  Kendall correlation:  {dist_metrics['kendall_correlation']:.4f}")
 
             # Evaluate clustering
             cluster_metrics = evaluate_clustering(embeddings)
-            print(f"Clustering Quality:")
+            print("Clustering Quality:")
             print(f"  Silhouette score: {cluster_metrics['silhouette_score']:.4f}")
             print(f"  Inertia: {cluster_metrics['inertia']:.4f}")
 
             # Evaluate hierarchical structure
             hier_metrics = evaluate_hierarchical_structure(embeddings, indices)
-            print(f"Hierarchical Structure:")
+            print("Hierarchical Structure:")
             print(f"  Within-group dist:  {hier_metrics['within_group_distance']:.4f}")
             print(f"  Between-group dist: {hier_metrics['between_group_distance']:.4f}")
             print(f"  Separation ratio:   {hier_metrics['separation_ratio']:.4f}")
@@ -335,12 +339,12 @@ def main():
         hier_metrics = evaluate_hierarchical_structure(embeddings, indices)
 
         print(f"\n--- {name} ---")
-        print(f"Distance Preservation:")
+        print("Distance Preservation:")
         print(f"  Spearman correlation: {dist_metrics['spearman_correlation']:.4f}")
         print(f"  Kendall correlation:  {dist_metrics['kendall_correlation']:.4f}")
-        print(f"Clustering Quality:")
+        print("Clustering Quality:")
         print(f"  Silhouette score: {cluster_metrics['silhouette_score']:.4f}")
-        print(f"Hierarchical Structure:")
+        print("Hierarchical Structure:")
         print(f"  Separation ratio: {hier_metrics['separation_ratio']:.4f}")
 
         results[name] = {**dist_metrics, **cluster_metrics, **hier_metrics}
@@ -375,10 +379,7 @@ def main():
 
             # Highlight winner
             if len(values) == 2:
-                if higher_better:
-                    winner = 0 if values[0] > values[1] else 1
-                else:
-                    winner = 0 if values[0] < values[1] else 1
+                winner = (0 if values[0] > values[1] else 1) if higher_better else 0 if values[0] < values[1] else 1
                 improvement = (values[1] - values[0]) / (abs(values[0]) + 1e-8) * 100
                 print(f"  {'Optimal better' if winner == 1 else 'Baseline better'}: {abs(improvement):.1f}%")
 

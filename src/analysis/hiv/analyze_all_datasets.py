@@ -19,13 +19,14 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config.paths import OUTPUT_DIR
-
 import numpy as np
+
+from src.config.paths import OUTPUT_DIR
 
 # Try to import optional dependencies
 try:
     import pandas as pd
+
     HAS_PANDAS = True
 except ImportError:
     HAS_PANDAS = False
@@ -33,6 +34,7 @@ except ImportError:
 
 try:
     import pyarrow.parquet as pq
+
     HAS_PARQUET = True
 except ImportError:
     HAS_PARQUET = False
@@ -41,16 +43,13 @@ except ImportError:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset, ConcatDataset
-
-from src.geometry import poincare_distance
-
+from torch.utils.data import DataLoader, Dataset
 
 # =============================================================================
 # GENETIC CODE (imported from centralized biology module)
 # =============================================================================
-
-from src.biology.codons import GENETIC_CODE, CODON_TO_INDEX
+from src.biology.codons import CODON_TO_INDEX, GENETIC_CODE
+from src.geometry import poincare_distance
 
 # RNA to DNA conversion
 RNA_TO_DNA = {"U": "T", "A": "A", "C": "C", "G": "G"}
@@ -65,13 +64,14 @@ AA_TO_IDX = {aa: i for i, aa in enumerate("ACDEFGHIKLMNPQRSTVWY*")}
 # DATA LOADING UTILITIES
 # =============================================================================
 
+
 def parse_fasta(filepath: Path) -> list[tuple[str, str]]:
     """Parse FASTA file."""
     sequences = []
     current_name = None
     current_seq = []
 
-    with open(filepath, "r", errors="ignore") as f:
+    with open(filepath, errors="ignore") as f:
         for line in f:
             line = line.strip()
             if line.startswith(">"):
@@ -100,7 +100,7 @@ def sequence_to_codons(seq: str, is_rna: bool = False) -> list[int]:
 
     codons = []
     for i in range(0, len(seq) - 2, 3):
-        codon = seq[i:i+3]
+        codon = seq[i : i + 3]
         if codon in CODON_TO_INDEX:
             codons.append(CODON_TO_INDEX[codon])
     return codons
@@ -115,7 +115,7 @@ def compute_padic_distance(codon1: str, codon2: str, p: int = 3) -> float:
     """Compute p-adic distance between codons."""
     if codon1 == codon2:
         return 0.0
-    for i, (b1, b2) in enumerate(zip(codon1, codon2)):
+    for i, (b1, b2) in enumerate(zip(codon1, codon2, strict=False)):
         if b1 != b2:
             return p ** (-(i + 1))
     return 0.0
@@ -134,6 +134,7 @@ def build_padic_distance_matrix() -> np.ndarray:
 # =============================================================================
 # DATASET CLASSES
 # =============================================================================
+
 
 class CodonDataset(Dataset):
     """Dataset for codon sequences."""
@@ -154,7 +155,7 @@ class CodonDataset(Dataset):
         codons = self.sequences[idx]
         if len(codons) < self.max_len:
             codons = codons + [0] * (self.max_len - len(codons))
-        return torch.tensor(codons[:self.max_len], dtype=torch.long)
+        return torch.tensor(codons[: self.max_len], dtype=torch.long)
 
 
 class AminoAcidDataset(Dataset):
@@ -176,12 +177,13 @@ class AminoAcidDataset(Dataset):
         aas = self.sequences[idx]
         if len(aas) < self.max_len:
             aas = aas + [20] * (self.max_len - len(aas))  # Pad with stop codon index
-        return torch.tensor(aas[:self.max_len], dtype=torch.long)
+        return torch.tensor(aas[: self.max_len], dtype=torch.long)
 
 
 # =============================================================================
 # MODEL DEFINITIONS
 # =============================================================================
+
 
 class PAdicEmbedding(nn.Module):
     """Embedding initialized from p-adic distances."""
@@ -201,7 +203,7 @@ class PAdicEmbedding(nn.Module):
         """MDS embedding from distance matrix."""
         n = D.shape[0]
         H = np.eye(n) - np.ones((n, n)) / n
-        B = -0.5 * H @ (D ** 2) @ H
+        B = -0.5 * H @ (D**2) @ H
         eigenvalues, eigenvectors = np.linalg.eigh(B)
         idx = np.argsort(eigenvalues)[::-1]
         eigenvalues = eigenvalues[idx]
@@ -290,6 +292,7 @@ def vae_loss(logits, targets, mu, logvar, beta=0.1):
 # ANALYSIS FUNCTIONS
 # =============================================================================
 
+
 def analyze_sequence_data(data_dir: Path) -> dict:
     """Analyze all sequence files."""
     results = {"fasta": [], "fna": [], "total_sequences": 0, "total_codons": 0}
@@ -300,12 +303,14 @@ def analyze_sequence_data(data_dir: Path) -> dict:
         try:
             seqs = parse_fasta(fasta_path)
             codon_counts = [len(sequence_to_codons(s)) for _, s in seqs]
-            results["fasta"].append({
-                "file": str(fasta_path.relative_to(data_dir)),
-                "n_sequences": len(seqs),
-                "mean_codons": np.mean(codon_counts) if codon_counts else 0,
-                "total_codons": sum(codon_counts),
-            })
+            results["fasta"].append(
+                {
+                    "file": str(fasta_path.relative_to(data_dir)),
+                    "n_sequences": len(seqs),
+                    "mean_codons": np.mean(codon_counts) if codon_counts else 0,
+                    "total_codons": sum(codon_counts),
+                }
+            )
             results["total_sequences"] += len(seqs)
             results["total_codons"] += sum(codon_counts)
         except Exception as e:
@@ -317,12 +322,14 @@ def analyze_sequence_data(data_dir: Path) -> dict:
         try:
             seqs = parse_fasta(fna_path)
             codon_counts = [len(sequence_to_codons(s, is_rna=True)) for _, s in seqs]
-            results["fna"].append({
-                "file": str(fna_path.relative_to(data_dir)),
-                "n_sequences": len(seqs),
-                "mean_codons": np.mean(codon_counts) if codon_counts else 0,
-                "total_codons": sum(codon_counts),
-            })
+            results["fna"].append(
+                {
+                    "file": str(fna_path.relative_to(data_dir)),
+                    "n_sequences": len(seqs),
+                    "mean_codons": np.mean(codon_counts) if codon_counts else 0,
+                    "total_codons": sum(codon_counts),
+                }
+            )
             results["total_sequences"] += len(seqs)
             results["total_codons"] += sum(codon_counts)
         except Exception as e:
@@ -341,14 +348,16 @@ def analyze_csv_data(data_dir: Path) -> dict:
     csv_files = list(data_dir.rglob("*.csv"))
     for csv_path in csv_files:
         try:
-            df = pd.read_csv(csv_path, nrows=5)  # Just read header + few rows
+            pd.read_csv(csv_path, nrows=5)  # Just read header + few rows
             full_df = pd.read_csv(csv_path)
-            results["files"].append({
-                "file": str(csv_path.relative_to(data_dir)),
-                "n_rows": len(full_df),
-                "n_columns": len(full_df.columns),
-                "columns": list(full_df.columns)[:10],  # First 10 columns
-            })
+            results["files"].append(
+                {
+                    "file": str(csv_path.relative_to(data_dir)),
+                    "n_rows": len(full_df),
+                    "n_columns": len(full_df.columns),
+                    "columns": list(full_df.columns)[:10],  # First 10 columns
+                }
+            )
             results["total_rows"] += len(full_df)
         except Exception as e:
             print(f"  Error reading {csv_path.name}: {e}")
@@ -368,12 +377,14 @@ def analyze_parquet_data(data_dir: Path) -> dict:
         try:
             table = pq.read_table(pq_path)
             df = table.to_pandas()
-            results["files"].append({
-                "file": str(pq_path.relative_to(data_dir)),
-                "n_rows": len(df),
-                "n_columns": len(df.columns),
-                "columns": list(df.columns),
-            })
+            results["files"].append(
+                {
+                    "file": str(pq_path.relative_to(data_dir)),
+                    "n_rows": len(df),
+                    "n_columns": len(df.columns),
+                    "columns": list(df.columns),
+                }
+            )
         except Exception as e:
             print(f"  Error reading {pq_path.name}: {e}")
 
@@ -389,7 +400,7 @@ def load_all_sequences(data_dir: Path, max_len: int = 100) -> tuple[list, list]:
     for fasta_path in data_dir.rglob("*.fasta"):
         try:
             seqs = parse_fasta(fasta_path)
-            for name, seq in seqs:
+            for _name, seq in seqs:
                 codons = sequence_to_codons(seq)
                 if len(codons) >= 10:
                     codon_sequences.append(codons[:max_len])
@@ -400,7 +411,7 @@ def load_all_sequences(data_dir: Path, max_len: int = 100) -> tuple[list, list]:
     for fna_path in data_dir.rglob("*.fna"):
         try:
             seqs = parse_fasta(fna_path)
-            for name, seq in seqs:
+            for _name, seq in seqs:
                 codons = sequence_to_codons(seq, is_rna=True)
                 if len(codons) >= 10:
                     codon_sequences.append(codons[:max_len])
@@ -516,7 +527,7 @@ def analyze_latent_space(model, dataloader, device, curvature: float = 1.0) -> d
     distances = []
     for i in range(n_sample):
         for j in range(i + 1, n_sample):
-            dist = poincare_distance(sample_z[i:i+1], sample_z[j:j+1], c=curvature).item()
+            dist = poincare_distance(sample_z[i : i + 1], sample_z[j : j + 1], c=curvature).item()
             distances.append(dist)
 
     results["mean_pairwise_dist"] = float(np.mean(distances))
@@ -528,6 +539,7 @@ def analyze_latent_space(model, dataloader, device, curvature: float = 1.0) -> d
 # =============================================================================
 # MAIN
 # =============================================================================
+
 
 def main():
     print("=" * 70)
@@ -613,8 +625,7 @@ def main():
         val_loader = DataLoader(val_data, batch_size=32)
 
         codon_model = UnifiedVAE(
-            n_tokens=64, embed_dim=16, hidden_dim=128, latent_dim=16,
-            max_len=max_len, use_padic=True
+            n_tokens=64, embed_dim=16, hidden_dim=128, latent_dim=16, max_len=max_len, use_padic=True
         ).to(device)
 
         n_params = sum(p.numel() for p in codon_model.parameters() if p.requires_grad)
@@ -639,7 +650,9 @@ def main():
         }
 
         print(f"  Best validation loss: {best_loss:.4f}")
-        print(f"  Latent space: mean_norm={latent_analysis['mean_norm']:.4f}, mean_dist={latent_analysis['mean_pairwise_dist']:.4f}")
+        print(
+            f"  Latent space: mean_norm={latent_analysis['mean_norm']:.4f}, mean_dist={latent_analysis['mean_pairwise_dist']:.4f}"
+        )
     else:
         print("\n[3.1] Skipping Codon VAE (insufficient sequences)")
 
@@ -656,8 +669,7 @@ def main():
         val_loader = DataLoader(val_data, batch_size=32)
 
         aa_model = UnifiedVAE(
-            n_tokens=21, embed_dim=16, hidden_dim=128, latent_dim=16,
-            max_len=max_len, use_padic=False
+            n_tokens=21, embed_dim=16, hidden_dim=128, latent_dim=16, max_len=max_len, use_padic=False
         ).to(device)
 
         n_params = sum(p.numel() for p in aa_model.parameters() if p.requires_grad)
@@ -681,7 +693,9 @@ def main():
         }
 
         print(f"  Best validation loss: {best_loss:.4f}")
-        print(f"  Latent space: mean_norm={latent_analysis['mean_norm']:.4f}, mean_dist={latent_analysis['mean_pairwise_dist']:.4f}")
+        print(
+            f"  Latent space: mean_norm={latent_analysis['mean_norm']:.4f}, mean_dist={latent_analysis['mean_pairwise_dist']:.4f}"
+        )
     else:
         print("\n[3.2] Skipping Amino Acid VAE (insufficient sequences)")
 
@@ -730,10 +744,10 @@ def main():
 
     # Summary
     report["summary"]["total_datasets"] = (
-        len(seq_results.get("fasta", [])) +
-        len(seq_results.get("fna", [])) +
-        len(csv_results.get("files", [])) +
-        len(pq_results.get("files", []))
+        len(seq_results.get("fasta", []))
+        + len(seq_results.get("fna", []))
+        + len(csv_results.get("files", []))
+        + len(pq_results.get("files", []))
     )
 
     # Save report
@@ -752,14 +766,14 @@ def main():
 
     if "codon_vae" in report["models"]:
         m = report["models"]["codon_vae"]
-        print(f"\nCodon VAE:")
+        print("\nCodon VAE:")
         print(f"  - Trained on: {m['n_sequences']} sequences")
         print(f"  - Best loss: {m['best_val_loss']:.4f}")
         print(f"  - Saved to: {m['saved_to']}")
 
     if "aa_vae" in report["models"]:
         m = report["models"]["aa_vae"]
-        print(f"\nAmino Acid VAE:")
+        print("\nAmino Acid VAE:")
         print(f"  - Trained on: {m['n_sequences']} sequences")
         print(f"  - Best loss: {m['best_val_loss']:.4f}")
         print(f"  - Saved to: {m['saved_to']}")

@@ -9,8 +9,8 @@ This module provides an adaptive LR scheduler that adjusts learning rates
 based on training dynamics and validation performance.
 """
 
-from dataclasses import dataclass, field
-from typing import Optional, List
+from dataclasses import dataclass
+
 import torch
 from torch.optim.lr_scheduler import _LRScheduler
 
@@ -18,6 +18,7 @@ from torch.optim.lr_scheduler import _LRScheduler
 @dataclass
 class ValidationMetrics:
     """Metrics used to guide LR adaptation."""
+
     loss: float
     coverage: float = 1.0
     hierarchy: float = 0.0
@@ -33,6 +34,7 @@ class ValidationMetrics:
 @dataclass
 class AdaptiveLRConfig:
     """Configuration for adaptive LR scheduler."""
+
     initial_lr: float = 1e-4
     min_lr: float = 1e-7
     max_lr: float = 1e-2
@@ -49,25 +51,20 @@ class AdaptiveLRScheduler(_LRScheduler):
     also increase LR when training shows signs of being stuck.
     """
 
-    def __init__(
-        self,
-        optimizer: torch.optim.Optimizer,
-        config: Optional[AdaptiveLRConfig] = None,
-        last_epoch: int = -1
-    ):
+    def __init__(self, optimizer: torch.optim.Optimizer, config: AdaptiveLRConfig | None = None, last_epoch: int = -1):
         self.config = config or AdaptiveLRConfig()
-        self.best_loss = float('inf')
+        self.best_loss = float("inf")
         self.bad_epochs = 0
         self.cooldown_counter = 0
-        self.history: List[ValidationMetrics] = []
+        self.history: list[ValidationMetrics] = []
 
         super().__init__(optimizer, last_epoch)
 
-    def get_lr(self) -> List[float]:
+    def get_lr(self) -> list[float]:
         """Get current learning rates for all param groups."""
-        return [group['lr'] for group in self.optimizer.param_groups]
+        return [group["lr"] for group in self.optimizer.param_groups]
 
-    def step(self, metrics: Optional[ValidationMetrics] = None, epoch: Optional[int] = None):
+    def step(self, metrics: ValidationMetrics | None = None, epoch: int | None = None):
         """Step the scheduler based on validation metrics.
 
         Args:
@@ -109,11 +106,8 @@ class AdaptiveLRScheduler(_LRScheduler):
     def _reduce_lr(self):
         """Reduce learning rate by factor."""
         for param_group in self.optimizer.param_groups:
-            new_lr = max(
-                param_group['lr'] * self.config.factor,
-                self.config.min_lr
-            )
-            param_group['lr'] = new_lr
+            new_lr = max(param_group["lr"] * self.config.factor, self.config.min_lr)
+            param_group["lr"] = new_lr
 
 
 def create_adaptive_lr_scheduler(
@@ -122,7 +116,7 @@ def create_adaptive_lr_scheduler(
     min_lr: float = 1e-7,
     patience: int = 10,
     factor: float = 0.5,
-    warmup_epochs: int = 5
+    warmup_epochs: int = 5,
 ) -> AdaptiveLRScheduler:
     """Create an adaptive LR scheduler.
 
@@ -138,18 +132,9 @@ def create_adaptive_lr_scheduler(
         AdaptiveLRScheduler instance
     """
     config = AdaptiveLRConfig(
-        initial_lr=initial_lr,
-        min_lr=min_lr,
-        patience=patience,
-        factor=factor,
-        warmup_epochs=warmup_epochs
+        initial_lr=initial_lr, min_lr=min_lr, patience=patience, factor=factor, warmup_epochs=warmup_epochs
     )
     return AdaptiveLRScheduler(optimizer, config)
 
 
-__all__ = [
-    'ValidationMetrics',
-    'AdaptiveLRConfig',
-    'AdaptiveLRScheduler',
-    'create_adaptive_lr_scheduler'
-]
+__all__ = ["ValidationMetrics", "AdaptiveLRConfig", "AdaptiveLRScheduler", "create_adaptive_lr_scheduler"]

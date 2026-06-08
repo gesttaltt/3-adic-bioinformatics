@@ -29,14 +29,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from scipy.stats import spearmanr
-from sklearn.decomposition import PCA
 
 # Add project root
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config.paths import CHECKPOINTS_DIR, OUTPUT_DIR
-from src.models.epsilon_vae import extract_key_weights
 
 
 def load_checkpoint_weights(checkpoint_path: Path, device: str = "cpu") -> dict:
@@ -48,11 +46,7 @@ def load_checkpoint_weights(checkpoint_path: Path, device: str = "cpu") -> dict:
     ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
     model_state = (
-        ckpt.get("model_state_dict") or
-        ckpt.get("model_state") or
-        ckpt.get("state_dict") or
-        ckpt.get("model") or
-        {}
+        ckpt.get("model_state_dict") or ckpt.get("model_state") or ckpt.get("state_dict") or ckpt.get("model") or {}
     )
 
     metrics = ckpt.get("metrics", {})
@@ -121,10 +115,10 @@ def compute_weight_statistics(weights: dict) -> dict:
                 U, S, Vh = np.linalg.svd(w, full_matrices=False)
                 stats[name]["singular_values"] = S[:10].tolist()  # top 10
                 stats[name]["condition_number"] = float(S[0] / (S[-1] + 1e-10))
-                stats[name]["effective_rank"] = float(np.sum(S > 0.01 * S[0]))
+                stats[name]["effective_rank"] = float(np.sum(0.01 * S[0] < S))
 
                 # Frobenius norm (alternative to L2)
-                stats[name]["frobenius_norm"] = float(np.linalg.norm(w, 'fro'))
+                stats[name]["frobenius_norm"] = float(np.linalg.norm(w, "fro"))
             except:
                 pass
 
@@ -152,7 +146,7 @@ def analyze_encoder_structure(encoder_weights: dict) -> dict:
     }
 
     # Track information flow through layers
-    layer_names = sorted([k for k in encoder_weights.keys() if "weight" in k])
+    layer_names = sorted([k for k in encoder_weights if "weight" in k])
 
     for name in layer_names:
         w = encoder_weights[name]
@@ -164,19 +158,21 @@ def analyze_encoder_structure(encoder_weights: dict) -> dict:
             # Compute how much information is preserved
             # High effective rank = information preserved
             U, S, Vh = np.linalg.svd(w, full_matrices=False)
-            effective_rank = np.sum(S > 0.01 * S[0])
+            effective_rank = np.sum(0.01 * S[0] < S)
             max_rank = min(in_dim, out_dim)
             info_preservation = effective_rank / max_rank
 
-            analysis["weight_flow"].append({
-                "layer": name,
-                "in_dim": in_dim,
-                "out_dim": out_dim,
-                "effective_rank": int(effective_rank),
-                "max_rank": max_rank,
-                "info_preservation": float(info_preservation),
-                "top_singular": float(S[0]),
-            })
+            analysis["weight_flow"].append(
+                {
+                    "layer": name,
+                    "in_dim": in_dim,
+                    "out_dim": out_dim,
+                    "effective_rank": int(effective_rank),
+                    "max_rank": max_rank,
+                    "info_preservation": float(info_preservation),
+                    "top_singular": float(S[0]),
+                }
+            )
 
     return analysis
 
@@ -218,7 +214,7 @@ def analyze_projection_evolution(checkpoints: list) -> dict:
                 total_norm += np.linalg.norm(w.flatten())
                 if w.ndim == 2:
                     U, S, Vh = np.linalg.svd(w, full_matrices=False)
-                    total_rank += np.sum(S > 0.01 * S[0])
+                    total_rank += np.sum(0.01 * S[0] < S)
 
         evolution["epochs"].append(epoch)
         evolution["projection_norms"].append(float(total_norm))
@@ -266,7 +262,7 @@ def analyze_coverage_weight_correlation(checkpoints: list) -> dict:
     coverages = []
     feature_names = []
 
-    for epoch, ckpt_data in checkpoints:
+    for _epoch, ckpt_data in checkpoints:
         metrics = ckpt_data["metrics"]
         coverage = metrics.get("coverage", 0)
 
@@ -281,7 +277,7 @@ def analyze_coverage_weight_correlation(checkpoints: list) -> dict:
                 feat_dict[f"{prefix}_std"] = np.std(w.flatten())
                 if w.ndim == 2:
                     U, S, Vh = np.linalg.svd(w, full_matrices=False)
-                    feat_dict[f"{prefix}_rank"] = np.sum(S > 0.01 * S[0])
+                    feat_dict[f"{prefix}_rank"] = np.sum(0.01 * S[0] < S)
                     feat_dict[f"{prefix}_top_sv"] = S[0]
 
         # Projection features
@@ -311,11 +307,7 @@ def analyze_coverage_weight_correlation(checkpoints: list) -> dict:
             }
 
     # Sort by absolute correlation
-    sorted_corrs = sorted(
-        correlations.items(),
-        key=lambda x: abs(x[1]["spearman_corr"]),
-        reverse=True
-    )
+    sorted_corrs = sorted(correlations.items(), key=lambda x: abs(x[1]["spearman_corr"]), reverse=True)
 
     return {
         "correlations": dict(sorted_corrs[:20]),  # top 20
@@ -346,21 +338,21 @@ def visualize_weight_analysis(
 
     # Plot 1: Projection norm and coverage
     ax1 = axes[0, 0]
-    ax1.plot(epochs, evolution["projection_norms"], 'b-o', label="Projection Norm")
+    ax1.plot(epochs, evolution["projection_norms"], "b-o", label="Projection Norm")
     ax1.set_xlabel("Epoch")
-    ax1.set_ylabel("Projection L2 Norm", color='b')
-    ax1.tick_params(axis='y', labelcolor='b')
+    ax1.set_ylabel("Projection L2 Norm", color="b")
+    ax1.tick_params(axis="y", labelcolor="b")
 
     ax1_twin = ax1.twinx()
-    ax1_twin.plot(epochs, evolution["coverage"], 'r-s', label="Coverage")
-    ax1_twin.set_ylabel("Coverage", color='r')
-    ax1_twin.tick_params(axis='y', labelcolor='r')
+    ax1_twin.plot(epochs, evolution["coverage"], "r-s", label="Coverage")
+    ax1_twin.set_ylabel("Coverage", color="r")
+    ax1_twin.tick_params(axis="y", labelcolor="r")
     ax1.set_title(f"{run_name}: Projection Norm vs Coverage")
     ax1.grid(True, alpha=0.3)
 
     # Plot 2: Direction changes (stability)
     ax2 = axes[0, 1]
-    ax2.plot(epochs[1:], evolution["direction_changes"][1:], 'g-o')
+    ax2.plot(epochs[1:], evolution["direction_changes"][1:], "g-o")
     ax2.set_xlabel("Epoch")
     ax2.set_ylabel("Direction Change (1 - cosine sim)")
     ax2.set_title(f"{run_name}: Weight Direction Stability")
@@ -369,12 +361,7 @@ def visualize_weight_analysis(
     # Plot 3: Coverage vs Distance Correlation tradeoff
     ax3 = axes[1, 0]
     scatter = ax3.scatter(
-        evolution["coverage"],
-        evolution["distance_corr"],
-        c=epochs,
-        cmap="viridis",
-        s=100,
-        edgecolors='black'
+        evolution["coverage"], evolution["distance_corr"], c=epochs, cmap="viridis", s=100, edgecolors="black"
     )
     plt.colorbar(scatter, ax=ax3, label="Epoch")
     ax3.set_xlabel("Coverage")
@@ -383,13 +370,13 @@ def visualize_weight_analysis(
     ax3.grid(True, alpha=0.3)
 
     # Mark the "ideal" zone (high coverage, reasonable dist_corr)
-    ax3.axvline(x=0.95, color='r', linestyle='--', alpha=0.5, label="95% coverage")
-    ax3.axhline(y=0.5, color='b', linestyle='--', alpha=0.5, label="50% dist_corr")
+    ax3.axvline(x=0.95, color="r", linestyle="--", alpha=0.5, label="95% coverage")
+    ax3.axhline(y=0.5, color="b", linestyle="--", alpha=0.5, label="50% dist_corr")
     ax3.legend()
 
     # Plot 4: Effective rank evolution
     ax4 = axes[1, 1]
-    ax4.plot(epochs, evolution["projection_ranks"], 'm-o')
+    ax4.plot(epochs, evolution["projection_ranks"], "m-o")
     ax4.set_xlabel("Epoch")
     ax4.set_ylabel("Total Effective Rank")
     ax4.set_title(f"{run_name}: Projection Effective Rank")
@@ -433,7 +420,7 @@ def analyze_full_coverage_checkpoints(checkpoints: list) -> dict:
 
     # Find weight properties that are consistent across high-coverage checkpoints
     all_stats = []
-    for epoch, ckpt_data, cov in high_coverage:
+    for epoch, ckpt_data, _cov in high_coverage:
         stats = compute_weight_statistics(ckpt_data["encoder"])
         stats.update(compute_weight_statistics(ckpt_data["projection"]))
         all_stats.append(stats)
@@ -460,17 +447,17 @@ def analyze_full_coverage_checkpoints(checkpoints: list) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description="Analyze checkpoint weight structure")
-    parser.add_argument("--checkpoint_dir", type=str,
-                       default=str(CHECKPOINTS_DIR),
-                       help="Root checkpoint directory")
-    parser.add_argument("--output_dir", type=str,
-                       default=str(OUTPUT_DIR / "epsilon_vae_analysis" / "weight_analysis"),
-                       help="Output directory")
-    parser.add_argument("--runs", nargs="+",
-                       default=["progressive_tiny_lr", "progressive_conservative"],
-                       help="Run names to analyze")
-    parser.add_argument("--device", type=str, default="cpu",
-                       help="Device to use")
+    parser.add_argument("--checkpoint_dir", type=str, default=str(CHECKPOINTS_DIR), help="Root checkpoint directory")
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default=str(OUTPUT_DIR / "epsilon_vae_analysis" / "weight_analysis"),
+        help="Output directory",
+    )
+    parser.add_argument(
+        "--runs", nargs="+", default=["progressive_tiny_lr", "progressive_conservative"], help="Run names to analyze"
+    )
+    parser.add_argument("--device", type=str, default="cpu", help="Device to use")
     args = parser.parse_args()
 
     checkpoint_dir = Path(args.checkpoint_dir)
@@ -480,9 +467,9 @@ def main():
     all_results = {}
 
     for run_name in args.runs:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"ANALYZING: {run_name}")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
 
         run_dir = checkpoint_dir / run_name
         if not run_dir.exists():
@@ -507,17 +494,19 @@ def main():
         print(f"  Loaded {len(checkpoints)} checkpoints")
 
         if len(checkpoints) < 2:
-            print(f"  Skipping - need at least 2 checkpoints")
+            print("  Skipping - need at least 2 checkpoints")
             continue
 
         # Analyze encoder structure (first checkpoint)
         print("\n  Encoder Structure:")
         encoder_analysis = analyze_encoder_structure(checkpoints[0][1]["encoder"])
         for layer_info in encoder_analysis["weight_flow"]:
-            print(f"    {layer_info['layer'].split('.')[-2]}: "
-                  f"{layer_info['in_dim']} -> {layer_info['out_dim']} "
-                  f"(rank={layer_info['effective_rank']}/{layer_info['max_rank']}, "
-                  f"info={layer_info['info_preservation']:.1%})")
+            print(
+                f"    {layer_info['layer'].split('.')[-2]}: "
+                f"{layer_info['in_dim']} -> {layer_info['out_dim']} "
+                f"(rank={layer_info['effective_rank']}/{layer_info['max_rank']}, "
+                f"info={layer_info['info_preservation']:.1%})"
+            )
 
         # Analyze projection evolution
         print("\n  Projection Evolution:")
@@ -542,7 +531,7 @@ def main():
         # Coverage-weight correlations
         print("\n  Coverage-Weight Correlations (top 5):")
         corr_analysis = analyze_coverage_weight_correlation(checkpoints)
-        for i, (name, vals) in enumerate(list(corr_analysis["correlations"].items())[:5]):
+        for _i, (name, vals) in enumerate(list(corr_analysis["correlations"].items())[:5]):
             print(f"    {name}: r={vals['spearman_corr']:.3f} (p={vals['p_value']:.3e})")
 
         # Visualize
@@ -557,9 +546,9 @@ def main():
         }
 
     # Cross-run comparison
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("CROSS-RUN COMPARISON")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     print("\n  Coverage Preservation:")
     for run_name, results in all_results.items():
@@ -567,8 +556,7 @@ def main():
         cov_start = evolution["coverage"][0] if evolution["coverage"] else 0
         cov_end = evolution["coverage"][-1] if evolution["coverage"] else 0
         high_cov = results["high_coverage"]["count"]
-        print(f"    {run_name}: {cov_start:.3f} -> {cov_end:.3f} "
-              f"(epochs with 100%: {high_cov})")
+        print(f"    {run_name}: {cov_start:.3f} -> {cov_end:.3f} (epochs with 100%: {high_cov})")
 
     print("\n  Weight Stability (lower = more stable):")
     for run_name, results in all_results.items():
@@ -592,9 +580,9 @@ def main():
     with open(output_dir / "weight_analysis_results.json", "w") as f:
         json.dump(convert_numpy(all_results), f, indent=2)
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print(f"Results saved to {output_dir}")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
 
 if __name__ == "__main__":

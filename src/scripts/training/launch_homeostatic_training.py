@@ -108,9 +108,10 @@ def check_dependencies():
     # Check optional geoopt for Riemannian optimization
     try:
         import geoopt
-        print(f"  [OK] geoopt (Riemannian optimization)")
+
+        print("  [OK] geoopt (Riemannian optimization)")
     except ImportError:
-        print(f"  [WARN] geoopt not installed (optional for Riemannian optimization)")
+        print("  [WARN] geoopt not installed (optional for Riemannian optimization)")
         print("     Install with: pip install geoopt")
 
     if missing:
@@ -150,11 +151,11 @@ def print_training_config(args):
     print(f"  - Epochs: {args.epochs}")
     print(f"  - Batch size: {args.batch_size}")
     print(f"  - Learning rate: {args.lr}")
-    print(f"  - Mixed precision (FP16): Enabled")
-    print(f"  - Homeostasis: Enabled")
-    print(f"  - Riemannian optimization: Enabled")
-    print(f"  - Q-gated annealing: Enabled")
-    print(f"  - TensorBoard: runs/v5_11_11_homeostatic_rtx2060s")
+    print("  - Mixed precision (FP16): Enabled")
+    print("  - Homeostasis: Enabled")
+    print("  - Riemannian optimization: Enabled")
+    print("  - Q-gated annealing: Enabled")
+    print("  - TensorBoard: runs/v5_11_11_homeostatic_rtx2060s")
 
 
 def run_training(args, project_root: Path, dirs: dict):
@@ -165,13 +166,6 @@ def run_training(args, project_root: Path, dirs: dict):
 
     # Add project root to path
     sys.path.insert(0, str(project_root))
-
-    from scipy.stats import spearmanr
-    from torch.utils.data import DataLoader, TensorDataset
-    from torch.utils.tensorboard import SummaryWriter
-
-    from src.core import TERNARY
-    from src.data.generation import generate_all_ternary_operations
 
     device = torch.device("cuda:0")
 
@@ -191,7 +185,6 @@ def run_training(args, project_root: Path, dirs: dict):
 
 def train_base_model(device, dirs, project_root):
     """Train v5.5 base model for coverage."""
-    import numpy as np
     from scipy.stats import spearmanr
     from torch.utils.tensorboard import SummaryWriter
 
@@ -237,10 +230,7 @@ def train_base_model(device, dirs, project_root):
         def encode(self, x):
             h_A = self.encoder_A(x)
             h_B = self.encoder_B(x)
-            return (
-                self.fc_mu_A(h_A), self.fc_logvar_A(h_A),
-                self.fc_mu_B(h_B), self.fc_logvar_B(h_B)
-            )
+            return (self.fc_mu_A(h_A), self.fc_logvar_A(h_A), self.fc_mu_B(h_B), self.fc_logvar_B(h_B))
 
         def reparameterize(self, mu, logvar):
             std = torch.exp(0.5 * logvar)
@@ -322,24 +312,29 @@ def train_base_model(device, dirs, project_root):
         writer.add_scalar("Eval/radial_corr", radial_corr, epoch)
 
         if epoch % 20 == 0 or coverage > best_coverage:
-            print(f"  Epoch {epoch:3d}: loss={total_loss/n_batches:.4f}, "
-                  f"coverage={coverage*100:.1f}%, radial_corr={radial_corr:.3f}")
+            print(
+                f"  Epoch {epoch:3d}: loss={total_loss / n_batches:.4f}, "
+                f"coverage={coverage * 100:.1f}%, radial_corr={radial_corr:.3f}"
+            )
 
         if coverage > best_coverage:
             best_coverage = coverage
-            torch.save({
-                "epoch": epoch,
-                "model": model.state_dict(),
-                "coverage": coverage,
-                "radial_corr": radial_corr,
-            }, dirs["v5_5_checkpoints"] / "latest.pt")
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "model": model.state_dict(),
+                    "coverage": coverage,
+                    "radial_corr": radial_corr,
+                },
+                dirs["v5_5_checkpoints"] / "latest.pt",
+            )
 
             if coverage >= 1.0:
                 print(f"\n  [OK] 100% COVERAGE ACHIEVED at epoch {epoch}!")
                 break
 
     writer.close()
-    print(f"\nv5.5 training complete. Best coverage: {best_coverage*100:.1f}%")
+    print(f"\nv5.5 training complete. Best coverage: {best_coverage * 100:.1f}%")
 
 
 def train_homeostatic_model(args, device, dirs, project_root):
@@ -352,7 +347,7 @@ def train_homeostatic_model(args, device, dirs, project_root):
     from src.core import TERNARY
     from src.data.generation import generate_all_ternary_operations
     from src.models import TernaryVAEV5_11_PartialFreeze
-    from src.models.homeostasis import HomeostasisController, compute_Q
+    from src.models.homeostasis import HomeostasisController
 
     # Load model
     print("Loading model architecture...")
@@ -380,28 +375,28 @@ def train_homeostatic_model(args, device, dirs, project_root):
         # v5.5: fc_mu_A.weight -> V5.11: encoder_A.fc_mu.weight
         # v5.5: decoder_A.0.weight -> V5.11: decoder_A.decoder.0.weight
         key_mapping = {}
-        for k in pretrained.keys():
+        for k in pretrained:
             if k.startswith("encoder_A."):
                 # encoder_A.0.weight -> encoder_A.encoder.0.weight
-                suffix = k[len("encoder_A."):]
+                suffix = k[len("encoder_A.") :]
                 key_mapping[k] = f"encoder_A.encoder.{suffix}"
             elif k.startswith("encoder_B."):
-                suffix = k[len("encoder_B."):]
+                suffix = k[len("encoder_B.") :]
                 key_mapping[k] = f"encoder_B.encoder.{suffix}"
             elif k.startswith("fc_mu_A."):
-                suffix = k[len("fc_mu_A."):]
+                suffix = k[len("fc_mu_A.") :]
                 key_mapping[k] = f"encoder_A.fc_mu.{suffix}"
             elif k.startswith("fc_logvar_A."):
-                suffix = k[len("fc_logvar_A."):]
+                suffix = k[len("fc_logvar_A.") :]
                 key_mapping[k] = f"encoder_A.fc_logvar.{suffix}"
             elif k.startswith("fc_mu_B."):
-                suffix = k[len("fc_mu_B."):]
+                suffix = k[len("fc_mu_B.") :]
                 key_mapping[k] = f"encoder_B.fc_mu.{suffix}"
             elif k.startswith("fc_logvar_B."):
-                suffix = k[len("fc_logvar_B."):]
+                suffix = k[len("fc_logvar_B.") :]
                 key_mapping[k] = f"encoder_B.fc_logvar.{suffix}"
             elif k.startswith("decoder_A."):
-                suffix = k[len("decoder_A."):]
+                suffix = k[len("decoder_A.") :]
                 key_mapping[k] = f"decoder_A.decoder.{suffix}"
 
         # Apply mapping
@@ -449,10 +444,7 @@ def train_homeostatic_model(args, device, dirs, project_root):
             super().__init__()
             self.inner_radius = inner_radius
             self.outer_radius = outer_radius
-            target_radii = torch.tensor([
-                outer_radius - (v / 9) * (outer_radius - inner_radius)
-                for v in range(10)
-            ])
+            target_radii = torch.tensor([outer_radius - (v / 9) * (outer_radius - inner_radius) for v in range(10)])
             self.register_buffer("target_radii", target_radii)
 
         def forward(self, z_hyp, indices_batch, logits, targets):
@@ -490,14 +482,18 @@ def train_homeostatic_model(args, device, dirs, project_root):
 
             total = 5.0 * hierarchy_loss + 1.0 * coverage_loss + 3.0 * separation_loss
 
-            return {"total": total, "hierarchy": hierarchy_loss, "coverage": coverage_loss, "separation": separation_loss}
+            return {
+                "total": total,
+                "hierarchy": hierarchy_loss,
+                "coverage": coverage_loss,
+                "separation": separation_loss,
+            }
 
     loss_fn = RichHierarchyLoss().to(device)
 
     # Training loop
     writer = SummaryWriter(log_dir=str(dirs["runs"]))
     best_hierarchy = 0.0
-    best_Q = 0.0
 
     print(f"\nStarting training for {args.epochs} epochs...")
     print("-" * 60)
@@ -556,7 +552,7 @@ def train_homeostatic_model(args, device, dirs, project_root):
                 all_radii = []
                 all_correct = []
                 for i in range(0, len(all_ops), 4096):
-                    batch = all_ops[i:i+4096].to(device)
+                    batch = all_ops[i : i + 4096].to(device)
                     out = model(batch, compute_control=False)
                     all_radii.append(out["z_A_hyp"].norm(dim=-1).cpu().numpy())
 
@@ -586,28 +582,36 @@ def train_homeostatic_model(args, device, dirs, project_root):
             writer.add_scalar("Eval/coverage", coverage, epoch)
             writer.add_scalar("Eval/hierarchy", hierarchy, epoch)
 
-            print(f"Epoch {epoch:3d}/{args.epochs}: loss={epoch_losses['total']:.4f}, "
-                  f"cov={coverage*100:.1f}%, hier={hierarchy:.4f}, "
-                  f"freeze={model.get_freeze_state_summary()}")
+            print(
+                f"Epoch {epoch:3d}/{args.epochs}: loss={epoch_losses['total']:.4f}, "
+                f"cov={coverage * 100:.1f}%, hier={hierarchy:.4f}, "
+                f"freeze={model.get_freeze_state_summary()}"
+            )
 
             # Save best
             if hierarchy < best_hierarchy and coverage > 0.99:
                 best_hierarchy = hierarchy
                 print(f"  [OK] New best hierarchy: {best_hierarchy:.4f}")
-                torch.save({
+                torch.save(
+                    {
+                        "epoch": epoch,
+                        "model_state_dict": model.state_dict(),
+                        "coverage": coverage,
+                        "hierarchy": hierarchy,
+                        "homeostasis": homeostasis.get_state_summary(),
+                    },
+                    dirs["checkpoints"] / "best.pt",
+                )
+
+            torch.save(
+                {
                     "epoch": epoch,
                     "model_state_dict": model.state_dict(),
                     "coverage": coverage,
                     "hierarchy": hierarchy,
-                    "homeostasis": homeostasis.get_state_summary(),
-                }, dirs["checkpoints"] / "best.pt")
-
-            torch.save({
-                "epoch": epoch,
-                "model_state_dict": model.state_dict(),
-                "coverage": coverage,
-                "hierarchy": hierarchy,
-            }, dirs["checkpoints"] / "latest.pt")
+                },
+                dirs["checkpoints"] / "latest.pt",
+            )
 
     writer.close()
     print("\n" + "=" * 60)
@@ -628,7 +632,7 @@ Examples:
     python src/scripts/training/launch_homeostatic_training.py           # Full training
     python src/scripts/training/launch_homeostatic_training.py --quick   # Quick test (5 epochs)
     python src/scripts/training/launch_homeostatic_training.py --epochs 200  # Custom epochs
-        """
+        """,
     )
     parser.add_argument("--epochs", type=int, default=150, help="Number of training epochs")
     parser.add_argument("--batch_size", type=int, default=512, help="Batch size (512 for 8GB VRAM)")

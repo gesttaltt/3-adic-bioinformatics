@@ -109,7 +109,7 @@ class UltrametricDistanceMatrix(nn.Module):
         # Compute p-adic valuations
         valuations = torch.zeros_like(diff, dtype=torch.float)
         for k in range(1, 10):
-            divisible = (diff % (self.p ** k) == 0) & (diff > 0)
+            divisible = (diff % (self.p**k) == 0) & (diff > 0)
             valuations[divisible] = k
 
         # p-adic distances
@@ -166,7 +166,7 @@ class UltrametricDistanceMatrix(nn.Module):
         for b in range(batch_size):
             # Compute Euclidean distances
             diff = states[b].unsqueeze(0) - states[b].unsqueeze(1)
-            euclidean = torch.sqrt((diff ** 2).sum(dim=-1))
+            euclidean = torch.sqrt((diff**2).sum(dim=-1))
 
             # Compute p-adic structure based on energy ordering
             # (assumes states are ordered by energy)
@@ -176,11 +176,13 @@ class UltrametricDistanceMatrix(nn.Module):
             # Check ultrametricity
             ultrametricity = self.check_ultrametricity(euclidean)
 
-            results.append({
-                "euclidean_distances": euclidean,
-                "padic_distances": padic,
-                "ultrametricity": ultrametricity,
-            })
+            results.append(
+                {
+                    "euclidean_distances": euclidean,
+                    "padic_distances": padic,
+                    "ultrametricity": ultrametricity,
+                }
+            )
 
         return results
 
@@ -276,7 +278,7 @@ class FoldingFunnelAnalyzer(nn.Module):
 
         # Compute pairwise distances
         diffs = conformations.unsqueeze(0) - conformations.unsqueeze(1)
-        distances = torch.sqrt((diffs ** 2).sum(dim=-1))
+        distances = torch.sqrt((diffs**2).sum(dim=-1))
 
         # Find local minima
         for i in range(n_samples):
@@ -295,18 +297,20 @@ class FoldingFunnelAnalyzer(nn.Module):
                 width = distances[i, neighbor_mask].mean()
 
                 # Classify state
-                state_logits = self.classify_state(conformations[i:i+1])
+                state_logits = self.classify_state(conformations[i : i + 1])
                 state_idx = state_logits.argmax().item()
                 state = list(ConformationState)[state_idx]
 
-                basins.append(EnergyBasin(
-                    center=conformations[i],
-                    energy=energies[i].item(),
-                    depth=depth.item(),
-                    width=width.item(),
-                    state=state,
-                    escape_barrier=depth.item(),
-                ))
+                basins.append(
+                    EnergyBasin(
+                        center=conformations[i],
+                        energy=energies[i].item(),
+                        depth=depth.item(),
+                        width=width.item(),
+                        state=state,
+                        escape_barrier=depth.item(),
+                    )
+                )
 
         return basins
 
@@ -338,9 +342,7 @@ class FoldingFunnelAnalyzer(nn.Module):
         ruggedness = energies.std().item()
 
         # Correlation between distance and energy (negative = good funnel)
-        correlation = torch.corrcoef(
-            torch.stack([native_distances, energies])
-        )[0, 1].item()
+        correlation = torch.corrcoef(torch.stack([native_distances, energies]))[0, 1].item()
 
         # Frustration: fraction of uphill steps on average path
         sorted_idx = torch.argsort(native_distances)
@@ -382,22 +384,20 @@ class FoldingFunnelAnalyzer(nn.Module):
 
             # Compute funnel metrics if native state provided
             if native_state is not None:
-                funnel_metrics = self.compute_funnel_metrics(
-                    conformations[b], energies, native_state[b]
-                )
+                funnel_metrics = self.compute_funnel_metrics(conformations[b], energies, native_state[b])
             else:
                 # Use lowest energy state as native
                 native_idx = energies.argmin()
-                funnel_metrics = self.compute_funnel_metrics(
-                    conformations[b], energies, conformations[b, native_idx]
-                )
+                funnel_metrics = self.compute_funnel_metrics(conformations[b], energies, conformations[b, native_idx])
 
-            results.append({
-                "energies": energies,
-                "basins": basins,
-                "funnel_metrics": funnel_metrics,
-                "n_basins": len(basins),
-            })
+            results.append(
+                {
+                    "energies": energies,
+                    "basins": basins,
+                    "funnel_metrics": funnel_metrics,
+                    "n_basins": len(basins),
+                }
+            )
 
         return results
 
@@ -560,12 +560,10 @@ class TransitionStateAnalyzer(nn.Module):
             spring_k = 1.0
             spring_force = torch.zeros_like(path)
             for i in range(1, n_steps - 1):
-                spring_force[i] = spring_k * (
-                    path[i + 1] + path[i - 1] - 2 * path[i]
-                )
+                spring_force[i] = spring_k * (path[i + 1] + path[i - 1] - 2 * path[i])
 
             # Total loss
-            loss = energies.mean() - 0.1 * (spring_force ** 2).sum()
+            loss = energies.mean() - 0.1 * (spring_force**2).sum()
 
             optimizer.zero_grad()
             loss.backward()

@@ -16,18 +16,30 @@ Key components:
 - RiemannianAdam optimizer support
 """
 
-from .poincare import (ManifoldParameter, ManifoldTensor, PoincareModule,
-                       RiemannianAdam, RiemannianSGD,
-                       create_manifold_parameter, create_manifold_tensor,
-                       exp_map_zero, get_manifold, get_riemannian_optimizer,
-                       lambda_x, log_map_zero, mobius_add, parallel_transport,
-                       poincare_distance, poincare_distance_matrix,
-                       project_to_poincare)
 from .holographic_poincare import (
     BoundaryPoint,
     HolographicLoss,
     HolographicPoincareManifold,
     HolographicProjection,
+)
+from .poincare import (
+    ManifoldParameter,
+    ManifoldTensor,
+    PoincareModule,
+    RiemannianAdam,
+    RiemannianSGD,
+    create_manifold_parameter,
+    create_manifold_tensor,
+    exp_map_zero,
+    get_manifold,
+    get_riemannian_optimizer,
+    lambda_x,
+    log_map_zero,
+    mobius_add,
+    parallel_transport,
+    poincare_distance,
+    poincare_distance_matrix,
+    project_to_poincare,
 )
 
 __all__ = [

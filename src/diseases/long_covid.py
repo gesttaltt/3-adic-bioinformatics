@@ -36,7 +36,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -76,9 +75,9 @@ class PTMSite:
     ptm_type: PTMType
     original: str  # Original residue/sequence
     modified: str  # Modified residue/sequence
-    region: Optional[SpikeRegion] = None
+    region: SpikeRegion | None = None
     conservation_score: float = 0.0  # 0-1, how conserved the site is
-    known_variant: Optional[str] = None  # e.g., "Delta", "Omicron"
+    known_variant: str | None = None  # e.g., "Delta", "Omicron"
 
 
 @dataclass
@@ -87,8 +86,8 @@ class SpikeVariant:
 
     name: str
     lineage: str  # e.g., "B.1.617.2"
-    mutations: List[PTMSite]
-    emergence_date: Optional[str] = None
+    mutations: list[PTMSite]
+    emergence_date: str | None = None
     transmissibility_factor: float = 1.0  # Relative to Wuhan
     immune_escape_score: float = 0.0  # 0-1
 
@@ -109,16 +108,16 @@ class PTMAnalysisResult:
 class LongCOVIDRiskProfile:
     """Long COVID risk profile based on spike PTM analysis."""
 
-    ptm_results: List[PTMAnalysisResult]
+    ptm_results: list[PTMAnalysisResult]
     overall_risk_score: float
     chronic_activation_probability: float
-    key_contributing_sites: List[int]  # Position numbers
+    key_contributing_sites: list[int]  # Position numbers
     microclot_propensity: float
-    recommendations: List[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
 
 
 # Known SARS-CoV-2 variants with their defining mutations
-KNOWN_VARIANTS: Dict[str, SpikeVariant] = {
+KNOWN_VARIANTS: dict[str, SpikeVariant] = {
     "wuhan": SpikeVariant(
         name="Wuhan-Hu-1",
         lineage="A",
@@ -204,7 +203,7 @@ KNOWN_VARIANTS: Dict[str, SpikeVariant] = {
 }
 
 # Glycosylation sites on spike protein (conserved N-linked glycans)
-SPIKE_GLYCOSYLATION_SITES: List[int] = [
+SPIKE_GLYCOSYLATION_SITES: list[int] = [
     17,
     61,
     74,
@@ -249,7 +248,7 @@ class LongCOVIDAnalyzer:
         self.goldilocks_width = 0.2
         self.spike_length = 1273  # Full spike protein length
 
-    def _get_region(self, position: int) -> Optional[SpikeRegion]:
+    def _get_region(self, position: int) -> SpikeRegion | None:
         """Determine spike protein region for a position."""
         region_ranges = {
             SpikeRegion.NTD: (14, 305),
@@ -354,9 +353,7 @@ class LongCOVIDAnalyzer:
         Returns:
             Score from 0 (outside zone) to 1 (center of zone)
         """
-        return compute_goldilocks_score(
-            padic_distance, center=self.goldilocks_center, width=self.goldilocks_width
-        )
+        return compute_goldilocks_score(padic_distance, center=self.goldilocks_center, width=self.goldilocks_width)
 
     def _compute_chronic_risk(self, site: PTMSite, immunogenicity: float, goldilocks: float) -> float:
         """Compute risk of chronic immune activation.
@@ -443,8 +440,8 @@ class LongCOVIDAnalyzer:
 
     def analyze_spike_ptms(
         self,
-        spike_sequence: Optional[str] = None,
-        ptm_sites: Optional[List[PTMSite]] = None,
+        spike_sequence: str | None = None,
+        ptm_sites: list[PTMSite] | None = None,
     ) -> LongCOVIDRiskProfile:
         """Analyze spike protein PTMs for Long COVID risk.
 
@@ -490,7 +487,7 @@ class LongCOVIDAnalyzer:
             recommendations=recommendations,
         )
 
-    def _generate_recommendations(self, results: List[PTMAnalysisResult]) -> List[str]:
+    def _generate_recommendations(self, results: list[PTMAnalysisResult]) -> list[str]:
         """Generate recommendations based on analysis.
 
         Args:
@@ -518,8 +515,8 @@ class LongCOVIDAnalyzer:
 
     def compare_variants(
         self,
-        variant_names: Optional[List[str]] = None,
-    ) -> Dict[str, LongCOVIDRiskProfile]:
+        variant_names: list[str] | None = None,
+    ) -> dict[str, LongCOVIDRiskProfile]:
         """Compare Long COVID risk profiles across variants.
 
         Args:
@@ -543,9 +540,9 @@ class LongCOVIDAnalyzer:
     def predict_chronic_immune_activation(
         self,
         ptm_profile: LongCOVIDRiskProfile,
-        patient_age: Optional[int] = None,
-        comorbidities: Optional[List[str]] = None,
-    ) -> Dict[str, float]:
+        patient_age: int | None = None,
+        comorbidities: list[str] | None = None,
+    ) -> dict[str, float]:
         """Predict likelihood of chronic immune response.
 
         Args:
@@ -647,8 +644,8 @@ class SpikeVariantComparator:
 
     def compute_distance_matrix(
         self,
-        variant_names: Optional[List[str]] = None,
-    ) -> Tuple[List[str], np.ndarray]:
+        variant_names: list[str] | None = None,
+    ) -> tuple[list[str], np.ndarray]:
         """Compute pairwise distance matrix for variants.
 
         Args:
@@ -672,7 +669,7 @@ class SpikeVariantComparator:
 
         return variant_names, matrix
 
-    def find_closest_variant(self, target_mutations: List[PTMSite]) -> Tuple[str, float]:
+    def find_closest_variant(self, target_mutations: list[PTMSite]) -> tuple[str, float]:
         """Find the known variant closest to a set of mutations.
 
         Args:
@@ -705,7 +702,7 @@ class SpikeVariantComparator:
 
         return best_variant or "unknown", best_distance
 
-    def rank_variants_by_risk(self) -> List[Tuple[str, float]]:
+    def rank_variants_by_risk(self) -> list[tuple[str, float]]:
         """Rank known variants by Long COVID risk.
 
         Returns:

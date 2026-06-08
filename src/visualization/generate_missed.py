@@ -1,5 +1,6 @@
-import matplotlib.pyplot as plt
 import os
+
+import matplotlib.pyplot as plt
 
 OUTPUT_DIR = r"c:\Users\Alejandro\Documents\Ivan\Work\ternary-vaes-bioinformatics\research\bioinformatics\codon_encoder_research\hiv\public_medical_paper\images"
 os.makedirs(OUTPUT_DIR, exist_ok=True)

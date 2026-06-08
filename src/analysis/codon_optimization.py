@@ -68,22 +68,70 @@ ARGININE_CODONS = ["CGU", "CGC", "CGA", "CGG", "AGA", "AGG"]
 
 # Standard genetic code (RNA codons)
 CODON_TABLE = {
-    "UUU": "F", "UUC": "F", "UUA": "L", "UUG": "L",
-    "UCU": "S", "UCC": "S", "UCA": "S", "UCG": "S",
-    "UAU": "Y", "UAC": "Y", "UAA": "*", "UAG": "*",
-    "UGU": "C", "UGC": "C", "UGA": "*", "UGG": "W",
-    "CUU": "L", "CUC": "L", "CUA": "L", "CUG": "L",
-    "CCU": "P", "CCC": "P", "CCA": "P", "CCG": "P",
-    "CAU": "H", "CAC": "H", "CAA": "Q", "CAG": "Q",
-    "CGU": "R", "CGC": "R", "CGA": "R", "CGG": "R",
-    "AUU": "I", "AUC": "I", "AUA": "I", "AUG": "M",
-    "ACU": "T", "ACC": "T", "ACA": "T", "ACG": "T",
-    "AAU": "N", "AAC": "N", "AAA": "K", "AAG": "K",
-    "AGU": "S", "AGC": "S", "AGA": "R", "AGG": "R",
-    "GUU": "V", "GUC": "V", "GUA": "V", "GUG": "V",
-    "GCU": "A", "GCC": "A", "GCA": "A", "GCG": "A",
-    "GAU": "D", "GAC": "D", "GAA": "E", "GAG": "E",
-    "GGU": "G", "GGC": "G", "GGA": "G", "GGG": "G",
+    "UUU": "F",
+    "UUC": "F",
+    "UUA": "L",
+    "UUG": "L",
+    "UCU": "S",
+    "UCC": "S",
+    "UCA": "S",
+    "UCG": "S",
+    "UAU": "Y",
+    "UAC": "Y",
+    "UAA": "*",
+    "UAG": "*",
+    "UGU": "C",
+    "UGC": "C",
+    "UGA": "*",
+    "UGG": "W",
+    "CUU": "L",
+    "CUC": "L",
+    "CUA": "L",
+    "CUG": "L",
+    "CCU": "P",
+    "CCC": "P",
+    "CCA": "P",
+    "CCG": "P",
+    "CAU": "H",
+    "CAC": "H",
+    "CAA": "Q",
+    "CAG": "Q",
+    "CGU": "R",
+    "CGC": "R",
+    "CGA": "R",
+    "CGG": "R",
+    "AUU": "I",
+    "AUC": "I",
+    "AUA": "I",
+    "AUG": "M",
+    "ACU": "T",
+    "ACC": "T",
+    "ACA": "T",
+    "ACG": "T",
+    "AAU": "N",
+    "AAC": "N",
+    "AAA": "K",
+    "AAG": "K",
+    "AGU": "S",
+    "AGC": "S",
+    "AGA": "R",
+    "AGG": "R",
+    "GUU": "V",
+    "GUC": "V",
+    "GUA": "V",
+    "GUG": "V",
+    "GCU": "A",
+    "GCC": "A",
+    "GCA": "A",
+    "GCG": "A",
+    "GAU": "D",
+    "GAC": "D",
+    "GAA": "E",
+    "GAG": "E",
+    "GGU": "G",
+    "GGC": "G",
+    "GGA": "G",
+    "GGG": "G",
 }
 
 # Synonymous codon groups
@@ -96,12 +144,21 @@ for codon, aa in CODON_TABLE.items():
 # Human codon usage frequencies (simplified)
 HUMAN_CODON_USAGE = {
     # Arginine codons (key for citrullination)
-    "CGU": 0.08, "CGC": 0.19, "CGA": 0.11, "CGG": 0.20,
-    "AGA": 0.20, "AGG": 0.22,
+    "CGU": 0.08,
+    "CGC": 0.19,
+    "CGA": 0.11,
+    "CGG": 0.20,
+    "AGA": 0.20,
+    "AGG": 0.22,
     # Other common codons
-    "GCU": 0.26, "GCC": 0.40, "GCA": 0.23, "GCG": 0.11,
-    "UGU": 0.45, "UGC": 0.55,
+    "GCU": 0.26,
+    "GCC": 0.40,
+    "GCA": 0.23,
+    "GCG": 0.11,
+    "UGU": 0.45,
+    "UGC": 0.55,
 }
+
 
 def compute_padic_distance(idx1: int, idx2: int, p: int = 3) -> float:
     """Compute p-adic distance between two codon indices.
@@ -151,10 +208,7 @@ class PAdicBoundaryAnalyzer:
         self.zone_max = zone_max
 
         # Precompute codon p-adic indices
-        self.codon_indices = {
-            codon: codon_to_index(codon)
-            for codon in CODON_TABLE.keys()
-        }
+        self.codon_indices = {codon: codon_to_index(codon) for codon in CODON_TABLE}
 
         # Compute boundary distances for arginine codons
         self._compute_arginine_boundaries()
@@ -191,10 +245,7 @@ class PAdicBoundaryAnalyzer:
         Returns:
             Safest arginine codon
         """
-        best_codon = max(
-            self.arg_boundary_distances.items(),
-            key=lambda x: x[1]
-        )[0]
+        best_codon = max(self.arg_boundary_distances.items(), key=lambda x: x[1])[0]
         return best_codon
 
     def rank_arginine_codons(self) -> list[tuple[str, float]]:
@@ -203,11 +254,7 @@ class PAdicBoundaryAnalyzer:
         Returns:
             List of (codon, boundary_distance) sorted by safety
         """
-        ranked = sorted(
-            self.arg_boundary_distances.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
+        ranked = sorted(self.arg_boundary_distances.items(), key=lambda x: x[1], reverse=True)
         return ranked
 
     def is_in_danger_zone(self, codon_idx: int) -> bool:
@@ -366,7 +413,7 @@ class CitrullinationBoundaryOptimizer:
             List of RNA codons
         """
         rna = dna_sequence.upper().replace("T", "U")
-        codons = [rna[i:i+3] for i in range(0, len(rna), 3)]
+        codons = [rna[i : i + 3] for i in range(0, len(rna), 3)]
         return codons
 
     def codons_to_dna(self, codons: list[str]) -> str:
@@ -524,7 +571,7 @@ class CitrullinationBoundaryOptimizer:
         optimized_codons = self.optimize_arginine_codons(optimized_codons)
 
         # Record arginine changes
-        for i, (orig, opt) in enumerate(zip(original_codons, optimized_codons)):
+        for i, (orig, opt) in enumerate(zip(original_codons, optimized_codons, strict=False)):
             if orig != opt:
                 changes.append((i, orig, opt))
 
@@ -535,7 +582,7 @@ class CitrullinationBoundaryOptimizer:
                 optimized_codons = self.optimize_context(optimized_codons, pos)
 
             # Record context changes
-            for i, (orig, opt) in enumerate(zip(original_codons, optimized_codons)):
+            for i, (orig, opt) in enumerate(zip(original_codons, optimized_codons, strict=False)):
                 if orig != opt and (i, orig, opt) not in changes:
                     changes.append((i, orig, opt))
 

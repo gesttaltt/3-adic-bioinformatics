@@ -39,7 +39,6 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -59,7 +58,7 @@ class ExtremophileCategory(Enum):
 
 
 # Standard genetic code codon table
-CODON_TABLE: Dict[str, str] = {
+CODON_TABLE: dict[str, str] = {
     "TTT": "F",
     "TTC": "F",
     "TTA": "L",
@@ -132,14 +131,14 @@ class CodonUsageResult:
     """Result of codon usage analysis."""
 
     category: ExtremophileCategory
-    codon_frequencies: Dict[str, float]
-    rscu_values: Dict[str, float]  # Relative Synonymous Codon Usage
+    codon_frequencies: dict[str, float]
+    rscu_values: dict[str, float]  # Relative Synonymous Codon Usage
     gc_content: float
     gc3_content: float  # GC at third codon position
-    padic_distances: Dict[str, float]
-    predicted_temperature: Optional[float]
+    padic_distances: dict[str, float]
+    predicted_temperature: float | None
     enc: float  # Effective Number of Codons
-    cai: Optional[float]  # Codon Adaptation Index (if reference available)
+    cai: float | None  # Codon Adaptation Index (if reference available)
 
 
 @dataclass
@@ -149,15 +148,15 @@ class OrganismProfile:
     name: str
     scientific_name: str
     category: ExtremophileCategory
-    optimal_temperature: Optional[float]  # °C
-    optimal_ph: Optional[float]
-    optimal_salinity: Optional[float]  # M NaCl
-    gc_content: Optional[float]
+    optimal_temperature: float | None  # °C
+    optimal_ph: float | None
+    optimal_salinity: float | None  # M NaCl
+    gc_content: float | None
     notes: str = ""
 
 
 # Reference extremophile profiles
-REFERENCE_ORGANISMS: Dict[str, OrganismProfile] = {
+REFERENCE_ORGANISMS: dict[str, OrganismProfile] = {
     "pyrococcus_furiosus": OrganismProfile(
         name="Pyrococcus furiosus",
         scientific_name="Pyrococcus furiosus DSM 3638",
@@ -252,7 +251,7 @@ class ExtremophileCodonAnalyzer:
         self.codon_to_aa = CODON_TABLE.copy()
 
         # Group codons by amino acid
-        self.aa_to_codons: Dict[str, List[str]] = {}
+        self.aa_to_codons: dict[str, list[str]] = {}
         for codon, aa in self.codon_to_aa.items():
             if aa not in self.aa_to_codons:
                 self.aa_to_codons[aa] = []
@@ -276,12 +275,12 @@ class ExtremophileCodonAnalyzer:
         """
         base_map = {"T": 0, "U": 0, "C": 1, "A": 2, "G": 2}
         value = 0
-        for i, base in enumerate(codon.upper()):
+        for _i, base in enumerate(codon.upper()):
             if base in base_map:
                 value = value * 3 + base_map[base]
         return value
 
-    def count_codons(self, sequence: str) -> Dict[str, int]:
+    def count_codons(self, sequence: str) -> dict[str, int]:
         """Count codon occurrences in a sequence.
 
         Args:
@@ -296,7 +295,7 @@ class ExtremophileCodonAnalyzer:
         seq_len = len(sequence) - (len(sequence) % 3)
         sequence = sequence[:seq_len]
 
-        counts: Dict[str, int] = Counter()
+        counts: dict[str, int] = Counter()
         for i in range(0, len(sequence), 3):
             codon = sequence[i : i + 3]
             if codon in self.codon_to_aa:
@@ -304,7 +303,7 @@ class ExtremophileCodonAnalyzer:
 
         return dict(counts)
 
-    def compute_codon_frequencies(self, counts: Dict[str, int]) -> Dict[str, float]:
+    def compute_codon_frequencies(self, counts: dict[str, int]) -> dict[str, float]:
         """Compute codon frequencies from counts.
 
         Args:
@@ -315,11 +314,11 @@ class ExtremophileCodonAnalyzer:
         """
         total = sum(counts.values())
         if total == 0:
-            return {codon: 0.0 for codon in self.codon_to_aa.keys()}
+            return {codon: 0.0 for codon in self.codon_to_aa}
 
         return {codon: count / total for codon, count in counts.items()}
 
-    def compute_rscu(self, counts: Dict[str, int]) -> Dict[str, float]:
+    def compute_rscu(self, counts: dict[str, int]) -> dict[str, float]:
         """Compute Relative Synonymous Codon Usage (RSCU).
 
         RSCU = (observed frequency) / (expected frequency if no bias)
@@ -331,7 +330,7 @@ class ExtremophileCodonAnalyzer:
         Returns:
             Dictionary of RSCU values
         """
-        rscu: Dict[str, float] = {}
+        rscu: dict[str, float] = {}
 
         for aa, codons in self.aa_to_codons.items():
             if aa == "*":  # Skip stop codons
@@ -352,7 +351,7 @@ class ExtremophileCodonAnalyzer:
 
         return rscu
 
-    def compute_gc_content(self, sequence: str) -> Tuple[float, float]:
+    def compute_gc_content(self, sequence: str) -> tuple[float, float]:
         """Compute overall GC content and GC3 (third position).
 
         Args:
@@ -384,7 +383,7 @@ class ExtremophileCodonAnalyzer:
 
         return gc_content, gc3_content
 
-    def compute_enc(self, counts: Dict[str, int]) -> float:
+    def compute_enc(self, counts: dict[str, int]) -> float:
         """Compute Effective Number of Codons (ENC).
 
         ENC ranges from 20 (extreme bias) to 61 (no bias).
@@ -399,7 +398,7 @@ class ExtremophileCodonAnalyzer:
             ENC value (20-61)
         """
         # Group amino acids by degeneracy
-        degeneracy_groups: Dict[int, List[str]] = {
+        degeneracy_groups: dict[int, list[str]] = {
             1: ["M", "W"],  # Met, Trp - single codon
             2: ["F", "Y", "H", "Q", "N", "K", "D", "E", "C"],  # 2-fold
             3: ["I"],  # Ile - 3 codons
@@ -408,7 +407,7 @@ class ExtremophileCodonAnalyzer:
         }
 
         # Compute F values for each degeneracy class
-        f_values: Dict[int, List[float]] = {k: [] for k in degeneracy_groups.keys()}
+        f_values: dict[int, list[float]] = {k: [] for k in degeneracy_groups}
 
         for aa in "ACDEFGHIKLMNPQRSTVWY":
             if aa not in self.aa_to_codons:
@@ -456,7 +455,7 @@ class ExtremophileCodonAnalyzer:
 
         return max(20.0, min(61.0, enc))
 
-    def compute_padic_distances(self, rscu: Dict[str, float]) -> Dict[str, float]:
+    def compute_padic_distances(self, rscu: dict[str, float]) -> dict[str, float]:
         """Compute p-adic distances for codon usage patterns.
 
         Args:
@@ -465,7 +464,7 @@ class ExtremophileCodonAnalyzer:
         Returns:
             P-adic distance for each codon from neutral usage
         """
-        distances: Dict[str, float] = {}
+        distances: dict[str, float] = {}
 
         for codon, rscu_val in rscu.items():
             # Convert RSCU deviation to p-adic distance
@@ -481,7 +480,7 @@ class ExtremophileCodonAnalyzer:
 
         return distances
 
-    def predict_temperature(self, gc_content: float, gc3_content: float, rscu: Dict[str, float]) -> float:
+    def predict_temperature(self, gc_content: float, gc3_content: float, rscu: dict[str, float]) -> float:
         """Predict optimal growth temperature from codon usage.
 
         Higher GC content correlates with higher temperature tolerance
@@ -518,7 +517,7 @@ class ExtremophileCodonAnalyzer:
     def analyze_codon_bias(
         self,
         sequence: str,
-        category: Optional[ExtremophileCategory] = None,
+        category: ExtremophileCategory | None = None,
     ) -> CodonUsageResult:
         """Analyze codon usage bias in a sequence.
 
@@ -577,7 +576,7 @@ class ExtremophileCodonAnalyzer:
         else:
             return ExtremophileCategory.MESOPHILE
 
-    def compare_to_mesophile(self, result: CodonUsageResult) -> Dict[str, float]:
+    def compare_to_mesophile(self, result: CodonUsageResult) -> dict[str, float]:
         """Compare codon usage to E. coli K-12 baseline.
 
         Args:
@@ -613,7 +612,7 @@ class ExtremophileCodonAnalyzer:
 
         return deviations
 
-    def analyze_organism(self, sequence: str, organism_name: str) -> Dict:
+    def analyze_organism(self, sequence: str, organism_name: str) -> dict:
         """Analyze sequence with reference organism profile.
 
         Args:

@@ -12,27 +12,27 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Tuple
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from scipy.stats import spearmanr, pearsonr
+from scipy.stats import pearsonr, spearmanr
 from torch.utils.data import DataLoader, TensorDataset
 
 # Add project root to path
 project_root = Path(__file__).parents[3]
 sys.path.insert(0, str(project_root))
 
-from src.bioinformatics.data.s669_loader import S669Loader
-from src.bioinformatics.data.protherm_loader import ProThermLoader
 from src.bioinformatics.data.preprocessing import compute_features
+from src.bioinformatics.data.protherm_loader import ProThermLoader
+from src.bioinformatics.data.s669_loader import S669Loader
 
 
 @dataclass
 class StagedConfig:
     """Configuration for staged distillation."""
+
     # Model architecture
     d_model: int = 64
     nhead: int = 4
@@ -57,16 +57,20 @@ class StagedConfig:
 class DDGTransformer(nn.Module):
     """Transformer for DDG prediction."""
 
-    def __init__(self, input_dim: int, d_model: int = 64, nhead: int = 4,
-                 num_layers: int = 3, dropout: float = 0.1):
+    def __init__(self, input_dim: int, d_model: int = 64, nhead: int = 4, num_layers: int = 3, dropout: float = 0.1):
         super().__init__()
         self.input_proj = nn.Linear(1, d_model)
         self.pos_enc = nn.Parameter(torch.randn(1, input_dim + 1, d_model) * 0.02)
         self.cls_token = nn.Parameter(torch.randn(1, 1, d_model) * 0.02)
 
         encoder_layer = nn.TransformerEncoderLayer(
-            d_model=d_model, nhead=nhead, dim_feedforward=d_model * 4,
-            dropout=dropout, activation='gelu', batch_first=True, norm_first=True,
+            d_model=d_model,
+            nhead=nhead,
+            dim_feedforward=d_model * 4,
+            dropout=dropout,
+            activation="gelu",
+            batch_first=True,
+            norm_first=True,
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
@@ -77,7 +81,7 @@ class DDGTransformer(nn.Module):
             nn.Linear(d_model // 2, 1),
         )
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         batch_size = x.size(0)
         x = x.unsqueeze(-1)
         x = self.input_proj(x)
@@ -120,10 +124,12 @@ def load_data():
 
 
 def train_teacher(
-    X_train: np.ndarray, y_train: np.ndarray,
-    X_val: np.ndarray, y_val: np.ndarray,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
     config: StagedConfig,
-) -> Tuple[DDGTransformer, float]:
+) -> tuple[DDGTransformer, float]:
     """Train teacher on ProTherm."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -176,7 +182,7 @@ def train_teacher(
                 break
 
         if (epoch + 1) % 20 == 0:
-            print(f"    Teacher epoch {epoch+1}: val_spearman={val_corr:.4f}")
+            print(f"    Teacher epoch {epoch + 1}: val_spearman={val_corr:.4f}")
 
     if best_state:
         model.load_state_dict(best_state)
@@ -186,10 +192,12 @@ def train_teacher(
 def phase1_match_teacher(
     student: DDGTransformer,
     teacher: DDGTransformer,
-    X_train: np.ndarray, y_train: np.ndarray,
-    X_val: np.ndarray, y_val: np.ndarray,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
     config: StagedConfig,
-) -> Tuple[DDGTransformer, float]:
+) -> tuple[DDGTransformer, float]:
     """Phase 1: Train student to match teacher on ProTherm."""
     device = next(teacher.parameters()).device
     teacher.eval()
@@ -202,7 +210,7 @@ def phase1_match_teacher(
     # Get teacher predictions for training data
     with torch.no_grad():
         teacher_train = teacher(X_train_t)["pred"]
-        teacher_val = teacher(X_val_t)["pred"]
+        teacher(X_val_t)["pred"]
 
     dataset = TensorDataset(X_train_t, y_train_t, teacher_train)
     loader = DataLoader(dataset, batch_size=config.batch_size, shuffle=True)
@@ -245,7 +253,7 @@ def phase1_match_teacher(
                 break
 
         if (epoch + 1) % 10 == 0:
-            print(f"    Phase 1 epoch {epoch+1}: val_spearman={val_corr:.4f}")
+            print(f"    Phase 1 epoch {epoch + 1}: val_spearman={val_corr:.4f}")
 
     if best_state:
         student.load_state_dict(best_state)
@@ -255,11 +263,14 @@ def phase1_match_teacher(
 def phase2_finetune_s669(
     student: DDGTransformer,
     teacher: DDGTransformer,
-    X_s669_train: np.ndarray, y_s669_train: np.ndarray,
-    X_s669_val: np.ndarray, y_s669_val: np.ndarray,
-    X_protherm_val: np.ndarray, y_protherm_val: np.ndarray,
+    X_s669_train: np.ndarray,
+    y_s669_train: np.ndarray,
+    X_s669_val: np.ndarray,
+    y_s669_val: np.ndarray,
+    X_protherm_val: np.ndarray,
+    y_protherm_val: np.ndarray,
     config: StagedConfig,
-) -> Tuple[DDGTransformer, Dict]:
+) -> tuple[DDGTransformer, dict]:
     """Phase 2: Fine-tune on S669 with teacher regularization."""
     device = next(teacher.parameters()).device
     teacher.eval()
@@ -333,14 +344,16 @@ def phase2_finetune_s669(
                 break
 
         if (epoch + 1) % 20 == 0:
-            print(f"    Phase 2 epoch {epoch+1}: S669={s669_corr:.4f}, ProTherm={protherm_corr:.4f}, Combined={combined_corr:.4f}")
+            print(
+                f"    Phase 2 epoch {epoch + 1}: S669={s669_corr:.4f}, ProTherm={protherm_corr:.4f}, Combined={combined_corr:.4f}"
+            )
 
     if best_state:
         student.load_state_dict(best_state)
     return student, {"best_combined_corr": best_combined_corr, "history": history}
 
 
-def evaluate(model: DDGTransformer, X: np.ndarray, y: np.ndarray, name: str) -> Dict:
+def evaluate(model: DDGTransformer, X: np.ndarray, y: np.ndarray, name: str) -> dict:
     """Evaluate model."""
     device = next(model.parameters()).device
     X_t = torch.tensor(X, dtype=torch.float32, device=device)
@@ -402,8 +415,10 @@ def main():
     # Train teacher
     print("\n[2] Training TEACHER on ProTherm...")
     teacher, teacher_val_corr = train_teacher(
-        X_protherm_train, y_protherm_train,
-        X_protherm_val, y_protherm_val,
+        X_protherm_train,
+        y_protherm_train,
+        X_protherm_val,
+        y_protherm_val,
         config,
     )
     print(f"  Teacher ProTherm: Spearman = {teacher_val_corr:.4f}")
@@ -422,9 +437,12 @@ def main():
     ).to(device)
 
     student, phase1_corr = phase1_match_teacher(
-        student, teacher,
-        X_protherm_train, y_protherm_train,
-        X_protherm_val, y_protherm_val,
+        student,
+        teacher,
+        X_protherm_train,
+        y_protherm_train,
+        X_protherm_val,
+        y_protherm_val,
         config,
     )
     print(f"  Student after Phase 1 (ProTherm): Spearman = {phase1_corr:.4f}")
@@ -435,10 +453,14 @@ def main():
     # Phase 2: Fine-tune on S669
     print("\n[4] PHASE 2: Fine-tuning on S669 with teacher regularization...")
     student, phase2_history = phase2_finetune_s669(
-        student, teacher,
-        X_s669_train, y_s669_train,
-        X_s669_val, y_s669_val,
-        X_protherm_val, y_protherm_val,
+        student,
+        teacher,
+        X_s669_train,
+        y_s669_train,
+        X_s669_val,
+        y_s669_val,
+        X_protherm_val,
+        y_protherm_val,
         config,
     )
 
@@ -461,11 +483,11 @@ def main():
     print(f"""
 | Model           | ProTherm | S669   | Combined |
 |-----------------|----------|--------|----------|
-| Teacher         | {teacher_protherm['spearman']:.4f}   | {teacher_s669['spearman']:.4f} | {teacher_combined['spearman']:.4f}   |
-| Student         | {student_protherm['spearman']:.4f}   | {student_s669['spearman']:.4f} | {student_combined['spearman']:.4f}   |
+| Teacher         | {teacher_protherm["spearman"]:.4f}   | {teacher_s669["spearman"]:.4f} | {teacher_combined["spearman"]:.4f}   |
+| Student         | {student_protherm["spearman"]:.4f}   | {student_s669["spearman"]:.4f} | {student_combined["spearman"]:.4f}   |
 
-Knowledge Retention (ProTherm): {student_protherm['spearman']/teacher_protherm['spearman']*100:.1f}%
-S669 Improvement: {(student_s669['spearman']-teacher_s669['spearman'])/abs(teacher_s669['spearman'])*100:+.1f}%
+Knowledge Retention (ProTherm): {student_protherm["spearman"] / teacher_protherm["spearman"] * 100:.1f}%
+S669 Improvement: {(student_s669["spearman"] - teacher_s669["spearman"]) / abs(teacher_s669["spearman"]) * 100:+.1f}%
 """)
 
     # Save results

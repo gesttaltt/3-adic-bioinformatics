@@ -17,7 +17,6 @@ provides both point estimates and uncertainty quantification.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -166,9 +165,9 @@ class DDGEnsemble(nn.Module):
     def __init__(
         self,
         fuzzy_head: FuzzyDDGHead,
-        full_seq_transformer: Optional[nn.Module] = None,
-        hierarchical_transformer: Optional[nn.Module] = None,
-        config: Optional[EnsembleConfig] = None,
+        full_seq_transformer: nn.Module | None = None,
+        hierarchical_transformer: nn.Module | None = None,
+        config: EnsembleConfig | None = None,
     ):
         """Initialize ensemble.
 
@@ -199,14 +198,9 @@ class DDGEnsemble(nn.Module):
 
         # Learnable ensemble weights
         if config.learn_weights:
-            self.weights = nn.Parameter(
-                torch.tensor(config.initial_weights[:self.n_active])
-            )
+            self.weights = nn.Parameter(torch.tensor(config.initial_weights[: self.n_active]))
         else:
-            self.register_buffer(
-                "weights",
-                torch.tensor(config.initial_weights[:self.n_active])
-            )
+            self.register_buffer("weights", torch.tensor(config.initial_weights[: self.n_active]))
 
     def get_normalized_weights(self) -> torch.Tensor:
         """Get softmax-normalized ensemble weights."""
@@ -215,9 +209,9 @@ class DDGEnsemble(nn.Module):
     def forward(
         self,
         z_fused: torch.Tensor,
-        sequence: Optional[torch.Tensor] = None,
-        mutation_pos: Optional[torch.Tensor] = None,
-        padding_mask: Optional[torch.Tensor] = None,
+        sequence: torch.Tensor | None = None,
+        mutation_pos: torch.Tensor | None = None,
+        padding_mask: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         """Forward pass through ensemble.
 
@@ -260,7 +254,7 @@ class DDGEnsemble(nn.Module):
         fuzzy_sigma = fuzzy_output["sigma"]
         if len(predictions) > 1:
             pred_var = torch.var(stacked, dim=-1)
-            ensemble_sigma = torch.sqrt(fuzzy_sigma ** 2 + pred_var)
+            ensemble_sigma = torch.sqrt(fuzzy_sigma**2 + pred_var)
         else:
             ensemble_sigma = fuzzy_sigma
 
@@ -279,9 +273,9 @@ class DDGEnsemble(nn.Module):
     def predict(
         self,
         z_fused: torch.Tensor,
-        sequence: Optional[torch.Tensor] = None,
-        mutation_pos: Optional[torch.Tensor] = None,
-        padding_mask: Optional[torch.Tensor] = None,
+        sequence: torch.Tensor | None = None,
+        mutation_pos: torch.Tensor | None = None,
+        padding_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Make ensemble DDG predictions.
 
@@ -302,9 +296,9 @@ class DDGEnsemble(nn.Module):
     def predict_with_uncertainty(
         self,
         z_fused: torch.Tensor,
-        sequence: Optional[torch.Tensor] = None,
-        mutation_pos: Optional[torch.Tensor] = None,
-        padding_mask: Optional[torch.Tensor] = None,
+        sequence: torch.Tensor | None = None,
+        mutation_pos: torch.Tensor | None = None,
+        padding_mask: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Make predictions with uncertainty estimates.
 
@@ -326,9 +320,9 @@ class DDGEnsemble(nn.Module):
         self,
         z_fused: torch.Tensor,
         y: torch.Tensor,
-        sequence: Optional[torch.Tensor] = None,
-        mutation_pos: Optional[torch.Tensor] = None,
-        padding_mask: Optional[torch.Tensor] = None,
+        sequence: torch.Tensor | None = None,
+        mutation_pos: torch.Tensor | None = None,
+        padding_mask: torch.Tensor | None = None,
         reduction: str = "mean",
     ) -> dict[str, torch.Tensor]:
         """Compute ensemble loss.
@@ -360,13 +354,9 @@ class DDGEnsemble(nn.Module):
             "fuzzy_mse": F.mse_loss(output["fuzzy"]["mu"], y, reduction=reduction),
         }
         if output["full_sequence"] is not None:
-            component_losses["full_seq_mse"] = F.mse_loss(
-                output["full_sequence"], y, reduction=reduction
-            )
+            component_losses["full_seq_mse"] = F.mse_loss(output["full_sequence"], y, reduction=reduction)
         if output["hierarchical"] is not None:
-            component_losses["hier_mse"] = F.mse_loss(
-                output["hierarchical"], y, reduction=reduction
-            )
+            component_losses["hier_mse"] = F.mse_loss(output["hierarchical"], y, reduction=reduction)
 
         # Total loss: ensemble + uncertainty calibration
         total_loss = ensemble_mse + 0.1 * fuzzy_nll
@@ -382,9 +372,9 @@ class DDGEnsemble(nn.Module):
     def from_components(
         cls,
         fused_dim: int = 128,
-        full_seq_config: Optional[dict] = None,
-        hier_config: Optional[dict] = None,
-    ) -> "DDGEnsemble":
+        full_seq_config: dict | None = None,
+        hier_config: dict | None = None,
+    ) -> DDGEnsemble:
         """Create ensemble from component configurations.
 
         Args:

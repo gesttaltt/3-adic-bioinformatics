@@ -11,13 +11,10 @@ using discrete diffusion models.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple, Union
-
 import torch
 import torch.nn as nn
 
-from src.models.diffusion.d3pm import ConditionalD3PM, D3PM, D3PMConfig
-
+from src.models.diffusion.d3pm import D3PM, ConditionalD3PM, D3PMConfig
 
 # Standard amino acid vocabulary
 AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
@@ -40,8 +37,8 @@ class SequenceGenerator(nn.Module):
 
     def __init__(
         self,
-        model: Optional[D3PM] = None,
-        config: Optional[D3PMConfig] = None,
+        model: D3PM | None = None,
+        config: D3PMConfig | None = None,
         device: str = "cuda",
     ):
         """Initialize sequence generator.
@@ -73,7 +70,7 @@ class SequenceGenerator(nn.Module):
         temperature: float = 1.0,
         top_p: float = 0.9,
         return_tokens: bool = False,
-    ) -> Union[List[str], Tuple[List[str], torch.Tensor]]:
+    ) -> list[str] | tuple[list[str], torch.Tensor]:
         """Generate protein sequences.
 
         Args:
@@ -99,7 +96,7 @@ class SequenceGenerator(nn.Module):
             return sequences, tokens
         return sequences
 
-    def _tokens_to_sequences(self, tokens: torch.Tensor) -> List[str]:
+    def _tokens_to_sequences(self, tokens: torch.Tensor) -> list[str]:
         """Convert token tensor to sequence strings.
 
         Args:
@@ -110,17 +107,14 @@ class SequenceGenerator(nn.Module):
         """
         sequences = []
         for seq_tokens in tokens:
-            seq = "".join(
-                IDX_TO_AA.get(t.item(), "X")
-                for t in seq_tokens
-            )
+            seq = "".join(IDX_TO_AA.get(t.item(), "X") for t in seq_tokens)
             # Remove gap characters
             seq = seq.replace("-", "")
             sequences.append(seq)
 
         return sequences
 
-    def _sequences_to_tokens(self, sequences: List[str]) -> torch.Tensor:
+    def _sequences_to_tokens(self, sequences: list[str]) -> torch.Tensor:
         """Convert sequence strings to tokens.
 
         Args:
@@ -140,7 +134,7 @@ class SequenceGenerator(nn.Module):
 
     def compute_likelihood(
         self,
-        sequences: List[str],
+        sequences: list[str],
     ) -> torch.Tensor:
         """Compute log-likelihood of sequences.
 
@@ -175,7 +169,7 @@ class ConditionalGenerator(nn.Module):
     def __init__(
         self,
         condition_dim: int = 64,
-        config: Optional[D3PMConfig] = None,
+        config: D3PMConfig | None = None,
         device: str = "cuda",
     ):
         """Initialize conditional generator.
@@ -201,11 +195,11 @@ class ConditionalGenerator(nn.Module):
     def generate(
         self,
         condition: torch.Tensor,
-        n_samples: Optional[int] = None,
+        n_samples: int | None = None,
         length: int = 100,
         guidance_scale: float = 2.0,
         temperature: float = 1.0,
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate conditioned sequences.
 
         Args:
@@ -238,26 +232,23 @@ class ConditionalGenerator(nn.Module):
 
         return self._tokens_to_sequences(tokens)
 
-    def _tokens_to_sequences(self, tokens: torch.Tensor) -> List[str]:
+    def _tokens_to_sequences(self, tokens: torch.Tensor) -> list[str]:
         """Convert tokens to sequences."""
         sequences = []
         for seq_tokens in tokens:
-            seq = "".join(
-                IDX_TO_AA.get(t.item(), "X")
-                for t in seq_tokens
-            )
+            seq = "".join(IDX_TO_AA.get(t.item(), "X") for t in seq_tokens)
             seq = seq.replace("-", "")
             sequences.append(seq)
         return sequences
 
     def generate_with_properties(
         self,
-        target_properties: Dict[str, float],
+        target_properties: dict[str, float],
         property_encoder: nn.Module,
         n_samples: int = 10,
         length: int = 100,
         **kwargs,
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate sequences with target properties.
 
         Args:
@@ -312,10 +303,10 @@ class InfillGenerator(nn.Module):
     def infill(
         self,
         partial_sequence: str,
-        mask_positions: List[int],
+        mask_positions: list[int],
         temperature: float = 1.0,
         n_samples: int = 1,
-    ) -> List[str]:
+    ) -> list[str]:
         """Fill in masked positions in a sequence.
 
         Args:
@@ -383,14 +374,11 @@ class InfillGenerator(nn.Module):
 
         return x
 
-    def _tokens_to_sequences(self, tokens: torch.Tensor) -> List[str]:
+    def _tokens_to_sequences(self, tokens: torch.Tensor) -> list[str]:
         """Convert tokens to sequences."""
         sequences = []
         for seq_tokens in tokens:
-            seq = "".join(
-                IDX_TO_AA.get(t.item(), "X")
-                for t in seq_tokens
-            )
+            seq = "".join(IDX_TO_AA.get(t.item(), "X") for t in seq_tokens)
             sequences.append(seq)
         return sequences
 
@@ -428,7 +416,7 @@ class MutationGenerator(nn.Module):
         mutation_rate: float = 0.1,
         n_variants: int = 10,
         temperature: float = 1.0,
-    ) -> List[Tuple[str, List[Tuple[int, str, str]]]]:
+    ) -> list[tuple[str, list[tuple[int, str, str]]]]:
         """Generate mutations from wild-type sequence.
 
         Args:
@@ -448,7 +436,8 @@ class MutationGenerator(nn.Module):
         # Select positions to mutate
         n_positions = int(len(wild_type) * mutation_rate)
         mutation_positions = torch.randint(
-            0, len(wild_type),
+            0,
+            len(wild_type),
             (n_variants, n_positions),
             device=self.device,
         )
@@ -471,7 +460,7 @@ class MutationGenerator(nn.Module):
             var_seq = "".join(IDX_TO_AA.get(t.item(), "X") for t in var_tokens)
             mutations = []
 
-            for j, (wt_aa, var_aa) in enumerate(zip(wild_type, var_seq)):
+            for j, (wt_aa, var_aa) in enumerate(zip(wild_type, var_seq, strict=False)):
                 if wt_aa != var_aa:
                     mutations.append((j, wt_aa, var_aa))
 

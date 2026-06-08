@@ -20,28 +20,28 @@ Key components:
 - FormalConceptAnalysis: Genotype-phenotype relationships
 """
 
-from src.analysis.set_theory.mutation_sets import (
-    Mutation,
-    MutationSet,
-    ResistanceProfile,
-    MutationSetAlgebra,
-    CrossResistanceAnalyzer,
-)
-from src.analysis.set_theory.rough_sets import (
-    RoughSet,
-    RoughClassifier,
-    ApproximationSpace,
+from src.analysis.set_theory.formal_concepts import (
+    ConceptLattice,
+    FormalConcept,
+    FormalContext,
+    ImplicationRule,
 )
 from src.analysis.set_theory.lattice import (
-    ResistanceLattice,
     LatticeNode,
+    ResistanceLattice,
     ResistanceLevel,
 )
-from src.analysis.set_theory.formal_concepts import (
-    FormalContext,
-    FormalConcept,
-    ConceptLattice,
-    ImplicationRule,
+from src.analysis.set_theory.mutation_sets import (
+    CrossResistanceAnalyzer,
+    Mutation,
+    MutationSet,
+    MutationSetAlgebra,
+    ResistanceProfile,
+)
+from src.analysis.set_theory.rough_sets import (
+    ApproximationSpace,
+    RoughClassifier,
+    RoughSet,
 )
 
 __all__ = [

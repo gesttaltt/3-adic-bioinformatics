@@ -34,8 +34,6 @@ total_loss = weight_A * loss_A + ...  # Gradient flows through weight_A!
 Single responsibility: Differentiable training dynamics control.
 """
 
-from typing import Dict, Optional
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -58,7 +56,7 @@ class DifferentiableController(nn.Module):
         self,
         input_dim: int = 8,
         hidden_dim: int = 32,
-        output_bounds: Optional[Dict[str, tuple]] = None,
+        output_bounds: dict[str, tuple] | None = None,
     ):
         """Initialize DifferentiableController.
 
@@ -109,7 +107,7 @@ class DifferentiableController(nn.Module):
             self.net[-1].weight.mul_(0.01)
             self.net[-1].bias.zero_()
 
-    def forward(self, batch_stats: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, batch_stats: torch.Tensor) -> dict[str, torch.Tensor]:
         """Compute control signals from batch statistics.
 
         CRITICAL: All outputs are tensors. Gradients flow through every output.

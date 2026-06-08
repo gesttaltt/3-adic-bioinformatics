@@ -36,7 +36,7 @@ Usage:
 from __future__ import annotations
 
 from abc import ABC
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING
 
 import torch
 
@@ -51,7 +51,7 @@ class TrainingCallback(ABC):
     Methods receive the trainer instance for full access to state.
     """
 
-    def on_train_start(self, trainer: "BaseTrainer") -> None:
+    def on_train_start(self, trainer: BaseTrainer) -> None:
         """Called before training begins.
 
         Args:
@@ -59,7 +59,7 @@ class TrainingCallback(ABC):
         """
         pass
 
-    def on_train_end(self, trainer: "BaseTrainer") -> None:
+    def on_train_end(self, trainer: BaseTrainer) -> None:
         """Called after training completes (including early stopping).
 
         Args:
@@ -67,7 +67,7 @@ class TrainingCallback(ABC):
         """
         pass
 
-    def on_epoch_start(self, epoch: int, trainer: "BaseTrainer") -> None:
+    def on_epoch_start(self, epoch: int, trainer: BaseTrainer) -> None:
         """Called at the beginning of each epoch.
 
         Args:
@@ -76,9 +76,7 @@ class TrainingCallback(ABC):
         """
         pass
 
-    def on_epoch_end(
-        self, epoch: int, metrics: Dict[str, float], trainer: "BaseTrainer"
-    ) -> Optional[bool]:
+    def on_epoch_end(self, epoch: int, metrics: dict[str, float], trainer: BaseTrainer) -> bool | None:
         """Called at the end of each epoch.
 
         Args:
@@ -91,9 +89,7 @@ class TrainingCallback(ABC):
         """
         pass
 
-    def on_batch_start(
-        self, batch_idx: int, batch: torch.Tensor, trainer: "BaseTrainer"
-    ) -> None:
+    def on_batch_start(self, batch_idx: int, batch: torch.Tensor, trainer: BaseTrainer) -> None:
         """Called before processing each batch.
 
         Args:
@@ -107,8 +103,8 @@ class TrainingCallback(ABC):
         self,
         batch_idx: int,
         loss: torch.Tensor,
-        metrics: Dict[str, float],
-        trainer: "BaseTrainer",
+        metrics: dict[str, float],
+        trainer: BaseTrainer,
     ) -> None:
         """Called after processing each batch.
 
@@ -120,7 +116,7 @@ class TrainingCallback(ABC):
         """
         pass
 
-    def on_validation_start(self, epoch: int, trainer: "BaseTrainer") -> None:
+    def on_validation_start(self, epoch: int, trainer: BaseTrainer) -> None:
         """Called before validation begins.
 
         Args:
@@ -129,9 +125,7 @@ class TrainingCallback(ABC):
         """
         pass
 
-    def on_validation_end(
-        self, epoch: int, metrics: Dict[str, float], trainer: "BaseTrainer"
-    ) -> None:
+    def on_validation_end(self, epoch: int, metrics: dict[str, float], trainer: BaseTrainer) -> None:
         """Called after validation completes.
 
         Args:
@@ -141,9 +135,7 @@ class TrainingCallback(ABC):
         """
         pass
 
-    def on_checkpoint_save(
-        self, epoch: int, path: str, trainer: "BaseTrainer"
-    ) -> None:
+    def on_checkpoint_save(self, epoch: int, path: str, trainer: BaseTrainer) -> None:
         """Called when a checkpoint is saved.
 
         Args:
@@ -161,7 +153,7 @@ class CallbackList:
     If any on_epoch_end callback returns True, training stops.
     """
 
-    def __init__(self, callbacks: Optional[List[TrainingCallback]] = None):
+    def __init__(self, callbacks: list[TrainingCallback] | None = None):
         """Initialize callback list.
 
         Args:
@@ -169,7 +161,7 @@ class CallbackList:
         """
         self.callbacks = callbacks or []
 
-    def add(self, callback: TrainingCallback) -> "CallbackList":
+    def add(self, callback: TrainingCallback) -> CallbackList:
         """Add a callback to the list.
 
         Args:
@@ -181,7 +173,7 @@ class CallbackList:
         self.callbacks.append(callback)
         return self
 
-    def remove(self, callback: TrainingCallback) -> "CallbackList":
+    def remove(self, callback: TrainingCallback) -> CallbackList:
         """Remove a callback from the list.
 
         Args:
@@ -194,24 +186,22 @@ class CallbackList:
             self.callbacks.remove(callback)
         return self
 
-    def on_train_start(self, trainer: "BaseTrainer") -> None:
+    def on_train_start(self, trainer: BaseTrainer) -> None:
         """Dispatch on_train_start to all callbacks."""
         for callback in self.callbacks:
             callback.on_train_start(trainer)
 
-    def on_train_end(self, trainer: "BaseTrainer") -> None:
+    def on_train_end(self, trainer: BaseTrainer) -> None:
         """Dispatch on_train_end to all callbacks."""
         for callback in self.callbacks:
             callback.on_train_end(trainer)
 
-    def on_epoch_start(self, epoch: int, trainer: "BaseTrainer") -> None:
+    def on_epoch_start(self, epoch: int, trainer: BaseTrainer) -> None:
         """Dispatch on_epoch_start to all callbacks."""
         for callback in self.callbacks:
             callback.on_epoch_start(epoch, trainer)
 
-    def on_epoch_end(
-        self, epoch: int, metrics: Dict[str, float], trainer: "BaseTrainer"
-    ) -> bool:
+    def on_epoch_end(self, epoch: int, metrics: dict[str, float], trainer: BaseTrainer) -> bool:
         """Dispatch on_epoch_end to all callbacks.
 
         Returns:
@@ -224,9 +214,7 @@ class CallbackList:
                 stop_training = True
         return stop_training
 
-    def on_batch_start(
-        self, batch_idx: int, batch: torch.Tensor, trainer: "BaseTrainer"
-    ) -> None:
+    def on_batch_start(self, batch_idx: int, batch: torch.Tensor, trainer: BaseTrainer) -> None:
         """Dispatch on_batch_start to all callbacks."""
         for callback in self.callbacks:
             callback.on_batch_start(batch_idx, batch, trainer)
@@ -235,28 +223,24 @@ class CallbackList:
         self,
         batch_idx: int,
         loss: torch.Tensor,
-        metrics: Dict[str, float],
-        trainer: "BaseTrainer",
+        metrics: dict[str, float],
+        trainer: BaseTrainer,
     ) -> None:
         """Dispatch on_batch_end to all callbacks."""
         for callback in self.callbacks:
             callback.on_batch_end(batch_idx, loss, metrics, trainer)
 
-    def on_validation_start(self, epoch: int, trainer: "BaseTrainer") -> None:
+    def on_validation_start(self, epoch: int, trainer: BaseTrainer) -> None:
         """Dispatch on_validation_start to all callbacks."""
         for callback in self.callbacks:
             callback.on_validation_start(epoch, trainer)
 
-    def on_validation_end(
-        self, epoch: int, metrics: Dict[str, float], trainer: "BaseTrainer"
-    ) -> None:
+    def on_validation_end(self, epoch: int, metrics: dict[str, float], trainer: BaseTrainer) -> None:
         """Dispatch on_validation_end to all callbacks."""
         for callback in self.callbacks:
             callback.on_validation_end(epoch, metrics, trainer)
 
-    def on_checkpoint_save(
-        self, epoch: int, path: str, trainer: "BaseTrainer"
-    ) -> None:
+    def on_checkpoint_save(self, epoch: int, path: str, trainer: BaseTrainer) -> None:
         """Dispatch on_checkpoint_save to all callbacks."""
         for callback in self.callbacks:
             callback.on_checkpoint_save(epoch, path, trainer)

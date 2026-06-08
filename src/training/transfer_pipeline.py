@@ -36,10 +36,10 @@ Usage:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Optional
 
 import torch
 import torch.nn as nn
@@ -165,7 +165,9 @@ class MultiDiseaseModel(nn.Module):
         self.latent_dim = latent_dim
 
         # Disease-specific heads
-        self.heads = nn.ModuleDict({disease: DiseaseHead(latent_dim, n_out) for disease, n_out in disease_outputs.items()})
+        self.heads = nn.ModuleDict(
+            {disease: DiseaseHead(latent_dim, n_out) for disease, n_out in disease_outputs.items()}
+        )
 
         # Decoder (shared)
         self.decoder = self._build_decoder(latent_dim, input_dim, hidden_dims)
@@ -270,7 +272,7 @@ class TransferLearningPipeline:
         """
         self.config = config
         self.device = torch.device(config.device)
-        self.pretrained_model: Optional[MultiDiseaseModel] = None
+        self.pretrained_model: MultiDiseaseModel | None = None
         self.checkpoint_dir = Path(config.checkpoint_dir)
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
@@ -279,7 +281,7 @@ class TransferLearningPipeline:
         disease_datasets: dict[str, Dataset],
         disease_outputs: dict[str, int],
         input_dim: int,
-        callback: Optional[Callable] = None,
+        callback: Callable | None = None,
     ) -> MultiDiseaseModel:
         """Pre-train on all diseases to learn universal patterns.
 
@@ -368,9 +370,9 @@ class TransferLearningPipeline:
         target_disease: str,
         target_dataset: Dataset,
         n_outputs: int,
-        input_dim: Optional[int] = None,
+        input_dim: int | None = None,
         few_shot: bool = False,
-        callback: Optional[Callable] = None,
+        callback: Callable | None = None,
     ) -> nn.Module:
         """Fine-tune on target disease.
 
@@ -533,7 +535,7 @@ class TransferLearningPipeline:
         model: MultiDiseaseModel,
         disease: str,
         dataset: Dataset,
-        callback: Optional[Callable],
+        callback: Callable | None,
     ) -> nn.Module:
         """MAML-style few-shot adaptation."""
         import copy

@@ -6,7 +6,6 @@
 """Analysis commands for Ternary VAE CLI."""
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -20,14 +19,16 @@ console = Console()
 
 @app.command("stanford")
 def analyze_stanford(
-    drug_class: Optional[str] = typer.Option(
+    drug_class: str | None = typer.Option(
         None,
-        "--drug-class", "-d",
+        "--drug-class",
+        "-d",
         help="Drug class to analyze (PI, NRTI, NNRTI, INI, or 'all')",
     ),
     output_dir: Path = typer.Option(
         RESULTS_DIR / "stanford_resistance",
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Output directory for results",
     ),
 ):
@@ -70,8 +71,8 @@ def analyze_stanford(
     console.print("\n[bold]Running analysis...[/bold]")
 
     try:
-        from src.data.hiv import load_stanford_hivdb
         from src.biology.codons import codon_to_index
+        from src.data.hiv import load_stanford_hivdb
 
         for dc in classes_to_analyze:
             file_path = data_dir / drug_classes[dc]
@@ -97,14 +98,16 @@ def analyze_stanford(
 
 @app.command("catnap")
 def analyze_catnap(
-    antibody: Optional[str] = typer.Option(
+    antibody: str | None = typer.Option(
         None,
-        "--antibody", "-a",
+        "--antibody",
+        "-a",
         help="Specific antibody to analyze (e.g., VRC01)",
     ),
     output_dir: Path = typer.Option(
         RESULTS_DIR / "catnap_neutralization",
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Output directory for results",
     ),
 ):
@@ -153,14 +156,16 @@ def analyze_catnap(
 
 @app.command("ctl")
 def analyze_ctl(
-    protein: Optional[str] = typer.Option(
+    protein: str | None = typer.Option(
         None,
-        "--protein", "-p",
+        "--protein",
+        "-p",
         help="Protein to analyze (Gag, Pol, Env, Nef, etc.)",
     ),
     output_dir: Path = typer.Option(
         RESULTS_DIR / "ctl_escape",
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Output directory for results",
     ),
 ):
@@ -209,7 +214,8 @@ def analyze_ctl(
 def analyze_tropism(
     output_dir: Path = typer.Option(
         RESULTS_DIR / "tropism",
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Output directory for results",
     ),
 ):
@@ -257,7 +263,8 @@ def analyze_tropism(
 def analyze_all(
     output_dir: Path = typer.Option(
         RESULTS_DIR / "comprehensive_analysis",
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Output directory for results",
     ),
 ):
@@ -276,7 +283,8 @@ def analyze_all(
     cmd = [
         sys.executable,
         "src/scripts/analyze_all_datasets.py",
-        "--output_dir", str(output_dir),
+        "--output_dir",
+        str(output_dir),
     ]
 
     result = subprocess.run(cmd, capture_output=False)

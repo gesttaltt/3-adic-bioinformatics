@@ -21,10 +21,9 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 # Add project root to path
@@ -39,6 +38,7 @@ def load_all_datasets() -> dict:
     # Stanford HIVDB
     try:
         from src.data.hiv import load_stanford_hivdb
+
         datasets["stanford"] = load_stanford_hivdb("all")
         print(f"  Stanford HIVDB: {len(datasets['stanford']):,} records")
     except FileNotFoundError:
@@ -47,6 +47,7 @@ def load_all_datasets() -> dict:
     # CTL Epitopes
     try:
         from src.data.hiv import load_lanl_ctl
+
         datasets["ctl"] = load_lanl_ctl()
         print(f"  CTL Epitopes: {len(datasets['ctl']):,} records")
     except FileNotFoundError:
@@ -55,6 +56,7 @@ def load_all_datasets() -> dict:
     # CATNAP
     try:
         from src.data.hiv import load_catnap
+
         datasets["catnap"] = load_catnap()
         print(f"  CATNAP: {len(datasets['catnap']):,} records")
     except FileNotFoundError:
@@ -65,7 +67,7 @@ def load_all_datasets() -> dict:
 
 def find_overlapping_positions(stanford_df: pd.DataFrame, ctl_df: pd.DataFrame) -> pd.DataFrame:
     """Find positions that appear in both drug resistance and CTL epitope data."""
-    from src.data.hiv import parse_mutation_list, get_stanford_drug_columns
+    from src.data.hiv import parse_mutation_list
     from src.data.hiv.position_mapper import protein_position_to_hxb2
 
     # Extract resistance positions
@@ -80,10 +82,12 @@ def find_overlapping_positions(stanford_df: pd.DataFrame, ctl_df: pd.DataFrame) 
             protein = {"pi": "pr", "nrti": "rt", "nnrti": "rt", "ini": "in"}.get(drug_class, "pr")
             try:
                 hxb2_pos = protein_position_to_hxb2(protein, pos)
-                resistance_positions[hxb2_pos].append({
-                    "drug_class": drug_class,
-                    "mutation": f"{mut['wild_type']}{pos}{mut['mutant']}",
-                })
+                resistance_positions[hxb2_pos].append(
+                    {
+                        "drug_class": drug_class,
+                        "mutation": f"{mut['wild_type']}{pos}{mut['mutant']}",
+                    }
+                )
             except ValueError:
                 pass
 
@@ -94,24 +98,28 @@ def find_overlapping_positions(stanford_df: pd.DataFrame, ctl_df: pd.DataFrame) 
         end = row.get("HXB2_end")
         if pd.notna(start) and pd.notna(end):
             for pos in range(int(start), int(end) + 1):
-                epitope_positions[pos].append({
-                    "epitope": row.get("Epitope", ""),
-                    "protein": row.get("Protein", ""),
-                    "hla": row.get("HLA", ""),
-                })
+                epitope_positions[pos].append(
+                    {
+                        "epitope": row.get("Epitope", ""),
+                        "protein": row.get("Protein", ""),
+                        "hla": row.get("HLA", ""),
+                    }
+                )
 
     # Find overlap
     overlapping = []
     for pos in set(resistance_positions.keys()) & set(epitope_positions.keys()):
-        overlapping.append({
-            "hxb2_position": pos,
-            "n_resistance_mutations": len(resistance_positions[pos]),
-            "resistance_mutations": [m["mutation"] for m in resistance_positions[pos]],
-            "drug_classes": list(set(m["drug_class"] for m in resistance_positions[pos])),
-            "n_epitopes": len(epitope_positions[pos]),
-            "epitopes": [e["epitope"][:10] for e in epitope_positions[pos][:3]],
-            "hla_restrictions": list(set(e["hla"] for e in epitope_positions[pos] if e["hla"])),
-        })
+        overlapping.append(
+            {
+                "hxb2_position": pos,
+                "n_resistance_mutations": len(resistance_positions[pos]),
+                "resistance_mutations": [m["mutation"] for m in resistance_positions[pos]],
+                "drug_classes": list(set(m["drug_class"] for m in resistance_positions[pos])),
+                "n_epitopes": len(epitope_positions[pos]),
+                "epitopes": [e["epitope"][:10] for e in epitope_positions[pos][:3]],
+                "hla_restrictions": list(set(e["hla"] for e in epitope_positions[pos] if e["hla"])),
+            }
+        )
 
     return pd.DataFrame(overlapping).sort_values("hxb2_position")
 
@@ -132,15 +140,10 @@ def analyze_resistance_escape_tradeoffs(
     # Higher constraint = more pressures from both drug and immune selection
     overlapping["resistance_pressure"] = overlapping["n_resistance_mutations"]
     overlapping["immune_pressure"] = overlapping["n_epitopes"]
-    overlapping["total_constraint"] = (
-        overlapping["resistance_pressure"] + overlapping["immune_pressure"]
-    )
+    overlapping["total_constraint"] = overlapping["resistance_pressure"] + overlapping["immune_pressure"]
 
     # Identify trade-off positions
-    overlapping["is_tradeoff"] = (
-        (overlapping["resistance_pressure"] > 1) &
-        (overlapping["immune_pressure"] > 1)
-    )
+    overlapping["is_tradeoff"] = (overlapping["resistance_pressure"] > 1) & (overlapping["immune_pressure"] > 1)
 
     return overlapping.sort_values("total_constraint", ascending=False)
 
@@ -155,16 +158,11 @@ def identify_multi_constraint_targets(tradeoffs_df: pd.DataFrame) -> pd.DataFram
     targets = tradeoffs_df[tradeoffs_df["total_constraint"] >= 3].copy()
 
     # Score based on constraint diversity
-    targets["constraint_score"] = (
-        targets["resistance_pressure"] * 0.5 +
-        targets["immune_pressure"] * 0.5
-    )
+    targets["constraint_score"] = targets["resistance_pressure"] * 0.5 + targets["immune_pressure"] * 0.5
 
     # Normalize
     if targets["constraint_score"].max() > 0:
-        targets["normalized_score"] = (
-            targets["constraint_score"] / targets["constraint_score"].max()
-        )
+        targets["normalized_score"] = targets["constraint_score"] / targets["constraint_score"].max()
     else:
         targets["normalized_score"] = 0
 
@@ -177,18 +175,20 @@ def compute_dataset_overlap_stats(datasets: dict) -> pd.DataFrame:
 
     dataset_names = list(datasets.keys())
     for i, name1 in enumerate(dataset_names):
-        for name2 in dataset_names[i + 1:]:
+        for name2 in dataset_names[i + 1 :]:
             df1 = datasets[name1]
             df2 = datasets[name2]
 
             # Count overlapping positions (simplified)
-            stats.append({
-                "dataset1": name1,
-                "dataset2": name2,
-                "records1": len(df1),
-                "records2": len(df2),
-                "combined_records": len(df1) + len(df2),
-            })
+            stats.append(
+                {
+                    "dataset1": name1,
+                    "dataset2": name2,
+                    "records1": len(df1),
+                    "records2": len(df2),
+                    "combined_records": len(df1) + len(df2),
+                }
+            )
 
     return pd.DataFrame(stats)
 
@@ -246,10 +246,12 @@ def main():
         if not targets_df.empty:
             print("\nTop 10 Vaccine Target Positions:")
             for _, row in targets_df.head(10).iterrows():
-                print(f"  HXB2 {row['hxb2_position']}: "
-                      f"resistance={row['resistance_pressure']}, "
-                      f"immune={row['immune_pressure']}, "
-                      f"score={row['normalized_score']:.3f}")
+                print(
+                    f"  HXB2 {row['hxb2_position']}: "
+                    f"resistance={row['resistance_pressure']}, "
+                    f"immune={row['immune_pressure']}, "
+                    f"score={row['normalized_score']:.3f}"
+                )
 
     # Save results
     print(f"\nSaving results to {args.output}...")

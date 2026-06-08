@@ -12,7 +12,7 @@ based on configuration, centralizing complex construction logic.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 import torch.nn as nn
 
@@ -53,14 +53,14 @@ class HyperbolicLossComponents:
     """
 
     # Loss modules (Optional)
-    ranking_loss: Optional[nn.Module] = None
-    prior_A: Optional[nn.Module] = None
-    prior_B: Optional[nn.Module] = None
-    recon_A: Optional[nn.Module] = None
-    recon_B: Optional[nn.Module] = None
-    centroid_loss: Optional[nn.Module] = None
-    radial_stratification_A: Optional[nn.Module] = None
-    radial_stratification_B: Optional[nn.Module] = None
+    ranking_loss: nn.Module | None = None
+    prior_A: nn.Module | None = None
+    prior_B: nn.Module | None = None
+    recon_A: nn.Module | None = None
+    recon_B: nn.Module | None = None
+    centroid_loss: nn.Module | None = None
+    radial_stratification_A: nn.Module | None = None
+    radial_stratification_B: nn.Module | None = None
 
     # Flags
     use_hyperbolic_prior: bool = False
@@ -90,7 +90,7 @@ class HyperbolicLossFactory:
     """
 
     @staticmethod
-    def create_ranking_loss(config: Dict[str, Any]) -> Optional[PAdicRankingLossHyperbolic]:
+    def create_ranking_loss(config: dict[str, Any]) -> PAdicRankingLossHyperbolic | None:
         """Create P-adic ranking loss (hyperbolic version).
 
         Args:
@@ -116,9 +116,9 @@ class HyperbolicLossFactory:
 
     @staticmethod
     def create_hyperbolic_priors(
-        config: Dict[str, Any],
+        config: dict[str, Any],
         device: str,
-    ) -> tuple[Optional[HomeostaticHyperbolicPrior], Optional[HomeostaticHyperbolicPrior]]:
+    ) -> tuple[HomeostaticHyperbolicPrior | None, HomeostaticHyperbolicPrior | None]:
         """Create hyperbolic prior modules for VAE-A and VAE-B.
 
         Args:
@@ -156,9 +156,9 @@ class HyperbolicLossFactory:
 
     @staticmethod
     def create_hyperbolic_recons(
-        config: Dict[str, Any],
+        config: dict[str, Any],
         device: str,
-    ) -> tuple[Optional[HomeostaticReconLoss], Optional[HomeostaticReconLoss], float]:
+    ) -> tuple[HomeostaticReconLoss | None, HomeostaticReconLoss | None, float]:
         """Create hyperbolic reconstruction loss modules.
 
         Args:
@@ -190,9 +190,9 @@ class HyperbolicLossFactory:
 
     @staticmethod
     def create_centroid_loss(
-        config: Dict[str, Any],
+        config: dict[str, Any],
         device: str,
-    ) -> tuple[Optional[HyperbolicCentroidLoss], float]:
+    ) -> tuple[HyperbolicCentroidLoss | None, float]:
         """Create hyperbolic centroid clustering loss.
 
         Args:
@@ -219,9 +219,9 @@ class HyperbolicLossFactory:
 
     @staticmethod
     def create_radial_stratification(
-        config: Dict[str, Any],
+        config: dict[str, Any],
         device: str,
-    ) -> tuple[Optional[RadialStratificationLoss], Optional[RadialStratificationLoss], float]:
+    ) -> tuple[RadialStratificationLoss | None, RadialStratificationLoss | None, float]:
         """Create radial stratification loss modules.
 
         Args:
@@ -250,7 +250,7 @@ class HyperbolicLossFactory:
         weight = strat_config.get("weight", 1.0)
         return create_strat(), create_strat(), weight
 
-    def create_all(self, config: Dict[str, Any], device: str = "cpu") -> HyperbolicLossComponents:
+    def create_all(self, config: dict[str, Any], device: str = "cpu") -> HyperbolicLossComponents:
         """Create all hyperbolic loss components from configuration.
 
         Args:

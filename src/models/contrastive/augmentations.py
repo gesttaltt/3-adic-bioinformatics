@@ -13,11 +13,9 @@ from __future__ import annotations
 
 import random
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
-
 
 # Amino acid groups for biologically plausible substitutions
 AA_GROUPS = {
@@ -60,8 +58,8 @@ class SequenceAugmentation(ABC):
     @abstractmethod
     def __call__(
         self,
-        sequence: Union[str, torch.Tensor],
-    ) -> Union[str, torch.Tensor]:
+        sequence: str | torch.Tensor,
+    ) -> str | torch.Tensor:
         """Apply augmentation.
 
         Args:
@@ -99,8 +97,8 @@ class MutationAugmentation(SequenceAugmentation):
 
     def __call__(
         self,
-        sequence: Union[str, torch.Tensor],
-    ) -> Union[str, torch.Tensor]:
+        sequence: str | torch.Tensor,
+    ) -> str | torch.Tensor:
         """Apply mutation augmentation."""
         if isinstance(sequence, str):
             return self._mutate_string(sequence)
@@ -165,8 +163,8 @@ class MaskingAugmentation(SequenceAugmentation):
 
     def __call__(
         self,
-        sequence: Union[str, torch.Tensor],
-    ) -> Union[str, torch.Tensor]:
+        sequence: str | torch.Tensor,
+    ) -> str | torch.Tensor:
         """Apply masking augmentation."""
         if isinstance(sequence, str):
             return self._mask_string(sequence)
@@ -200,8 +198,9 @@ class MaskingAugmentation(SequenceAugmentation):
         # Decide action for each masked position
         action_rand = torch.rand(tokens.shape, device=device)
         mask_action = action_rand < (1 - self.random_token_rate - self.keep_rate)
-        random_action = (action_rand >= (1 - self.random_token_rate - self.keep_rate)) & \
-                        (action_rand < (1 - self.keep_rate))
+        random_action = (action_rand >= (1 - self.random_token_rate - self.keep_rate)) & (
+            action_rand < (1 - self.keep_rate)
+        )
 
         # Apply mask token
         result = torch.where(mask & mask_action, self.mask_token, result)
@@ -222,7 +221,7 @@ class CropAugmentation(SequenceAugmentation):
     def __init__(
         self,
         min_length: int = 50,
-        max_length: Optional[int] = None,
+        max_length: int | None = None,
         crop_ratio: float = 0.8,
     ):
         """Initialize crop augmentation.
@@ -238,8 +237,8 @@ class CropAugmentation(SequenceAugmentation):
 
     def __call__(
         self,
-        sequence: Union[str, torch.Tensor],
-    ) -> Union[str, torch.Tensor]:
+        sequence: str | torch.Tensor,
+    ) -> str | torch.Tensor:
         """Apply crop augmentation."""
         if isinstance(sequence, str):
             return self._crop_string(sequence)
@@ -260,14 +259,11 @@ class CropAugmentation(SequenceAugmentation):
         max_start = seq_len - crop_len
         start = random.randint(0, max(0, max_start))
 
-        return sequence[start:start + crop_len]
+        return sequence[start : start + crop_len]
 
     def _crop_tensor(self, tokens: torch.Tensor) -> torch.Tensor:
         """Crop token tensor."""
-        if tokens.dim() == 1:
-            seq_len = tokens.shape[0]
-        else:
-            seq_len = tokens.shape[-1]
+        seq_len = tokens.shape[0] if tokens.dim() == 1 else tokens.shape[-1]
 
         crop_len = max(self.min_length, int(seq_len * self.crop_ratio))
 
@@ -280,9 +276,9 @@ class CropAugmentation(SequenceAugmentation):
         start = random.randint(0, max(0, max_start))
 
         if tokens.dim() == 1:
-            return tokens[start:start + crop_len]
+            return tokens[start : start + crop_len]
         else:
-            return tokens[..., start:start + crop_len]
+            return tokens[..., start : start + crop_len]
 
 
 class ShuffleAugmentation(SequenceAugmentation):
@@ -308,8 +304,8 @@ class ShuffleAugmentation(SequenceAugmentation):
 
     def __call__(
         self,
-        sequence: Union[str, torch.Tensor],
-    ) -> Union[str, torch.Tensor]:
+        sequence: str | torch.Tensor,
+    ) -> str | torch.Tensor:
         """Apply shuffle augmentation."""
         if isinstance(sequence, str):
             return self._shuffle_string(sequence)
@@ -322,9 +318,9 @@ class ShuffleAugmentation(SequenceAugmentation):
 
         for i in range(0, len(result), self.window_size):
             if random.random() < self.shuffle_prob:
-                window = result[i:i + self.window_size]
+                window = result[i : i + self.window_size]
                 random.shuffle(window)
-                result[i:i + self.window_size] = window
+                result[i : i + self.window_size] = window
 
         return "".join(result)
 
@@ -354,7 +350,7 @@ class SequenceAugmentations(nn.Module):
 
     def __init__(
         self,
-        augmentations: Optional[List[Tuple[SequenceAugmentation, float]]] = None,
+        augmentations: list[tuple[SequenceAugmentation, float]] | None = None,
     ):
         """Initialize augmentation pipeline.
 
@@ -376,8 +372,8 @@ class SequenceAugmentations(nn.Module):
 
     def forward(
         self,
-        sequence: Union[str, torch.Tensor],
-    ) -> Union[str, torch.Tensor]:
+        sequence: str | torch.Tensor,
+    ) -> str | torch.Tensor:
         """Apply augmentation pipeline.
 
         Args:
@@ -396,8 +392,8 @@ class SequenceAugmentations(nn.Module):
 
     def create_pair(
         self,
-        sequence: Union[str, torch.Tensor],
-    ) -> Tuple[Union[str, torch.Tensor], Union[str, torch.Tensor]]:
+        sequence: str | torch.Tensor,
+    ) -> tuple[str | torch.Tensor, str | torch.Tensor]:
         """Create augmented pair for contrastive learning.
 
         Args:
@@ -412,20 +408,24 @@ class SequenceAugmentations(nn.Module):
         return view1, view2
 
     @staticmethod
-    def default_for_byol() -> "SequenceAugmentations":
+    def default_for_byol() -> SequenceAugmentations:
         """Get default augmentations for BYOL training."""
-        return SequenceAugmentations([
-            (MutationAugmentation(mutation_rate=0.15, use_similar=True), 0.7),
-            (MaskingAugmentation(mask_rate=0.15), 0.5),
-            (CropAugmentation(crop_ratio=0.85, min_length=32), 0.4),
-        ])
+        return SequenceAugmentations(
+            [
+                (MutationAugmentation(mutation_rate=0.15, use_similar=True), 0.7),
+                (MaskingAugmentation(mask_rate=0.15), 0.5),
+                (CropAugmentation(crop_ratio=0.85, min_length=32), 0.4),
+            ]
+        )
 
     @staticmethod
-    def default_for_simclr() -> "SequenceAugmentations":
+    def default_for_simclr() -> SequenceAugmentations:
         """Get default augmentations for SimCLR training."""
-        return SequenceAugmentations([
-            (MutationAugmentation(mutation_rate=0.2), 0.8),
-            (MaskingAugmentation(mask_rate=0.2), 0.6),
-            (CropAugmentation(crop_ratio=0.7, min_length=24), 0.5),
-            (ShuffleAugmentation(window_size=5), 0.3),
-        ])
+        return SequenceAugmentations(
+            [
+                (MutationAugmentation(mutation_rate=0.2), 0.8),
+                (MaskingAugmentation(mask_rate=0.2), 0.6),
+                (CropAugmentation(crop_ratio=0.7, min_length=24), 0.5),
+                (ShuffleAugmentation(window_size=5), 0.3),
+            ]
+        )

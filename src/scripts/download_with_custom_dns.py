@@ -9,8 +9,8 @@ import json
 import os
 import random
 import socket
-import struct
 import ssl
+import struct
 import subprocess
 import urllib.request
 from pathlib import Path
@@ -203,9 +203,7 @@ def download_zenodo_datasets():
 
             def custom_getaddrinfo(host, port, *args, **kwargs):
                 if host in DNS_CACHE:
-                    return [
-                        (socket.AF_INET, socket.SOCK_STREAM, 6, "", (DNS_CACHE[host], port))
-                    ]
+                    return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (DNS_CACHE[host], port))]
                 return original_getaddrinfo(host, port, *args, **kwargs)
 
             socket.getaddrinfo = custom_getaddrinfo
@@ -336,15 +334,11 @@ def download_huggingface():
 
         def custom_getaddrinfo(host, port, *args, **kwargs):
             if host in DNS_CACHE:
-                return [
-                    (socket.AF_INET, socket.SOCK_STREAM, 6, "", (DNS_CACHE[host], port))
-                ]
+                return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (DNS_CACHE[host], port))]
             # Try to resolve unknown hosts
             try:
                 ip = dns_query(host)
-                return [
-                    (socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, port))
-                ]
+                return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, port))]
             except:
                 pass
             return original_getaddrinfo(host, port, *args, **kwargs)
@@ -398,18 +392,22 @@ def create_index():
                 file_count = sum(1 for _ in item.rglob("*") if _.is_file())
                 total_size = sum(f.stat().st_size for f in item.rglob("*") if f.is_file())
                 if file_count > 0:
-                    datasets.append({
-                        "name": item.name,
-                        "type": "directory",
-                        "file_count": file_count,
-                        "size_mb": round(total_size / (1024 * 1024), 2),
-                    })
+                    datasets.append(
+                        {
+                            "name": item.name,
+                            "type": "directory",
+                            "file_count": file_count,
+                            "size_mb": round(total_size / (1024 * 1024), 2),
+                        }
+                    )
             else:
-                datasets.append({
-                    "name": item.name,
-                    "type": "file",
-                    "size_mb": round(item.stat().st_size / (1024 * 1024), 2),
-                })
+                datasets.append(
+                    {
+                        "name": item.name,
+                        "type": "file",
+                        "size_mb": round(item.stat().st_size / (1024 * 1024), 2),
+                    }
+                )
 
         if datasets:
             index["sources"][source_dir.name] = datasets

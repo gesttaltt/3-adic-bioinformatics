@@ -39,6 +39,7 @@ from src.config.paths import PROCESSED_DATA_DIR, RESULTS_DIR
 
 try:
     import torch
+
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
@@ -87,10 +88,10 @@ def angular_distance(a1: np.ndarray, a2: np.ndarray) -> float:
     """Compute angular distance between two angle vectors."""
     diff = 0.0
     valid_count = 0
-    for x, y in zip(a1, a2):
+    for x, y in zip(a1, a2, strict=False):
         if not np.isnan(x) and not np.isnan(y):
             d = abs(normalize_angle(x - y))
-            diff += d ** 2
+            diff += d**2
             valid_count += 1
     if valid_count == 0:
         return 0.0
@@ -138,7 +139,7 @@ def chi_to_padic_valuation(chi_angles: list[float], p: int = 3) -> int:
     # Combine indices into single number (base=bins)
     combined = 0
     for i, idx in enumerate(indices):
-        combined += idx * (bins ** i)
+        combined += idx * (bins**i)
 
     return padic_valuation(combined + 1, p)  # +1 to avoid 0
 
@@ -207,7 +208,7 @@ def analyze_rotamers(
     """
     results = []
 
-    for i, (chi, meta) in enumerate(zip(chi_tensor, metadata)):
+    for _i, (chi, meta) in enumerate(zip(chi_tensor, metadata, strict=False)):
         # Find nearest standard rotamer
         nearest, eucl_dist = find_nearest_rotamer(chi)
 
@@ -251,10 +252,7 @@ def compute_summary_statistics(results: list[RotamerAnalysisResult]) -> dict:
     padic_vals = [r.padic_valuation for r in results]
 
     # Correlation between hyperbolic and Euclidean
-    if len(hyp_distances) > 1:
-        correlation = np.corrcoef(hyp_distances, eucl_distances)[0, 1]
-    else:
-        correlation = 0.0
+    correlation = np.corrcoef(hyp_distances, eucl_distances)[0, 1] if len(hyp_distances) > 1 else 0.0
 
     # Group by residue type
     by_residue = {}
@@ -301,8 +299,7 @@ def export_results(
                 "pdb_id": r.pdb_id,
                 "chain_id": r.chain_id,
                 "residue_id": (
-                    int(r.residue_id) if isinstance(r.residue_id, (np.integer, np.floating))
-                    else r.residue_id
+                    int(r.residue_id) if isinstance(r.residue_id, (np.integer, np.floating)) else r.residue_id
                 ),
                 "residue_name": r.residue_name,
                 "chi_angles": [float(x) if not np.isnan(x) else None for x in r.chi_angles],
@@ -326,9 +323,7 @@ def export_results(
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Rotamer stability analysis with p-adic geometry"
-    )
+    parser = argparse.ArgumentParser(description="Rotamer stability analysis with p-adic geometry")
     parser.add_argument(
         "--input",
         type=str,
@@ -378,7 +373,7 @@ def main():
     # Print summary
     print("\n=== Summary ===")
     print(f"Total residues: {summary['n_residues']}")
-    print(f"Rare rotamers: {summary['n_rare']} ({summary['rare_fraction']*100:.1f}%)")
+    print(f"Rare rotamers: {summary['n_rare']} ({summary['rare_fraction'] * 100:.1f}%)")
     print(f"Mean hyperbolic distance: {summary['hyperbolic_distance']['mean']:.3f}")
     print(f"Hyp-Eucl correlation: {summary['hyp_eucl_correlation']:.3f}")
 

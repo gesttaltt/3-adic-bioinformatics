@@ -18,7 +18,7 @@ Single responsibility: Parameter scheduling logic only.
 """
 
 import math
-from typing import Any, Dict, List
+from typing import Any
 
 
 def linear_schedule(
@@ -74,7 +74,7 @@ class TemperatureScheduler:
     - Phase-dependent boosting
     """
 
-    def __init__(self, config: Dict[str, Any], phase_4_start: int, temp_lag: int = 0):
+    def __init__(self, config: dict[str, Any], phase_4_start: int, temp_lag: int = 0):
         """Initialize temperature scheduler.
 
         Args:
@@ -145,7 +145,7 @@ class BetaScheduler:
     - After warmup: β follows configured schedule
     """
 
-    def __init__(self, config: Dict[str, Any], beta_phase_lag: float = 0.0):
+    def __init__(self, config: dict[str, Any], beta_phase_lag: float = 0.0):
         """Initialize beta scheduler.
 
         Args:
@@ -200,7 +200,7 @@ class LearningRateScheduler:
     Supports epoch-based step scheduling from configuration.
     """
 
-    def __init__(self, lr_schedule: List[Dict[str, Any]]):
+    def __init__(self, lr_schedule: list[dict[str, Any]]):
         """Initialize learning rate scheduler.
 
         Args:

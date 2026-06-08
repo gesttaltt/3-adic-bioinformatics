@@ -18,7 +18,7 @@ Single responsibility: Metrics history and tracking only.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 from src.config.constants import N_TERNARY_OPERATIONS
 
@@ -49,16 +49,16 @@ class MetricsTracker:
     patience_counter: int = field(default=0)
 
     # Coverage tracking
-    coverage_A_history: List[int] = field(default_factory=list)
-    coverage_B_history: List[int] = field(default_factory=list)
+    coverage_A_history: list[int] = field(default_factory=list)
+    coverage_B_history: list[int] = field(default_factory=list)
 
     # Entropy tracking
-    H_A_history: List[float] = field(default_factory=list)
-    H_B_history: List[float] = field(default_factory=list)
+    H_A_history: list[float] = field(default_factory=list)
+    H_B_history: list[float] = field(default_factory=list)
 
     # Correlation tracking (v5.10+)
-    correlation_hyp_history: List[float] = field(default_factory=list)
-    correlation_euc_history: List[float] = field(default_factory=list)
+    correlation_hyp_history: list[float] = field(default_factory=list)
+    correlation_euc_history: list[float] = field(default_factory=list)
     best_corr_hyp: float = field(default=0.0)
     best_corr_euc: float = field(default=0.0)
     best_coverage: float = field(default=0.0)
@@ -176,7 +176,7 @@ class MetricsTracker:
         # Use max of A and B as coverage metric
         recent_A = self.coverage_A_history[-patience:]
         recent_B = self.coverage_B_history[-patience:]
-        recent_max = [max(a, b) for a, b in zip(recent_A, recent_B)]
+        recent_max = [max(a, b) for a, b in zip(recent_A, recent_B, strict=False)]
 
         # Compute improvement as fraction of total operations
         improvement = (recent_max[-1] - recent_max[0]) / N_TERNARY_OPERATIONS
@@ -192,7 +192,7 @@ class MetricsTracker:
         self.global_step += 1
         return self.global_step
 
-    def get_metadata(self) -> Dict[str, Any]:
+    def get_metadata(self) -> dict[str, Any]:
         """Get all tracked metadata for checkpointing.
 
         Returns:
@@ -212,7 +212,7 @@ class MetricsTracker:
             "global_step": self.global_step,
         }
 
-    def restore_from_metadata(self, metadata: Dict[str, Any]) -> None:
+    def restore_from_metadata(self, metadata: dict[str, Any]) -> None:
         """Restore tracker state from metadata.
 
         Args:

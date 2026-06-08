@@ -37,7 +37,7 @@ import queue
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from .metrics_buffer import MetricRecord
 
@@ -63,7 +63,7 @@ class AsyncTensorBoardWriter:
     def __init__(
         self,
         log_dir: str,
-        experiment_name: Optional[str] = None,
+        experiment_name: str | None = None,
         flush_interval: float = 5.0,  # Seconds between auto-flushes
         queue_size: int = 10000,
     ):
@@ -92,7 +92,7 @@ class AsyncTensorBoardWriter:
         self._log_path = log_path
 
         # Async infrastructure
-        self._queue: queue.Queue[Union[List[MetricRecord], Tuple[str, None]]] = queue.Queue(maxsize=queue_size)
+        self._queue: queue.Queue[list[MetricRecord] | tuple[str, None]] = queue.Queue(maxsize=queue_size)
         self._flush_interval = flush_interval
         self._running = True
         self._last_flush = time.time()
@@ -107,7 +107,7 @@ class AsyncTensorBoardWriter:
 
         logger.info(f"AsyncTensorBoardWriter: logging to {log_path}")
 
-    def write(self, records: List[MetricRecord]) -> None:
+    def write(self, records: list[MetricRecord]) -> None:
         """Queue records for async writing.
 
         Non-blocking unless queue is full.
@@ -136,7 +136,7 @@ class AsyncTensorBoardWriter:
         record = MetricRecord(name=name, value=value, step=step)
         self.write([record])
 
-    def write_scalars(self, metrics: Dict[str, float], step: int) -> None:
+    def write_scalars(self, metrics: dict[str, float], step: int) -> None:
         """Write multiple scalars.
 
         Args:
@@ -175,7 +175,7 @@ class AsyncTensorBoardWriter:
             except Exception as e:
                 logger.error(f"AsyncTensorBoardWriter error: {e}")
 
-    def _write_records(self, records: List[MetricRecord]) -> None:
+    def _write_records(self, records: list[MetricRecord]) -> None:
         """Write records to TensorBoard (called in background thread)."""
         for record in records:
             # Handle grouped scalars (metrics with tags)
@@ -194,7 +194,7 @@ class AsyncTensorBoardWriter:
         self._last_flush = time.time()
         self._flushes += 1
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get writer statistics."""
         return {
             "records_written": self._records_written,
@@ -229,26 +229,26 @@ class NullWriter:
     Implements the same interface but does nothing.
     """
 
-    def write(self, records: List[MetricRecord]) -> None:
+    def write(self, records: list[MetricRecord]) -> None:
         pass
 
     def write_scalar(self, name: str, value: float, step: int) -> None:
         pass
 
-    def write_scalars(self, metrics: Dict[str, float], step: int) -> None:
+    def write_scalars(self, metrics: dict[str, float], step: int) -> None:
         pass
 
     def flush_async(self) -> None:
         pass
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         return {"enabled": False}
 
     def close(self) -> None:
         pass
 
 
-def create_writer(log_dir: Optional[str], experiment_name: Optional[str] = None) -> "AsyncTensorBoardWriter | NullWriter":
+def create_writer(log_dir: str | None, experiment_name: str | None = None) -> "AsyncTensorBoardWriter | NullWriter":
     """Factory to create appropriate writer.
 
     Args:

@@ -12,7 +12,7 @@ meaningful model evaluation even without real clinical data.
 
 from __future__ import annotations
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import numpy as np
 
@@ -56,10 +56,7 @@ def generate_correlated_targets(
 
     # Normalize to [0, 1]
     y_min, y_max = y.min(), y.max()
-    if y_max > y_min:
-        y = (y - y_min) / (y_max - y_min)
-    else:
-        y = np.full(n_samples, 0.5)
+    y = (y - y_min) / (y_max - y_min) if y_max > y_min else np.full(n_samples, 0.5)
 
     return y.astype(np.float32)
 
@@ -191,7 +188,7 @@ def create_mutation_based_dataset(
 
     # Generate random combinations of mutations
     if all_mutations and n_random_mutants > 0:
-        for i in range(n_random_mutants):
+        for _i in range(n_random_mutants):
             # Pick 2-4 mutations
             n_muts = np.random.randint(2, min(5, len(all_mutations) + 1))
             selected = np.random.choice(len(all_mutations), n_muts, replace=False)

@@ -43,19 +43,18 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, ClassVar, TypeVar
 
 from src.config.constants import (
     DEFAULT_BATCH_SIZE,
-    DEFAULT_LEARNING_RATE,
-    DEFAULT_EPOCHS,
-    DEFAULT_PATIENCE,
-    TERNARY_BASE,
-    MAX_VALUATION,
     DEFAULT_CURVATURE,
+    DEFAULT_EPOCHS,
+    DEFAULT_LEARNING_RATE,
     DEFAULT_MAX_RADIUS,
+    DEFAULT_PATIENCE,
+    MAX_VALUATION,
+    TERNARY_BASE,
 )
-
 
 T = TypeVar("T", bound="BaseConfig")
 
@@ -93,7 +92,7 @@ class BaseConfig:
         """
         pass
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert configuration to dictionary.
 
         Returns:
@@ -102,7 +101,7 @@ class BaseConfig:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls: Type[T], data: Dict[str, Any]) -> T:
+    def from_dict(cls: type[T], data: dict[str, Any]) -> T:
         """Create configuration from dictionary.
 
         Args:
@@ -128,7 +127,7 @@ class BaseConfig:
         return json.dumps(self.to_dict(), indent=indent, default=str)
 
     @classmethod
-    def from_json(cls: Type[T], json_str: str) -> T:
+    def from_json(cls: type[T], json_str: str) -> T:
         """Create configuration from JSON string.
 
         Args:
@@ -140,7 +139,7 @@ class BaseConfig:
         data = json.loads(json_str)
         return cls.from_dict(data)
 
-    def save(self, path: Union[str, Path]) -> None:
+    def save(self, path: str | Path) -> None:
         """Save configuration to JSON file.
 
         Args:
@@ -150,7 +149,7 @@ class BaseConfig:
         path.write_text(self.to_json())
 
     @classmethod
-    def load(cls: Type[T], path: Union[str, Path]) -> T:
+    def load(cls: type[T], path: str | Path) -> T:
         """Load configuration from JSON file.
 
         Args:
@@ -175,7 +174,7 @@ class BaseConfig:
         current.update(kwargs)
         return self.__class__.from_dict(current)
 
-    def diff(self, other: "BaseConfig") -> Dict[str, tuple]:
+    def diff(self, other: BaseConfig) -> dict[str, tuple]:
         """Compare with another config and return differences.
 
         Args:
@@ -244,7 +243,7 @@ class PAdicConfig(BaseConfig):
 
         # Check primality for small primes
         if self.prime <= 100:
-            for i in range(2, int(self.prime ** 0.5) + 1):
+            for i in range(2, int(self.prime**0.5) + 1):
                 if self.prime % i == 0:
                     raise ValueError(f"{self.prime} is not prime")
 
@@ -319,7 +318,7 @@ class HyperbolicConfig(BaseConfig):
         if not 0 < self.max_radius < 1:
             raise ValueError(f"max_radius must be in (0, 1), got {self.max_radius}")
         if self.manifold_type not in ("poincare", "lorentz"):
-            raise ValueError(f"manifold_type must be 'poincare' or 'lorentz'")
+            raise ValueError("manifold_type must be 'poincare' or 'lorentz'")
 
 
 # ============================================================================
@@ -352,7 +351,7 @@ class ContrastiveConfig(BaseConfig):
         if self.temperature <= 0:
             raise ValueError(f"temperature must be > 0, got {self.temperature}")
         if self.projection_dim < 1:
-            raise ValueError(f"projection_dim must be >= 1")
+            raise ValueError("projection_dim must be >= 1")
         if not 0 <= self.momentum <= 1:
             raise ValueError(f"momentum must be in [0, 1], got {self.momentum}")
 
@@ -385,11 +384,11 @@ class MetaLearningConfig(BaseConfig):
         if self.inner_lr <= 0:
             raise ValueError(f"inner_lr must be > 0, got {self.inner_lr}")
         if self.n_inner_steps < 1:
-            raise ValueError(f"n_inner_steps must be >= 1")
+            raise ValueError("n_inner_steps must be >= 1")
         if self.n_support < 1:
-            raise ValueError(f"n_support must be >= 1")
+            raise ValueError("n_support must be >= 1")
         if self.n_query < 1:
-            raise ValueError(f"n_query must be >= 1")
+            raise ValueError("n_query must be >= 1")
 
 
 # ============================================================================
@@ -418,11 +417,11 @@ class PhysicsConfig(BaseConfig):
     def validate(self) -> None:
         """Validate physics configuration."""
         if self.n_replicas < 2:
-            raise ValueError(f"n_replicas must be >= 2")
+            raise ValueError("n_replicas must be >= 2")
         if self.temp_min <= 0:
-            raise ValueError(f"temp_min must be > 0")
+            raise ValueError("temp_min must be > 0")
         if self.temp_max <= self.temp_min:
-            raise ValueError(f"temp_max must be > temp_min")
+            raise ValueError("temp_max must be > temp_min")
         if self.coupling_type not in ("gaussian", "uniform", "hopfield"):
             raise ValueError(f"Unknown coupling_type: {self.coupling_type}")
 
@@ -456,7 +455,7 @@ class ExperimentConfig(BaseConfig):
         self.padic.validate()
         self.hyperbolic.validate()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to nested dictionary."""
         return {
             "name": self.name,
@@ -467,7 +466,7 @@ class ExperimentConfig(BaseConfig):
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ExperimentConfig":
+    def from_dict(cls, data: dict[str, Any]) -> ExperimentConfig:
         """Create from nested dictionary."""
         return cls(
             name=data.get("name", "experiment"),

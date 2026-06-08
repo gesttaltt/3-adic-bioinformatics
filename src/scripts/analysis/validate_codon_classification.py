@@ -125,7 +125,7 @@ def compare_with_euclidean():
 
     print(f"\n3-adic KNN (p=3): {padic_acc:.2%} accuracy")
     print(f"2-adic KNN (p=2): {p2_acc:.2%} accuracy")
-    print(f"\nNote: 3-adic naturally fits the triplet codon structure")
+    print("\nNote: 3-adic naturally fits the triplet codon structure")
 
 
 def show_synonymous_clustering():

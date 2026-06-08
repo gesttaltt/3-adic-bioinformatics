@@ -14,9 +14,8 @@ Loads datasets from external sources:
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Optional, Union
 import warnings
+from pathlib import Path
 
 import pandas as pd
 
@@ -58,6 +57,7 @@ def load_v3_coreceptor() -> pd.DataFrame:
     # Try loading from disk (saved HuggingFace dataset)
     try:
         from datasets import load_from_disk
+
         ds = load_from_disk(str(data_dir))
         if hasattr(ds, "to_pandas"):
             return ds.to_pandas()
@@ -66,7 +66,7 @@ def load_v3_coreceptor() -> pd.DataFrame:
             return ds["train"].to_pandas()
         return pd.DataFrame(ds)
     except ImportError:
-        warnings.warn("HuggingFace datasets not installed. Trying parquet fallback.")
+        warnings.warn("HuggingFace datasets not installed. Trying parquet fallback.", stacklevel=2)
 
     # Fallback to parquet files
     parquet_files = list(data_dir.glob("*.parquet"))
@@ -106,6 +106,7 @@ def load_hiv_ppi() -> pd.DataFrame:
 
     try:
         from datasets import load_from_disk
+
         ds = load_from_disk(str(data_dir))
         if hasattr(ds, "to_pandas"):
             return ds.to_pandas()
@@ -208,8 +209,7 @@ def load_hiv_sequences(source: str = "github") -> dict[str, str]:
 
     if not data_dir.exists():
         raise FileNotFoundError(
-            f"HIV sequence data not found: {data_dir}\n"
-            "Clone the repository to data/external/github/HIV-data/"
+            f"HIV sequence data not found: {data_dir}\nClone the repository to data/external/github/HIV-data/"
         )
 
     sequences = {}
@@ -219,6 +219,7 @@ def load_hiv_sequences(source: str = "github") -> dict[str, str]:
         for fasta_file in data_dir.rglob(pattern):
             if fasta_file.suffix == ".gz":
                 import gzip
+
                 with gzip.open(fasta_file, "rt") as f:
                     content = f.read()
                     sequences.update(_parse_fasta_content(content))
@@ -272,10 +273,7 @@ def load_epidemiological_data() -> pd.DataFrame:
 
     csv_files = list(data_dir.glob("*.csv"))
     if not csv_files:
-        raise FileNotFoundError(
-            f"Epidemiological data not found in {data_dir}\n"
-            "Download from Kaggle: hiv-aids-dataset"
-        )
+        raise FileNotFoundError(f"Epidemiological data not found in {data_dir}\nDownload from Kaggle: hiv-aids-dataset")
 
     # Load all CSV files
     dfs = []
@@ -285,7 +283,7 @@ def load_epidemiological_data() -> pd.DataFrame:
             df["source_file"] = csv_file.name
             dfs.append(df)
         except Exception as e:
-            warnings.warn(f"Failed to load {csv_file}: {e}")
+            warnings.warn(f"Failed to load {csv_file}: {e}", stacklevel=2)
 
     if not dfs:
         raise FileNotFoundError("No valid CSV files found")
@@ -340,7 +338,7 @@ def list_available_datasets() -> dict[str, dict]:
         },
     }
 
-    for name, info in datasets.items():
+    for _name, info in datasets.items():
         info["exists"] = info["path"].exists()
 
     return datasets

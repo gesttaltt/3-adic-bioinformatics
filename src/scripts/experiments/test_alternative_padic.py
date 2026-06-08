@@ -22,7 +22,6 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Tuple
 
 import numpy as np
 import torch
@@ -37,6 +36,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
+
 
 def compute_padic_distance(i: int, j: int, p: int = 3) -> float:
     """Compute p-adic distance."""
@@ -59,7 +59,7 @@ def compute_padic_matrix(n: int) -> torch.Tensor:
     return matrix
 
 
-def evaluate_structure(z: torch.Tensor, indices: torch.Tensor) -> Dict[str, float]:
+def evaluate_structure(z: torch.Tensor, indices: torch.Tensor) -> dict[str, float]:
     """Evaluate latent space structure."""
     n = len(z)
     n_pairs = min(3000, n * (n - 1) // 2)
@@ -70,8 +70,9 @@ def evaluate_structure(z: torch.Tensor, indices: torch.Tensor) -> Dict[str, floa
     mask = i_idx != j_idx
     i_idx, j_idx = i_idx[mask], j_idx[mask]
 
-    padic_dists = [compute_padic_distance(indices[i].item(), indices[j].item())
-                   for i, j in zip(i_idx, j_idx)]
+    padic_dists = [
+        compute_padic_distance(indices[i].item(), indices[j].item()) for i, j in zip(i_idx, j_idx, strict=False)
+    ]
     latent_dists = torch.norm(z[i_idx] - z[j_idx], dim=1).detach().numpy()
 
     corr, pval = spearmanr(padic_dists, latent_dists)
@@ -85,6 +86,7 @@ def evaluate_structure(z: torch.Tensor, indices: torch.Tensor) -> Dict[str, floa
 # =============================================================================
 # ALTERNATIVE P-ADIC LOSS IMPLEMENTATIONS
 # =============================================================================
+
 
 class SoftPadicRankingLoss(nn.Module):
     """Soft p-adic ranking using KL divergence between soft rankings.
@@ -111,7 +113,7 @@ class SoftPadicRankingLoss(nn.Module):
 
         # Subsample for efficiency
         if n > self.n_samples:
-            idx = torch.randperm(n)[:self.n_samples]
+            idx = torch.randperm(n)[: self.n_samples]
             z = z[idx]
             indices = indices[idx]
             n = self.n_samples
@@ -132,7 +134,7 @@ class SoftPadicRankingLoss(nn.Module):
 
         # KL divergence: how different are the rankings?
         # We want latent rankings to match p-adic rankings
-        loss = F.kl_div(latent_ranks.log(), padic_ranks, reduction='batchmean')
+        loss = F.kl_div(latent_ranks.log(), padic_ranks, reduction="batchmean")
 
         return loss
 
@@ -161,7 +163,7 @@ class ContrastivePadicLoss(nn.Module):
 
         # Subsample for efficiency
         if n > self.n_samples:
-            idx = torch.randperm(n)[:self.n_samples]
+            idx = torch.randperm(n)[: self.n_samples]
             z = z[idx]
             indices = indices[idx]
             n = self.n_samples
@@ -217,7 +219,7 @@ class MultiscalePadicLoss(nn.Module):
 
         # Subsample
         if n > self.n_samples:
-            idx = torch.randperm(n)[:self.n_samples]
+            idx = torch.randperm(n)[: self.n_samples]
             z = z[idx]
             indices = indices[idx]
             n = self.n_samples
@@ -259,8 +261,7 @@ class MultiscalePadicLoss(nn.Module):
 
             # MSE to target (scaled by level importance)
             weight = 1.0 / (v + 1)  # Higher valuation = rarer, more important
-            level_loss = weight * F.mse_loss(actual_dists,
-                                             torch.full_like(actual_dists, target))
+            level_loss = weight * F.mse_loss(actual_dists, torch.full_like(actual_dists, target))
             total_loss = total_loss + level_loss
             level_count += 1
 
@@ -281,8 +282,7 @@ class GradientAlignedPadicLoss(nn.Module):
         self.base_loss = base_loss or SoftPadicRankingLoss()
         self.threshold = alignment_threshold
 
-    def forward(self, z: torch.Tensor, indices: torch.Tensor,
-                recon_grad: torch.Tensor = None) -> torch.Tensor:
+    def forward(self, z: torch.Tensor, indices: torch.Tensor, recon_grad: torch.Tensor = None) -> torch.Tensor:
         """Compute aligned p-adic loss.
 
         Args:
@@ -301,8 +301,7 @@ class GradientAlignedPadicLoss(nn.Module):
 
         # Project p-adic gradient onto reconstruction gradient
         # Only keep component that doesn't fight reconstruction
-        cos_sim = F.cosine_similarity(padic_grad.flatten().unsqueeze(0),
-                                       recon_grad.flatten().unsqueeze(0))
+        cos_sim = F.cosine_similarity(padic_grad.flatten().unsqueeze(0), recon_grad.flatten().unsqueeze(0))
 
         if cos_sim < self.threshold:
             # Gradients conflict - reduce p-adic contribution
@@ -316,6 +315,7 @@ class GradientAlignedPadicLoss(nn.Module):
 # DUAL-HEAD VAE
 # =============================================================================
 
+
 class DualHeadVAE(nn.Module):
     """VAE with separate head for p-adic structure.
 
@@ -328,8 +328,7 @@ class DualHeadVAE(nn.Module):
                            -> P-adic Head -> z_padic
     """
 
-    def __init__(self, input_dim: int = 9, latent_dim: int = 16,
-                 hidden_dims: list = None, padic_dim: int = 16):
+    def __init__(self, input_dim: int = 9, latent_dim: int = 16, hidden_dims: list = None, padic_dim: int = 16):
         super().__init__()
         hidden_dims = hidden_dims or [64, 32]
 
@@ -337,10 +336,12 @@ class DualHeadVAE(nn.Module):
         encoder_layers = []
         prev_dim = input_dim
         for h_dim in hidden_dims:
-            encoder_layers.extend([
-                nn.Linear(prev_dim, h_dim),
-                nn.ReLU(),
-            ])
+            encoder_layers.extend(
+                [
+                    nn.Linear(prev_dim, h_dim),
+                    nn.ReLU(),
+                ]
+            )
             prev_dim = h_dim
         self.encoder = nn.Sequential(*encoder_layers)
 
@@ -352,10 +353,12 @@ class DualHeadVAE(nn.Module):
         decoder_layers = []
         prev_dim = latent_dim
         for h_dim in reversed(hidden_dims):
-            decoder_layers.extend([
-                nn.Linear(prev_dim, h_dim),
-                nn.ReLU(),
-            ])
+            decoder_layers.extend(
+                [
+                    nn.Linear(prev_dim, h_dim),
+                    nn.ReLU(),
+                ]
+            )
             prev_dim = h_dim
         decoder_layers.append(nn.Linear(prev_dim, input_dim * 3))
         self.decoder = nn.Sequential(*decoder_layers)
@@ -400,6 +403,7 @@ class DualHeadVAE(nn.Module):
 # EXPERIMENT RUNNER
 # =============================================================================
 
+
 @dataclass
 class ExperimentResult:
     name: str
@@ -420,7 +424,7 @@ def run_experiment(
 ) -> ExperimentResult:
     """Run a single experiment configuration."""
     from src.data.generation import generate_all_ternary_operations
-    from src.losses.dual_vae_loss import ReconstructionLoss, KLDivergenceLoss
+    from src.losses.dual_vae_loss import KLDivergenceLoss, ReconstructionLoss
 
     print(f"\n  Running: {name}...")
     start_time = time.time()
@@ -439,7 +443,7 @@ def run_experiment(
     padic_fn = padic_loss_class() if padic_loss_class else None
 
     # Training
-    for epoch in range(epochs):
+    for _epoch in range(epochs):
         model.train()
         outputs = model(ops)
 
@@ -495,55 +499,69 @@ def main():
     # Baseline experiments
     print("\n--- Baselines ---")
 
-    results.append(run_experiment(
-        name="baseline_no_padic",
-        model_class=SimpleVAE,
-        padic_loss_class=None,
-    ))
+    results.append(
+        run_experiment(
+            name="baseline_no_padic",
+            model_class=SimpleVAE,
+            padic_loss_class=None,
+        )
+    )
 
-    results.append(run_experiment(
-        name="hyperbolic_no_padic",
-        model_class=SimpleVAEWithHyperbolic,
-        padic_loss_class=None,
-    ))
+    results.append(
+        run_experiment(
+            name="hyperbolic_no_padic",
+            model_class=SimpleVAEWithHyperbolic,
+            padic_loss_class=None,
+        )
+    )
 
     # Alternative p-adic losses
     print("\n--- Alternative P-adic Losses ---")
 
-    results.append(run_experiment(
-        name="soft_ranking",
-        model_class=SimpleVAEWithHyperbolic,
-        padic_loss_class=SoftPadicRankingLoss,
-    ))
+    results.append(
+        run_experiment(
+            name="soft_ranking",
+            model_class=SimpleVAEWithHyperbolic,
+            padic_loss_class=SoftPadicRankingLoss,
+        )
+    )
 
-    results.append(run_experiment(
-        name="contrastive",
-        model_class=SimpleVAEWithHyperbolic,
-        padic_loss_class=ContrastivePadicLoss,
-    ))
+    results.append(
+        run_experiment(
+            name="contrastive",
+            model_class=SimpleVAEWithHyperbolic,
+            padic_loss_class=ContrastivePadicLoss,
+        )
+    )
 
-    results.append(run_experiment(
-        name="multiscale",
-        model_class=SimpleVAEWithHyperbolic,
-        padic_loss_class=MultiscalePadicLoss,
-    ))
+    results.append(
+        run_experiment(
+            name="multiscale",
+            model_class=SimpleVAEWithHyperbolic,
+            padic_loss_class=MultiscalePadicLoss,
+        )
+    )
 
     # Dual-head architecture
     print("\n--- Dual-Head Architecture ---")
 
-    results.append(run_experiment(
-        name="dual_head_soft",
-        model_class=DualHeadVAE,
-        padic_loss_class=SoftPadicRankingLoss,
-        use_padic_head=True,
-    ))
+    results.append(
+        run_experiment(
+            name="dual_head_soft",
+            model_class=DualHeadVAE,
+            padic_loss_class=SoftPadicRankingLoss,
+            use_padic_head=True,
+        )
+    )
 
-    results.append(run_experiment(
-        name="dual_head_contrastive",
-        model_class=DualHeadVAE,
-        padic_loss_class=ContrastivePadicLoss,
-        use_padic_head=True,
-    ))
+    results.append(
+        run_experiment(
+            name="dual_head_contrastive",
+            model_class=DualHeadVAE,
+            padic_loss_class=ContrastivePadicLoss,
+            use_padic_head=True,
+        )
+    )
 
     # Print results
     print("\n" + "=" * 70)
@@ -577,8 +595,11 @@ def main():
     print("RECOMMENDATIONS")
     print("=" * 70)
 
-    improvements = [(r.name, r.spearman - baseline.spearman) for r in results
-                    if r.name != "hyperbolic_no_padic" and r.accuracy > 0.95]
+    improvements = [
+        (r.name, r.spearman - baseline.spearman)
+        for r in results
+        if r.name != "hyperbolic_no_padic" and r.accuracy > 0.95
+    ]
     improvements.sort(key=lambda x: -x[1])
 
     if improvements and improvements[0][1] > 0:

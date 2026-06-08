@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -43,7 +43,7 @@ class PredictionSet:
         threshold: Conformity score threshold
     """
 
-    sets: List[List[int]]
+    sets: list[list[int]]
     set_sizes: np.ndarray
     coverage: float
     alpha: float
@@ -92,14 +92,14 @@ class BaseConformalPredictor(ABC):
         """
         self.alpha = alpha
         self._calibrated = False
-        self._threshold: Optional[float] = None
+        self._threshold: float | None = None
 
     @abstractmethod
     def calibrate(
         self,
         cal_scores: np.ndarray,
         cal_labels: np.ndarray,
-    ) -> "BaseConformalPredictor":
+    ) -> BaseConformalPredictor:
         """Calibrate on held-out data."""
         pass
 
@@ -144,7 +144,7 @@ class SplitConformalClassifier(BaseConformalPredictor):
     def _compute_scores(
         self,
         probs: np.ndarray,
-        labels: Optional[np.ndarray] = None,
+        labels: np.ndarray | None = None,
     ) -> np.ndarray:
         """Compute conformity scores.
 
@@ -167,7 +167,7 @@ class SplitConformalClassifier(BaseConformalPredictor):
         self,
         cal_probs: np.ndarray,
         cal_labels: np.ndarray,
-    ) -> "SplitConformalClassifier":
+    ) -> SplitConformalClassifier:
         """Calibrate threshold on validation data.
 
         Args:
@@ -276,10 +276,7 @@ class AdaptiveConformalClassifier(BaseConformalPredictor):
         cumsum_before = sorted_probs[:label_pos].sum() if label_pos > 0 else 0.0
 
         # Score is cumulative probability needed to include true label
-        if self.randomize:
-            score = cumsum_before + u * probs[label]
-        else:
-            score = cumsum_before + probs[label]
+        score = cumsum_before + u * probs[label] if self.randomize else cumsum_before + probs[label]
 
         return score
 
@@ -287,7 +284,7 @@ class AdaptiveConformalClassifier(BaseConformalPredictor):
         self,
         cal_probs: np.ndarray,
         cal_labels: np.ndarray,
-    ) -> "AdaptiveConformalClassifier":
+    ) -> AdaptiveConformalClassifier:
         """Calibrate on validation data.
 
         Args:
@@ -421,7 +418,7 @@ class RAPSConformalClassifier(BaseConformalPredictor):
         self,
         cal_probs: np.ndarray,
         cal_labels: np.ndarray,
-    ) -> "RAPSConformalClassifier":
+    ) -> RAPSConformalClassifier:
         """Calibrate RAPS predictor."""
         n = len(cal_probs)
         scores = np.zeros(n)
@@ -498,7 +495,7 @@ class ConformalRegressor(BaseConformalPredictor):
         self,
         cal_preds: np.ndarray,
         cal_labels: np.ndarray,
-    ) -> "ConformalRegressor":
+    ) -> ConformalRegressor:
         """Calibrate using absolute residuals.
 
         Args:
@@ -521,7 +518,7 @@ class ConformalRegressor(BaseConformalPredictor):
     def predict(
         self,
         test_preds: np.ndarray,
-        test_labels: Optional[np.ndarray] = None,
+        test_labels: np.ndarray | None = None,
     ) -> RegressionInterval:
         """Generate prediction intervals.
 
@@ -581,7 +578,7 @@ class ConformizedQuantileRegressor(BaseConformalPredictor):
         cal_lower: np.ndarray,
         cal_upper: np.ndarray,
         cal_labels: np.ndarray,
-    ) -> "ConformizedQuantileRegressor":
+    ) -> ConformizedQuantileRegressor:
         """Calibrate using quantile predictions.
 
         Args:
@@ -607,7 +604,7 @@ class ConformizedQuantileRegressor(BaseConformalPredictor):
         self,
         test_lower: np.ndarray,
         test_upper: np.ndarray,
-        test_labels: Optional[np.ndarray] = None,
+        test_labels: np.ndarray | None = None,
     ) -> RegressionInterval:
         """Generate conformalized prediction intervals.
 
@@ -681,7 +678,7 @@ class ConformalPredictionWrapper(nn.Module):
         self,
         cal_loader: torch.utils.data.DataLoader,
         device: str = "cuda",
-    ) -> "ConformalPredictionWrapper":
+    ) -> ConformalPredictionWrapper:
         """Calibrate on validation data.
 
         Args:
@@ -707,10 +704,7 @@ class ConformalPredictionWrapper(nn.Module):
                 inputs = inputs.to(device)
                 outputs = self.model(inputs)
 
-                if isinstance(outputs, dict):
-                    logits = outputs.get("logits", outputs.get("predictions"))
-                else:
-                    logits = outputs
+                logits = outputs.get("logits", outputs.get("predictions")) if isinstance(outputs, dict) else outputs
 
                 probs = torch.softmax(logits, dim=-1)
                 all_probs.append(probs.cpu().numpy())
@@ -748,10 +742,7 @@ class ConformalPredictionWrapper(nn.Module):
         with torch.no_grad():
             outputs = self.model(x)
 
-        if isinstance(outputs, dict):
-            logits = outputs.get("logits", outputs.get("predictions"))
-        else:
-            logits = outputs
+        logits = outputs.get("logits", outputs.get("predictions")) if isinstance(outputs, dict) else outputs
 
         probs = torch.softmax(logits, dim=-1).cpu().numpy()
         return self.conformal.predict(probs)
@@ -759,7 +750,7 @@ class ConformalPredictionWrapper(nn.Module):
     def predict_with_confidence(
         self,
         x: Tensor,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get predictions with conformal confidence.
 
         Args:
@@ -773,10 +764,7 @@ class ConformalPredictionWrapper(nn.Module):
         with torch.no_grad():
             outputs = self.model(x)
 
-        if isinstance(outputs, dict):
-            logits = outputs.get("logits", outputs.get("predictions"))
-        else:
-            logits = outputs
+        logits = outputs.get("logits", outputs.get("predictions")) if isinstance(outputs, dict) else outputs
 
         probs = torch.softmax(logits, dim=-1)
         predictions = probs.argmax(dim=-1)
@@ -796,7 +784,7 @@ def evaluate_conformal_coverage(
     predictor: BaseConformalPredictor,
     test_probs: np.ndarray,
     test_labels: np.ndarray,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Evaluate conformal predictor coverage.
 
     Args:
@@ -810,10 +798,7 @@ def evaluate_conformal_coverage(
     pred_sets = predictor.predict(test_probs)
 
     # Check if true label in prediction set
-    covered = np.array([
-        test_labels[i] in pred_sets.sets[i]
-        for i in range(len(test_labels))
-    ])
+    covered = np.array([test_labels[i] in pred_sets.sets[i] for i in range(len(test_labels))])
 
     return {
         "empirical_coverage": float(covered.mean()),

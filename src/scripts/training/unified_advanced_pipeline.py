@@ -19,7 +19,7 @@ import argparse
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
@@ -39,7 +39,7 @@ class UnifiedPipelineConfig:
     # Model settings
     input_dim: int = 9
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [64, 32])
+    hidden_dims: list[int] = field(default_factory=lambda: [64, 32])
 
     # Training settings
     batch_size: int = 32
@@ -100,7 +100,7 @@ class UnifiedEncoder(nn.Module):
         if config.use_tropical_geometry:
             self.tropical_agg = TropicalSmoothMax(config.latent_dim, config.tropical_temperature)
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         h = self.base_encoder(x)
         mu = self.fc_mu(h)
         logvar = self.fc_logvar(h)
@@ -194,7 +194,7 @@ class UnifiedVAE(nn.Module):
         self.encoder = UnifiedEncoder(config)
         self.decoder = UnifiedDecoder(config)
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         mu, logvar = self.encoder(x)
         z = self.encoder.reparameterize(mu, logvar)
         x_recon = self.decoder(z)
@@ -272,9 +272,7 @@ class UnifiedLossComputer:
 
         return loss
 
-    def _padic_triplet_loss(
-        self, z: torch.Tensor, fitness: Optional[torch.Tensor] = None, **kwargs
-    ) -> torch.Tensor:
+    def _padic_triplet_loss(self, z: torch.Tensor, fitness: torch.Tensor | None = None, **kwargs) -> torch.Tensor:
         """P-adic triplet loss for structure preservation."""
         if fitness is None:
             return torch.tensor(0.0, device=z.device)
@@ -306,9 +304,7 @@ class UnifiedLossComputer:
 
         return total_loss / max(n_triplets, 1)
 
-    def _padic_ranking_loss(
-        self, z: torch.Tensor, fitness: Optional[torch.Tensor] = None, **kwargs
-    ) -> torch.Tensor:
+    def _padic_ranking_loss(self, z: torch.Tensor, fitness: torch.Tensor | None = None, **kwargs) -> torch.Tensor:
         """P-adic ranking loss for fitness correlation."""
         if fitness is None:
             return torch.tensor(0.0, device=z.device)
@@ -328,8 +324,8 @@ class UnifiedLossComputer:
         return -corr
 
     def compute_loss(
-        self, model_output: Dict[str, torch.Tensor], x: torch.Tensor, fitness: Optional[torch.Tensor] = None
-    ) -> Dict[str, torch.Tensor]:
+        self, model_output: dict[str, torch.Tensor], x: torch.Tensor, fitness: torch.Tensor | None = None
+    ) -> dict[str, torch.Tensor]:
         """Compute total loss from all modules."""
         losses = {}
 
@@ -382,9 +378,7 @@ class UnifiedTrainer:
             try:
                 from src.information.fisher_geometry import KFACOptimizer
 
-                self.optimizer = KFACOptimizer(
-                    self.model, lr=config.learning_rate, damping=0.01, update_freq=10
-                )
+                self.optimizer = KFACOptimizer(self.model, lr=config.learning_rate, damping=0.01, update_freq=10)
                 print("Using K-FAC natural gradient optimizer")
             except (ImportError, Exception) as e:
                 print(f"K-FAC not available ({e}), using Adam")
@@ -398,12 +392,12 @@ class UnifiedTrainer:
         # History
         self.history = {"losses": [], "accuracy": [], "correlation": []}
 
-    def train_epoch(self, dataloader: DataLoader, fitness_labels: Optional[torch.Tensor] = None) -> Dict[str, float]:
+    def train_epoch(self, dataloader: DataLoader, fitness_labels: torch.Tensor | None = None) -> dict[str, float]:
         """Train for one epoch."""
         self.model.train()
         epoch_losses = {}
 
-        for batch_idx, (x, labels) in enumerate(dataloader):
+        for _batch_idx, (x, labels) in enumerate(dataloader):
             x = x.to(self.device)
             labels = labels.to(self.device)
 
@@ -430,7 +424,7 @@ class UnifiedTrainer:
 
         return epoch_losses
 
-    def evaluate(self, x: torch.Tensor, labels: torch.Tensor) -> Dict[str, float]:
+    def evaluate(self, x: torch.Tensor, labels: torch.Tensor) -> dict[str, float]:
         """Evaluate model performance."""
         self.model.eval()
         with torch.no_grad():
@@ -460,9 +454,9 @@ class UnifiedTrainer:
         self,
         train_x: torch.Tensor,
         train_labels: torch.Tensor,
-        val_x: Optional[torch.Tensor] = None,
-        val_labels: Optional[torch.Tensor] = None,
-    ) -> Dict[str, Any]:
+        val_x: torch.Tensor | None = None,
+        val_labels: torch.Tensor | None = None,
+    ) -> dict[str, Any]:
         """Full training loop."""
         # Create dataloader
         dataset = TensorDataset(train_x, train_labels)
@@ -516,7 +510,7 @@ class UnifiedTrainer:
         }
 
 
-def generate_synthetic_data(n_samples: int = 1000, seq_length: int = 300) -> Tuple[torch.Tensor, torch.Tensor]:
+def generate_synthetic_data(n_samples: int = 1000, seq_length: int = 300) -> tuple[torch.Tensor, torch.Tensor]:
     """Generate synthetic biological sequence data."""
     np.random.seed(42)
 

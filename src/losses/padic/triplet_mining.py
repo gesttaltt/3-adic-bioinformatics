@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Tuple
 
 import torch
 
@@ -64,7 +63,7 @@ class TripletBatch:
             v_neg=torch.tensor([], device=device),
         )
 
-    def to_tuple(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    def to_tuple(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Convert to tuple for backward compatibility."""
         return self.anchor_idx, self.pos_idx, self.neg_idx, self.v_pos, self.v_neg
 
@@ -163,9 +162,7 @@ class TripletMiner(ABC):
         v_diff = torch.abs(v_pos - v_neg)
         return self.base_margin + self.margin_scale * v_diff
 
-    def mine_triplets(
-        self, z: torch.Tensor, batch_indices: torch.Tensor
-    ) -> TripletBatch:
+    def mine_triplets(self, z: torch.Tensor, batch_indices: torch.Tensor) -> TripletBatch:
         """Mine triplets combining hard negatives and random sampling.
 
         Args:
@@ -204,9 +201,7 @@ class TripletMiner(ABC):
 
         return TripletBatch.concat(batches)
 
-    def _mine_hard_negatives(
-        self, z: torch.Tensor, batch_indices: torch.Tensor, n_hard: int
-    ) -> TripletBatch:
+    def _mine_hard_negatives(self, z: torch.Tensor, batch_indices: torch.Tensor, n_hard: int) -> TripletBatch:
         """Mine hard negative triplets.
 
         Hard negatives are pairs where:
@@ -240,9 +235,7 @@ class TripletMiner(ABC):
             anchor_idx_val = batch_indices[anchor]
 
             # Compute 3-adic valuations from anchor to all others (vectorized)
-            v_to_all = compute_3adic_valuation_batch(
-                anchor_idx_val.expand(batch_size), batch_indices
-            )
+            v_to_all = compute_3adic_valuation_batch(anchor_idx_val.expand(batch_size), batch_indices)
 
             # Sort by valuation (high valuation = 3-adically close)
             v_sorted_idx = torch.argsort(v_to_all, descending=True)
@@ -274,10 +267,7 @@ class TripletMiner(ABC):
 
                     # Check for violation or semi-hard condition
                     margin = self.base_margin + self.margin_scale * (v_pos_val - v_neg_val)
-                    if self.semi_hard:
-                        is_hard = d_an < d_ap + margin
-                    else:
-                        is_hard = d_an <= d_ap
+                    is_hard = d_an < d_ap + margin if self.semi_hard else d_an <= d_ap
 
                     if is_hard:
                         hard_anchors.append(anchor)
@@ -302,9 +292,7 @@ class TripletMiner(ABC):
             v_neg=torch.stack(hard_v_neg),
         )
 
-    def _sample_random_triplets(
-        self, batch_indices: torch.Tensor, n_random: int, device: torch.device
-    ) -> TripletBatch:
+    def _sample_random_triplets(self, batch_indices: torch.Tensor, n_random: int, device: torch.device) -> TripletBatch:
         """Sample random valid triplets for diversity."""
         batch_size = batch_indices.size(0)
 

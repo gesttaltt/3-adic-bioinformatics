@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 
@@ -135,11 +134,13 @@ def parse_mutation_list(mut_string: str) -> list[dict]:
         mut = mut.strip()
         match = re.match(pattern, mut)
         if match:
-            mutations.append({
-                "wild_type": match.group(1),
-                "position": int(match.group(2)),
-                "mutant": match.group(3),
-            })
+            mutations.append(
+                {
+                    "wild_type": match.group(1),
+                    "position": int(match.group(2)),
+                    "mutant": match.group(3),
+                }
+            )
     return mutations
 
 
@@ -162,8 +163,8 @@ def extract_stanford_positions(df: pd.DataFrame, protein: str = "PR") -> pd.Data
     prefix_map = {"PR": "P", "RT": "RT", "IN": "IN"}
     prefix = prefix_map.get(protein.upper(), "P")
 
-    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix):].isdigit()]
-    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix):]))
+    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix) :].isdigit()]
+    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix) :]))
 
     return df[["SeqID"] + position_cols].copy()
 

@@ -17,12 +17,12 @@ import argparse
 import sys
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
 from scipy.stats import spearmanr
-import numpy as np
+from torch.utils.data import DataLoader, TensorDataset
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -30,7 +30,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.core import TERNARY
 from src.data.generation import generate_all_ternary_operations
 from src.models import TernaryVAEV5_11_PartialFreeze
-from src.utils.checkpoint import load_checkpoint_compat, get_model_state_dict
+from src.utils.checkpoint import get_model_state_dict, load_checkpoint_compat
 
 
 class SoftRadialProjection(nn.Module):
@@ -54,10 +54,9 @@ class SoftRadialProjection(nn.Module):
         self.max_valuation = max_valuation
 
         # Learnable target radii (initialized to linear spacing)
-        targets = torch.tensor([
-            outer_radius - (v / max_valuation) * (outer_radius - inner_radius)
-            for v in range(max_valuation + 1)
-        ])
+        targets = torch.tensor(
+            [outer_radius - (v / max_valuation) * (outer_radius - inner_radius) for v in range(max_valuation + 1)]
+        )
         self.target_radii = nn.Parameter(targets)
 
         # Learnable radius adjustment network
@@ -104,11 +103,14 @@ class SoftRadialProjection(nn.Module):
         val_onehot = torch.zeros(batch_size, 10, device=device)
         val_onehot.scatter_(1, valuations.long().unsqueeze(1), 1)
 
-        features = torch.cat([
-            direction,  # Angular information [batch, dim]
-            radius,     # Current radius [batch, 1]
-            val_onehot, # Valuation context [batch, 10]
-        ], dim=-1)
+        features = torch.cat(
+            [
+                direction,  # Angular information [batch, dim]
+                radius,  # Current radius [batch, 1]
+                val_onehot,  # Valuation context [batch, 10]
+            ],
+            dim=-1,
+        )
 
         # Compute adjustment factor
         adjustment = self.radius_net(features)  # [batch, 1] in [0, 1]
@@ -206,18 +208,18 @@ class GeometricPreservationLoss(nn.Module):
             separation_loss = separation_loss + violation
 
         total = (
-            self.hierarchy_weight * hierarchy_loss +
-            self.coverage_weight * coverage_loss +
-            self.richness_weight * richness_loss +
-            self.separation_weight * separation_loss
+            self.hierarchy_weight * hierarchy_loss
+            + self.coverage_weight * coverage_loss
+            + self.richness_weight * richness_loss
+            + self.separation_weight * separation_loss
         )
 
         return {
-            'total': total,
-            'hierarchy_loss': hierarchy_loss,
-            'coverage_loss': coverage_loss,
-            'richness_loss': richness_loss,
-            'separation_loss': separation_loss,
+            "total": total,
+            "hierarchy_loss": hierarchy_loss,
+            "coverage_loss": coverage_loss,
+            "richness_loss": richness_loss,
+            "separation_loss": separation_loss,
         }
 
 
@@ -251,13 +253,13 @@ class SoftRadialModel(nn.Module):
         valuations = TERNARY.valuation(indices).to(x.device)
 
         # Apply soft radial projection
-        z_adjusted = self.soft_proj(out['z_A_hyp'], valuations, alpha=alpha)
+        z_adjusted = self.soft_proj(out["z_A_hyp"], valuations, alpha=alpha)
 
         return {
-            'z_A_hyp': out['z_A_hyp'],
-            'z_adjusted': z_adjusted,
-            'mu_A': out['mu_A'],
-            'valuations': valuations,
+            "z_A_hyp": out["z_A_hyp"],
+            "z_adjusted": z_adjusted,
+            "mu_A": out["mu_A"],
+            "valuations": valuations,
         }
 
 
@@ -272,15 +274,15 @@ def compute_metrics(model, all_ops, indices, device, alpha=1.0):
 
     with torch.no_grad():
         for i in range(0, len(all_ops), batch_size):
-            batch_ops = all_ops[i:i+batch_size].to(device)
-            batch_idx = indices[i:i+batch_size].to(device)
+            batch_ops = all_ops[i : i + batch_size].to(device)
+            batch_idx = indices[i : i + batch_size].to(device)
 
             out = model(batch_ops, batch_idx, alpha=alpha)
 
-            all_radii_orig.append(out['z_A_hyp'].norm(dim=-1).cpu().numpy())
-            all_radii_adj.append(out['z_adjusted'].norm(dim=-1).cpu().numpy())
+            all_radii_orig.append(out["z_A_hyp"].norm(dim=-1).cpu().numpy())
+            all_radii_adj.append(out["z_adjusted"].norm(dim=-1).cpu().numpy())
 
-            logits = model.base_model.decoder_A(out['mu_A'])
+            logits = model.base_model.decoder_A(out["mu_A"])
             preds = torch.argmax(logits, dim=-1) - 1
             correct = (preds == batch_ops.long()).float().mean(dim=1).cpu().numpy()
             all_correct.append(correct)
@@ -308,13 +310,13 @@ def compute_metrics(model, all_ops, indices, device, alpha=1.0):
     model.train()
 
     return {
-        'coverage': coverage,
-        'hierarchy_original': hierarchy_orig,
-        'hierarchy_adjusted': hierarchy_adj,
-        'richness_original': richness_orig,
-        'richness_adjusted': richness_adj,
-        'richness_ratio': richness_adj / (richness_orig + 1e-10),
-        'unique_radii': len(np.unique(np.round(all_radii_adj, 6))),
+        "coverage": coverage,
+        "hierarchy_original": hierarchy_orig,
+        "hierarchy_adjusted": hierarchy_adj,
+        "richness_original": richness_orig,
+        "richness_adjusted": richness_adj,
+        "richness_ratio": richness_adj / (richness_orig + 1e-10),
+        "unique_radii": len(np.unique(np.round(all_radii_adj, 6))),
     }
 
 
@@ -326,14 +328,12 @@ def main():
     parser.add_argument("--hierarchy_weight", type=float, default=10.0)
     parser.add_argument("--coverage_weight", type=float, default=1.0)
     parser.add_argument("--richness_weight", type=float, default=0.5)
-    parser.add_argument("--checkpoint", type=str,
-                        default="checkpoints/radial_target/best.pt")
-    parser.add_argument("--save_dir", type=str,
-                        default="checkpoints/soft_radial")
+    parser.add_argument("--checkpoint", type=str, default="checkpoints/radial_target/best.pt")
+    parser.add_argument("--save_dir", type=str, default="checkpoints/soft_radial")
     parser.add_argument("--device", type=str, default="cuda")
     args = parser.parse_args()
 
-    device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
 
     save_dir = PROJECT_ROOT / args.save_dir
@@ -387,7 +387,9 @@ def main():
 
     # === Training with Curriculum ===
     print("\n=== Starting Training ===")
-    print(f"Weights: hierarchy={args.hierarchy_weight}, coverage={args.coverage_weight}, richness={args.richness_weight}")
+    print(
+        f"Weights: hierarchy={args.hierarchy_weight}, coverage={args.coverage_weight}, richness={args.richness_weight}"
+    )
 
     best_score = 0.0
 
@@ -397,7 +399,7 @@ def main():
         # Curriculum: gradually increase alpha from 0.5 to 1.0
         alpha = min(0.5 + 0.5 * (epoch / args.epochs), 1.0)
 
-        epoch_losses = {'total': 0, 'hierarchy': 0, 'coverage': 0, 'richness': 0}
+        epoch_losses = {"total": 0, "hierarchy": 0, "coverage": 0, "richness": 0}
         n_batches = 0
 
         for batch_ops, batch_idx in dataloader:
@@ -405,13 +407,13 @@ def main():
             batch_idx = batch_idx.to(device)
 
             out = model(batch_ops, batch_idx, alpha=alpha)
-            valuations = out['valuations']
+            valuations = out["valuations"]
 
-            logits = model.base_model.decoder_A(out['mu_A'])
+            logits = model.base_model.decoder_A(out["mu_A"])
 
             losses = loss_fn(
-                out['z_adjusted'],
-                out['z_A_hyp'],
+                out["z_adjusted"],
+                out["z_A_hyp"],
                 valuations,
                 model.soft_proj.target_radii,
                 logits,
@@ -419,14 +421,14 @@ def main():
             )
 
             optimizer.zero_grad()
-            losses['total'].backward()
+            losses["total"].backward()
             torch.nn.utils.clip_grad_norm_(model.soft_proj.parameters(), 1.0)
             optimizer.step()
 
-            epoch_losses['total'] += losses['total'].item()
-            epoch_losses['hierarchy'] += losses['hierarchy_loss'].item()
-            epoch_losses['coverage'] += losses['coverage_loss'].item()
-            epoch_losses['richness'] += losses['richness_loss'].item()
+            epoch_losses["total"] += losses["total"].item()
+            epoch_losses["hierarchy"] += losses["hierarchy_loss"].item()
+            epoch_losses["coverage"] += losses["coverage_loss"].item()
+            epoch_losses["richness"] += losses["richness_loss"].item()
             n_batches += 1
 
         scheduler.step()
@@ -438,37 +440,43 @@ def main():
             metrics = compute_metrics(model, all_ops, indices, device, alpha=1.0)
 
             # Score: hierarchy (negative, want close to -1) + richness preservation
-            score = abs(metrics['hierarchy_adjusted']) + 0.2 * metrics['richness_ratio']
+            score = abs(metrics["hierarchy_adjusted"]) + 0.2 * metrics["richness_ratio"]
 
             print(f"\nEpoch {epoch}/{args.epochs} (alpha={alpha:.2f})")
             print(f"  Loss: {epoch_losses['total']:.4f}")
             print(f"  Hierarchy: {metrics['hierarchy_original']:.4f} -> {metrics['hierarchy_adjusted']:.4f}")
             print(f"  Richness ratio: {metrics['richness_ratio']:.4f} (target: ~0.3)")
             print(f"  Unique radii: {metrics['unique_radii']}")
-            print(f"  Coverage: {metrics['coverage']*100:.2f}%")
+            print(f"  Coverage: {metrics['coverage'] * 100:.2f}%")
 
             if score > best_score:
                 best_score = score
                 print(f"  [NEW BEST: score={score:.4f}]")
 
-                torch.save({
-                    'epoch': epoch,
-                    'soft_proj_state_dict': model.soft_proj.state_dict(),
-                    'base_checkpoint': args.checkpoint,
-                    'metrics': metrics,
-                    'config': vars(args),
-                }, save_dir / 'best.pt')
+                torch.save(
+                    {
+                        "epoch": epoch,
+                        "soft_proj_state_dict": model.soft_proj.state_dict(),
+                        "base_checkpoint": args.checkpoint,
+                        "metrics": metrics,
+                        "config": vars(args),
+                    },
+                    save_dir / "best.pt",
+                )
 
-            torch.save({
-                'epoch': epoch,
-                'soft_proj_state_dict': model.soft_proj.state_dict(),
-                'metrics': metrics,
-            }, save_dir / 'latest.pt')
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "soft_proj_state_dict": model.soft_proj.state_dict(),
+                    "metrics": metrics,
+                },
+                save_dir / "latest.pt",
+            )
 
     print("\n=== Training Complete ===")
     print(f"Best score: {best_score:.4f}")
     print(f"Saved to: {save_dir}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

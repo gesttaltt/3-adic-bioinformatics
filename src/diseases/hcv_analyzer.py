@@ -37,7 +37,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -61,10 +61,10 @@ class HCVGenotype(Enum):
 class HCVGene(Enum):
     """HCV genes relevant for DAA resistance."""
 
-    NS3 = "NS3"      # Protease - target for PIs
-    NS4A = "NS4A"    # Protease cofactor
-    NS5A = "NS5A"    # Replication complex - target for NS5A inhibitors
-    NS5B = "NS5B"    # Polymerase - target for nucleos(t)ide/non-nucleoside inhibitors
+    NS3 = "NS3"  # Protease - target for PIs
+    NS4A = "NS4A"  # Protease cofactor
+    NS5A = "NS5A"  # Replication complex - target for NS5A inhibitors
+    NS5B = "NS5B"  # Polymerase - target for nucleos(t)ide/non-nucleoside inhibitors
 
 
 class HCVDrug(Enum):
@@ -99,15 +99,19 @@ class HCVConfig(DiseaseConfig):
     name: str = "hcv"
     display_name: str = "Hepatitis C Virus"
     disease_type: DiseaseType = DiseaseType.VIRAL
-    tasks: list[TaskType] = field(default_factory=lambda: [
-        TaskType.RESISTANCE,
-    ])
+    tasks: list[TaskType] = field(
+        default_factory=lambda: [
+            TaskType.RESISTANCE,
+        ]
+    )
 
-    data_sources: dict[str, str] = field(default_factory=lambda: {
-        "hcv_glue": "http://hcv-glue.cvr.gla.ac.uk/",
-        "easl": "https://easl.eu/",
-        "aasld_idsa": "https://www.hcvguidelines.org/",
-    })
+    data_sources: dict[str, str] = field(
+        default_factory=lambda: {
+            "hcv_glue": "http://hcv-glue.cvr.gla.ac.uk/",
+            "easl": "https://easl.eu/",
+            "aasld_idsa": "https://www.hcvguidelines.org/",
+        }
+    )
 
 
 # NS3 Protease Inhibitor Resistance-Associated Substitutions (RAS)
@@ -119,12 +123,26 @@ NS3_RAS_GT1A = {
     43: {"Q": {"mutations": ["K", "R"], "effect": "low", "drugs": ["paritaprevir"]}},
     54: {"T": {"mutations": ["A", "S"], "effect": "moderate", "drugs": ["paritaprevir", "grazoprevir"]}},
     55: {"V": {"mutations": ["A", "I"], "effect": "low", "drugs": ["paritaprevir"]}},
-    56: {"Y": {"mutations": ["H", "F"], "effect": "high", "drugs": ["simeprevir", "grazoprevir", "glecaprevir", "voxilaprevir"]}},
+    56: {
+        "Y": {
+            "mutations": ["H", "F"],
+            "effect": "high",
+            "drugs": ["simeprevir", "grazoprevir", "glecaprevir", "voxilaprevir"],
+        }
+    },
     80: {"Q": {"mutations": ["K", "R", "L"], "effect": "moderate", "drugs": ["simeprevir"]}},
     122: {"S": {"mutations": ["G", "R"], "effect": "low", "drugs": ["simeprevir"]}},
-    155: {"R": {"mutations": ["K", "T", "S"], "effect": "high", "drugs": ["simeprevir", "paritaprevir", "grazoprevir"]}},
+    155: {
+        "R": {"mutations": ["K", "T", "S"], "effect": "high", "drugs": ["simeprevir", "paritaprevir", "grazoprevir"]}
+    },
     156: {"A": {"mutations": ["G", "T", "V", "S"], "effect": "high", "drugs": ["all_pi"]}},
-    168: {"D": {"mutations": ["A", "E", "G", "H", "K", "N", "T", "V", "Y"], "effect": "high", "drugs": ["simeprevir", "paritaprevir", "grazoprevir", "glecaprevir", "voxilaprevir"]}},
+    168: {
+        "D": {
+            "mutations": ["A", "E", "G", "H", "K", "N", "T", "V", "Y"],
+            "effect": "high",
+            "drugs": ["simeprevir", "paritaprevir", "grazoprevir", "glecaprevir", "voxilaprevir"],
+        }
+    },
     170: {"I": {"mutations": ["V", "T"], "effect": "low", "drugs": ["simeprevir"]}},
     175: {"M": {"mutations": ["L"], "effect": "low", "drugs": ["paritaprevir"]}},
 }
@@ -144,21 +162,51 @@ NS3_RAS_GT1B = {
 # NS5A Resistance-Associated Substitutions
 NS5A_RAS_GT1A = {
     24: {"K": {"mutations": ["R"], "effect": "low", "drugs": ["ledipasvir"]}},
-    28: {"M": {"mutations": ["T", "V", "A"], "effect": "high", "drugs": ["ledipasvir", "daclatasvir", "elbasvir", "velpatasvir"]}},
+    28: {
+        "M": {
+            "mutations": ["T", "V", "A"],
+            "effect": "high",
+            "drugs": ["ledipasvir", "daclatasvir", "elbasvir", "velpatasvir"],
+        }
+    },
     29: {"P": {"mutations": ["R"], "effect": "low", "drugs": ["daclatasvir"]}},
-    30: {"L": {"mutations": ["R", "H", "K", "S", "Q"], "effect": "high", "drugs": ["ledipasvir", "daclatasvir", "elbasvir", "velpatasvir"]}},
-    31: {"L": {"mutations": ["M", "V", "F"], "effect": "high", "drugs": ["ledipasvir", "daclatasvir", "elbasvir", "velpatasvir"]}},
+    30: {
+        "L": {
+            "mutations": ["R", "H", "K", "S", "Q"],
+            "effect": "high",
+            "drugs": ["ledipasvir", "daclatasvir", "elbasvir", "velpatasvir"],
+        }
+    },
+    31: {
+        "L": {
+            "mutations": ["M", "V", "F"],
+            "effect": "high",
+            "drugs": ["ledipasvir", "daclatasvir", "elbasvir", "velpatasvir"],
+        }
+    },
     32: {"P": {"mutations": ["L"], "effect": "low", "drugs": ["daclatasvir"]}},
     58: {"H": {"mutations": ["D"], "effect": "moderate", "drugs": ["ledipasvir", "daclatasvir", "elbasvir"]}},
     62: {"S": {"mutations": ["L"], "effect": "low", "drugs": ["daclatasvir"]}},
     92: {"A": {"mutations": ["K", "T"], "effect": "moderate", "drugs": ["elbasvir", "pibrentasvir"]}},
-    93: {"Y": {"mutations": ["C", "F", "H", "N", "S"], "effect": "high", "drugs": ["ledipasvir", "daclatasvir", "elbasvir", "velpatasvir"]}},
+    93: {
+        "Y": {
+            "mutations": ["C", "F", "H", "N", "S"],
+            "effect": "high",
+            "drugs": ["ledipasvir", "daclatasvir", "elbasvir", "velpatasvir"],
+        }
+    },
 }
 
 NS5A_RAS_GT1B = {
     28: {"L": {"mutations": ["M", "T"], "effect": "moderate", "drugs": ["daclatasvir"]}},
     30: {"L": {"mutations": ["R"], "effect": "low", "drugs": ["daclatasvir"]}},
-    31: {"L": {"mutations": ["M", "V", "F", "I"], "effect": "high", "drugs": ["ledipasvir", "daclatasvir", "ombitasvir", "elbasvir"]}},
+    31: {
+        "L": {
+            "mutations": ["M", "V", "F", "I"],
+            "effect": "high",
+            "drugs": ["ledipasvir", "daclatasvir", "ombitasvir", "elbasvir"],
+        }
+    },
     54: {"P": {"mutations": ["S"], "effect": "low", "drugs": ["daclatasvir"]}},
     58: {"H": {"mutations": ["D"], "effect": "low", "drugs": ["daclatasvir"]}},
     92: {"A": {"mutations": ["K"], "effect": "moderate", "drugs": ["elbasvir"]}},
@@ -202,7 +250,7 @@ class HCVAnalyzer(DiseaseAnalyzer):
     - Treatment regimen recommendations
     """
 
-    def __init__(self, config: Optional[HCVConfig] = None):
+    def __init__(self, config: HCVConfig | None = None):
         """Initialize analyzer."""
         self.config = config or HCVConfig()
         super().__init__(self.config)
@@ -214,7 +262,7 @@ class HCVAnalyzer(DiseaseAnalyzer):
         self,
         sequences: dict[HCVGene, list[str]],
         genotype: HCVGenotype = HCVGenotype.GT1A,
-        embeddings: Optional[torch.Tensor] = None,
+        embeddings: torch.Tensor | None = None,
         **kwargs,
     ) -> dict[str, Any]:
         """Analyze HCV sequences for drug resistance.
@@ -230,26 +278,20 @@ class HCVAnalyzer(DiseaseAnalyzer):
         results = {
             "n_sequences": len(next(iter(sequences.values()))) if sequences else 0,
             "genotype": genotype.value,
-            "genes_analyzed": [g.value for g in sequences.keys()],
+            "genes_analyzed": [g.value for g in sequences],
             "drug_resistance": {},
             "ras_summary": {},
         }
 
         # Analyze each gene
         if HCVGene.NS3 in sequences:
-            results["drug_resistance"]["NS3_PI"] = self._analyze_ns3(
-                sequences[HCVGene.NS3], genotype
-            )
+            results["drug_resistance"]["NS3_PI"] = self._analyze_ns3(sequences[HCVGene.NS3], genotype)
 
         if HCVGene.NS5A in sequences:
-            results["drug_resistance"]["NS5A_inhibitors"] = self._analyze_ns5a(
-                sequences[HCVGene.NS5A], genotype
-            )
+            results["drug_resistance"]["NS5A_inhibitors"] = self._analyze_ns5a(sequences[HCVGene.NS5A], genotype)
 
         if HCVGene.NS5B in sequences:
-            results["drug_resistance"]["NS5B_inhibitors"] = self._analyze_ns5b(
-                sequences[HCVGene.NS5B]
-            )
+            results["drug_resistance"]["NS5B_inhibitors"] = self._analyze_ns5b(sequences[HCVGene.NS5B])
 
         # RAS summary
         results["ras_summary"] = self._summarize_ras(results["drug_resistance"])
@@ -330,14 +372,16 @@ class HCVAnalyzer(DiseaseAnalyzer):
                     drugs = info[ref_aa].get("drugs", [])
                     drugs_affected.update(drugs)
 
-                    mutations.append({
-                        "position": pos,
-                        "ref": ref_aa,
-                        "alt": seq_aa,
-                        "effect": effect,
-                        "drugs": drugs,
-                        "notation": f"{ref_aa}{pos}{seq_aa}",
-                    })
+                    mutations.append(
+                        {
+                            "position": pos,
+                            "ref": ref_aa,
+                            "alt": seq_aa,
+                            "effect": effect,
+                            "drugs": drugs,
+                            "notation": f"{ref_aa}{pos}{seq_aa}",
+                        }
+                    )
 
             # Normalize
             max_score = 5.0
@@ -381,13 +425,9 @@ class HCVAnalyzer(DiseaseAnalyzer):
 
         # Treatment recommendations
         if "sofosbuvir" in summary["drugs_with_resistance"]:
-            summary["treatment_considerations"].append(
-                "S282T detected - consider extended treatment duration"
-            )
+            summary["treatment_considerations"].append("S282T detected - consider extended treatment duration")
         if summary["high_impact_ras"] > 2:
-            summary["treatment_considerations"].append(
-                "Multiple high-impact RAS - consider pan-genotypic regimen"
-            )
+            summary["treatment_considerations"].append("Multiple high-impact RAS - consider pan-genotypic regimen")
 
         return summary
 
@@ -464,8 +504,12 @@ def create_hcv_synthetic_dataset(
 
 
 # Helper method for encoding
-HCVAnalyzer.encode_sequence = lambda self, seq, max_len=100: np.array([
-    1.0 if i == self.aa_to_idx.get(aa.upper(), self.aa_to_idx["X"]) else 0.0
-    for j, aa in enumerate(seq[:max_len])
-    for i in range(len(self.aa_alphabet))
-] + [0.0] * (max_len - len(seq)) * len(self.aa_alphabet), dtype=np.float32)[:max_len * len(self.aa_alphabet)]
+HCVAnalyzer.encode_sequence = lambda self, seq, max_len=100: np.array(
+    [
+        1.0 if i == self.aa_to_idx.get(aa.upper(), self.aa_to_idx["X"]) else 0.0
+        for j, aa in enumerate(seq[:max_len])
+        for i in range(len(self.aa_alphabet))
+    ]
+    + [0.0] * (max_len - len(seq)) * len(self.aa_alphabet),
+    dtype=np.float32,
+)[: max_len * len(self.aa_alphabet)]

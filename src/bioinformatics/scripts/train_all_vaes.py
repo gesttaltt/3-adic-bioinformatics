@@ -14,19 +14,20 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parents[3]))
 
 import argparse
-import torch
 from datetime import datetime
 
+import torch
+
+from src.bioinformatics.data.proteingym_loader import ProteinGymLoader
 from src.bioinformatics.data.protherm_loader import ProThermLoader
 from src.bioinformatics.data.s669_loader import S669Loader
-from src.bioinformatics.data.proteingym_loader import ProteinGymLoader
-from src.bioinformatics.training.train_ddg_vae import (
-    train_vae_s669,
-    train_vae_protherm,
-    train_vae_wide,
-    TrainingConfig,
-)
 from src.bioinformatics.training.deterministic import DeterministicConfig
+from src.bioinformatics.training.train_ddg_vae import (
+    TrainingConfig,
+    train_vae_protherm,
+    train_vae_s669,
+    train_vae_wide,
+)
 
 
 def main():
@@ -77,7 +78,7 @@ def main():
     s669_dataset = s669_loader.create_dataset(s669_records)
     print(f"S669 dataset: {len(s669_dataset)} samples, {s669_dataset.feature_dim} features")
 
-    vae_s669 = train_vae_s669(
+    train_vae_s669(
         dataset=s669_dataset,
         output_dir=base_output / "vae_s669",
         config=quick_config,
@@ -109,7 +110,7 @@ def main():
             deterministic=DeterministicConfig(seed=42),
         )
 
-    vae_protherm = train_vae_protherm(
+    train_vae_protherm(
         dataset=protherm_dataset,
         output_dir=base_output / "vae_protherm",
         config=protherm_config,
@@ -126,9 +127,7 @@ def main():
         print("[3/3] Training VAE-Wide (Diversity Specialist)")
         print("=" * 60)
 
-        pg_loader = ProteinGymLoader(
-            data_dir=Path("data/bioinformatics/ddg/proteingym/DMS_ProteinGym_substitutions")
-        )
+        pg_loader = ProteinGymLoader(data_dir=Path("data/bioinformatics/ddg/proteingym/DMS_ProteinGym_substitutions"))
 
         # Load subset for training (full dataset is too large for memory)
         max_records = 10000 if args.quick else 100000
@@ -149,7 +148,7 @@ def main():
                 deterministic=DeterministicConfig(seed=42),
             )
 
-        vae_wide = train_vae_wide(
+        train_vae_wide(
             dataset=pg_dataset,
             output_dir=base_output / "vae_wide",
             config=wide_config,

@@ -12,7 +12,6 @@ Contains 2,116 characterized epitopes with HLA restrictions.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 
@@ -93,7 +92,7 @@ def parse_hla_restrictions(hla_string: str) -> list[str]:
     return hla_list
 
 
-def get_epitopes_by_protein(df: Optional[pd.DataFrame] = None, protein: str = "Gag") -> pd.DataFrame:
+def get_epitopes_by_protein(df: pd.DataFrame | None = None, protein: str = "Gag") -> pd.DataFrame:
     """
     Get epitopes for a specific HIV protein.
 
@@ -113,7 +112,7 @@ def get_epitopes_by_protein(df: Optional[pd.DataFrame] = None, protein: str = "G
     return df[df["Protein"].str.contains(protein, case=False, na=False)].copy()
 
 
-def get_epitopes_by_hla(df: Optional[pd.DataFrame] = None, hla: str = "A*02:01") -> pd.DataFrame:
+def get_epitopes_by_hla(df: pd.DataFrame | None = None, hla: str = "A*02:01") -> pd.DataFrame:
     """
     Get epitopes restricted by a specific HLA type.
 
@@ -133,7 +132,7 @@ def get_epitopes_by_hla(df: Optional[pd.DataFrame] = None, hla: str = "A*02:01")
     return df[df["HLA"].str.contains(hla, case=False, na=False)].copy()
 
 
-def get_epitope_coverage_by_hla(df: Optional[pd.DataFrame] = None) -> pd.DataFrame:
+def get_epitope_coverage_by_hla(df: pd.DataFrame | None = None) -> pd.DataFrame:
     """
     Calculate epitope coverage for each HLA type.
 
@@ -156,17 +155,16 @@ def get_epitope_coverage_by_hla(df: Optional[pd.DataFrame] = None) -> pd.DataFra
         for hla in parse_hla_restrictions(hla_string):
             hla_counts[hla] = hla_counts.get(hla, 0) + 1
 
-    result = pd.DataFrame([
-        {"HLA": hla, "epitope_count": count}
-        for hla, count in sorted(hla_counts.items(), key=lambda x: -x[1])
-    ])
+    result = pd.DataFrame(
+        [{"HLA": hla, "epitope_count": count} for hla, count in sorted(hla_counts.items(), key=lambda x: -x[1])]
+    )
 
     result["percentage"] = 100 * result["epitope_count"] / len(df)
     return result
 
 
 def get_conserved_epitopes(
-    df: Optional[pd.DataFrame] = None,
+    df: pd.DataFrame | None = None,
     min_subtypes: int = 3,
 ) -> pd.DataFrame:
     """

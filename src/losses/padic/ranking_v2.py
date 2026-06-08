@@ -15,8 +15,6 @@ Single responsibility: Enhanced Euclidean ranking with hard negatives.
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -84,9 +82,7 @@ class PAdicRankingLossV2(nn.Module):
             semi_hard=semi_hard,
         )
 
-    def forward(
-        self, z: torch.Tensor, batch_indices: torch.Tensor
-    ) -> Tuple[torch.Tensor, Dict[str, float]]:
+    def forward(self, z: torch.Tensor, batch_indices: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
         """Compute enhanced p-Adic ranking loss.
 
         Args:
@@ -119,9 +115,7 @@ class PAdicRankingLossV2(nn.Module):
             }
 
         # Compute hierarchical margin
-        hierarchical_margin = self.miner.compute_hierarchical_margin(
-            triplets.v_pos, triplets.v_neg
-        )
+        hierarchical_margin = self.miner.compute_hierarchical_margin(triplets.v_pos, triplets.v_neg)
 
         # V5.12.2: Compute latent distances (Euclidean or Hyperbolic)
         if self.use_hyperbolic:

@@ -21,26 +21,26 @@ See README.md for detailed documentation.
 """
 
 from src.bioinformatics.data import (
+    DatasetRegistry,
+    ProteinGymLoader,
     ProThermLoader,
     S669Loader,
-    ProteinGymLoader,
-    DatasetRegistry,
+)
+from src.bioinformatics.evaluation import (
+    BenchmarkRunner,
+    CrossValidator,
+    DDGMetrics,
 )
 from src.bioinformatics.models import (
     DDGVAE,
-    MultimodalDDGVAE,
+    DDGEnsemble,
     DDGMLPRefiner,
     DDGTransformer,
-    DDGEnsemble,
+    MultimodalDDGVAE,
 )
 from src.bioinformatics.training import (
-    set_deterministic_mode,
     get_deterministic_dataloader,
-)
-from src.bioinformatics.evaluation import (
-    DDGMetrics,
-    CrossValidator,
-    BenchmarkRunner,
+    set_deterministic_mode,
 )
 
 __version__ = "1.0.0"

@@ -50,40 +50,14 @@ Example:
     >>> embeddings = codon_enc.encode_sequence("ATGCGA")
 """
 
-from .circadian_encoder import (CircadianCycleEncoder, KaiCClockEncoder,
-                                ToroidalEmbedding)
+from .alphafold_encoder import (
+    AlphaFoldEncoder,
+    AlphaFoldFeatureExtractor,
+    AlphaFoldStructure,
+    AlphaFoldStructureLoader,
+)
+from .circadian_encoder import CircadianCycleEncoder, KaiCClockEncoder, ToroidalEmbedding
 from .codon_encoder import CodonEncoder
-from .hyperbolic_codon_encoder import (
-    HyperbolicCodonEncoder,
-    compute_codon_padic_valuation,
-    compute_target_radius,
-    extract_codon_embeddings_from_vae,
-)
-from .trainable_codon_encoder import (
-    TrainableCodonEncoder,
-    train_codon_encoder,
-    codon_to_onehot_12dim,
-    compute_codon_hierarchy_level,
-)
-from .hybrid_encoder import (
-    CrossAttentionFusion,
-    GatedFusion,
-    HybridCodonEncoder,
-    HybridEncoderConfig,
-    HybridEncoderFactory,
-    PLMBackend,
-)
-from .multiscale_nucleotide_encoder import (
-    CodonJunctionEncoder,
-    DinucleotideEncoder,
-    LocalStructureEncoder,
-    MultiScaleConfig,
-    MultiScaleEncoderFactory,
-    MultiScaleNucleotideEncoder,
-    NucleotideEmbedding,
-    RibosomeSiteEncoder,
-    WobblePositionEncoder,
-)
 from .diffusion_encoder import (
     DiffusionMapEncoder,
     DiffusionMapResult,
@@ -107,26 +81,31 @@ from .holographic_encoder import (
     MultiScaleGraphFeatures,
     PPINetworkEncoder,
 )
-from .motor_encoder import (ATPSynthaseEncoder, RotaryPositionEncoder,
-                            TernaryMotorEncoder)
-from .ptm_encoder import (GoldilocksZone, PTMDataset, PTMGoldilocksEncoder,
-                          PTMType)
-from .surface_encoder import (
-    GeodesicConv,
-    MaSIFEncoder,
-    PAdicSurfaceAttention,
-    SurfaceComplementarity,
-    SurfaceEncoderOutput,
-    SurfaceFeatureExtractor,
-    SurfaceInteractionPredictor,
-    SurfacePatchEncoder,
+from .hybrid_encoder import (
+    CrossAttentionFusion,
+    GatedFusion,
+    HybridCodonEncoder,
+    HybridEncoderConfig,
+    HybridEncoderFactory,
+    PLMBackend,
 )
-from .tam_aware_encoder import (
-    TAMAwareEncoder,
-    TAM_PATHWAYS,
-    NRTIFeatureExtractor,
-    detect_tam_patterns,
-    extract_tam_features,
+from .hyperbolic_codon_encoder import (
+    HyperbolicCodonEncoder,
+    compute_codon_padic_valuation,
+    compute_target_radius,
+    extract_codon_embeddings_from_vae,
+)
+from .motor_encoder import ATPSynthaseEncoder, RotaryPositionEncoder, TernaryMotorEncoder
+from .multiscale_nucleotide_encoder import (
+    CodonJunctionEncoder,
+    DinucleotideEncoder,
+    LocalStructureEncoder,
+    MultiScaleConfig,
+    MultiScaleEncoderFactory,
+    MultiScaleNucleotideEncoder,
+    NucleotideEmbedding,
+    RibosomeSiteEncoder,
+    WobblePositionEncoder,
 )
 from .padic_amino_acid_encoder import (
     AA_TO_GROUP,
@@ -140,11 +119,29 @@ from .padic_amino_acid_encoder import (
     compute_5adic_distance,
     compute_5adic_distance_matrix,
 )
-from .alphafold_encoder import (
-    AlphaFoldEncoder,
-    AlphaFoldStructureLoader,
-    AlphaFoldStructure,
-    AlphaFoldFeatureExtractor,
+from .ptm_encoder import GoldilocksZone, PTMDataset, PTMGoldilocksEncoder, PTMType
+from .surface_encoder import (
+    GeodesicConv,
+    MaSIFEncoder,
+    PAdicSurfaceAttention,
+    SurfaceComplementarity,
+    SurfaceEncoderOutput,
+    SurfaceFeatureExtractor,
+    SurfaceInteractionPredictor,
+    SurfacePatchEncoder,
+)
+from .tam_aware_encoder import (
+    TAM_PATHWAYS,
+    NRTIFeatureExtractor,
+    TAMAwareEncoder,
+    detect_tam_patterns,
+    extract_tam_features,
+)
+from .trainable_codon_encoder import (
+    TrainableCodonEncoder,
+    codon_to_onehot_12dim,
+    compute_codon_hierarchy_level,
+    train_codon_encoder,
 )
 
 __all__ = [

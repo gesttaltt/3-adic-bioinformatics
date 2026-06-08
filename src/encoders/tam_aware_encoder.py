@@ -14,7 +14,6 @@ Reference: Stanford HIVDB TAM interpretation guidelines.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import pandas as pd
@@ -25,8 +24,8 @@ class MutationPattern:
     """A pattern of mutations with associated resistance."""
 
     name: str
-    mutations: List[str]  # e.g., ["M41L", "L210W", "T215Y"]
-    affected_drugs: List[str]
+    mutations: list[str]  # e.g., ["M41L", "L210W", "T215Y"]
+    affected_drugs: list[str]
     resistance_level: str  # "low", "intermediate", "high"
     description: str
 
@@ -132,7 +131,7 @@ NRTI_KEY_POSITIONS = [
 ]
 
 
-def parse_mutation(mutation: str) -> Tuple[str, int, str]:
+def parse_mutation(mutation: str) -> tuple[str, int, str]:
     """Parse mutation string like 'M41L' into (ref_aa, position, mut_aa)."""
     if len(mutation) < 3:
         return ("", 0, "")
@@ -143,7 +142,7 @@ def parse_mutation(mutation: str) -> Tuple[str, int, str]:
     return (ref_aa, position, mut_aa)
 
 
-def detect_tam_patterns(sequence_mutations: Set[str]) -> Dict[str, float]:
+def detect_tam_patterns(sequence_mutations: set[str]) -> dict[str, float]:
     """Detect TAM patterns in a mutation set.
 
     Args:
@@ -173,7 +172,7 @@ def detect_tam_patterns(sequence_mutations: Set[str]) -> Dict[str, float]:
     return pattern_scores
 
 
-def extract_tam_features(row: pd.Series, position_cols: List[str]) -> np.ndarray:
+def extract_tam_features(row: pd.Series, position_cols: list[str]) -> np.ndarray:
     """Extract TAM-aware features from a data row.
 
     Args:
@@ -267,7 +266,7 @@ def extract_tam_features(row: pd.Series, position_cols: List[str]) -> np.ndarray
 class TAMAwareEncoder:
     """Encoder that combines one-hot encoding with TAM features."""
 
-    def __init__(self, position_cols: List[str], aa_alphabet: str = "ACDEFGHIKLMNPQRSTVWY*-"):
+    def __init__(self, position_cols: list[str], aa_alphabet: str = "ACDEFGHIKLMNPQRSTVWY*-"):
         """Initialize encoder.
 
         Args:
@@ -318,7 +317,7 @@ class TAMAwareEncoder:
         return encoded
 
 
-def create_drug_specific_features(drug: str) -> List[str]:
+def create_drug_specific_features(drug: str) -> list[str]:
     """Get TAM patterns most relevant for a specific drug.
 
     Args:
@@ -336,7 +335,7 @@ def create_drug_specific_features(drug: str) -> List[str]:
     return relevant_patterns
 
 
-def get_expected_resistance_impact(drug: str) -> Dict[str, str]:
+def get_expected_resistance_impact(drug: str) -> dict[str, str]:
     """Get expected impact of each TAM pattern on a drug.
 
     Returns dict mapping pattern name to impact level.
@@ -355,7 +354,7 @@ def get_expected_resistance_impact(drug: str) -> Dict[str, str]:
 class NRTIFeatureExtractor:
     """Complete feature extractor for NRTI resistance prediction."""
 
-    def __init__(self, position_cols: List[str], target_drug: str):
+    def __init__(self, position_cols: list[str], target_drug: str):
         """Initialize extractor.
 
         Args:
@@ -405,7 +404,7 @@ if __name__ == "__main__":
     # Show feature dimensions
     test_cols = [f"RT{p}" for p in range(1, 561)]
     encoder = TAMAwareEncoder(test_cols)
-    print(f"\nFeature dimensions:")
+    print("\nFeature dimensions:")
     print(f"  One-hot: {encoder.onehot_dim}")
     print(f"  TAM features: {encoder.tam_dim}")
     print(f"  Total: {encoder.total_dim}")

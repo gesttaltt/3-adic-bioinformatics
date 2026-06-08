@@ -19,12 +19,11 @@ import argparse
 import sys
 from pathlib import Path
 
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
-from scipy.stats import spearmanr
 import numpy as np
+import torch
+import torch.optim as optim
+from scipy.stats import spearmanr
+from torch.utils.data import DataLoader, TensorDataset
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -34,7 +33,7 @@ from src.data.generation import generate_all_ternary_operations
 from src.losses import RichHierarchyLoss
 from src.models import TernaryVAEV5_11_PartialFreeze
 from src.models.homeostasis import HomeostasisController, compute_Q
-from src.utils.checkpoint import load_checkpoint_compat, get_model_state_dict
+from src.utils.checkpoint import get_model_state_dict, load_checkpoint_compat
 
 
 def compute_metrics(model, all_ops, indices, device):
@@ -48,15 +47,15 @@ def compute_metrics(model, all_ops, indices, device):
 
     with torch.no_grad():
         for i in range(0, len(all_ops), batch_size):
-            batch_ops = all_ops[i:i+batch_size].to(device)
+            batch_ops = all_ops[i : i + batch_size].to(device)
 
             out = model(batch_ops, compute_control=False)
-            z_A = out['z_A_hyp']
+            z_A = out["z_A_hyp"]
 
             all_radii.append(z_A.norm(dim=-1).cpu().numpy())
             all_z.append(z_A.cpu().numpy())
 
-            logits = model.decoder_A(out['mu_A'])
+            logits = model.decoder_A(out["mu_A"])
             preds = torch.argmax(logits, dim=-1) - 1
             correct = (preds == batch_ops.long()).float().mean(dim=1).cpu().numpy()
             all_correct.append(correct)
@@ -97,13 +96,13 @@ def compute_metrics(model, all_ops, indices, device):
     model.train()
 
     return {
-        'coverage': coverage,
-        'hierarchy': hierarchy,
-        'richness': richness,
-        'dist_corr': dist_corr,
-        'Q': compute_Q(dist_corr, hierarchy),
-        'r_v0': all_radii[valuations == 0].mean(),
-        'r_v9': all_radii[valuations == 9].mean() if (valuations == 9).any() else np.nan,
+        "coverage": coverage,
+        "hierarchy": hierarchy,
+        "richness": richness,
+        "dist_corr": dist_corr,
+        "Q": compute_Q(dist_corr, hierarchy),
+        "r_v0": all_radii[valuations == 0].mean(),
+        "r_v9": all_radii[valuations == 9].mean() if (valuations == 9).any() else np.nan,
     }
 
 
@@ -112,14 +111,12 @@ def main():
     parser.add_argument("--epochs", type=int, default=150)
     parser.add_argument("--batch_size", type=int, default=512)
     parser.add_argument("--lr", type=float, default=5e-4)
-    parser.add_argument("--checkpoint", type=str,
-                        default="checkpoints/v5_11_homeostasis/best.pt")
-    parser.add_argument("--save_dir", type=str,
-                        default="checkpoints/homeostatic_rich")
+    parser.add_argument("--checkpoint", type=str, default="checkpoints/v5_11_homeostasis/best.pt")
+    parser.add_argument("--save_dir", type=str, default="checkpoints/homeostatic_rich")
     parser.add_argument("--device", type=str, default="cuda")
     args = parser.parse_args()
 
-    device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
 
     save_dir = PROJECT_ROOT / args.save_dir
@@ -168,9 +165,9 @@ def main():
         model.eval()
         original_radii_list = []
         for i in range(0, len(all_ops), 4096):
-            batch = all_ops[i:i+4096].to(device)
+            batch = all_ops[i : i + 4096].to(device)
             out = model(batch, compute_control=False)
-            original_radii_list.append(out['z_A_hyp'].norm(dim=-1))
+            original_radii_list.append(out["z_A_hyp"].norm(dim=-1))
         original_radii = torch.cat(original_radii_list)
         model.train()
 
@@ -178,8 +175,10 @@ def main():
 
     # Initial metrics
     init_metrics = compute_metrics(model, all_ops, indices, device)
-    print(f"Initial: cov={init_metrics['coverage']*100:.1f}%, hier={init_metrics['hierarchy']:.4f}, rich={init_metrics['richness']:.6f}, Q={init_metrics['Q']:.3f}")
-    initial_richness = init_metrics['richness']
+    print(
+        f"Initial: cov={init_metrics['coverage'] * 100:.1f}%, hier={init_metrics['hierarchy']:.4f}, rich={init_metrics['richness']:.6f}, Q={init_metrics['Q']:.3f}"
+    )
+    initial_richness = init_metrics["richness"]
 
     # === Homeostasis Controller ===
     homeostasis = HomeostasisController(
@@ -210,7 +209,7 @@ def main():
         param_groups = model.get_param_groups(args.lr)
         optimizer = optim.AdamW(param_groups, weight_decay=1e-4)
 
-        epoch_losses = {'total': 0, 'hierarchy': 0, 'coverage': 0, 'richness': 0}
+        epoch_losses = {"total": 0, "hierarchy": 0, "coverage": 0, "richness": 0}
         n_batches = 0
 
         for batch_ops, batch_idx in dataloader:
@@ -219,21 +218,21 @@ def main():
             orig_radii_batch = original_radii[batch_idx]
 
             out = model(batch_ops, compute_control=False)
-            z_A = out['z_A_hyp']
-            mu_A = out['mu_A']
+            z_A = out["z_A_hyp"]
+            mu_A = out["mu_A"]
             logits = model.decoder_A(mu_A)
 
             losses = loss_fn(z_A, batch_idx, logits, batch_ops, orig_radii_batch)
 
             optimizer.zero_grad()
-            losses['total'].backward()
+            losses["total"].backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
 
-            epoch_losses['total'] += losses['total'].item()
-            epoch_losses['hierarchy'] += losses['hierarchy_loss'].item()
-            epoch_losses['coverage'] += losses['coverage_loss'].item()
-            epoch_losses['richness'] += losses['richness_loss'].item()
+            epoch_losses["total"] += losses["total"].item()
+            epoch_losses["hierarchy"] += losses["hierarchy_loss"].item()
+            epoch_losses["coverage"] += losses["coverage_loss"].item()
+            epoch_losses["richness"] += losses["richness_loss"].item()
             n_batches += 1
 
         for k in epoch_losses:
@@ -242,15 +241,15 @@ def main():
         # Compute metrics and update homeostasis
         if epoch % 3 == 0 or epoch == args.epochs - 1:
             metrics = compute_metrics(model, all_ops, indices, device)
-            richness_ratio = metrics['richness'] / (initial_richness + 1e-10)
+            richness_ratio = metrics["richness"] / (initial_richness + 1e-10)
 
             # Update homeostasis
             homeo_state = homeostasis.update(
                 epoch=epoch,
-                coverage=metrics['coverage'],
-                hierarchy_A=metrics['hierarchy'],
-                hierarchy_B=metrics['hierarchy'],  # Same for now
-                dist_corr_A=metrics['dist_corr'],
+                coverage=metrics["coverage"],
+                hierarchy_A=metrics["hierarchy"],
+                hierarchy_B=metrics["hierarchy"],  # Same for now
+                dist_corr_A=metrics["dist_corr"],
             )
 
             # Apply freeze states
@@ -258,41 +257,47 @@ def main():
 
             print(f"\nEpoch {epoch}/{args.epochs}")
             print(f"  Loss: {epoch_losses['total']:.4f}")
-            print(f"  Coverage: {metrics['coverage']*100:.2f}%")
+            print(f"  Coverage: {metrics['coverage'] * 100:.2f}%")
             print(f"  Hierarchy: {metrics['hierarchy']:.4f}")
             print(f"  Richness ratio: {richness_ratio:.4f} (target: >0.5)")
             print(f"  Q: {metrics['Q']:.3f} (best: {best_Q:.3f})")
             print(f"  Freeze: {model.get_freeze_state_summary()}")
 
-            if homeo_state['events']:
+            if homeo_state["events"]:
                 print(f"  Events: {homeo_state['events']}")
 
             # Track best
-            is_best_Q = metrics['Q'] > best_Q
-            is_best_hier = metrics['hierarchy'] < best_hierarchy
+            is_best_Q = metrics["Q"] > best_Q
+            is_best_hier = metrics["hierarchy"] < best_hierarchy
 
             if is_best_Q:
-                best_Q = metrics['Q']
+                best_Q = metrics["Q"]
                 print(f"  [NEW BEST Q: {best_Q:.3f}]")
 
-            if is_best_hier and metrics['coverage'] > 0.99:
-                best_hierarchy = metrics['hierarchy']
+            if is_best_hier and metrics["coverage"] > 0.99:
+                best_hierarchy = metrics["hierarchy"]
                 print(f"  [NEW BEST HIERARCHY: {best_hierarchy:.4f}]")
 
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': model.state_dict(),
-                    'metrics': metrics,
-                    'richness_ratio': richness_ratio,
-                    'homeostasis_state': homeostasis.get_state_summary(),
-                    'config': vars(args),
-                }, save_dir / 'best.pt')
+                torch.save(
+                    {
+                        "epoch": epoch,
+                        "model_state_dict": model.state_dict(),
+                        "metrics": metrics,
+                        "richness_ratio": richness_ratio,
+                        "homeostasis_state": homeostasis.get_state_summary(),
+                        "config": vars(args),
+                    },
+                    save_dir / "best.pt",
+                )
 
-            torch.save({
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'metrics': metrics,
-            }, save_dir / 'latest.pt')
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "model_state_dict": model.state_dict(),
+                    "metrics": metrics,
+                },
+                save_dir / "latest.pt",
+            )
 
     print("\n=== Training Complete ===")
     print(f"Best Q: {best_Q:.3f}")
@@ -300,5 +305,5 @@ def main():
     print(f"Saved to: {save_dir}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

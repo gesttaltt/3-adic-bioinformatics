@@ -6,9 +6,9 @@
 """Utilities for disease analysis."""
 
 from src.diseases.utils.synthetic_data import (
-    generate_correlated_targets,
     augment_synthetic_dataset,
     create_mutation_based_dataset,
+    generate_correlated_targets,
 )
 
 __all__ = [

@@ -16,18 +16,18 @@ Usage:
 """
 
 import argparse
-import sys
 import json
-from pathlib import Path
-from datetime import datetime
+import sys
 import time
+from datetime import datetime
+from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
 from scipy.stats import spearmanr
-import numpy as np
+from torch.utils.data import DataLoader, TensorDataset
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -36,7 +36,7 @@ from src.core import TERNARY
 from src.data.generation import generate_all_ternary_operations
 from src.models import TernaryVAEV5_11_PartialFreeze
 from src.models.homeostasis import compute_Q
-from src.utils.checkpoint import load_checkpoint_compat, get_model_state_dict
+from src.utils.checkpoint import get_model_state_dict, load_checkpoint_compat
 
 
 class RichHierarchyLoss(nn.Module):
@@ -63,11 +63,8 @@ class RichHierarchyLoss(nn.Module):
         self.max_valuation = 9
 
         self.register_buffer(
-            'target_radii',
-            torch.tensor([
-                outer_radius - (v / self.max_valuation) * (outer_radius - inner_radius)
-                for v in range(10)
-            ])
+            "target_radii",
+            torch.tensor([outer_radius - (v / self.max_valuation) * (outer_radius - inner_radius) for v in range(10)]),
         )
 
     def forward(self, z_hyp, indices, logits, targets, original_radii=None):
@@ -120,14 +117,18 @@ class RichHierarchyLoss(nn.Module):
             separation_loss = separation_loss + violation
 
         total = (
-            self.hierarchy_weight * hierarchy_loss +
-            self.coverage_weight * coverage_loss +
-            self.richness_weight * richness_loss +
-            self.separation_weight * separation_loss
+            self.hierarchy_weight * hierarchy_loss
+            + self.coverage_weight * coverage_loss
+            + self.richness_weight * richness_loss
+            + self.separation_weight * separation_loss
         )
 
-        return {'total': total, 'hierarchy_loss': hierarchy_loss,
-                'coverage_loss': coverage_loss, 'richness_loss': richness_loss}
+        return {
+            "total": total,
+            "hierarchy_loss": hierarchy_loss,
+            "coverage_loss": coverage_loss,
+            "richness_loss": richness_loss,
+        }
 
 
 def compute_metrics(model, all_ops, indices, device):
@@ -138,12 +139,12 @@ def compute_metrics(model, all_ops, indices, device):
 
     with torch.no_grad():
         for i in range(0, len(all_ops), batch_size):
-            batch_ops = all_ops[i:i+batch_size].to(device)
+            batch_ops = all_ops[i : i + batch_size].to(device)
             out = model(batch_ops, compute_control=False)
-            z_A = out['z_A_hyp']
+            z_A = out["z_A_hyp"]
             all_radii.append(z_A.norm(dim=-1).cpu().numpy())
             all_z.append(z_A.cpu().numpy())
-            logits = model.decoder_A(out['mu_A'])
+            logits = model.decoder_A(out["mu_A"])
             preds = torch.argmax(logits, dim=-1) - 1
             correct = (preds == batch_ops.long()).float().mean(dim=1).cpu().numpy()
             all_correct.append(correct)
@@ -175,20 +176,25 @@ def compute_metrics(model, all_ops, indices, device):
 
     model.train()
     return {
-        'coverage': coverage, 'hierarchy': hierarchy, 'richness': richness,
-        'dist_corr': dist_corr, 'Q': compute_Q(dist_corr, hierarchy),
-        'r_v0': float(all_radii[valuations == 0].mean()),
-        'r_v9': float(all_radii[valuations == 9].mean()) if (valuations == 9).any() else np.nan,
+        "coverage": coverage,
+        "hierarchy": hierarchy,
+        "richness": richness,
+        "dist_corr": dist_corr,
+        "Q": compute_Q(dist_corr, hierarchy),
+        "r_v0": float(all_radii[valuations == 0].mean()),
+        "r_v9": float(all_radii[valuations == 9].mean()) if (valuations == 9).any() else np.nan,
     }
 
 
 def run_experiment(config, all_ops, indices, device, base_ckpt_path):
     """Run a single experiment."""
-    exp_name = config['name']
-    print(f"\n{'='*60}")
+    exp_name = config["name"]
+    print(f"\n{'=' * 60}")
     print(f"EXPERIMENT: {exp_name}")
-    print(f"Loss weights: hier={config.get('hierarchy_weight')}, rich={config.get('richness_weight')}, sep={config.get('separation_weight')}")
-    print(f"{'='*60}")
+    print(
+        f"Loss weights: hier={config.get('hierarchy_weight')}, rich={config.get('richness_weight')}, sep={config.get('separation_weight')}"
+    )
+    print(f"{'=' * 60}")
 
     save_dir = PROJECT_ROOT / f"checkpoints/sweep2_{exp_name}"
     save_dir.mkdir(parents=True, exist_ok=True)
@@ -198,7 +204,7 @@ def run_experiment(config, all_ops, indices, device, base_ckpt_path):
         latent_dim=16,
         hidden_dim=64,
         max_radius=0.99,
-        curvature=config.get('curvature', 2.0),  # Use c=2.0 from phase 1
+        curvature=config.get("curvature", 2.0),  # Use c=2.0 from phase 1
         use_controller=False,
         use_dual_projection=True,
         freeze_encoder_b=False,
@@ -212,7 +218,7 @@ def run_experiment(config, all_ops, indices, device, base_ckpt_path):
             ckpt = load_checkpoint_compat(base_ckpt_path, map_location=device)
             model_state = get_model_state_dict(ckpt)
             model.load_state_dict(model_state, strict=False)
-            print(f"  Loaded checkpoint")
+            print("  Loaded checkpoint")
         except Exception as e:
             print(f"  Warning: {e}")
 
@@ -229,32 +235,34 @@ def run_experiment(config, all_ops, indices, device, base_ckpt_path):
         model.eval()
         original_radii_list = []
         for i in range(0, len(all_ops), 4096):
-            batch = all_ops[i:i+4096].to(device)
+            batch = all_ops[i : i + 4096].to(device)
             out = model(batch, compute_control=False)
-            original_radii_list.append(out['z_A_hyp'].norm(dim=-1))
+            original_radii_list.append(out["z_A_hyp"].norm(dim=-1))
         original_radii = torch.cat(original_radii_list)
         model.train()
 
     # Initial metrics
     init_metrics = compute_metrics(model, all_ops, indices, device)
-    print(f"  Initial: cov={init_metrics['coverage']*100:.1f}%, hier={init_metrics['hierarchy']:.4f}, rich={init_metrics['richness']:.6f}")
+    print(
+        f"  Initial: cov={init_metrics['coverage'] * 100:.1f}%, hier={init_metrics['hierarchy']:.4f}, rich={init_metrics['richness']:.6f}"
+    )
 
     # Loss
     loss_fn = RichHierarchyLoss(
-        hierarchy_weight=config.get('hierarchy_weight', 5.0),
-        coverage_weight=config.get('coverage_weight', 1.0),
-        richness_weight=config.get('richness_weight', 2.0),
-        separation_weight=config.get('separation_weight', 3.0),
-        min_richness_ratio=config.get('min_richness_ratio', 0.5),
+        hierarchy_weight=config.get("hierarchy_weight", 5.0),
+        coverage_weight=config.get("coverage_weight", 1.0),
+        richness_weight=config.get("richness_weight", 2.0),
+        separation_weight=config.get("separation_weight", 3.0),
+        min_richness_ratio=config.get("min_richness_ratio", 0.5),
     ).to(device)
 
-    epochs = config.get('epochs', 100)
-    lr = config.get('lr', 5e-4)
+    epochs = config.get("epochs", 100)
+    lr = config.get("lr", 5e-4)
 
     # Training
     history = []
     best_hier = 0.0
-    best_combined = float('inf')  # hierarchy - 0.5*richness (lower is better)
+    best_combined = float("inf")  # hierarchy - 0.5*richness (lower is better)
     start_time = time.time()
 
     for epoch in range(epochs):
@@ -271,17 +279,17 @@ def run_experiment(config, all_ops, indices, device, base_ckpt_path):
             orig_radii_batch = original_radii[batch_idx]
 
             out = model(batch_ops, compute_control=False)
-            z_A = out['z_A_hyp']
-            logits = model.decoder_A(out['mu_A'])
+            z_A = out["z_A_hyp"]
+            logits = model.decoder_A(out["mu_A"])
 
             losses = loss_fn(z_A, batch_idx, logits, batch_ops, orig_radii_batch)
 
             optimizer.zero_grad()
-            losses['total'].backward()
+            losses["total"].backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
 
-            epoch_loss += losses['total'].item()
+            epoch_loss += losses["total"].item()
             n_batches += 1
 
         epoch_loss /= n_batches
@@ -292,59 +300,72 @@ def run_experiment(config, all_ops, indices, device, base_ckpt_path):
             elapsed = time.time() - start_time
 
             # Combined score: want low hierarchy (negative) and high richness
-            combined = metrics['hierarchy'] - 0.5 * metrics['richness'] * 100
+            combined = metrics["hierarchy"] - 0.5 * metrics["richness"] * 100
 
-            print(f"  Epoch {epoch:3d}/{epochs} | loss={epoch_loss:.4f} | "
-                  f"cov={metrics['coverage']*100:.1f}% hier={metrics['hierarchy']:.4f} "
-                  f"rich={metrics['richness']:.6f} | {elapsed/60:.1f}min")
+            print(
+                f"  Epoch {epoch:3d}/{epochs} | loss={epoch_loss:.4f} | "
+                f"cov={metrics['coverage'] * 100:.1f}% hier={metrics['hierarchy']:.4f} "
+                f"rich={metrics['richness']:.6f} | {elapsed / 60:.1f}min"
+            )
 
-            history.append({'epoch': epoch, 'loss': epoch_loss, **metrics})
+            history.append({"epoch": epoch, "loss": epoch_loss, **metrics})
 
             # Save best (prioritize hierarchy with coverage > 99%)
-            if metrics['hierarchy'] < best_hier and metrics['coverage'] > 0.99:
-                best_hier = metrics['hierarchy']
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': model.state_dict(),
-                    'metrics': metrics,
-                    'config': config,
-                }, save_dir / 'best_hier.pt')
+            if metrics["hierarchy"] < best_hier and metrics["coverage"] > 0.99:
+                best_hier = metrics["hierarchy"]
+                torch.save(
+                    {
+                        "epoch": epoch,
+                        "model_state_dict": model.state_dict(),
+                        "metrics": metrics,
+                        "config": config,
+                    },
+                    save_dir / "best_hier.pt",
+                )
 
             # Save best combined (hierarchy + richness balance)
-            if combined < best_combined and metrics['coverage'] > 0.99:
+            if combined < best_combined and metrics["coverage"] > 0.99:
                 best_combined = combined
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': model.state_dict(),
-                    'metrics': metrics,
-                    'config': config,
-                }, save_dir / 'best_combined.pt')
+                torch.save(
+                    {
+                        "epoch": epoch,
+                        "model_state_dict": model.state_dict(),
+                        "metrics": metrics,
+                        "config": config,
+                    },
+                    save_dir / "best_combined.pt",
+                )
 
     # Final metrics
     final_metrics = compute_metrics(model, all_ops, indices, device)
     elapsed = time.time() - start_time
 
     result = {
-        'name': exp_name,
-        'config': config,
-        'init_metrics': init_metrics,
-        'final_metrics': final_metrics,
-        'history': history,
-        'elapsed_minutes': elapsed / 60,
-        'best_hierarchy': best_hier,
+        "name": exp_name,
+        "config": config,
+        "init_metrics": init_metrics,
+        "final_metrics": final_metrics,
+        "history": history,
+        "elapsed_minutes": elapsed / 60,
+        "best_hierarchy": best_hier,
     }
 
-    with open(save_dir / 'results.json', 'w') as f:
+    with open(save_dir / "results.json", "w") as f:
         json.dump(result, f, indent=2, default=float)
 
-    torch.save({
-        'model_state_dict': model.state_dict(),
-        'metrics': final_metrics,
-        'config': config,
-    }, save_dir / 'final.pt')
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "metrics": final_metrics,
+            "config": config,
+        },
+        save_dir / "final.pt",
+    )
 
-    print(f"\n  RESULT: hier={final_metrics['hierarchy']:.4f}, rich={final_metrics['richness']:.6f}, "
-          f"cov={final_metrics['coverage']*100:.1f}% ({elapsed/60:.1f} min)")
+    print(
+        f"\n  RESULT: hier={final_metrics['hierarchy']:.4f}, rich={final_metrics['richness']:.6f}, "
+        f"cov={final_metrics['coverage'] * 100:.1f}% ({elapsed / 60:.1f} min)"
+    )
     print(f"  Best hierarchy achieved: {best_hier:.4f}")
 
     return result
@@ -354,11 +375,10 @@ def main():
     parser = argparse.ArgumentParser(description="Phase 2: Loss weight sweep")
     parser.add_argument("--epochs", type=int, default=100, help="Epochs per experiment")
     parser.add_argument("--device", type=str, default="cuda")
-    parser.add_argument("--base_checkpoint", type=str,
-                        default="checkpoints/v5_11_homeostasis/best.pt")
+    parser.add_argument("--base_checkpoint", type=str, default="checkpoints/v5_11_homeostasis/best.pt")
     args = parser.parse_args()
 
-    device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
     print(f"Epochs per experiment: {args.epochs}")
 
@@ -366,44 +386,44 @@ def main():
     # All use curvature=2.0 from phase 1 findings
     experiments = {
         # Baseline (current best)
-        'baseline': {
-            'hierarchy_weight': 5.0,
-            'richness_weight': 2.0,
-            'separation_weight': 3.0,
-            'curvature': 2.0,
-            'epochs': args.epochs,
+        "baseline": {
+            "hierarchy_weight": 5.0,
+            "richness_weight": 2.0,
+            "separation_weight": 3.0,
+            "curvature": 2.0,
+            "epochs": args.epochs,
         },
         # More hierarchy focus
-        'high_hier': {
-            'hierarchy_weight': 8.0,
-            'richness_weight': 1.0,
-            'separation_weight': 4.0,
-            'curvature': 2.0,
-            'epochs': args.epochs,
+        "high_hier": {
+            "hierarchy_weight": 8.0,
+            "richness_weight": 1.0,
+            "separation_weight": 4.0,
+            "curvature": 2.0,
+            "epochs": args.epochs,
         },
         # More richness focus
-        'high_rich': {
-            'hierarchy_weight': 3.0,
-            'richness_weight': 4.0,
-            'separation_weight': 2.0,
-            'curvature': 2.0,
-            'epochs': args.epochs,
+        "high_rich": {
+            "hierarchy_weight": 3.0,
+            "richness_weight": 4.0,
+            "separation_weight": 2.0,
+            "curvature": 2.0,
+            "epochs": args.epochs,
         },
         # Balanced
-        'balanced': {
-            'hierarchy_weight': 5.0,
-            'richness_weight': 5.0,
-            'separation_weight': 3.0,
-            'curvature': 2.0,
-            'epochs': args.epochs,
+        "balanced": {
+            "hierarchy_weight": 5.0,
+            "richness_weight": 5.0,
+            "separation_weight": 3.0,
+            "curvature": 2.0,
+            "epochs": args.epochs,
         },
         # Extreme hierarchy
-        'extreme_hier': {
-            'hierarchy_weight': 10.0,
-            'richness_weight': 0.5,
-            'separation_weight': 5.0,
-            'curvature': 2.0,
-            'epochs': args.epochs,
+        "extreme_hier": {
+            "hierarchy_weight": 10.0,
+            "richness_weight": 0.5,
+            "separation_weight": 5.0,
+            "curvature": 2.0,
+            "epochs": args.epochs,
         },
     }
 
@@ -424,70 +444,81 @@ def main():
     total_start = time.time()
 
     for name, config in experiments.items():
-        config['name'] = name
+        config["name"] = name
         try:
             result = run_experiment(config, all_ops, indices, device, base_ckpt)
             results.append(result)
         except Exception as e:
             print(f"  ERROR in {name}: {e}")
             import traceback
+
             traceback.print_exc()
-            results.append({'name': name, 'error': str(e)})
+            results.append({"name": name, "error": str(e)})
 
         torch.cuda.empty_cache()
 
     total_elapsed = time.time() - total_start
 
     # Summary
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("PHASE 2 SWEEP SUMMARY")
-    print("="*80)
+    print("=" * 80)
     print(f"{'Experiment':<15} {'H_wt':>5} {'R_wt':>5} {'Hierarchy':>10} {'Richness':>12} {'Cov':>6} {'Time':>6}")
-    print("-"*80)
+    print("-" * 80)
 
     for r in results:
-        if 'error' in r:
+        if "error" in r:
             print(f"{r['name']:<15} ERROR: {r['error']}")
         else:
-            fm = r['final_metrics']
-            cfg = r['config']
-            print(f"{r['name']:<15} {cfg['hierarchy_weight']:>5.1f} {cfg['richness_weight']:>5.1f} "
-                  f"{fm['hierarchy']:>10.4f} {fm['richness']:>12.6f} {fm['coverage']*100:>5.1f}% {r['elapsed_minutes']:>5.1f}m")
+            fm = r["final_metrics"]
+            cfg = r["config"]
+            print(
+                f"{r['name']:<15} {cfg['hierarchy_weight']:>5.1f} {cfg['richness_weight']:>5.1f} "
+                f"{fm['hierarchy']:>10.4f} {fm['richness']:>12.6f} {fm['coverage'] * 100:>5.1f}% {r['elapsed_minutes']:>5.1f}m"
+            )
 
-    print("-"*80)
-    print(f"Total time: {total_elapsed/60:.1f} minutes")
+    print("-" * 80)
+    print(f"Total time: {total_elapsed / 60:.1f} minutes")
 
     # Save summary
     summary_path = PROJECT_ROOT / "checkpoints/sweep2_summary.json"
-    with open(summary_path, 'w') as f:
-        json.dump({
-            'timestamp': datetime.now().isoformat(),
-            'total_elapsed_minutes': total_elapsed / 60,
-            'results': results,
-        }, f, indent=2, default=float)
+    with open(summary_path, "w") as f:
+        json.dump(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "total_elapsed_minutes": total_elapsed / 60,
+                "results": results,
+            },
+            f,
+            indent=2,
+            default=float,
+        )
     print(f"\nSummary saved to: {summary_path}")
 
     # Analysis
-    valid = [r for r in results if 'error' not in r]
+    valid = [r for r in results if "error" not in r]
     if valid:
-        best_hier = min(valid, key=lambda x: x['final_metrics']['hierarchy'])
-        best_rich = max(valid, key=lambda x: x['final_metrics']['richness'])
+        best_hier = min(valid, key=lambda x: x["final_metrics"]["hierarchy"])
+        best_rich = max(valid, key=lambda x: x["final_metrics"]["richness"])
         print(f"\nBest hierarchy: {best_hier['name']} ({best_hier['final_metrics']['hierarchy']:.4f})")
         print(f"Best richness: {best_rich['name']} ({best_rich['final_metrics']['richness']:.6f})")
 
         # Pareto frontier
         print("\nPareto analysis (hierarchy vs richness):")
-        for r in sorted(valid, key=lambda x: x['final_metrics']['hierarchy']):
-            fm = r['final_metrics']
+        for r in sorted(valid, key=lambda x: x["final_metrics"]["hierarchy"]):
+            fm = r["final_metrics"]
             dominated = any(
-                o['final_metrics']['hierarchy'] <= fm['hierarchy'] and
-                o['final_metrics']['richness'] >= fm['richness'] and
-                (o['final_metrics']['hierarchy'] < fm['hierarchy'] or o['final_metrics']['richness'] > fm['richness'])
-                for o in valid if o['name'] != r['name']
+                o["final_metrics"]["hierarchy"] <= fm["hierarchy"]
+                and o["final_metrics"]["richness"] >= fm["richness"]
+                and (
+                    o["final_metrics"]["hierarchy"] < fm["hierarchy"] or o["final_metrics"]["richness"] > fm["richness"]
+                )
+                for o in valid
+                if o["name"] != r["name"]
             )
             status = "  (dominated)" if dominated else "* PARETO"
             print(f"  {r['name']:<15} hier={fm['hierarchy']:.4f} rich={fm['richness']:.6f} {status}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

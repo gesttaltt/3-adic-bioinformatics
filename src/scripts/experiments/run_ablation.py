@@ -45,12 +45,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from scripts.experiments.parallel_feature_ablation import (
     EXPERIMENTS,
+    compare_results,
     run_experiments_parallel,
     run_experiments_sequential,
-    compare_results,
     save_results,
 )
-
 
 # Experiment groups for easy selection
 EXPERIMENT_GROUPS = {

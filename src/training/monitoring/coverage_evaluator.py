@@ -15,8 +15,6 @@ Single responsibility: Model coverage evaluation only.
 
 from __future__ import annotations
 
-from typing import List, Tuple
-
 import torch
 
 from src.config.constants import N_TERNARY_OPERATIONS
@@ -28,7 +26,7 @@ def evaluate_coverage(
     device: str,
     vae: str = "A",
     batch_size: int = 1000,
-) -> Tuple[int, float]:
+) -> tuple[int, float]:
     """Evaluate operation coverage for a VAE.
 
     Vectorized implementation using torch.unique.
@@ -50,7 +48,7 @@ def evaluate_coverage(
         num_batches = max(1, num_samples // batch_size)
 
         # Collect all samples first (on GPU)
-        all_samples_list: List[torch.Tensor] = []
+        all_samples_list: list[torch.Tensor] = []
         for _ in range(num_batches):
             samples = model.sample(batch_size, device, vae)
             samples_rounded = torch.round(samples).long()
@@ -96,7 +94,7 @@ class CoverageEvaluator:
         device: str,
         vae: str = "A",
         num_samples: int | None = None,
-    ) -> Tuple[int, float]:
+    ) -> tuple[int, float]:
         """Evaluate coverage for a VAE.
 
         Args:
@@ -122,7 +120,7 @@ class CoverageEvaluator:
         model: torch.nn.Module,
         device: str,
         num_samples: int | None = None,
-    ) -> Tuple[int, float, int, float]:
+    ) -> tuple[int, float, int, float]:
         """Evaluate coverage for both VAEs.
 
         Args:
@@ -133,12 +131,8 @@ class CoverageEvaluator:
         Returns:
             Tuple of (unique_A, cov_A, unique_B, cov_B)
         """
-        unique_A, cov_A = self.evaluate(
-            model, device, "A", num_samples
-        )
-        unique_B, cov_B = self.evaluate(
-            model, device, "B", num_samples
-        )
+        unique_A, cov_A = self.evaluate(model, device, "A", num_samples)
+        unique_B, cov_B = self.evaluate(model, device, "B", num_samples)
         return unique_A, cov_A, unique_B, cov_B
 
 

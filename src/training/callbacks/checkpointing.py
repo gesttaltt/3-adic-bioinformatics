@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING
 
 import torch
 
@@ -70,18 +70,16 @@ class CheckpointCallback(TrainingCallback):
         self.keep_last_n = keep_last_n
         self.include_optimizer = include_optimizer
 
-        self.best_value: Optional[float] = None
-        self.saved_checkpoints: List[Path] = []
+        self.best_value: float | None = None
+        self.saved_checkpoints: list[Path] = []
 
-    def on_train_start(self, trainer: "BaseTrainer") -> None:
+    def on_train_start(self, trainer: BaseTrainer) -> None:
         """Create checkpoint directory."""
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         self.best_value = None
         self.saved_checkpoints = []
 
-    def on_epoch_end(
-        self, epoch: int, metrics: Dict[str, float], trainer: "BaseTrainer"
-    ) -> None:
+    def on_epoch_end(self, epoch: int, metrics: dict[str, float], trainer: BaseTrainer) -> None:
         """Save checkpoint if conditions are met."""
         # Periodic save
         if self.save_interval > 0 and (epoch + 1) % self.save_interval == 0:
@@ -94,27 +92,27 @@ class CheckpointCallback(TrainingCallback):
             current = metrics.get(self.monitor)
             if current is not None:
                 is_best = False
-                if self.best_value is None:
-                    is_best = True
-                elif self.mode == "max" and current > self.best_value:
-                    is_best = True
-                elif self.mode == "min" and current < self.best_value:
+                if (
+                    self.best_value is None
+                    or self.mode == "max"
+                    and current > self.best_value
+                    or self.mode == "min"
+                    and current < self.best_value
+                ):
                     is_best = True
 
                 if is_best:
                     self.best_value = current
                     path = self.checkpoint_dir / "best_model.pt"
                     self._save_checkpoint(trainer, path, epoch, metrics)
-                    logger.info(
-                        f"New best model: {self.monitor}={current:.4f} at epoch {epoch + 1}"
-                    )
+                    logger.info(f"New best model: {self.monitor}={current:.4f} at epoch {epoch + 1}")
 
     def _save_checkpoint(
         self,
-        trainer: "BaseTrainer",
+        trainer: BaseTrainer,
         path: Path,
         epoch: int,
-        metrics: Dict[str, float],
+        metrics: dict[str, float],
     ) -> None:
         """Save a checkpoint to disk."""
         checkpoint = {
@@ -176,22 +174,22 @@ class BestModelCallback(TrainingCallback):
         self.save_path = Path(save_path)
         self.monitor = monitor
         self.mode = mode
-        self.best_value: Optional[float] = None
+        self.best_value: float | None = None
 
-    def on_epoch_end(
-        self, epoch: int, metrics: Dict[str, float], trainer: "BaseTrainer"
-    ) -> None:
+    def on_epoch_end(self, epoch: int, metrics: dict[str, float], trainer: BaseTrainer) -> None:
         """Check and save if this is the best model."""
         current = metrics.get(self.monitor)
         if current is None:
             return
 
         is_best = False
-        if self.best_value is None:
-            is_best = True
-        elif self.mode == "max" and current > self.best_value:
-            is_best = True
-        elif self.mode == "min" and current < self.best_value:
+        if (
+            self.best_value is None
+            or self.mode == "max"
+            and current > self.best_value
+            or self.mode == "min"
+            and current < self.best_value
+        ):
             is_best = True
 
         if is_best:

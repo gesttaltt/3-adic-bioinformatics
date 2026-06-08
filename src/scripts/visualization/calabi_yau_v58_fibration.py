@@ -39,13 +39,15 @@ print(f"Device: {device}")
 class MultiLayerExtractor(nn.Module):
     """Extract activations from multiple encoder layers."""
 
-    def __init__(self, encoder_weights, layer_dims=[256, 128, 64, 16]):
+    def __init__(self, encoder_weights, layer_dims=None):
+        if layer_dims is None:
+            layer_dims = [256, 128, 64, 16]
         super().__init__()
         self.layers = nn.ModuleList()
 
         # Build encoder layers
         in_dim = 9
-        for i, out_dim in enumerate(layer_dims[:-1]):
+        for _i, out_dim in enumerate(layer_dims[:-1]):
             self.layers.append(nn.Linear(in_dim, out_dim))
             in_dim = out_dim
 
@@ -57,7 +59,7 @@ class MultiLayerExtractor(nn.Module):
         activations = []
 
         h = x
-        for i, layer in enumerate(self.layers):
+        for _i, layer in enumerate(self.layers):
             h = torch.relu(layer(h))
             activations.append(h)
 
@@ -487,10 +489,7 @@ def create_tube_mesh(path, radius=0.015, n_sides=8):
         tangent = tangent / (np.linalg.norm(tangent) + 1e-8)
 
         # Create perpendicular vectors
-        if abs(tangent[0]) < 0.9:
-            perp1 = np.cross(tangent, [1, 0, 0])
-        else:
-            perp1 = np.cross(tangent, [0, 1, 0])
+        perp1 = np.cross(tangent, [1, 0, 0]) if abs(tangent[0]) < 0.9 else np.cross(tangent, [0, 1, 0])
         perp1 = perp1 / (np.linalg.norm(perp1) + 1e-8)
         perp2 = np.cross(tangent, perp1)
 
@@ -729,7 +728,7 @@ def main():
     all_results = {}
 
     for dim_name, config in projections.items():
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Processing {dim_name} embeddings")
         print("=" * 60)
 

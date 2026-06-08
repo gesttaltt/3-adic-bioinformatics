@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -116,10 +116,10 @@ FIDAXOMICIN_MUTATIONS = {
 FLUOROQUINOLONE_MUTATIONS = {
     CDiffGene.GYRA: {
         83: {"T": 1.0, "I": 50.0, "A": 20.0},  # Thr83Ile - high level resistance
-        87: {"D": 1.0, "N": 10.0, "G": 8.0},   # Asp87
+        87: {"D": 1.0, "N": 10.0, "G": 8.0},  # Asp87
     },
     CDiffGene.GYRB: {
-        426: {"D": 1.0, "N": 5.0, "G": 3.0},   # Asp426
+        426: {"D": 1.0, "N": 5.0, "G": 3.0},  # Asp426
     },
 }
 
@@ -182,17 +182,21 @@ class CDiffConfig(DiseaseConfig):
     name: str = "cdiff"
     display_name: str = "Clostridioides difficile Infection"
     disease_type: DiseaseType = DiseaseType.BACTERIAL
-    tasks: list[TaskType] = field(default_factory=lambda: [
-        TaskType.RESISTANCE,
-        TaskType.FITNESS,
-    ])
+    tasks: list[TaskType] = field(
+        default_factory=lambda: [
+            TaskType.RESISTANCE,
+            TaskType.FITNESS,
+        ]
+    )
 
     # Data sources
-    data_sources: dict[str, str] = field(default_factory=lambda: {
-        "pubmlst": "https://pubmlst.org/organisms/clostridioides-difficile",
-        "ncbi_pathogen": "https://www.ncbi.nlm.nih.gov/pathogens/",
-        "enterobase": "https://enterobase.warwick.ac.uk/",
-    })
+    data_sources: dict[str, str] = field(
+        default_factory=lambda: {
+            "pubmlst": "https://pubmlst.org/organisms/clostridioides-difficile",
+            "ncbi_pathogen": "https://www.ncbi.nlm.nih.gov/pathogens/",
+            "enterobase": "https://enterobase.warwick.ac.uk/",
+        }
+    )
 
     # C. diff-specific settings
     predict_toxin_expression: bool = True
@@ -202,9 +206,7 @@ class CDiffConfig(DiseaseConfig):
     # Sequence settings
     min_sequence_length: int = 100
 
-    genes: list[str] = field(
-        default_factory=lambda: [g.value for g in CDiffGene]
-    )
+    genes: list[str] = field(default_factory=lambda: [g.value for g in CDiffGene])
 
 
 class CDiffAnalyzer(DiseaseAnalyzer):
@@ -218,7 +220,7 @@ class CDiffAnalyzer(DiseaseAnalyzer):
     - Recurrence risk prediction
     """
 
-    def __init__(self, config: Optional[CDiffConfig] = None):
+    def __init__(self, config: CDiffConfig | None = None):
         """Initialize C. difficile analyzer.
 
         Args:
@@ -230,7 +232,7 @@ class CDiffAnalyzer(DiseaseAnalyzer):
     def analyze(
         self,
         sequences: dict[CDiffGene, list[str]],
-        ribotype: Optional[CDiffRibotype] = None,
+        ribotype: CDiffRibotype | None = None,
         prior_cdi: bool = False,
         **kwargs: Any,
     ) -> dict[str, Any]:
@@ -247,7 +249,7 @@ class CDiffAnalyzer(DiseaseAnalyzer):
         """
         results = {
             "n_sequences": len(next(iter(sequences.values()), [])),
-            "genes_analyzed": [g.value for g in sequences.keys()],
+            "genes_analyzed": [g.value for g in sequences],
             "ribotype": ribotype.value if ribotype else None,
             "prior_cdi": prior_cdi,
         }
@@ -271,13 +273,9 @@ class CDiffAnalyzer(DiseaseAnalyzer):
         if self.config.predict_toxin_expression:
             toxin_results = {}
             if CDiffGene.TCDA in sequences:
-                toxin_results["tcdA"] = self._analyze_toxin(
-                    sequences[CDiffGene.TCDA], "tcdA"
-                )
+                toxin_results["tcdA"] = self._analyze_toxin(sequences[CDiffGene.TCDA], "tcdA")
             if CDiffGene.TCDB in sequences:
-                toxin_results["tcdB"] = self._analyze_toxin(
-                    sequences[CDiffGene.TCDB], "tcdB"
-                )
+                toxin_results["tcdB"] = self._analyze_toxin(sequences[CDiffGene.TCDB], "tcdB")
             if CDiffGene.CDTA in sequences or CDiffGene.CDTB in sequences:
                 toxin_results["binary_toxin"] = {
                     "present": True,
@@ -289,9 +287,7 @@ class CDiffAnalyzer(DiseaseAnalyzer):
 
         # Hypervirulence prediction
         if self.config.predict_hypervirulence:
-            results["hypervirulence"] = self._predict_hypervirulence(
-                sequences, ribotype
-            )
+            results["hypervirulence"] = self._predict_hypervirulence(sequences, ribotype)
 
         # Ribotype classification
         if self.config.classify_ribotype and ribotype is None:
@@ -353,11 +349,13 @@ class CDiffAnalyzer(DiseaseAnalyzer):
                         if fold_change > 1.0:
                             resistance_score += np.log2(fold_change) / 10
                             if fold_change > 1.5:
-                                detected_mutations.append({
-                                    "position": pos,
-                                    "amino_acid": aa,
-                                    "fold_change": fold_change,
-                                })
+                                detected_mutations.append(
+                                    {
+                                        "position": pos,
+                                        "amino_acid": aa,
+                                        "fold_change": fold_change,
+                                    }
+                                )
 
             results["scores"].append(min(resistance_score, 1.0))
             results["mutations"].append(detected_mutations)
@@ -403,12 +401,9 @@ class CDiffAnalyzer(DiseaseAnalyzer):
 
             for domain_name, positions in domains.items():
                 if len(seq) >= max(positions):
-                    domain_seq = seq[min(positions):max(positions)]
+                    domain_seq = seq[min(positions) : max(positions)]
                     # Check for truncations or major deletions
-                    if len(domain_seq) > 0.9 * len(positions):
-                        integrity = 1.0
-                    else:
-                        integrity = len(domain_seq) / len(positions)
+                    integrity = 1.0 if len(domain_seq) > 0.9 * len(positions) else len(domain_seq) / len(positions)
                     domain_analysis[domain_name] = integrity
                     total_integrity += integrity
                 else:
@@ -441,7 +436,7 @@ class CDiffAnalyzer(DiseaseAnalyzer):
     def _predict_hypervirulence(
         self,
         sequences: dict[CDiffGene, list[str]],
-        ribotype: Optional[CDiffRibotype] = None,
+        ribotype: CDiffRibotype | None = None,
     ) -> dict[str, Any]:
         """Predict hypervirulence markers.
 

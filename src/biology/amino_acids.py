@@ -12,8 +12,6 @@ This is the single source of truth for amino acid properties used in:
 - src/analysis/immunology/epitope_encoding.py (AMINO_ACID_PROPERTIES)
 """
 
-from typing import Optional
-
 # Standard 20 amino acids in alphabetical order (UniProt convention)
 STANDARD_AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWY"
 
@@ -308,7 +306,7 @@ def get_amino_acid_property(
     aa: str,
     prop: str,
     normalized: bool = False,
-    default: Optional[float] = None,
+    default: float | None = None,
 ) -> float:
     """Get a specific property for an amino acid.
 
@@ -373,9 +371,7 @@ def get_normalized_properties(aa: str) -> tuple[float, float, float, float]:
 
 
 # Legacy compatibility: AA_PROPERTIES format for codon_encoder.py
-AA_PROPERTIES = {
-    aa: get_normalized_properties(aa) for aa in STANDARD_AMINO_ACIDS + "*"
-}
+AA_PROPERTIES = {aa: get_normalized_properties(aa) for aa in STANDARD_AMINO_ACIDS + "*"}
 
 
 __all__ = [

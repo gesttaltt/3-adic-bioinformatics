@@ -34,7 +34,6 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -55,11 +54,11 @@ class EpistasisResult:
     """
 
     interaction_score: torch.Tensor
-    pairwise_scores: Optional[torch.Tensor] = None
-    higher_order_score: Optional[torch.Tensor] = None
-    sign_epistasis: Optional[torch.Tensor] = None
-    antagonistic: Optional[torch.Tensor] = None
-    synergistic: Optional[torch.Tensor] = None
+    pairwise_scores: torch.Tensor | None = None
+    higher_order_score: torch.Tensor | None = None
+    sign_epistasis: torch.Tensor | None = None
+    antagonistic: torch.Tensor | None = None
+    synergistic: torch.Tensor | None = None
 
 
 class PairwiseInteractionModule(nn.Module):
@@ -133,7 +132,7 @@ class PairwiseInteractionModule(nn.Module):
     def forward(
         self,
         positions: torch.Tensor,
-        amino_acids: Optional[torch.Tensor] = None,
+        amino_acids: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute pairwise interaction scores.
 
@@ -225,7 +224,7 @@ class HigherOrderInteractionModule(nn.Module):
     def forward(
         self,
         mutation_embeddings: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
+        mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute higher-order interaction score.
 
@@ -345,7 +344,7 @@ class EpistasisModule(nn.Module):
     def forward(
         self,
         positions: torch.Tensor,
-        amino_acids: Optional[torch.Tensor] = None,
+        amino_acids: torch.Tensor | None = None,
         return_details: bool = False,
     ) -> EpistasisResult:
         """Compute epistasis scores for mutation combinations.
@@ -413,7 +412,7 @@ class EpistasisModule(nn.Module):
 
     def get_epistasis_matrix(
         self,
-        amino_acid: Optional[int] = None,
+        amino_acid: int | None = None,
     ) -> torch.Tensor:
         """Get learned pairwise epistasis matrix.
 
@@ -428,7 +427,7 @@ class EpistasisModule(nn.Module):
         device = self.position_embedding.weight.device
 
         # Create all position pairs
-        positions = torch.arange(self.n_positions, device=device).unsqueeze(0)
+        torch.arange(self.n_positions, device=device).unsqueeze(0)
 
         # Get position embeddings
         pos_emb = self.position_embedding.weight
@@ -467,7 +466,7 @@ class EpistasisModule(nn.Module):
         # Get top-k
         values, indices = torch.topk(matrix.view(-1), k)
         pairs = []
-        for val, idx in zip(values, indices):
+        for val, idx in zip(values, indices, strict=False):
             pos1 = idx // matrix.shape[1]
             pos2 = idx % matrix.shape[1]
             if pos1 < pos2:  # Avoid duplicates
@@ -520,7 +519,7 @@ class EpistasisPredictor(nn.Module):
         self,
         positions: torch.Tensor,
         amino_acids: torch.Tensor,
-        wild_type_aa: Optional[torch.Tensor] = None,
+        wild_type_aa: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         """Predict effect of mutation combination.
 

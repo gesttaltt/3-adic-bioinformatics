@@ -20,7 +20,7 @@ Design Principles:
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -39,7 +39,7 @@ class LossResult:
     """
 
     loss: torch.Tensor
-    metrics: Dict[str, float] = field(default_factory=dict)
+    metrics: dict[str, float] = field(default_factory=dict)
     weight: float = 1.0
 
     @property
@@ -47,7 +47,7 @@ class LossResult:
         """Return loss multiplied by weight."""
         return self.weight * self.loss
 
-    def to_dict(self, prefix: str = "") -> Dict[str, Any]:
+    def to_dict(self, prefix: str = "") -> dict[str, Any]:
         """Convert to flat dictionary for logging.
 
         Args:
@@ -95,7 +95,7 @@ class LossComponent(ABC, nn.Module):
                 )
     """
 
-    def __init__(self, weight: float = 1.0, name: Optional[str] = None):
+    def __init__(self, weight: float = 1.0, name: str | None = None):
         """Initialize loss component.
 
         Args:
@@ -112,7 +112,7 @@ class LossComponent(ABC, nn.Module):
         return self._name
 
     @abstractmethod
-    def forward(self, outputs: Dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> LossResult:
+    def forward(self, outputs: dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> LossResult:
         """Compute the loss.
 
         Args:
@@ -144,7 +144,7 @@ class DualVAELossComponent(LossComponent):
     def __init__(
         self,
         weight: float = 1.0,
-        name: Optional[str] = None,
+        name: str | None = None,
         combine: str = "sum",
     ):
         """Initialize dual VAE loss component.
@@ -161,7 +161,7 @@ class DualVAELossComponent(LossComponent):
     def compute_single(
         self,
         z: torch.Tensor,
-        outputs: Dict[str, torch.Tensor],
+        outputs: dict[str, torch.Tensor],
         targets: torch.Tensor,
         vae: str,
         **kwargs,
@@ -180,7 +180,7 @@ class DualVAELossComponent(LossComponent):
         """
         pass
 
-    def forward(self, outputs: Dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> LossResult:
+    def forward(self, outputs: dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> LossResult:
         """Compute loss for both VAEs and combine.
 
         Args:

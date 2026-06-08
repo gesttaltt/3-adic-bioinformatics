@@ -22,7 +22,6 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from collections import Counter
 
 import numpy as np
 import pandas as pd
@@ -36,18 +35,17 @@ def load_available_tropism_data() -> pd.DataFrame:
     """Load tropism data from available sources."""
     try:
         from src.data.hiv import load_v3_coreceptor
+
         return load_v3_coreceptor()
     except (ImportError, FileNotFoundError):
         pass
 
     try:
         from src.data.hiv import load_gp120_alignments
+
         alignments = load_gp120_alignments()
         # Convert to DataFrame format
-        return pd.DataFrame([
-            {"sequence_id": k, "sequence": v, "tropism": "unknown"}
-            for k, v in alignments.items()
-        ])
+        return pd.DataFrame([{"sequence_id": k, "sequence": v, "tropism": "unknown"} for k, v in alignments.items()])
     except (ImportError, FileNotFoundError):
         pass
 
@@ -141,9 +139,10 @@ def compute_tropism_separation(df: pd.DataFrame) -> dict:
         "cxcr4_std_radial": float(np.std(cxcr4_arr)),
         "separation": float(np.mean(cxcr4_arr) - np.mean(ccr5_arr)),
         "effect_size": float(
-            (np.mean(cxcr4_arr) - np.mean(ccr5_arr)) /
-            np.sqrt((np.var(ccr5_arr) + np.var(cxcr4_arr)) / 2)
-        ) if np.var(ccr5_arr) + np.var(cxcr4_arr) > 0 else 0,
+            (np.mean(cxcr4_arr) - np.mean(ccr5_arr)) / np.sqrt((np.var(ccr5_arr) + np.var(cxcr4_arr)) / 2)
+        )
+        if np.var(ccr5_arr) + np.var(cxcr4_arr) > 0
+        else 0,
     }
 
 
@@ -184,14 +183,16 @@ def analyze_glycan_tropism_correlation(df: pd.DataFrame) -> pd.DataFrame:
 
         glycan_sites = identify_glycan_sites(sequence)
 
-        results.append({
-            "tropism": "CCR5" if "CCR5" in tropism or "R5" in tropism else (
-                "CXCR4" if "CXCR4" in tropism or "X4" in tropism else "Unknown"
-            ),
-            "n_glycans": len(glycan_sites),
-            "sequence_length": len(sequence),
-            "glycan_density": len(glycan_sites) / len(sequence),
-        })
+        results.append(
+            {
+                "tropism": "CCR5"
+                if "CCR5" in tropism or "R5" in tropism
+                else ("CXCR4" if "CXCR4" in tropism or "X4" in tropism else "Unknown"),
+                "n_glycans": len(glycan_sites),
+                "sequence_length": len(sequence),
+                "glycan_density": len(glycan_sites) / len(sequence),
+            }
+        )
 
     return pd.DataFrame(results)
 
@@ -251,13 +252,11 @@ def build_tropism_classifier(df: pd.DataFrame) -> dict:
     y = np.array(y)
 
     # Simple train/test split
-    from sklearn.model_selection import train_test_split
     from sklearn.ensemble import RandomForestClassifier
-    from sklearn.metrics import accuracy_score, classification_report
+    from sklearn.metrics import accuracy_score
+    from sklearn.model_selection import train_test_split
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
     clf = RandomForestClassifier(n_estimators=100, random_state=42)
     clf.fit(X_train, y_train)
@@ -364,9 +363,7 @@ def main():
     glycan_df.to_csv(args.output / "glycan_tropism.csv", index=False)
 
     if classifier_results and "error" not in classifier_results:
-        pd.DataFrame([classifier_results]).to_csv(
-            args.output / "classifier_results.csv", index=False
-        )
+        pd.DataFrame([classifier_results]).to_csv(args.output / "classifier_results.csv", index=False)
 
     # Save summary
     summary = {

@@ -16,13 +16,12 @@ import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import torch
 from scipy.stats import pearsonr, spearmanr
-
 
 # Standard amino acid alphabet (Stanford HIVDB format)
 AA_ALPHABET = "ACDEFGHIKLMNPQRSTVWY*-"
@@ -36,13 +35,32 @@ HXB2_REFERENCE = {
 }
 
 # Known HIV-1 subtypes
-HIV_SUBTYPES = ["A", "A1", "A2", "B", "C", "D", "F", "F1", "F2", "G", "H", "J", "K",
-                "CRF01_AE", "CRF02_AG", "CRF06_cpx", "CRF07_BC", "CRF08_BC"]
+HIV_SUBTYPES = [
+    "A",
+    "A1",
+    "A2",
+    "B",
+    "C",
+    "D",
+    "F",
+    "F1",
+    "F2",
+    "G",
+    "H",
+    "J",
+    "K",
+    "CRF01_AE",
+    "CRF02_AG",
+    "CRF06_cpx",
+    "CRF07_BC",
+    "CRF08_BC",
+]
 
 
 @dataclass
 class ValidationResult:
     """Results from external validation."""
+
     drug: str
     database: str
     n_samples: int
@@ -51,10 +69,10 @@ class ValidationResult:
     rmse: float
     mae: float
     p_value: float
-    subtype: Optional[str] = None
-    time_period: Optional[str] = None
+    subtype: str | None = None
+    time_period: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "drug": self.drug,
             "database": self.database,
@@ -72,13 +90,14 @@ class ValidationResult:
 @dataclass
 class ExternalDataset:
     """Container for external validation data."""
+
     name: str
     sequences: np.ndarray  # One-hot encoded
     resistance_scores: np.ndarray
     drug: str
-    subtypes: Optional[np.ndarray] = None
-    dates: Optional[np.ndarray] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    subtypes: np.ndarray | None = None
+    dates: np.ndarray | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class DatabaseAdapter(ABC):
@@ -138,7 +157,7 @@ class LosAlamosAdapter(DatabaseAdapter):
             current_header = None
             current_seq = []
 
-            with open(path, "r") as f:
+            with open(path) as f:
                 for line in f:
                     line = line.strip()
                     if line.startswith(">"):
@@ -249,8 +268,7 @@ class StanfordAdapter(DatabaseAdapter):
         df = pd.read_csv(path, sep="\t")
 
         # Find position columns (P1, P2, ...)
-        pos_cols = sorted([c for c in df.columns if re.match(r"^P\d+$", c)],
-                         key=lambda x: int(x[1:]))
+        pos_cols = sorted([c for c in df.columns if re.match(r"^P\d+$", c)], key=lambda x: int(x[1:]))
         n_positions = len(pos_cols)
 
         # Encode sequences
@@ -291,14 +309,14 @@ class ExternalValidator:
             "euresist": EuResistAdapter(),
             "stanford": StanfordAdapter(),
         }
-        self.results: List[ValidationResult] = []
+        self.results: list[ValidationResult] = []
 
     def validate_on_database(
         self,
         database: str,
         data_path: Path,
         drug: str,
-        subtype: Optional[str] = None,
+        subtype: str | None = None,
     ) -> ValidationResult:
         """Validate model on external database."""
 
@@ -376,7 +394,7 @@ class ExternalValidator:
         self,
         data_path: Path,
         drug: str,
-        subtypes: List[str] = None,
+        subtypes: list[str] = None,
     ) -> pd.DataFrame:
         """Validate model performance across HIV subtypes."""
 
@@ -397,8 +415,8 @@ class ExternalValidator:
 
     def cross_database_comparison(
         self,
-        databases: Dict[str, Path],
-        drugs: List[str],
+        databases: dict[str, Path],
+        drugs: list[str],
     ) -> pd.DataFrame:
         """Compare performance across multiple databases."""
 
@@ -442,8 +460,7 @@ class ExternalValidator:
             report.append("\nPer-drug results:")
             for _, row in db_results.iterrows():
                 report.append(
-                    f"  {row['drug']}: r={row['correlation']:.3f}, "
-                    f"n={row['n_samples']}, p={row['p_value']:.2e}"
+                    f"  {row['drug']}: r={row['correlation']:.3f}, n={row['n_samples']}, p={row['p_value']:.2e}"
                 )
 
         # Summary statistics
@@ -508,7 +525,7 @@ if __name__ == "__main__":
 
     # Test adapters
     print("\nTesting adapters...")
-    for name, adapter in [
+    for name, _adapter in [
         ("Los Alamos", LosAlamosAdapter()),
         ("EuResist", EuResistAdapter()),
         ("Stanford", StanfordAdapter()),

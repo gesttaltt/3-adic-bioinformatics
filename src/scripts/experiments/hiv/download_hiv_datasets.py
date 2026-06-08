@@ -118,6 +118,7 @@ KAGGLE_DATASETS = [
 # Download Functions
 # =============================================================================
 
+
 def download_file(url: str, dest_path: Path, description: str = "") -> bool:
     """Download a file from URL."""
     try:
@@ -379,18 +380,22 @@ def create_dataset_index(data_dir: Path):
             if item.is_dir():
                 file_count = sum(1 for _ in item.rglob("*") if _.is_file())
                 total_size = sum(f.stat().st_size for f in item.rglob("*") if f.is_file())
-                datasets.append({
-                    "name": item.name,
-                    "type": "directory",
-                    "file_count": file_count,
-                    "size_mb": round(total_size / (1024 * 1024), 2),
-                })
+                datasets.append(
+                    {
+                        "name": item.name,
+                        "type": "directory",
+                        "file_count": file_count,
+                        "size_mb": round(total_size / (1024 * 1024), 2),
+                    }
+                )
             else:
-                datasets.append({
-                    "name": item.name,
-                    "type": "file",
-                    "size_mb": round(item.stat().st_size / (1024 * 1024), 2),
-                })
+                datasets.append(
+                    {
+                        "name": item.name,
+                        "type": "file",
+                        "size_mb": round(item.stat().st_size / (1024 * 1024), 2),
+                    }
+                )
 
         if datasets:
             index["sources"][source_name] = datasets

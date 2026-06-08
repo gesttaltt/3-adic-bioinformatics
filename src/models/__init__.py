@@ -20,8 +20,7 @@ V6.0 additions:
 from .curriculum import ContinuousCurriculumModule, CurriculumScheduler
 from .differentiable_controller import DifferentiableController
 from .homeostasis import HomeostasisController, compute_Q
-from .hyperbolic_projection import (DualHyperbolicProjection,
-                                    HyperbolicProjection)
+from .hyperbolic_projection import DualHyperbolicProjection, HyperbolicProjection
 
 # NOTE: SwarmVAE archived to src/ARCHIVE/v5_10_legacy/ - experimental, not in production
 # Set to None for backward compatibility with code referencing these
@@ -31,29 +30,34 @@ AgentConfig = None
 AgentRole = None
 PheromoneField = None
 
-from .ternary_vae import (FrozenDecoder, FrozenEncoder, TernaryVAEV5_11,
-                          TernaryVAEV5_11_OptionC, TernaryVAEV5_11_PartialFreeze)
-from .improved_components import (
-    ImprovedEncoder,
-    ImprovedDecoder,
-    create_encoder,
-    create_decoder,
-)
-from .base_vae import BaseVAE, HyperbolicBaseVAE, ConditionalBaseVAE, VAEConfig, VAEOutput
-from .hierarchical_vae import HierarchicalVAE, HierarchicalVAEConfig
+from .base_vae import BaseVAE, ConditionalBaseVAE, HyperbolicBaseVAE, VAEConfig, VAEOutput
 from .epistasis_module import (
     EpistasisModule,
-    EpistasisResult,
     EpistasisPredictor,
-    PairwiseInteractionModule,
+    EpistasisResult,
     HigherOrderInteractionModule,
+    PairwiseInteractionModule,
+)
+from .hierarchical_vae import HierarchicalVAE, HierarchicalVAEConfig
+from .improved_components import (
+    ImprovedDecoder,
+    ImprovedEncoder,
+    create_decoder,
+    create_encoder,
 )
 from .structure_aware_vae import (
+    InvariantPointAttention,
+    SE3Encoder,
     StructureAwareVAE,
     StructureConfig,
-    SE3Encoder,
     StructureSequenceFusion,
-    InvariantPointAttention,
+)
+from .ternary_vae import (
+    FrozenDecoder,
+    FrozenEncoder,
+    TernaryVAEV5_11,
+    TernaryVAEV5_11_OptionC,
+    TernaryVAEV5_11_PartialFreeze,
 )
 
 # Canonical exports (V5.11 architecture)
@@ -61,38 +65,65 @@ TernaryVAE = TernaryVAEV5_11
 TernaryVAE_PartialFreeze = TernaryVAEV5_11_PartialFreeze
 TernaryVAE_OptionC = TernaryVAEV5_11_OptionC  # Deprecated alias
 
+
 # V6.0 module imports (lazy loading for optional dependencies)
 def _import_plm():
-    from .plm import ESM2Encoder, ESM2Config, HyperbolicPLMEncoder, PLMEncoderBase
+    from .plm import ESM2Config, ESM2Encoder, HyperbolicPLMEncoder, PLMEncoderBase
+
     return ESM2Encoder, ESM2Config, HyperbolicPLMEncoder, PLMEncoderBase
 
+
 def _import_equivariant():
-    from .equivariant import SE3EquivariantEncoder, SE3Config, SE3WithHyperbolic
+    from .equivariant import SE3Config, SE3EquivariantEncoder, SE3WithHyperbolic
+
     return SE3EquivariantEncoder, SE3Config, SE3WithHyperbolic
+
 
 def _import_uncertainty():
     from .uncertainty import (
-        UncertaintyWrapper, BayesianPredictor, MCDropoutWrapper,
-        EvidentialPredictor, EvidentialLoss, EnsemblePredictor, DeepEnsemble
+        BayesianPredictor,
+        DeepEnsemble,
+        EnsemblePredictor,
+        EvidentialLoss,
+        EvidentialPredictor,
+        MCDropoutWrapper,
+        UncertaintyWrapper,
     )
-    return (UncertaintyWrapper, BayesianPredictor, MCDropoutWrapper,
-            EvidentialPredictor, EvidentialLoss, EnsemblePredictor, DeepEnsemble)
+
+    return (
+        UncertaintyWrapper,
+        BayesianPredictor,
+        MCDropoutWrapper,
+        EvidentialPredictor,
+        EvidentialLoss,
+        EnsemblePredictor,
+        DeepEnsemble,
+    )
+
 
 def _import_mtl():
-    from .mtl import MultiTaskResistancePredictor, MTLConfig, GradNormOptimizer
+    from .mtl import GradNormOptimizer, MTLConfig, MultiTaskResistancePredictor
+
     return MultiTaskResistancePredictor, MTLConfig, GradNormOptimizer
 
+
 def _import_diffusion():
-    from .diffusion import D3PM, D3PMConfig, SequenceGenerator, ConditionalGenerator
+    from .diffusion import D3PM, ConditionalGenerator, D3PMConfig, SequenceGenerator
+
     return D3PM, D3PMConfig, SequenceGenerator, ConditionalGenerator
 
+
 def _import_contrastive():
-    from .contrastive import BYOL, BYOLConfig, SimCLR, SequenceAugmentations
+    from .contrastive import BYOL, BYOLConfig, SequenceAugmentations, SimCLR
+
     return BYOL, BYOLConfig, SimCLR, SequenceAugmentations
 
+
 def _import_fusion():
-    from .fusion import CrossModalFusion, FusionConfig, MultimodalEncoder, MultimodalConfig
+    from .fusion import CrossModalFusion, FusionConfig, MultimodalConfig, MultimodalEncoder
+
     return CrossModalFusion, FusionConfig, MultimodalEncoder, MultimodalConfig
+
 
 __all__ = [
     # Canonical (V5.11)

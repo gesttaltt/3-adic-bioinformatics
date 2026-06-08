@@ -14,7 +14,6 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
 
 import numpy as np
 import torch
@@ -24,10 +23,11 @@ from tabulate import tabulate
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.data import generate_all_ternary_operations
-from src.core.metrics import compute_ranking_correlation_hyperbolic
 from src.models.ternary_vae_v5_6 import DualNeuralVAEV5
 from src.models.ternary_vae_v5_10 import DualNeuralVAEV5_10
+
+from src.core.metrics import compute_ranking_correlation_hyperbolic
+from src.data import generate_all_ternary_operations
 from src.utils.metrics import compute_latent_entropy, evaluate_coverage
 
 
@@ -55,7 +55,7 @@ class TernaryVAEBenchmark:
             )
 
         # Load config
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             self.config = yaml.safe_load(f)
 
         # Initialize model based on version
@@ -120,11 +120,11 @@ class TernaryVAEBenchmark:
         else:
             print(f"  Best val loss: {checkpoint.get('best_val_loss', 'unknown')}")
 
-    def benchmark_inference_speed(self, num_samples: int = 10000, num_trials: int = 10) -> Dict:
+    def benchmark_inference_speed(self, num_samples: int = 10000, num_trials: int = 10) -> dict:
         """Benchmark inference speed."""
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print("Benchmarking Inference Speed")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
 
         times_A = []
         times_B = []
@@ -169,17 +169,17 @@ class TernaryVAEBenchmark:
 
         return results
 
-    def benchmark_coverage(self, num_samples: int = 195000, num_trials: int = 5) -> Dict:
+    def benchmark_coverage(self, num_samples: int = 195000, num_trials: int = 5) -> dict:
         """Benchmark operation coverage."""
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print("Benchmarking Coverage")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
 
         results_A = []
         results_B = []
 
         for trial in range(num_trials):
-            print(f"\nTrial {trial+1}/{num_trials}...")
+            print(f"\nTrial {trial + 1}/{num_trials}...")
 
             # VAE-A
             samples_A = self.model.sample(num_samples, self.device, "A")
@@ -215,9 +215,9 @@ class TernaryVAEBenchmark:
             "vae_b_max_coverage": np.max(cov_B_values),
         }
 
-        print(f"\n{'='*40}")
+        print(f"\n{'=' * 40}")
         print("Coverage Summary")
-        print(f"{'='*40}")
+        print(f"{'=' * 40}")
         print(f"VAE-A: {results['vae_a_mean_coverage']:.2f}% +/- {results['vae_a_std_coverage']:.2f}%")
         print(f"       Max: {results['vae_a_max_coverage']:.2f}%")
         print(f"       ({results['vae_a_mean_unique']:.0f} +/- {results['vae_a_std_unique']:.0f} ops)")
@@ -227,11 +227,11 @@ class TernaryVAEBenchmark:
 
         return results
 
-    def benchmark_latent_entropy(self, num_samples: int = 10000) -> Dict:
+    def benchmark_latent_entropy(self, num_samples: int = 10000) -> dict:
         """Benchmark latent space entropy."""
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print("Benchmarking Latent Entropy")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
 
         all_ops = generate_all_ternary_operations()
         if num_samples < len(all_ops):
@@ -264,16 +264,16 @@ class TernaryVAEBenchmark:
 
         return results
 
-    def benchmark_hyperbolic_correlation(self, num_samples: int = 5000, num_trials: int = 3) -> Dict:
+    def benchmark_hyperbolic_correlation(self, num_samples: int = 5000, num_trials: int = 3) -> dict:
         """Benchmark hyperbolic 3-adic correlation (v5.10 specific)."""
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print("Benchmarking Hyperbolic 3-adic Correlation")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
 
         results_list = []
 
         for trial in range(num_trials):
-            print(f"\nTrial {trial+1}/{num_trials}...")
+            print(f"\nTrial {trial + 1}/{num_trials}...")
 
             corr_hyp, corr_euc, d_hyp, d_euc, cov_unique, cov_pct = compute_ranking_correlation_hyperbolic(
                 self.model, self.device, n_samples=num_samples
@@ -308,21 +308,21 @@ class TernaryVAEBenchmark:
             "coverage_mean": np.mean([r["coverage_pct"] for r in results_list]),
         }
 
-        print(f"\n{'='*40}")
+        print(f"\n{'=' * 40}")
         print("Hyperbolic Correlation Summary")
-        print(f"{'='*40}")
+        print(f"{'=' * 40}")
         print(f"Hyperbolic: {results['corr_hyp_mean']:.4f} +/- {results['corr_hyp_std']:.4f}")
         print(f"            Max: {results['corr_hyp_max']:.4f}")
         print(f"Euclidean:  {results['corr_euc_mean']:.4f} +/- {results['corr_euc_std']:.4f}")
-        print(f"Hyp/Euc Ratio: {results['corr_hyp_mean']/results['corr_euc_mean']:.2f}x")
+        print(f"Hyp/Euc Ratio: {results['corr_hyp_mean'] / results['corr_euc_mean']:.2f}x")
 
         return results
 
-    def benchmark_memory_usage(self) -> Dict:
+    def benchmark_memory_usage(self) -> dict:
         """Benchmark memory usage."""
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print("Benchmarking Memory Usage")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
 
         if not torch.cuda.is_available():
             print("CUDA not available, skipping memory benchmark")
@@ -352,14 +352,14 @@ class TernaryVAEBenchmark:
 
         return results
 
-    def run_full_benchmark(self) -> Dict:
+    def run_full_benchmark(self) -> dict:
         """Run complete benchmark suite."""
-        print(f"\n{'#'*80}")
+        print(f"\n{'#' * 80}")
         print(f"# Ternary VAE {self.model_version} - Full Benchmark Suite")
         print(f"# Config: {self.config_path}")
         print(f"# Checkpoint: {self.checkpoint_path or 'None'}")
         print(f"# Device: {self.device}")
-        print(f"{'#'*80}")
+        print(f"{'#' * 80}")
 
         results = {"model_version": self.model_version}
 
@@ -384,11 +384,11 @@ class TernaryVAEBenchmark:
 
         return results
 
-    def print_summary_table(self, results: Dict):
+    def print_summary_table(self, results: dict):
         """Print formatted summary table."""
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print(f"BENCHMARK SUMMARY ({self.model_version})")
-        print(f"{'='*80}\n")
+        print(f"{'=' * 80}\n")
 
         table_data = []
 
@@ -454,7 +454,7 @@ class TernaryVAEBenchmark:
             table_data.append(
                 [
                     "Hyp/Euc Advantage",
-                    f"{results['hyperbolic']['corr_hyp_mean']/results['hyperbolic']['corr_euc_mean']:.2f}x",
+                    f"{results['hyperbolic']['corr_hyp_mean'] / results['hyperbolic']['corr_euc_mean']:.2f}x",
                 ]
             )
 
@@ -464,7 +464,7 @@ class TernaryVAEBenchmark:
 
         print(tabulate(table_data, headers=["Metric", "Value"], tablefmt="grid"))
 
-    def save_results(self, results: Dict, output_path: str = None):
+    def save_results(self, results: dict, output_path: str = None):
         """Save benchmark results to JSON file with metadata."""
         if output_path is None:
             output_path = Path(__file__).parent.parent.parent / "benchmarks" / f"benchmark_{self.model_version}.json"
@@ -492,11 +492,11 @@ class TernaryVAEBenchmark:
         with open(output_path, "w") as f:
             json.dump(output, f, indent=2)
 
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print(f"Results saved to: {output_path}")
         print(f"Checkpoint hash: {checkpoint_hash}")
         print(f"Config hash: {config_hash}")
-        print(f"{'='*80}\n")
+        print(f"{'=' * 80}\n")
 
     def _compute_file_hash(self, file_path: str) -> str:
         """Compute SHA256 hash of a file."""
@@ -537,9 +537,9 @@ def main():
     results = benchmark.run_full_benchmark()
     benchmark.save_results(results, args.output)
 
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print("Benchmark Complete!")
-    print(f"{'='*80}\n")
+    print(f"{'=' * 80}\n")
 
 
 if __name__ == "__main__":

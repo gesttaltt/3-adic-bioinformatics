@@ -23,8 +23,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import torch
 import numpy as np
+import torch
 
 # Add project root
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -33,28 +33,52 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.config.paths import CHECKPOINTS_DIR, OUTPUT_DIR
 from src.models.epsilon_vae import extract_key_weights
 
-
 # Key hyperparameters that affect training dynamics
 KEY_HYPERPARAMS = [
-    "lr", "batch_size", "epochs", "weight_decay",
-    "curvature", "max_radius", "radial_weight", "margin_weight",
-    "option_c", "dual_projection", "progressive_unfreeze",
-    "encoder_a_lr_scale", "encoder_b_lr_scale",
-    "unfreeze_start_epoch", "unfreeze_warmup_epochs",
-    "projection_hidden_dim", "projection_layers", "projection_dropout",
-    "rank_loss_weight", "n_pairs", "hierarchy_threshold",
-    "coverage_floor", "enable_annealing", "annealing_step",
+    "lr",
+    "batch_size",
+    "epochs",
+    "weight_decay",
+    "curvature",
+    "max_radius",
+    "radial_weight",
+    "margin_weight",
+    "option_c",
+    "dual_projection",
+    "progressive_unfreeze",
+    "encoder_a_lr_scale",
+    "encoder_b_lr_scale",
+    "unfreeze_start_epoch",
+    "unfreeze_warmup_epochs",
+    "projection_hidden_dim",
+    "projection_layers",
+    "projection_dropout",
+    "rank_loss_weight",
+    "n_pairs",
+    "hierarchy_threshold",
+    "coverage_floor",
+    "enable_annealing",
+    "annealing_step",
 ]
 
 # All metrics to extract
 ALL_METRICS = [
-    "coverage", "geo_loss_A", "geo_loss_B",
-    "rad_loss_A", "rad_loss_B",
-    "radial_corr_A", "radial_corr_B",
-    "mean_radius_A", "mean_radius_B",
-    "radius_min_A", "radius_max_A", "radius_range_A",
-    "radius_v0", "radius_v9",
-    "distance_corr_A", "distance_corr_B",
+    "coverage",
+    "geo_loss_A",
+    "geo_loss_B",
+    "rad_loss_A",
+    "rad_loss_B",
+    "radial_corr_A",
+    "radial_corr_B",
+    "mean_radius_A",
+    "mean_radius_B",
+    "radius_min_A",
+    "radius_max_A",
+    "radius_range_A",
+    "radius_v0",
+    "radius_v9",
+    "distance_corr_A",
+    "distance_corr_B",
 ]
 
 
@@ -156,7 +180,7 @@ def compute_optimizer_statistics(optimizer_state: dict) -> dict:
     momentum_norms = []
     exp_avg_sq_norms = []
 
-    for param_id, param_state in state.items():
+    for _param_id, param_state in state.items():
         stats["n_params_with_state"] += 1
 
         # Adam optimizer has exp_avg (momentum) and exp_avg_sq
@@ -223,11 +247,11 @@ def collect_enhanced_checkpoint_data(checkpoint_dir: Path) -> tuple:
 
                 # Extract state dict
                 state_dict = (
-                    ckpt.get("model_state_dict") or
-                    ckpt.get("model_state") or
-                    ckpt.get("state_dict") or
-                    ckpt.get("model") or
-                    {}
+                    ckpt.get("model_state_dict")
+                    or ckpt.get("model_state")
+                    or ckpt.get("state_dict")
+                    or ckpt.get("model")
+                    or {}
                 )
                 if not state_dict:
                     continue
@@ -254,43 +278,39 @@ def collect_enhanced_checkpoint_data(checkpoint_dir: Path) -> tuple:
                 total_epochs = config.get("epochs", 150) if config else 150
                 progress = epoch / total_epochs if total_epochs > 0 else 0.0
 
-                dataset.append({
-                    "path": str(ckpt_path),
-                    "run_name": run_dir.name,
-                    "epoch": epoch,
-                    "date": date.isoformat(),
-                    "date_obj": date,
-
-                    # Weights for VAE encoder
-                    "weight_dim": flat_weights.shape[0],
-                    "weights_path": str(ckpt_path),  # Load on demand
-
-                    # All metrics (16+)
-                    "metrics": metrics,
-
-                    # Training hyperparameters
-                    "hyperparams": hyperparams,
-
-                    # Weight statistics
-                    "weight_stats": {
-                        "total_params": weight_stats["total_params"],
-                        "total_layers": weight_stats["total_layers"],
-                        "mean_weight_norm": weight_stats["mean_weight_norm"],
-                        "std_weight_norm": weight_stats["std_weight_norm"],
-                        "mean_sparsity": weight_stats["mean_sparsity"],
-                        "mean_weight_std": weight_stats["mean_weight_std"],
-                        "encoder_a_norm": weight_stats["encoder_a_norm"],
-                        "encoder_b_norm": weight_stats["encoder_b_norm"],
-                        "projection_norm": weight_stats["projection_norm"],
-                    },
-
-                    # Optimizer statistics
-                    "optimizer_stats": optimizer_stats,
-
-                    # Training progress
-                    "progress": progress,
-                    "total_epochs": total_epochs,
-                })
+                dataset.append(
+                    {
+                        "path": str(ckpt_path),
+                        "run_name": run_dir.name,
+                        "epoch": epoch,
+                        "date": date.isoformat(),
+                        "date_obj": date,
+                        # Weights for VAE encoder
+                        "weight_dim": flat_weights.shape[0],
+                        "weights_path": str(ckpt_path),  # Load on demand
+                        # All metrics (16+)
+                        "metrics": metrics,
+                        # Training hyperparameters
+                        "hyperparams": hyperparams,
+                        # Weight statistics
+                        "weight_stats": {
+                            "total_params": weight_stats["total_params"],
+                            "total_layers": weight_stats["total_layers"],
+                            "mean_weight_norm": weight_stats["mean_weight_norm"],
+                            "std_weight_norm": weight_stats["std_weight_norm"],
+                            "mean_sparsity": weight_stats["mean_sparsity"],
+                            "mean_weight_std": weight_stats["mean_weight_std"],
+                            "encoder_a_norm": weight_stats["encoder_a_norm"],
+                            "encoder_b_norm": weight_stats["encoder_b_norm"],
+                            "projection_norm": weight_stats["projection_norm"],
+                        },
+                        # Optimizer statistics
+                        "optimizer_stats": optimizer_stats,
+                        # Training progress
+                        "progress": progress,
+                        "total_epochs": total_epochs,
+                    }
+                )
 
             except Exception as e:
                 errors.append((str(ckpt_path), str(e)))
@@ -318,25 +338,29 @@ def create_feature_vector(item: dict) -> list:
 
     # Weight statistics (9 features)
     ws = item["weight_stats"]
-    features.extend([
-        ws["total_params"] / 1e6,  # Normalize to millions
-        ws["total_layers"],
-        ws["mean_weight_norm"],
-        ws["std_weight_norm"],
-        ws["mean_sparsity"],
-        ws["mean_weight_std"],
-        ws["encoder_a_norm"],
-        ws["encoder_b_norm"],
-        ws["projection_norm"],
-    ])
+    features.extend(
+        [
+            ws["total_params"] / 1e6,  # Normalize to millions
+            ws["total_layers"],
+            ws["mean_weight_norm"],
+            ws["std_weight_norm"],
+            ws["mean_sparsity"],
+            ws["mean_weight_std"],
+            ws["encoder_a_norm"],
+            ws["encoder_b_norm"],
+            ws["projection_norm"],
+        ]
+    )
 
     # Optimizer statistics (3 features)
     os = item["optimizer_stats"]
-    features.extend([
-        1.0 if os["has_momentum"] else 0.0,
-        os["mean_momentum_norm"],
-        os["mean_exp_avg_sq_norm"],
-    ])
+    features.extend(
+        [
+            1.0 if os["has_momentum"] else 0.0,
+            os["mean_momentum_norm"],
+            os["mean_exp_avg_sq_norm"],
+        ]
+    )
 
     return features
 
@@ -356,8 +380,7 @@ def analyze_enhanced_dataset(dataset: list) -> dict:
     # Count unique configs
     unique_lrs = set(d["hyperparams"].get("lr", 0) for d in dataset)
     unique_architectures = set(
-        (d["hyperparams"].get("projection_hidden_dim", 0),
-         d["hyperparams"].get("projection_layers", 0))
+        (d["hyperparams"].get("projection_hidden_dim", 0), d["hyperparams"].get("projection_layers", 0))
         for d in dataset
     )
 
@@ -471,12 +494,21 @@ def main():
     # Save feature metadata
     feature_meta = {
         "feature_names": (
-            ["epoch", "progress"] +
-            ALL_METRICS +
-            KEY_HYPERPARAMS +
-            ["total_params_M", "total_layers", "mean_weight_norm", "std_weight_norm",
-             "mean_sparsity", "mean_weight_std", "encoder_a_norm", "encoder_b_norm", "projection_norm"] +
-            ["has_momentum", "mean_momentum_norm", "mean_exp_avg_sq_norm"]
+            ["epoch", "progress"]
+            + ALL_METRICS
+            + KEY_HYPERPARAMS
+            + [
+                "total_params_M",
+                "total_layers",
+                "mean_weight_norm",
+                "std_weight_norm",
+                "mean_sparsity",
+                "mean_weight_std",
+                "encoder_a_norm",
+                "encoder_b_norm",
+                "projection_norm",
+            ]
+            + ["has_momentum", "mean_momentum_norm", "mean_exp_avg_sq_norm"]
         ),
         "feature_dim": analysis["feature_dim"],
         "target_metrics": ["coverage", "distance_corr_A", "radial_corr_A"],
@@ -489,8 +521,8 @@ def main():
     print(f"  - full_dataset.json ({len(dataset)} checkpoints)")
     print(f"  - train_dataset.json ({len(train_data)} checkpoints)")
     print(f"  - val_dataset.json ({len(val_data)} checkpoints)")
-    print(f"  - analysis.json")
-    print(f"  - feature_meta.json")
+    print("  - analysis.json")
+    print("  - feature_meta.json")
     print(f"\nFeature dimension: {analysis['feature_dim']}")
 
     if errors:

@@ -10,23 +10,23 @@ Author: Claude Code
 Date: 2026-01-14
 """
 
-import torch
-import torch.nn as nn
-from pathlib import Path
 import sys
+from pathlib import Path
+
+import torch
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from src.models.enhanced_controller import (
-    EnhancedDifferentiableController,
     ControllerOutputs,
     HierarchicalAttention,
     TemperatureAdaptive,
-    create_enhanced_controller,
     create_backward_compatible_controller,
+    create_enhanced_controller,
 )
+
 from src.models.differentiable_controller import DifferentiableController
 
 
@@ -47,13 +47,12 @@ def test_backward_compatibility():
     enhanced_out = enhanced_compat(batch_stats)
 
     # Check that flat outputs have same structure
-    assert set(original_out.keys()) == set(enhanced_out.flat_outputs.keys()), \
-        "Output keys don't match"
+    assert set(original_out.keys()) == set(enhanced_out.flat_outputs.keys()), "Output keys don't match"
 
     print("✅ Output structure compatibility")
 
     # Check output shapes
-    for key in original_out.keys():
+    for key in original_out:
         orig_shape = original_out[key].shape
         enh_shape = enhanced_out.flat_outputs[key].shape
         assert orig_shape == enh_shape, f"Shape mismatch for {key}: {orig_shape} vs {enh_shape}"
@@ -145,8 +144,8 @@ def test_hierarchical_outputs():
 
     # Test Tactical Level outputs
     tactical_outputs = [
-        ("geodesic_weight", (0.1, float('inf'))),
-        ("radial_weight", (0.0, float('inf'))),
+        ("geodesic_weight", (0.1, float("inf"))),
+        ("radial_weight", (0.0, float("inf"))),
         ("regularization_strength", (0.0, 1.0)),
     ]
 
@@ -154,7 +153,7 @@ def test_hierarchical_outputs():
         values = getattr(outputs, name)
         assert values.shape == (4,), f"Wrong shape for {name}: {values.shape}"
         assert torch.all(values >= min_val), f"{name} below bound {min_val}"
-        if max_val != float('inf'):
+        if max_val != float("inf"):
             assert torch.all(values <= max_val), f"{name} above bound {max_val}"
 
     print("✅ Tactical level outputs (3 signals)")
@@ -177,8 +176,8 @@ def test_hierarchical_outputs():
     # Test Attention Level outputs
     attention_outputs = [
         ("encoder_attention", 2),  # 2 encoders
-        ("loss_attention", 5),     # 5 loss components
-        ("layer_attention", 4),    # 4 layers
+        ("loss_attention", 5),  # 5 loss components
+        ("layer_attention", 4),  # 4 layers
     ]
 
     for name, expected_dim in attention_outputs:
@@ -297,10 +296,18 @@ def test_control_summary():
 
     # Check summary structure
     expected_keys = {
-        "hierarchy_focus", "coverage_focus", "exploration_rate",
-        "geodesic_importance", "radial_importance", "regularization",
-        "rho_injection", "curriculum_progress", "lr_scaling",
-        "encoder_entropy", "loss_entropy", "layer_entropy"
+        "hierarchy_focus",
+        "coverage_focus",
+        "exploration_rate",
+        "geodesic_importance",
+        "radial_importance",
+        "regularization",
+        "rho_injection",
+        "curriculum_progress",
+        "lr_scaling",
+        "encoder_entropy",
+        "loss_entropy",
+        "layer_entropy",
     }
 
     assert set(summary.keys()) == expected_keys, f"Missing summary keys: {expected_keys - set(summary.keys())}"
@@ -343,6 +350,7 @@ def test_performance_and_capacity():
 
     # Test forward pass performance
     import time
+
     batch_stats = torch.randn(32, 8)
 
     # Warmup
@@ -363,8 +371,8 @@ def test_performance_and_capacity():
     enh_time = time.time() - start
 
     slowdown = enh_time / orig_time
-    print(f"Original forward time:       {orig_time*1000:.2f} ms")
-    print(f"Enhanced forward time:       {enh_time*1000:.2f} ms")
+    print(f"Original forward time:       {orig_time * 1000:.2f} ms")
+    print(f"Enhanced forward time:       {enh_time * 1000:.2f} ms")
     print(f"Slowdown factor:             {slowdown:.2f}x")
 
     assert slowdown < 10.0, f"Enhanced controller too slow: {slowdown:.2f}x"  # Adjusted for hierarchical complexity
@@ -425,6 +433,7 @@ def main():
     except Exception as e:
         print(f"\n❌ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

@@ -13,8 +13,8 @@ Single responsibility: Checkpoint I/O with version compatibility and
 unified metadata extraction.
 """
 
-from dataclasses import dataclass, field
 import pickle
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -116,14 +116,10 @@ def get_model_state_dict(checkpoint: dict[str, Any]) -> dict[str, torch.Tensor]:
             return checkpoint[key]
 
     # If no known key found, check if checkpoint looks like a state dict
-    if isinstance(checkpoint, dict) and any(
-        isinstance(v, torch.Tensor) for v in checkpoint.values()
-    ):
+    if isinstance(checkpoint, dict) and any(isinstance(v, torch.Tensor) for v in checkpoint.values()):
         return checkpoint
 
-    raise ValueError(
-        f"Cannot find model state in checkpoint. Keys: {list(checkpoint.keys())}"
-    )
+    raise ValueError(f"Cannot find model state in checkpoint. Keys: {list(checkpoint.keys())}")
 
 
 def extract_model_state(
@@ -147,7 +143,7 @@ def extract_model_state(
     filtered = {}
     for key, value in model_state.items():
         if key.startswith(prefix_dot):
-            new_key = key[len(prefix_dot):] if strip_prefix else key
+            new_key = key[len(prefix_dot) :] if strip_prefix else key
             filtered[new_key] = value
 
     return filtered
@@ -206,9 +202,18 @@ class CheckpointMetrics:
         """Convert to dictionary, excluding None values."""
         result = {}
         for key in [
-            "coverage", "hierarchy", "hierarchy_A", "hierarchy_B",
-            "richness", "r_v0", "r_v9", "mean_radius", "std_radius",
-            "distance_corr_A", "distance_corr_B", "Q"
+            "coverage",
+            "hierarchy",
+            "hierarchy_A",
+            "hierarchy_B",
+            "richness",
+            "r_v0",
+            "r_v9",
+            "mean_radius",
+            "std_radius",
+            "distance_corr_A",
+            "distance_corr_B",
+            "Q",
         ]:
             val = getattr(self, key)
             if val is not None:
@@ -218,7 +223,7 @@ class CheckpointMetrics:
     def __repr__(self) -> str:
         parts = []
         if self.coverage is not None:
-            parts.append(f"cov={self.coverage*100:.1f}%")
+            parts.append(f"cov={self.coverage * 100:.1f}%")
         if self.hierarchy is not None:
             parts.append(f"hier={self.hierarchy:.4f}")
         elif self.hierarchy_B is not None:
@@ -511,7 +516,7 @@ def compare_checkpoints(
     for info in infos:
         name = info.path.parent.name
         epoch = str(info.epoch) if info.epoch is not None else "-"
-        cov = f"{info.metrics.coverage*100:.1f}%" if info.metrics.coverage else "-"
+        cov = f"{info.metrics.coverage * 100:.1f}%" if info.metrics.coverage else "-"
         hier = f"{info.metrics.hierarchy:.4f}" if info.metrics.hierarchy else "-"
         rich = f"{info.metrics.richness:.6f}" if info.metrics.richness else "-"
         Q = f"{info.metrics.Q:.3f}" if info.metrics.Q else "-"
@@ -528,6 +533,7 @@ class ArchitectureConfig:
     Used to ensure model architecture matches checkpoint before loading.
     Mismatched architectures cause silent failures with strict=False.
     """
+
     latent_dim: int = 16
     hidden_dim: int = 64
     curvature: float = 1.0
@@ -574,7 +580,7 @@ class ArchitectureConfig:
             ArchitectureConfig inferred from state dict
         """
         # Check for controller
-        use_controller = any(k.startswith("controller.") for k in state_dict.keys())
+        use_controller = any(k.startswith("controller.") for k in state_dict)
 
         # Infer hidden_dim from encoder weight shape
         hidden_dim = 64
@@ -591,7 +597,7 @@ class ArchitectureConfig:
         # Count projection layers by checking direction_net weights
         n_projection_layers = 1
         for i in range(10):
-            if f"projection.proj_A.direction_net.{i*2}.weight" in state_dict:
+            if f"projection.proj_A.direction_net.{i * 2}.weight" in state_dict:
                 n_projection_layers = i // 2 + 1
 
         return cls(
@@ -615,6 +621,7 @@ class ArchitectureConfig:
 
 class CheckpointArchitectureMismatch(Exception):
     """Raised when model architecture doesn't match checkpoint."""
+
     pass
 
 
@@ -708,7 +715,7 @@ def load_checkpoint_safe(
     try:
         model.load_state_dict(checkpoint_state, strict=True)
         return checkpoint, True
-    except RuntimeError as e:
+    except RuntimeError:
         if strict:
             raise
         # Fall back to non-strict

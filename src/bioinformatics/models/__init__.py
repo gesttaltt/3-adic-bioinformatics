@@ -13,19 +13,19 @@ This module provides:
 - DDGEnsemble: Ensemble combining all models
 """
 
-from src.bioinformatics.models.ddg_vae import DDGVAE, DDGVAEConfig
-from src.bioinformatics.models.multimodal_ddg_vae import (
-    MultimodalDDGVAE,
-    CrossModalFusion,
-    MultimodalConfig,
-)
+from src.bioinformatics.models.ddg_ensemble import DDGEnsemble, FuzzyDDGHead
 from src.bioinformatics.models.ddg_mlp_refiner import DDGMLPRefiner, RefinerConfig
 from src.bioinformatics.models.ddg_transformer import (
     DDGTransformer,
     HierarchicalTransformer,
     TransformerConfig,
 )
-from src.bioinformatics.models.ddg_ensemble import DDGEnsemble, FuzzyDDGHead
+from src.bioinformatics.models.ddg_vae import DDGVAE, DDGVAEConfig
+from src.bioinformatics.models.multimodal_ddg_vae import (
+    CrossModalFusion,
+    MultimodalConfig,
+    MultimodalDDGVAE,
+)
 
 __all__ = [
     "DDGVAE",

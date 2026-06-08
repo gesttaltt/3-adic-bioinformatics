@@ -16,9 +16,8 @@ from __future__ import annotations
 
 import csv
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import torch
@@ -26,7 +25,6 @@ from torch.utils.data import Dataset
 
 from src.bioinformatics.data.preprocessing import (
     compute_features,
-    MutationFeatures,
 )
 
 
@@ -40,8 +38,8 @@ class S669Record:
     wild_type: str
     mutant: str
     ddg: float  # kcal/mol
-    uniprot_id: Optional[str] = None
-    protein_name: Optional[str] = None
+    uniprot_id: str | None = None
+    protein_name: str | None = None
 
     @property
     def mutation_string(self) -> str:
@@ -57,7 +55,7 @@ class S669Record:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "S669Record":
+    def from_dict(cls, data: dict) -> S669Record:
         return cls(**data)
 
 
@@ -67,7 +65,7 @@ class S669Dataset(Dataset):
     def __init__(
         self,
         records: list[S669Record],
-        aa_embeddings: Optional[dict[str, torch.Tensor]] = None,
+        aa_embeddings: dict[str, torch.Tensor] | None = None,
         curvature: float = 1.0,
     ):
         """Initialize dataset.
@@ -135,7 +133,7 @@ class S669Loader:
     with literature methods like ESM-1v, FoldX, Rosetta.
     """
 
-    def __init__(self, data_dir: Optional[Path] = None):
+    def __init__(self, data_dir: Path | None = None):
         """Initialize loader.
 
         Args:
@@ -149,9 +147,17 @@ class S669Loader:
 
         # Check for existing S669 file in partner package
         # Go up from src/bioinformatics/data/s669_loader.py to repo root
-        self._partner_path = Path(__file__).parents[3] / "deliverables" / "partners" / "protein_stability_ddg" / "reproducibility" / "data" / "s669.csv"
+        self._partner_path = (
+            Path(__file__).parents[3]
+            / "deliverables"
+            / "partners"
+            / "protein_stability_ddg"
+            / "reproducibility"
+            / "data"
+            / "s669.csv"
+        )
 
-    def load_from_csv(self, csv_path: Optional[Path] = None) -> list[S669Record]:
+    def load_from_csv(self, csv_path: Path | None = None) -> list[S669Record]:
         """Load S669 records from CSV file.
 
         Args:
@@ -172,8 +178,7 @@ class S669Loader:
 
         if not csv_path.exists():
             raise FileNotFoundError(
-                f"S669 dataset not found at {csv_path}. "
-                "Download from DDG-EMB or use download_s669()."
+                f"S669 dataset not found at {csv_path}. Download from DDG-EMB or use download_s669()."
             )
 
         records = []
@@ -200,16 +205,18 @@ class S669Loader:
                     if wt not in valid_aa or mut not in valid_aa:
                         continue
 
-                    records.append(S669Record(
-                        pdb_id=pdb,
-                        chain=chain,
-                        position=position,
-                        wild_type=wt,
-                        mutant=mut,
-                        ddg=ddg,
-                        uniprot_id=row.get("uniprot_id"),
-                        protein_name=row.get("protein_name"),
-                    ))
+                    records.append(
+                        S669Record(
+                            pdb_id=pdb,
+                            chain=chain,
+                            position=position,
+                            wild_type=wt,
+                            mutant=mut,
+                            ddg=ddg,
+                            uniprot_id=row.get("uniprot_id"),
+                            protein_name=row.get("protein_name"),
+                        )
+                    )
                 except (ValueError, KeyError, TypeError):
                     continue
 
@@ -217,7 +224,7 @@ class S669Loader:
 
     def load_curated_subset(
         self,
-        csv_path: Optional[Path] = None,
+        csv_path: Path | None = None,
         n_samples: int = 52,
     ) -> list[S669Record]:
         """Load curated N=52 subset for comparison with ProTherm.
@@ -272,8 +279,8 @@ class S669Loader:
 
     def create_dataset(
         self,
-        records: Optional[list[S669Record]] = None,
-        aa_embeddings: Optional[dict[str, torch.Tensor]] = None,
+        records: list[S669Record] | None = None,
+        aa_embeddings: dict[str, torch.Tensor] | None = None,
         curvature: float = 1.0,
         use_curated_subset: bool = False,
     ) -> S669Dataset:
@@ -289,10 +296,7 @@ class S669Loader:
             S669Dataset
         """
         if records is None:
-            if use_curated_subset:
-                records = self.load_curated_subset()
-            else:
-                records = self.load_from_csv()
+            records = self.load_curated_subset() if use_curated_subset else self.load_from_csv()
 
         return S669Dataset(
             records=records,

@@ -12,7 +12,6 @@ Single responsibility: Frozen model components with checkpoint loading.
 """
 
 from pathlib import Path
-from typing import Tuple
 
 import torch
 import torch.nn as nn
@@ -54,7 +53,7 @@ class FrozenEncoder(nn.Module):
         for param in self.parameters():
             param.requires_grad = False
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass - deterministic, no gradients.
 
         Args:
@@ -100,7 +99,7 @@ class FrozenEncoder(nn.Module):
         prefix = f"{encoder_prefix}."
         for key, value in model_state.items():
             if key.startswith(prefix):
-                new_key = key[len(prefix):]
+                new_key = key[len(prefix) :]
                 encoder_state[new_key] = value
 
         encoder.load_state_dict(encoder_state)
@@ -188,7 +187,7 @@ class FrozenDecoder(nn.Module):
         prefix = f"{decoder_prefix}."
         for key, value in model_state.items():
             if key.startswith(prefix):
-                new_key = key[len(prefix):]
+                new_key = key[len(prefix) :]
                 decoder_state[new_key] = value
 
         decoder.load_state_dict(decoder_state)

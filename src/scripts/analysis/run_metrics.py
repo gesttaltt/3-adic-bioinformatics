@@ -79,7 +79,9 @@ def generate_report(radon_data, bandit_data):
                 for r in results:
                     icon = "🔴" if r["issue_severity"] == "HIGH" else "🟠" if r["issue_severity"] == "MEDIUM" else "🟡"
                     fname = r["filename"].replace("\\", "/")
-                    f.write(f"| {icon} {r['issue_severity']} | {r['issue_confidence']} | {r['issue_text']} | `{fname}:{r['line_number']}` |\n")
+                    f.write(
+                        f"| {icon} {r['issue_severity']} | {r['issue_confidence']} | {r['issue_text']} | `{fname}:{r['line_number']}` |\n"
+                    )
             else:
                 f.write("✅ No security issues found.\n")
         else:
@@ -105,7 +107,9 @@ def generate_report(radon_data, bandit_data):
 
             complex_blocks.sort(key=lambda x: x["cc"], reverse=True)
 
-            f.write(f"**Cyclomatic Complexity (CC) Violations:** {len(complex_blocks)} functions/methods with CC > 10.\n\n")
+            f.write(
+                f"**Cyclomatic Complexity (CC) Violations:** {len(complex_blocks)} functions/methods with CC > 10.\n\n"
+            )
 
             if complex_blocks:
                 f.write("| Complexity | Rank | Location | Function |\n")

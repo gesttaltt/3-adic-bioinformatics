@@ -41,11 +41,9 @@ Example:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from src.models.base_vae import BaseVAE, VAEConfig
 
@@ -242,7 +240,7 @@ class HierarchicalVAE(BaseVAE):
     - KL-balancing with free bits to prevent posterior collapse
     """
 
-    def __init__(self, config: Optional[HierarchicalVAEConfig] = None, **kwargs):
+    def __init__(self, config: HierarchicalVAEConfig | None = None, **kwargs):
         """Initialize Hierarchical VAE.
 
         Args:
@@ -392,7 +390,7 @@ class HierarchicalVAE(BaseVAE):
 
         # Go through remaining levels (top-down, so reversed order)
         for i, (block, z) in enumerate(
-            zip(self.decoder_blocks[1:], reversed(zs[:-1])),
+            zip(self.decoder_blocks[1:], reversed(zs[:-1]), strict=False),
             start=1,
         ):
             if z is None:
@@ -459,7 +457,7 @@ class HierarchicalVAE(BaseVAE):
 
         # Sample latents at each level
         all_zs = []
-        for mu, logvar in zip(all_mus, all_logvars):
+        for mu, logvar in zip(all_mus, all_logvars, strict=False):
             z = self.reparameterize(mu, logvar)
             all_zs.append(z)
 
@@ -473,7 +471,7 @@ class HierarchicalVAE(BaseVAE):
 
         # Go through remaining levels
         for i, (block, z) in enumerate(
-            zip(self.decoder_blocks[1:], reversed(all_zs[:-1])),
+            zip(self.decoder_blocks[1:], reversed(all_zs[:-1]), strict=False),
             start=1,
         ):
             # Compute prior from top-down features
@@ -508,7 +506,7 @@ class HierarchicalVAE(BaseVAE):
         all_logvars: list[torch.Tensor],
         prior_mus: list[torch.Tensor],
         prior_logvars: list[torch.Tensor],
-        free_bits: Optional[float] = None,
+        free_bits: float | None = None,
     ) -> tuple[torch.Tensor, list[torch.Tensor]]:
         """Compute hierarchical KL divergence with learned priors.
 
@@ -542,26 +540,20 @@ class HierarchicalVAE(BaseVAE):
             p_mu, p_logvar = prior_mus[i], prior_logvars[i]
 
             # KL between two Gaussians
-            kl = 0.5 * (
-                p_logvar - q_logvar
-                + (q_logvar.exp() + (q_mu - p_mu).pow(2)) / (p_logvar.exp() + 1e-8)
-                - 1
-            )
+            kl = 0.5 * (p_logvar - q_logvar + (q_logvar.exp() + (q_mu - p_mu).pow(2)) / (p_logvar.exp() + 1e-8) - 1)
             kl = torch.maximum(kl, torch.tensor(free_bits, device=kl.device))
             kl_per_level.insert(0, kl.sum(dim=-1).mean())
 
         # Weighted sum
-        total_kl = sum(
-            w * kl for w, kl in zip(self.kl_weights, kl_per_level)
-        )
+        total_kl = sum(w * kl for w, kl in zip(self.kl_weights, kl_per_level, strict=False))
 
         return total_kl, kl_per_level
 
     def compute_loss(
         self,
         x: torch.Tensor,
-        outputs: Optional[dict[str, torch.Tensor]] = None,
-        beta: Optional[float] = None,
+        outputs: dict[str, torch.Tensor] | None = None,
+        beta: float | None = None,
     ) -> dict[str, torch.Tensor]:
         """Compute hierarchical VAE loss.
 
@@ -607,7 +599,7 @@ class HierarchicalVAE(BaseVAE):
     def get_level_embeddings(
         self,
         x: torch.Tensor,
-        level: Optional[int] = None,
+        level: int | None = None,
     ) -> torch.Tensor | list[torch.Tensor]:
         """Get embeddings at specified level(s).
 
@@ -627,7 +619,7 @@ class HierarchicalVAE(BaseVAE):
     def sample(
         self,
         n_samples: int,
-        device: Optional[torch.device] = None,
+        device: torch.device | None = None,
         temperature: float = 1.0,
     ) -> torch.Tensor:
         """Sample from the hierarchical prior.
@@ -644,9 +636,7 @@ class HierarchicalVAE(BaseVAE):
             device = next(self.parameters()).device
 
         # Sample top level from standard normal
-        top_z = temperature * torch.randn(
-            n_samples, self.latent_dims[-1], device=device
-        )
+        top_z = temperature * torch.randn(n_samples, self.latent_dims[-1], device=device)
 
         # Top-down generation
         features = self.decoder_blocks[0](top_z)

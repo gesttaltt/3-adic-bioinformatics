@@ -28,7 +28,6 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -42,11 +41,11 @@ class TreeNode:
 
     id: int
     embedding: torch.Tensor
-    children: List["TreeNode"] = field(default_factory=list)
-    parent: Optional["TreeNode"] = None
-    label: Optional[str] = None
-    hidden: Optional[torch.Tensor] = None
-    cell: Optional[torch.Tensor] = None
+    children: list[TreeNode] = field(default_factory=list)
+    parent: TreeNode | None = None
+    label: str | None = None
+    hidden: torch.Tensor | None = None
+    cell: torch.Tensor | None = None
 
 
 class TreeLSTM(nn.Module):
@@ -76,7 +75,7 @@ class TreeLSTM(nn.Module):
     def forward(
         self,
         tree: TreeNode,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Process tree and return root hidden state.
 
         Args:
@@ -140,7 +139,7 @@ class ChildSumTreeLSTM(TreeLSTM):
         x: torch.Tensor,
         child_h: torch.Tensor,
         child_c: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute hidden state for a single node.
 
         Args:
@@ -179,10 +178,7 @@ class ChildSumTreeLSTM(TreeLSTM):
         u = torch.tanh(self.W_u(x) + self.U_u(h_tilde))
 
         # Per-child forget gates
-        f = torch.sigmoid(
-            self.W_f(x).unsqueeze(0).expand(n_children, -1)
-            + self.U_f(child_h)
-        )
+        f = torch.sigmoid(self.W_f(x).unsqueeze(0).expand(n_children, -1) + self.U_f(child_h))
 
         # Cell state
         fc = (f * child_c).sum(dim=0)
@@ -196,7 +192,7 @@ class ChildSumTreeLSTM(TreeLSTM):
     def forward(
         self,
         tree: TreeNode,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Process tree bottom-up.
 
         Args:
@@ -205,8 +201,9 @@ class ChildSumTreeLSTM(TreeLSTM):
         Returns:
             Root (hidden_state, cell_state)
         """
+
         # Post-order traversal (children before parents)
-        def process_node(node: TreeNode) -> Tuple[torch.Tensor, torch.Tensor]:
+        def process_node(node: TreeNode) -> tuple[torch.Tensor, torch.Tensor]:
             if not node.children:
                 # Leaf node
                 h, c = self.node_forward(
@@ -258,38 +255,26 @@ class NaryTreeLSTM(TreeLSTM):
 
         # Input gate
         self.W_i = nn.Linear(input_dim, hidden_dim)
-        self.U_i = nn.ModuleList([
-            nn.Linear(hidden_dim, hidden_dim, bias=False)
-            for _ in range(n_children)
-        ])
+        self.U_i = nn.ModuleList([nn.Linear(hidden_dim, hidden_dim, bias=False) for _ in range(n_children)])
 
         # Forget gates (one per child position)
         self.W_f = nn.Linear(input_dim, hidden_dim)
-        self.U_f = nn.ModuleList([
-            nn.Linear(hidden_dim, hidden_dim, bias=False)
-            for _ in range(n_children)
-        ])
+        self.U_f = nn.ModuleList([nn.Linear(hidden_dim, hidden_dim, bias=False) for _ in range(n_children)])
 
         # Output gate
         self.W_o = nn.Linear(input_dim, hidden_dim)
-        self.U_o = nn.ModuleList([
-            nn.Linear(hidden_dim, hidden_dim, bias=False)
-            for _ in range(n_children)
-        ])
+        self.U_o = nn.ModuleList([nn.Linear(hidden_dim, hidden_dim, bias=False) for _ in range(n_children)])
 
         # Cell input
         self.W_u = nn.Linear(input_dim, hidden_dim)
-        self.U_u = nn.ModuleList([
-            nn.Linear(hidden_dim, hidden_dim, bias=False)
-            for _ in range(n_children)
-        ])
+        self.U_u = nn.ModuleList([nn.Linear(hidden_dim, hidden_dim, bias=False) for _ in range(n_children)])
 
     def node_forward(
         self,
         x: torch.Tensor,
-        child_h: List[torch.Tensor],
-        child_c: List[torch.Tensor],
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        child_h: list[torch.Tensor],
+        child_c: list[torch.Tensor],
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute hidden state for a single node.
 
         Args:
@@ -342,7 +327,7 @@ class NaryTreeLSTM(TreeLSTM):
     def forward(
         self,
         tree: TreeNode,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Process tree bottom-up.
 
         Args:
@@ -351,7 +336,8 @@ class NaryTreeLSTM(TreeLSTM):
         Returns:
             Root (hidden_state, cell_state)
         """
-        def process_node(node: TreeNode) -> Tuple[torch.Tensor, torch.Tensor]:
+
+        def process_node(node: TreeNode) -> tuple[torch.Tensor, torch.Tensor]:
             if not node.children:
                 # Leaf node
                 h, c = self.node_forward(node.embedding, [], [])
@@ -419,9 +405,16 @@ class ProteinTreeEncoder(nn.Module):
         self.output_proj = nn.Linear(hidden_dim, hidden_dim)
 
         # Symbol to index mapping
-        self.symbol_to_idx: Dict[str, int] = {
-            "PROTEIN": 1, "REGION": 2, "GLYCO": 3, "PHOSPHO": 4,
-            "BINDING": 5, "NLS": 6, "TM": 7, "HELIX": 8, "SHEET": 9,
+        self.symbol_to_idx: dict[str, int] = {
+            "PROTEIN": 1,
+            "REGION": 2,
+            "GLYCO": 3,
+            "PHOSPHO": 4,
+            "BINDING": 5,
+            "NLS": 6,
+            "TM": 7,
+            "HELIX": 8,
+            "SHEET": 9,
         }
 
     def parse_tree_to_tree_node(
@@ -504,8 +497,8 @@ class ProteinTreeEncoder(nn.Module):
 
     def encode_batch(
         self,
-        parse_trees: List[ParseTree],
-        sequences: List[str],
+        parse_trees: list[ParseTree],
+        sequences: list[str],
     ) -> torch.Tensor:
         """Encode batch of proteins.
 
@@ -517,7 +510,7 @@ class ProteinTreeEncoder(nn.Module):
             Batch of embeddings (batch, hidden_dim)
         """
         embeddings = []
-        for pt, seq in zip(parse_trees, sequences):
+        for pt, seq in zip(parse_trees, sequences, strict=False):
             emb = self.forward(pt, seq)
             embeddings.append(emb)
 
@@ -526,7 +519,7 @@ class ProteinTreeEncoder(nn.Module):
 
 def collect_tree_states(
     root: TreeNode,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Collect all hidden and cell states from a processed tree.
 
     Args:

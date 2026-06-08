@@ -26,7 +26,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import List, Optional, Sequence, Tuple, Union
+from collections.abc import Sequence
 
 import numpy as np
 from matplotlib.axes import Axes
@@ -35,23 +35,22 @@ from matplotlib.figure import Figure
 from matplotlib.patches import Circle
 
 from src.visualization.core.base import create_figure, despine
-from src.visualization.styles.palettes import (SEMANTIC, TOLVIBRANT,
-                                               get_categorical_cmap)
+from src.visualization.styles.palettes import SEMANTIC, TOLVIBRANT, get_categorical_cmap
 
 
 def plot_poincare_disk(
     embeddings: np.ndarray,
-    labels: Optional[np.ndarray] = None,
-    colors: Optional[Sequence[str]] = None,
+    labels: np.ndarray | None = None,
+    colors: Sequence[str] | None = None,
     title: str = "Poincare Disk Embedding",
-    ax: Optional[Axes] = None,
-    figsize: Tuple[float, float] = (8, 8),
+    ax: Axes | None = None,
+    figsize: tuple[float, float] = (8, 8),
     show_boundary: bool = True,
     show_origin: bool = True,
     marker_size: float = 50,
     alpha: float = 0.7,
-    cmap: Optional[Union[str, Colormap]] = None,
-) -> Tuple[Figure, Axes]:
+    cmap: str | Colormap | None = None,
+) -> tuple[Figure, Axes]:
     """Plot embeddings on the Poincare disk (2D hyperbolic space).
 
     Args:
@@ -122,15 +121,15 @@ def plot_poincare_disk(
 def plot_geodesics(
     start_points: np.ndarray,
     end_points: np.ndarray,
-    ax: Optional[Axes] = None,
-    figsize: Tuple[float, float] = (8, 8),
+    ax: Axes | None = None,
+    figsize: tuple[float, float] = (8, 8),
     n_steps: int = 50,
     curvature: float = 1.0,
     linewidth: float = 1.5,
     color: str = SEMANTIC.primary,
     alpha: float = 0.6,
     show_disk: bool = True,
-) -> Tuple[Figure, Axes]:
+) -> tuple[Figure, Axes]:
     """Plot geodesics (shortest paths) on the Poincare disk.
 
     Args:
@@ -160,7 +159,7 @@ def plot_geodesics(
     # Compute geodesic paths
     # For the Poincare disk, geodesics are arcs of circles perpendicular to the boundary
     # Here we use linear interpolation in the tangent space as an approximation
-    for start, end in zip(start_points, end_points):
+    for start, end in zip(start_points, end_points, strict=False):
         t = np.linspace(0, 1, n_steps)
 
         # Linear interpolation (approximation)
@@ -185,15 +184,15 @@ def plot_geodesics(
 def plot_embedding_clusters(
     embeddings: np.ndarray,
     labels: np.ndarray,
-    cluster_names: Optional[List[str]] = None,
+    cluster_names: list[str] | None = None,
     title: str = "Embedding Clusters",
-    ax: Optional[Axes] = None,
-    figsize: Tuple[float, float] = (10, 8),
+    ax: Axes | None = None,
+    figsize: tuple[float, float] = (10, 8),
     show_centroids: bool = True,
     show_ellipses: bool = True,
     ellipse_std: float = 2.0,
     alpha: float = 0.6,
-) -> Tuple[Figure, Axes]:
+) -> tuple[Figure, Axes]:
     """Plot clustered embeddings with optional ellipse boundaries.
 
     Args:
@@ -246,7 +245,15 @@ def plot_embedding_clusters(
         centroid = cluster_points.mean(axis=0)
 
         if show_centroids:
-            ax.plot(centroid[0], centroid[1], "o", color=colors[i], markersize=12, markeredgecolor="black", markeredgewidth=2)
+            ax.plot(
+                centroid[0],
+                centroid[1],
+                "o",
+                color=colors[i],
+                markersize=12,
+                markeredgecolor="black",
+                markeredgewidth=2,
+            )
 
         # Covariance ellipse
         if show_ellipses and len(cluster_points) > 2:
@@ -287,14 +294,14 @@ def plot_embedding_clusters(
 
 def plot_distance_heatmap(
     distance_matrix: np.ndarray,
-    labels: Optional[List[str]] = None,
+    labels: list[str] | None = None,
     title: str = "Pairwise Distance Matrix",
-    ax: Optional[Axes] = None,
-    figsize: Tuple[float, float] = (10, 8),
+    ax: Axes | None = None,
+    figsize: tuple[float, float] = (10, 8),
     cmap: str = "viridis",
     show_values: bool = False,
     value_format: str = ".2f",
-) -> Tuple[Figure, Axes]:
+) -> tuple[Figure, Axes]:
     """Plot heatmap of pairwise distances.
 
     Args:
@@ -343,14 +350,14 @@ def plot_distance_heatmap(
 
 def plot_radial_distribution(
     embeddings: np.ndarray,
-    labels: Optional[np.ndarray] = None,
+    labels: np.ndarray | None = None,
     title: str = "Radial Distribution",
-    ax: Optional[Axes] = None,
-    figsize: Tuple[float, float] = (10, 6),
+    ax: Axes | None = None,
+    figsize: tuple[float, float] = (10, 6),
     n_bins: int = 30,
     use_hyperbolic: bool = True,
     curvature: float = 1.0,
-) -> Tuple[Figure, Axes]:
+) -> tuple[Figure, Axes]:
     """Plot distribution of embedding distances from origin.
 
     Useful for understanding how embeddings fill the Poincare ball.

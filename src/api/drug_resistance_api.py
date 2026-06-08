@@ -30,22 +30,21 @@ from __future__ import annotations
 import sys
 import time
 from collections import defaultdict
-from datetime import datetime
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
-from dataclasses import dataclass, field
-from functools import wraps
 
 # Add project root
 root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(root))
 
 try:
-    from fastapi import FastAPI, HTTPException, Request, Depends
+    from fastapi import Depends, FastAPI, HTTPException, Request
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import JSONResponse
-    from starlette.middleware.base import BaseHTTPMiddleware
     from pydantic import BaseModel, Field
+    from starlette.middleware.base import BaseHTTPMiddleware
+
     FASTAPI_AVAILABLE = True
 except ImportError:
     FASTAPI_AVAILABLE = False
@@ -60,9 +59,11 @@ API_VERSION_FULL = "1.0.0"
 # Rate Limiting
 # =============================================================================
 
+
 @dataclass
 class RateLimitConfig:
     """Rate limiting configuration."""
+
     requests_per_minute: int = 60
     requests_per_hour: int = 1000
     burst_limit: int = 10
@@ -73,15 +74,13 @@ class RateLimiter:
 
     def __init__(self, config: RateLimitConfig = None):
         self.config = config or RateLimitConfig()
-        self._requests: Dict[str, List[float]] = defaultdict(list)
+        self._requests: dict[str, list[float]] = defaultdict(list)
 
     def _clean_old_requests(self, client_id: str, window_seconds: int) -> None:
         """Remove requests outside the time window."""
         now = time.time()
         cutoff = now - window_seconds
-        self._requests[client_id] = [
-            t for t in self._requests[client_id] if t > cutoff
-        ]
+        self._requests[client_id] = [t for t in self._requests[client_id] if t > cutoff]
 
     def is_allowed(self, client_id: str) -> tuple[bool, dict]:
         """Check if request is allowed under rate limits.
@@ -125,7 +124,6 @@ rate_limiter = RateLimiter()
 import numpy as np
 import torch
 
-
 # =============================================================================
 # API Models
 # =============================================================================
@@ -134,43 +132,50 @@ if FASTAPI_AVAILABLE:
 
     class SequenceInput(BaseModel):
         """Input sequence for prediction."""
+
         sequence: str = Field(..., description="Amino acid sequence", min_length=10)
         drug: str = Field(..., description="Drug name (e.g., AZT, LPV)")
-        drug_class: Optional[str] = Field(None, description="Drug class (pi, nrti, nnrti, ini)")
+        drug_class: str | None = Field(None, description="Drug class (pi, nrti, nnrti, ini)")
 
     class BatchInput(BaseModel):
         """Batch of sequences for prediction."""
-        sequences: List[str] = Field(..., description="List of amino acid sequences")
+
+        sequences: list[str] = Field(..., description="List of amino acid sequences")
         drug: str = Field(..., description="Drug name")
 
     class PredictionOutput(BaseModel):
         """Prediction result."""
+
         drug: str
         resistance_score: float = Field(..., description="Resistance score (0-1)")
-        confidence: Optional[float] = Field(None, description="Prediction confidence")
+        confidence: float | None = Field(None, description="Prediction confidence")
         interpretation: str = Field(..., description="Clinical interpretation")
-        mutations_detected: Optional[List[str]] = Field(None, description="Key mutations found")
+        mutations_detected: list[str] | None = Field(None, description="Key mutations found")
 
     class BatchOutput(BaseModel):
         """Batch prediction results."""
-        predictions: List[PredictionOutput]
+
+        predictions: list[PredictionOutput]
         n_sequences: int
 
     class DrugInfo(BaseModel):
         """Drug information."""
+
         name: str
         drug_class: str
         full_name: str
-        key_mutations: List[str]
+        key_mutations: list[str]
 
     class HealthResponse(BaseModel):
         """Health check response."""
+
         status: str
         model_loaded: bool
         version: str
 
     class UncertaintyOutput(BaseModel):
         """Prediction with uncertainty quantification."""
+
         drug: str
         mean_score: float
         std_score: float
@@ -181,25 +186,28 @@ if FASTAPI_AVAILABLE:
 
     class CrossResistanceOutput(BaseModel):
         """Cross-resistance analysis."""
+
         primary_drug: str
-        cross_resistance: Dict[str, float]
-        high_risk_drugs: List[str]
+        cross_resistance: dict[str, float]
+        high_risk_drugs: list[str]
         recommendation: str
 
     class ClinicalReportOutput(BaseModel):
         """Comprehensive clinical decision support report."""
-        patient_id: Optional[str]
+
+        patient_id: str | None
         sequence_length: int
         analysis_date: str
-        drug_class_results: Dict[str, List[PredictionOutput]]
-        recommended_drugs: List[str]
-        avoid_drugs: List[str]
-        cross_resistance_warnings: List[str]
-        novel_mutations: List[str]
+        drug_class_results: dict[str, list[PredictionOutput]]
+        recommended_drugs: list[str]
+        avoid_drugs: list[str]
+        cross_resistance_warnings: list[str]
+        novel_mutations: list[str]
         overall_recommendation: str
 
     class NovelMutationOutput(BaseModel):
         """Novel mutation analysis."""
+
         position: int
         attention_score: float
         known_status: str
@@ -221,7 +229,6 @@ DRUG_DATABASE = {
     "IDV": {"class": "pi", "full_name": "Indinavir", "mutations": ["32", "46", "54", "76", "82", "84"]},
     "SQV": {"class": "pi", "full_name": "Saquinavir", "mutations": ["48", "54", "82", "84", "88", "90"]},
     "TPV": {"class": "pi", "full_name": "Tipranavir", "mutations": ["33", "47", "58", "74", "82", "83", "84"]},
-
     # NRTIs
     "AZT": {"class": "nrti", "full_name": "Zidovudine", "mutations": ["41", "67", "70", "210", "215", "219"]},
     "D4T": {"class": "nrti", "full_name": "Stavudine", "mutations": ["41", "67", "70", "75", "210", "215", "219"]},
@@ -229,17 +236,23 @@ DRUG_DATABASE = {
     "TDF": {"class": "nrti", "full_name": "Tenofovir", "mutations": ["65", "70"]},
     "DDI": {"class": "nrti", "full_name": "Didanosine", "mutations": ["65", "74"]},
     "3TC": {"class": "nrti", "full_name": "Lamivudine", "mutations": ["65", "184"]},
-
     # NNRTIs
-    "NVP": {"class": "nnrti", "full_name": "Nevirapine", "mutations": ["100", "101", "103", "106", "181", "188", "190"]},
+    "NVP": {
+        "class": "nnrti",
+        "full_name": "Nevirapine",
+        "mutations": ["100", "101", "103", "106", "181", "188", "190"],
+    },
     "EFV": {"class": "nnrti", "full_name": "Efavirenz", "mutations": ["100", "101", "103", "106", "188", "190", "225"]},
     "ETR": {"class": "nnrti", "full_name": "Etravirine", "mutations": ["100", "101", "138", "179", "181"]},
     "DOR": {"class": "nnrti", "full_name": "Doravirine", "mutations": ["100", "101", "106", "227"]},
     "RPV": {"class": "nnrti", "full_name": "Rilpivirine", "mutations": ["100", "101", "138", "179", "181", "227"]},
-
     # INIs
     "RAL": {"class": "ini", "full_name": "Raltegravir", "mutations": ["66", "92", "140", "143", "148", "155"]},
-    "EVG": {"class": "ini", "full_name": "Elvitegravir", "mutations": ["66", "92", "118", "121", "140", "143", "147", "148", "155"]},
+    "EVG": {
+        "class": "ini",
+        "full_name": "Elvitegravir",
+        "mutations": ["66", "92", "118", "121", "140", "143", "147", "148", "155"],
+    },
     "DTG": {"class": "ini", "full_name": "Dolutegravir", "mutations": ["118", "140", "148", "263"]},
     "BIC": {"class": "ini", "full_name": "Bictegravir", "mutations": ["118", "140", "148", "263"]},
 }
@@ -295,10 +308,7 @@ def interpret_resistance(score: float) -> str:
 # Reference sequences for HIV genes (consensus B subtype)
 # PI: Protease (99 aa), NRTI/NNRTI: RT (560 aa), INI: Integrase (288 aa)
 REFERENCE_SEQUENCES = {
-    "pi": (
-        "PQITLWQRPLVTIKIGGQLKEALLDTGADDTVLEEMNLPGRWKPKMIGGIGGFIKVRQYD"
-        "QILIEICGHKAIGTVLVGPTPVNIIGRNLLTQIGCTLNF"
-    ),
+    "pi": ("PQITLWQRPLVTIKIGGQLKEALLDTGADDTVLEEMNLPGRWKPKMIGGIGGFIKVRQYDQILIEICGHKAIGTVLVGPTPVNIIGRNLLTQIGCTLNF"),
     "nrti": (
         "PISPIETVPVKLKPGMDGPKVKQWPLTEEKIKALVEICTEMEKEGKISKIGPENPYNTPV"
         "FAIKKKDSTKWRKLVDFRELNKRTQDFWEVQLGIPHPAGLKKKKSVTVLDVGDAYFSVPL"
@@ -326,30 +336,88 @@ REFERENCE_SEQUENCES = {
 # Format: {position: wild_type_residue}
 RESISTANCE_POSITIONS = {
     "pi": {
-        10: "L", 20: "K", 24: "L", 30: "D", 32: "V", 33: "L", 36: "M",
-        46: "M", 47: "I", 48: "G", 50: "I", 53: "F", 54: "I", 58: "Q",
-        63: "L", 71: "A", 73: "G", 74: "T", 76: "L", 82: "V", 84: "I",
-        88: "N", 89: "L", 90: "L",
+        10: "L",
+        20: "K",
+        24: "L",
+        30: "D",
+        32: "V",
+        33: "L",
+        36: "M",
+        46: "M",
+        47: "I",
+        48: "G",
+        50: "I",
+        53: "F",
+        54: "I",
+        58: "Q",
+        63: "L",
+        71: "A",
+        73: "G",
+        74: "T",
+        76: "L",
+        82: "V",
+        84: "I",
+        88: "N",
+        89: "L",
+        90: "L",
     },
     "nrti": {
-        41: "M", 44: "E", 62: "A", 65: "K", 67: "D", 69: "T", 70: "K",
-        74: "L", 75: "V", 77: "F", 115: "Y", 116: "F", 151: "Q", 184: "M",
-        210: "L", 215: "T", 219: "K",
+        41: "M",
+        44: "E",
+        62: "A",
+        65: "K",
+        67: "D",
+        69: "T",
+        70: "K",
+        74: "L",
+        75: "V",
+        77: "F",
+        115: "Y",
+        116: "F",
+        151: "Q",
+        184: "M",
+        210: "L",
+        215: "T",
+        219: "K",
     },
     "nnrti": {
-        98: "A", 100: "L", 101: "K", 103: "K", 106: "V", 108: "V",
-        138: "E", 179: "V", 181: "Y", 188: "Y", 190: "G", 221: "H",
-        225: "P", 227: "F", 230: "M",
+        98: "A",
+        100: "L",
+        101: "K",
+        103: "K",
+        106: "V",
+        108: "V",
+        138: "E",
+        179: "V",
+        181: "Y",
+        188: "Y",
+        190: "G",
+        221: "H",
+        225: "P",
+        227: "F",
+        230: "M",
     },
     "ini": {
-        51: "H", 66: "T", 74: "L", 92: "E", 97: "T", 118: "G", 121: "F",
-        138: "E", 140: "G", 143: "Y", 147: "S", 148: "Q", 155: "N",
-        157: "E", 263: "R",
+        51: "H",
+        66: "T",
+        74: "L",
+        92: "E",
+        97: "T",
+        118: "G",
+        121: "F",
+        138: "E",
+        140: "G",
+        143: "Y",
+        147: "S",
+        148: "Q",
+        155: "N",
+        157: "E",
+        263: "R",
     },
 }
 
 
-def detect_mutations(sequence: str, drug: str) -> List[str]:
+def detect_mutations(sequence: str, drug: str) -> list[str]:
     """Detect resistance mutations in a sequence for a specific drug.
 
     Args:
@@ -410,7 +478,7 @@ def detect_novel_mutations(
     sequence: str,
     drug_class: str,
     attention_threshold: float = 0.01,
-) -> List[dict]:
+) -> list[dict]:
     """Detect potentially novel mutations using position analysis.
 
     This is a simplified version. In production, use attention weights
@@ -457,14 +525,16 @@ def detect_novel_mutations(
             score += 0.003  # Proline/Glycine special
 
         if score >= attention_threshold:
-            novel_candidates.append({
-                "position": pos,
-                "reference": ref_aa,
-                "mutation": seq_aa,
-                "notation": f"{ref_aa}{pos}{seq_aa}",
-                "attention_score": round(score, 4),
-                "known_status": "NOVEL_CANDIDATE",
-            })
+            novel_candidates.append(
+                {
+                    "position": pos,
+                    "reference": ref_aa,
+                    "mutation": seq_aa,
+                    "notation": f"{ref_aa}{pos}{seq_aa}",
+                    "attention_score": round(score, 4),
+                    "known_status": "NOVEL_CANDIDATE",
+                }
+            )
 
     # Sort by score and return top candidates
     novel_candidates.sort(key=lambda x: x["attention_score"], reverse=True)
@@ -474,6 +544,7 @@ def detect_novel_mutations(
 # =============================================================================
 # Mock Model (Replace with actual trained model)
 # =============================================================================
+
 
 class MockResistanceModel:
     """Mock model for demonstration. Replace with trained model."""
@@ -591,7 +662,7 @@ if FASTAPI_AVAILABLE:
             version=API_VERSION_FULL,
         )
 
-    @app.get("/drugs", response_model=List[DrugInfo])
+    @app.get("/drugs", response_model=list[DrugInfo])
     async def list_drugs():
         """List all available drugs."""
         return [
@@ -661,21 +732,25 @@ if FASTAPI_AVAILABLE:
                 score, confidence = model.predict(x, input_data.drug)
                 mutations = detect_mutations(seq, input_data.drug)
 
-                predictions.append(PredictionOutput(
-                    drug=input_data.drug,
-                    resistance_score=round(score, 4),
-                    confidence=round(confidence, 4),
-                    interpretation=interpret_resistance(score),
-                    mutations_detected=mutations if mutations else None,
-                ))
+                predictions.append(
+                    PredictionOutput(
+                        drug=input_data.drug,
+                        resistance_score=round(score, 4),
+                        confidence=round(confidence, 4),
+                        interpretation=interpret_resistance(score),
+                        mutations_detected=mutations if mutations else None,
+                    )
+                )
             except Exception as e:
-                predictions.append(PredictionOutput(
-                    drug=input_data.drug,
-                    resistance_score=0.0,
-                    confidence=0.0,
-                    interpretation=f"Error: {str(e)}",
-                    mutations_detected=None,
-                ))
+                predictions.append(
+                    PredictionOutput(
+                        drug=input_data.drug,
+                        resistance_score=0.0,
+                        confidence=0.0,
+                        interpretation=f"Error: {str(e)}",
+                        mutations_detected=None,
+                    )
+                )
 
         return BatchOutput(predictions=predictions, n_sequences=len(predictions))
 
@@ -726,8 +801,7 @@ if FASTAPI_AVAILABLE:
 
         if drug_class != "nrti":
             raise HTTPException(
-                status_code=400,
-                detail="Cross-resistance analysis currently only available for NRTI drugs"
+                status_code=400, detail="Cross-resistance analysis currently only available for NRTI drugs"
             )
 
         expected_len = 240
@@ -763,7 +837,7 @@ if FASTAPI_AVAILABLE:
     @app.post("/clinical-report", response_model=ClinicalReportOutput)
     async def generate_clinical_report(
         sequence: str,
-        patient_id: Optional[str] = None,
+        patient_id: str | None = None,
     ):
         """Generate comprehensive clinical decision support report."""
         from datetime import datetime
@@ -837,7 +911,7 @@ if FASTAPI_AVAILABLE:
             overall_recommendation=overall,
         )
 
-    @app.get("/novel-mutations/{drug_class}", response_model=List[NovelMutationOutput])
+    @app.get("/novel-mutations/{drug_class}", response_model=list[NovelMutationOutput])
     async def get_novel_mutations(drug_class: str):
         """Get identified novel mutation candidates for a drug class."""
         # Load from pre-computed results
@@ -956,20 +1030,23 @@ if FASTAPI_AVAILABLE:
 
     class DiseaseInfo(BaseModel):
         """Disease information."""
+
         id: str
         name: str
         description: str
         drugs: int
-        drug_classes: List[str]
+        drug_classes: list[str]
 
     class MultiDiseaseInput(BaseModel):
         """Input for multi-disease prediction."""
+
         sequence: str = Field(..., description="Amino acid sequence")
         disease: str = Field(..., description="Disease identifier")
-        target: Optional[str] = Field(None, description="Specific drug/target")
+        target: str | None = Field(None, description="Specific drug/target")
 
     class MultiDiseaseOutput(BaseModel):
         """Output for multi-disease prediction."""
+
         disease: str
         target: str
         resistance_score: float
@@ -977,7 +1054,7 @@ if FASTAPI_AVAILABLE:
         confidence: float
         interpretation: str
 
-    @app.get("/diseases", response_model=List[DiseaseInfo])
+    @app.get("/diseases", response_model=list[DiseaseInfo])
     async def list_diseases():
         """List all supported diseases."""
         return [
@@ -1000,7 +1077,7 @@ if FASTAPI_AVAILABLE:
         if disease not in DISEASE_DATABASE:
             raise HTTPException(status_code=400, detail=f"Unknown disease: {disease}")
 
-        disease_info = DISEASE_DATABASE[disease]
+        DISEASE_DATABASE[disease]
         target = input_data.target or "primary"
 
         # Encode sequence
@@ -1046,10 +1123,7 @@ if FASTAPI_AVAILABLE:
         if disease == "hiv":
             return {
                 "disease": disease,
-                "drugs": [
-                    {"name": name, **info}
-                    for name, info in DRUG_DATABASE.items()
-                ],
+                "drugs": [{"name": name, **info} for name, info in DRUG_DATABASE.items()],
             }
 
         # For other diseases, return placeholder
@@ -1068,6 +1142,7 @@ if FASTAPI_AVAILABLE:
 if __name__ == "__main__":
     if FASTAPI_AVAILABLE:
         import uvicorn
+
         print("Starting Multi-Disease Drug Resistance API...")
         print("API docs available at: http://localhost:8000/docs")
         print(f"Supported diseases: {', '.join(DISEASE_DATABASE.keys())}")

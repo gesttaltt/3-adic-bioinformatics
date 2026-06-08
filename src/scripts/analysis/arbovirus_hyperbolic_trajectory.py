@@ -24,16 +24,17 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
 try:
     from Bio import SeqIO
+
     HAS_BIOPYTHON = True
 except ImportError:
     HAS_BIOPYTHON = False
@@ -118,12 +119,12 @@ def encode_window_hyperbolic(
     embeddings = []
 
     for start in range(0, len(sequence) - window_size + 1, step):
-        window = sequence[start:start + window_size]
+        window = sequence[start : start + window_size]
 
         # Convert to codons
         codon_indices = []
         for i in range(0, len(window) - 2, 3):
-            codon = window[i:i+3]
+            codon = window[i : i + 3]
             idx = codon_to_index(codon)
             if idx >= 0:
                 codon_indices.append(idx)
@@ -135,14 +136,16 @@ def encode_window_hyperbolic(
         valuations = [padic_valuation(idx + 1, p) for idx in codon_indices]
 
         # Create embedding features
-        features = np.array([
-            np.mean(valuations),
-            np.std(valuations) if len(valuations) > 1 else 0,
-            np.max(valuations),
-            len([v for v in valuations if v > 0]) / len(valuations),  # Fraction with valuation > 0
-            np.mean(codon_indices) / 64,  # Normalized mean index
-            np.std(codon_indices) / 64 if len(codon_indices) > 1 else 0,
-        ])
+        features = np.array(
+            [
+                np.mean(valuations),
+                np.std(valuations) if len(valuations) > 1 else 0,
+                np.max(valuations),
+                len([v for v in valuations if v > 0]) / len(valuations),  # Fraction with valuation > 0
+                np.mean(codon_indices) / 64,  # Normalized mean index
+                np.std(codon_indices) / 64 if len(codon_indices) > 1 else 0,
+            ]
+        )
 
         embeddings.append(features)
 
@@ -161,7 +164,7 @@ def embed_genome(sequence: str) -> np.ndarray:
     return np.mean(window_embeddings, axis=0)
 
 
-def parse_header(header: str) -> tuple[str, Optional[str], Optional[str]]:
+def parse_header(header: str) -> tuple[str, str | None, str | None]:
     """Parse FASTA header to extract accession, serotype, year."""
     parts = header.split("|")
     accession = parts[0].strip(">")
@@ -173,10 +176,8 @@ def parse_header(header: str) -> tuple[str, Optional[str], Optional[str]]:
         serotype = parts[1] if parts[1] != "unknown" else None
 
     if len(parts) > 2:
-        try:
+        with contextlib.suppress(ValueError, IndexError):
             year = parts[2] if parts[2] != "unknown" else None
-        except (ValueError, IndexError):
-            pass
 
     return accession, serotype, year
 
@@ -246,7 +247,7 @@ def compute_trajectory(
 def compute_velocity(
     trajectory: list[TrajectoryPoint],
     window: int = 2,
-) -> Optional[VelocityVector]:
+) -> VelocityVector | None:
     """Compute velocity vector from recent trajectory points."""
     if len(trajectory) < 2:
         return None
@@ -290,7 +291,7 @@ def forecast_position(
         # Compute variance of directions over trajectory
         directions = []
         for i in range(1, len(trajectory)):
-            d = trajectory[i].centroid - trajectory[i-1].centroid
+            d = trajectory[i].centroid - trajectory[i - 1].centroid
             if np.linalg.norm(d) > 0:
                 directions.append(d / np.linalg.norm(d))
         if len(directions) > 1:
@@ -380,10 +381,9 @@ def analyze_trajectories(
         "total_serotypes": len(serotype_data),
         "fastest_moving": velocities[0][0] if velocities else None,
         "highest_risk": max(
-            [(s, r.get("forecast", {}).get("risk_score", 0))
-             for s, r in results["serotypes"].items()],
+            [(s, r.get("forecast", {}).get("risk_score", 0)) for s, r in results["serotypes"].items()],
             key=lambda x: x[1],
-            default=(None, 0)
+            default=(None, 0),
         )[0],
     }
 
@@ -398,9 +398,7 @@ def analyze_trajectories(
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Arbovirus hyperbolic trajectory analysis"
-    )
+    parser = argparse.ArgumentParser(description="Arbovirus hyperbolic trajectory analysis")
     parser.add_argument(
         "--input",
         type=str,

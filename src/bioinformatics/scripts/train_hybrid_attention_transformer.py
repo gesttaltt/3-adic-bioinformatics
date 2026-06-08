@@ -19,7 +19,6 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -32,14 +31,15 @@ from torch.utils.data import DataLoader, TensorDataset
 project_root = Path(__file__).parents[3]
 sys.path.insert(0, str(project_root))
 
-from src.bioinformatics.data.s669_loader import S669Loader
-from src.bioinformatics.data.protherm_loader import ProThermLoader
 from src.bioinformatics.data.preprocessing import compute_features
+from src.bioinformatics.data.protherm_loader import ProThermLoader
+from src.bioinformatics.data.s669_loader import S669Loader
 
 
 @dataclass
 class HybridConfig:
     """Configuration for hybrid attention transformer."""
+
     # VAE architecture (must match trained models)
     vae_hidden_dim: int = 128
     vae_latent_dim: int = 32
@@ -51,7 +51,7 @@ class HybridConfig:
     transformer_n_heads: int = 6
 
     # MLP Refiner architecture (must match trained models)
-    refiner_hidden_dims: List[int] = None
+    refiner_hidden_dims: list[int] = None
 
     # Attention transformer
     attention_d_model: int = 128
@@ -97,11 +97,11 @@ class DDGVAE(nn.Module):
             nn.Linear(hidden_dim, 1),
         )
 
-    def encode(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def encode(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         h = self.encoder(x)
         return self.fc_mu(h), self.fc_logvar(h).clamp(-10, 2)
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         mu, logvar = self.encode(x)
         pred = self.decoder(mu).squeeze(-1)
         return {"mu": mu, "logvar": logvar, "pred": pred}
@@ -110,7 +110,7 @@ class DDGVAE(nn.Module):
 class MLPRefiner(nn.Module):
     """MLP that refines VAE predictions."""
 
-    def __init__(self, latent_dim: int, hidden_dims: List[int] = None, dropout: float = 0.1):
+    def __init__(self, latent_dim: int, hidden_dims: list[int] = None, dropout: float = 0.1):
         super().__init__()
         if hidden_dims is None:
             hidden_dims = [64, 64, 32]
@@ -118,12 +118,14 @@ class MLPRefiner(nn.Module):
         layers = []
         in_dim = latent_dim
         for h_dim in hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, h_dim),
-                nn.SiLU(),
-                nn.LayerNorm(h_dim),
-                nn.Dropout(dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, h_dim),
+                    nn.SiLU(),
+                    nn.LayerNorm(h_dim),
+                    nn.Dropout(dropout),
+                ]
+            )
             in_dim = h_dim
 
         self.mlp = nn.Sequential(*layers)
@@ -131,7 +133,7 @@ class MLPRefiner(nn.Module):
         self.residual_weight = nn.Parameter(torch.tensor(0.5))
         self.final_hidden_dim = in_dim
 
-    def forward(self, mu: torch.Tensor, vae_pred: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, mu: torch.Tensor, vae_pred: torch.Tensor) -> dict[str, torch.Tensor]:
         h = self.mlp(mu)
         delta = self.head(h).squeeze(-1)
         w = torch.sigmoid(self.residual_weight)
@@ -142,8 +144,7 @@ class MLPRefiner(nn.Module):
 class DDGTransformer(nn.Module):
     """Direct transformer for DDG prediction (from features)."""
 
-    def __init__(self, input_dim: int, d_model: int = 96, n_layers: int = 4,
-                 n_heads: int = 6, dropout: float = 0.05):
+    def __init__(self, input_dim: int, d_model: int = 96, n_layers: int = 4, n_heads: int = 6, dropout: float = 0.05):
         super().__init__()
         self.d_model = d_model
 
@@ -158,22 +159,18 @@ class DDGTransformer(nn.Module):
             nhead=n_heads,
             dim_feedforward=d_model * 4,
             dropout=dropout,
-            activation='gelu',
+            activation="gelu",
             norm_first=True,
-            batch_first=True
+            batch_first=True,
         )
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
 
         # Output head
         self.head = nn.Sequential(
-            nn.LayerNorm(d_model),
-            nn.Linear(d_model, d_model),
-            nn.SiLU(),
-            nn.Dropout(dropout),
-            nn.Linear(d_model, 1)
+            nn.LayerNorm(d_model), nn.Linear(d_model, d_model), nn.SiLU(), nn.Dropout(dropout), nn.Linear(d_model, 1)
         )
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         B = x.size(0)
 
         # Embed features
@@ -185,7 +182,7 @@ class DDGTransformer(nn.Module):
         x = torch.cat([cls, x], dim=1)  # (B, F+1, d_model)
 
         # Add positional embedding
-        x = x + self.pos_embed[:, :x.size(1)]
+        x = x + self.pos_embed[:, : x.size(1)]
 
         # Transformer
         h = self.encoder(x)
@@ -210,7 +207,7 @@ class HybridAttentionTransformer(nn.Module):
     For Wide: VAE + Refiner features (when available)
     """
 
-    def __init__(self, config: HybridConfig, specialist_dims: Dict[str, int]):
+    def __init__(self, config: HybridConfig, specialist_dims: dict[str, int]):
         super().__init__()
         self.config = config
         self.specialist_dims = specialist_dims
@@ -221,10 +218,9 @@ class HybridAttentionTransformer(nn.Module):
             self.projections[name] = nn.Linear(dim, config.attention_d_model)
 
         # Learnable specialist embeddings (identify which specialist)
-        self.specialist_embeddings = nn.ParameterDict({
-            name: nn.Parameter(torch.randn(1, 1, config.attention_d_model) * 0.02)
-            for name in specialist_dims
-        })
+        self.specialist_embeddings = nn.ParameterDict(
+            {name: nn.Parameter(torch.randn(1, 1, config.attention_d_model) * 0.02) for name in specialist_dims}
+        )
 
         # CLS token for aggregation
         self.cls_token = nn.Parameter(torch.randn(1, 1, config.attention_d_model) * 0.02)
@@ -235,13 +231,11 @@ class HybridAttentionTransformer(nn.Module):
             nhead=config.attention_n_heads,
             dim_feedforward=config.attention_d_model * 4,
             dropout=config.attention_dropout,
-            activation='gelu',
+            activation="gelu",
             norm_first=True,
-            batch_first=True
+            batch_first=True,
         )
-        self.attention_encoder = nn.TransformerEncoder(
-            encoder_layer, num_layers=config.attention_n_layers
-        )
+        self.attention_encoder = nn.TransformerEncoder(encoder_layer, num_layers=config.attention_n_layers)
 
         # Output head
         self.head = nn.Sequential(
@@ -249,10 +243,10 @@ class HybridAttentionTransformer(nn.Module):
             nn.Linear(config.attention_d_model, config.attention_d_model),
             nn.SiLU(),
             nn.Dropout(config.attention_dropout),
-            nn.Linear(config.attention_d_model, 1)
+            nn.Linear(config.attention_d_model, 1),
         )
 
-    def forward(self, specialist_features: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def forward(self, specialist_features: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
         """Forward pass with features from all available specialists.
 
         Args:
@@ -263,7 +257,7 @@ class HybridAttentionTransformer(nn.Module):
             Dict with 'pred' and attention weights
         """
         B = next(iter(specialist_features.values())).size(0)
-        device = next(iter(specialist_features.values())).device
+        next(iter(specialist_features.values())).device
 
         # Project each specialist to common dimension
         projected = []
@@ -293,7 +287,7 @@ class HybridAttentionTransformer(nn.Module):
         return {"pred": pred, "hidden": cls_out, "specialists": specialist_names}
 
 
-def load_checkpoints(output_dir: Path) -> Dict:
+def load_checkpoints(output_dir: Path) -> dict:
     """Load all available specialist checkpoints."""
     checkpoints = {}
 
@@ -351,7 +345,9 @@ def load_checkpoints(output_dir: Path) -> Dict:
         protherm_t_path = tdir / "transformer_protherm" / "best.pt"
         if protherm_t_path.exists() and "protherm_transformer" not in checkpoints:
             try:
-                checkpoints["protherm_transformer"] = torch.load(protherm_t_path, map_location="cpu", weights_only=False)
+                checkpoints["protherm_transformer"] = torch.load(
+                    protherm_t_path, map_location="cpu", weights_only=False
+                )
                 print(f"  Loaded ProTherm Transformer from {tdir.name}")
             except Exception as e:
                 print(f"  Could not load ProTherm Transformer: {e}")
@@ -359,7 +355,7 @@ def load_checkpoints(output_dir: Path) -> Dict:
     return checkpoints
 
 
-def load_combined_data() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def load_combined_data() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Load combined S669 + ProTherm data."""
     # S669
     s669_loader = S669Loader()
@@ -399,7 +395,7 @@ def load_combined_data() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray
     return X, y, source, (X_s669, y_s669, X_protherm, y_protherm)
 
 
-def create_specialists(config: HybridConfig, input_dim: int) -> Dict[str, nn.Module]:
+def create_specialists(config: HybridConfig, input_dim: int) -> dict[str, nn.Module]:
     """Create specialist models."""
     specialists = {}
 
@@ -408,27 +404,23 @@ def create_specialists(config: HybridConfig, input_dim: int) -> Dict[str, nn.Mod
         input_dim=input_dim,
         hidden_dim=config.vae_hidden_dim,
         latent_dim=config.vae_latent_dim,
-        dropout=config.vae_dropout
+        dropout=config.vae_dropout,
     )
 
     specialists["protherm_vae"] = DDGVAE(
         input_dim=input_dim,
         hidden_dim=config.vae_hidden_dim,
         latent_dim=config.vae_latent_dim,
-        dropout=config.vae_dropout
+        dropout=config.vae_dropout,
     )
 
     # Refiners
     specialists["s669_refiner"] = MLPRefiner(
-        latent_dim=config.vae_latent_dim,
-        hidden_dims=config.refiner_hidden_dims,
-        dropout=config.vae_dropout
+        latent_dim=config.vae_latent_dim, hidden_dims=config.refiner_hidden_dims, dropout=config.vae_dropout
     )
 
     specialists["protherm_refiner"] = MLPRefiner(
-        latent_dim=config.vae_latent_dim,
-        hidden_dims=config.refiner_hidden_dims,
-        dropout=config.vae_dropout
+        latent_dim=config.vae_latent_dim, hidden_dims=config.refiner_hidden_dims, dropout=config.vae_dropout
     )
 
     # Direct transformers (for S669 to compensate weak VAE)
@@ -436,13 +428,13 @@ def create_specialists(config: HybridConfig, input_dim: int) -> Dict[str, nn.Mod
         input_dim=input_dim,
         d_model=config.transformer_d_model,
         n_layers=config.transformer_n_layers,
-        n_heads=config.transformer_n_heads
+        n_heads=config.transformer_n_heads,
     )
 
     return specialists
 
 
-def load_specialist_weights(specialists: Dict[str, nn.Module], checkpoints: Dict) -> None:
+def load_specialist_weights(specialists: dict[str, nn.Module], checkpoints: dict) -> None:
     """Load trained weights into specialists."""
     for name, model in specialists.items():
         ckpt_key = name
@@ -455,64 +447,61 @@ def load_specialist_weights(specialists: Dict[str, nn.Module], checkpoints: Dict
 
 
 def get_specialist_features(
-    specialists: Dict[str, nn.Module],
-    x: torch.Tensor,
-    config: HybridConfig
-) -> Dict[str, torch.Tensor]:
+    specialists: dict[str, nn.Module], x: torch.Tensor, config: HybridConfig
+) -> dict[str, torch.Tensor]:
     """Get features from all specialists for attention."""
     features = {}
 
     with torch.no_grad():
         # S669 VAE + Refiner
         s669_vae_out = specialists["s669_vae"](x)
-        s669_refiner_out = specialists["s669_refiner"](
-            s669_vae_out["mu"], s669_vae_out["pred"]
-        )
+        s669_refiner_out = specialists["s669_refiner"](s669_vae_out["mu"], s669_vae_out["pred"])
 
         # S669 features: mu + refiner_hidden + predictions
-        s669_feat = torch.cat([
-            s669_vae_out["mu"],
-            s669_refiner_out["hidden"],
-            s669_vae_out["pred"].unsqueeze(-1),
-            s669_refiner_out["pred"].unsqueeze(-1)
-        ], dim=-1)
+        s669_feat = torch.cat(
+            [
+                s669_vae_out["mu"],
+                s669_refiner_out["hidden"],
+                s669_vae_out["pred"].unsqueeze(-1),
+                s669_refiner_out["pred"].unsqueeze(-1),
+            ],
+            dim=-1,
+        )
         features["s669_vae_refiner"] = s669_feat
 
         # S669 Transformer
         s669_t_out = specialists["s669_transformer"](x)
-        s669_t_feat = torch.cat([
-            s669_t_out["hidden"],
-            s669_t_out["pred"].unsqueeze(-1)
-        ], dim=-1)
+        s669_t_feat = torch.cat([s669_t_out["hidden"], s669_t_out["pred"].unsqueeze(-1)], dim=-1)
         features["s669_transformer"] = s669_t_feat
 
         # ProTherm VAE + Refiner
         protherm_vae_out = specialists["protherm_vae"](x)
-        protherm_refiner_out = specialists["protherm_refiner"](
-            protherm_vae_out["mu"], protherm_vae_out["pred"]
-        )
+        protherm_refiner_out = specialists["protherm_refiner"](protherm_vae_out["mu"], protherm_vae_out["pred"])
 
-        protherm_feat = torch.cat([
-            protherm_vae_out["mu"],
-            protherm_refiner_out["hidden"],
-            protherm_vae_out["pred"].unsqueeze(-1),
-            protherm_refiner_out["pred"].unsqueeze(-1)
-        ], dim=-1)
+        protherm_feat = torch.cat(
+            [
+                protherm_vae_out["mu"],
+                protherm_refiner_out["hidden"],
+                protherm_vae_out["pred"].unsqueeze(-1),
+                protherm_refiner_out["pred"].unsqueeze(-1),
+            ],
+            dim=-1,
+        )
         features["protherm_vae_refiner"] = protherm_feat
 
     return features
 
 
 def train_hybrid_attention(
-    specialists: Dict[str, nn.Module],
+    specialists: dict[str, nn.Module],
     attention_model: HybridAttentionTransformer,
     X_train: np.ndarray,
     y_train: np.ndarray,
     X_val: np.ndarray,
     y_val: np.ndarray,
     config: HybridConfig,
-    device: torch.device
-) -> Dict:
+    device: torch.device,
+) -> dict:
     """Train the hybrid attention transformer."""
     # Freeze specialists
     for model in specialists.values():
@@ -531,21 +520,11 @@ def train_hybrid_attention(
     X_val_t = torch.tensor(X_val, dtype=torch.float32)
     y_val_t = torch.tensor(y_val, dtype=torch.float32)
 
-    train_loader = DataLoader(
-        TensorDataset(X_train_t, y_train_t),
-        batch_size=config.batch_size,
-        shuffle=True
-    )
+    train_loader = DataLoader(TensorDataset(X_train_t, y_train_t), batch_size=config.batch_size, shuffle=True)
 
     # Optimizer
-    optimizer = torch.optim.AdamW(
-        attention_model.parameters(),
-        lr=config.lr,
-        weight_decay=config.weight_decay
-    )
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=config.epochs
-    )
+    optimizer = torch.optim.AdamW(attention_model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.epochs)
 
     # Training loop
     best_spearman = -1
@@ -603,9 +582,11 @@ def train_hybrid_attention(
             patience_counter += 1
 
         if epoch % 10 == 0 or patience_counter == 0:
-            print(f"  Epoch {epoch:3d}: loss={np.mean(train_losses):.4f}, "
-                  f"val_loss={val_loss:.4f}, val_spearman={val_spearman:.4f}"
-                  f"{' *' if patience_counter == 0 else ''}")
+            print(
+                f"  Epoch {epoch:3d}: loss={np.mean(train_losses):.4f}, "
+                f"val_loss={val_loss:.4f}, val_spearman={val_spearman:.4f}"
+                f"{' *' if patience_counter == 0 else ''}"
+            )
 
         if patience_counter >= config.patience:
             print(f"  Early stopping at epoch {epoch}")
@@ -620,15 +601,15 @@ def train_hybrid_attention(
 
 
 def evaluate_by_source(
-    specialists: Dict[str, nn.Module],
+    specialists: dict[str, nn.Module],
     attention_model: HybridAttentionTransformer,
     X_s669: np.ndarray,
     y_s669: np.ndarray,
     X_protherm: np.ndarray,
     y_protherm: np.ndarray,
     config: HybridConfig,
-    device: torch.device
-) -> Dict:
+    device: torch.device,
+) -> dict:
     """Evaluate on each dataset separately."""
     attention_model.eval()
 
@@ -652,7 +633,7 @@ def evaluate_by_source(
         results["protherm"] = {"spearman": spearman_protherm, "n": len(y_protherm)}
 
         # Combined
-        X_all = np.concatenate([X_s669, X_protherm])
+        np.concatenate([X_s669, X_protherm])
         y_all = np.concatenate([y_s669, y_protherm])
         pred_all = np.concatenate([pred_s669, pred_protherm])
         spearman_all = spearmanr(y_all, pred_all)[0]
@@ -674,9 +655,7 @@ def main():
 
     # Find latest VAE suite output
     vae_suite_dirs = sorted(
-        project_root.glob("outputs/full_vae_suite_*"),
-        key=lambda x: x.stat().st_mtime,
-        reverse=True
+        project_root.glob("outputs/full_vae_suite_*"), key=lambda x: x.stat().st_mtime, reverse=True
     )
 
     if not vae_suite_dirs:
@@ -726,11 +705,9 @@ def main():
     y_s669_train, y_s669_val = y_s669[idx_s669[:split]], y_s669[idx_s669[split:]]
 
     train_loader_s669 = DataLoader(
-        TensorDataset(
-            torch.tensor(X_s669_train, dtype=torch.float32),
-            torch.tensor(y_s669_train, dtype=torch.float32)
-        ),
-        batch_size=32, shuffle=True
+        TensorDataset(torch.tensor(X_s669_train, dtype=torch.float32), torch.tensor(y_s669_train, dtype=torch.float32)),
+        batch_size=32,
+        shuffle=True,
     )
 
     best_s669_t_spearman = -1
@@ -770,13 +747,11 @@ def main():
 
         # S669 VAE + Refiner features
         s669_vae_out = specialists["s669_vae"].to(device)(dummy_x)
-        s669_refiner_out = specialists["s669_refiner"].to(device)(
-            s669_vae_out["mu"], s669_vae_out["pred"]
-        )
+        s669_refiner_out = specialists["s669_refiner"].to(device)(s669_vae_out["mu"], s669_vae_out["pred"])
         s669_vae_refiner_dim = (
-            s669_vae_out["mu"].shape[-1] +  # latent_dim
-            s669_refiner_out["hidden"].shape[-1] +  # refiner hidden
-            2  # two predictions
+            s669_vae_out["mu"].shape[-1]  # latent_dim
+            + s669_refiner_out["hidden"].shape[-1]  # refiner hidden
+            + 2  # two predictions
         )
 
         # S669 Transformer features
@@ -788,11 +763,7 @@ def main():
         protherm_refiner_out = specialists["protherm_refiner"].to(device)(
             protherm_vae_out["mu"], protherm_vae_out["pred"]
         )
-        protherm_vae_refiner_dim = (
-            protherm_vae_out["mu"].shape[-1] +
-            protherm_refiner_out["hidden"].shape[-1] +
-            2
-        )
+        protherm_vae_refiner_dim = protherm_vae_out["mu"].shape[-1] + protherm_refiner_out["hidden"].shape[-1] + 2
 
     specialist_dims = {
         "s669_vae_refiner": s669_vae_refiner_dim,
@@ -800,7 +771,7 @@ def main():
         "protherm_vae_refiner": protherm_vae_refiner_dim,
     }
 
-    print(f"\nSpecialist feature dimensions:")
+    print("\nSpecialist feature dimensions:")
     for name, dim in specialist_dims.items():
         print(f"  {name}: {dim}")
 
@@ -834,34 +805,26 @@ def main():
 
     # Train
     print("\nTraining Hybrid Attention Transformer...")
-    history = train_hybrid_attention(
-        specialists, attention_model,
-        X_train, y_train, X_val, y_val,
-        config, device
-    )
+    history = train_hybrid_attention(specialists, attention_model, X_train, y_train, X_val, y_val, config, device)
 
     print(f"\nTraining complete. Best Spearman: {history['best_spearman']:.4f}")
 
     # Evaluate by source
     print("\nEvaluating by dataset source...")
-    results = evaluate_by_source(
-        specialists, attention_model,
-        X_s669, y_s669, X_protherm, y_protherm,
-        config, device
-    )
+    results = evaluate_by_source(specialists, attention_model, X_s669, y_s669, X_protherm, y_protherm, config, device)
 
     print(f"""
 Hybrid Attention Transformer Results:
 =====================================
-Combined (N={results['combined']['n']}): Spearman = {results['combined']['spearman']:.4f}
-S669 (N={results['s669']['n']}):         Spearman = {results['s669']['spearman']:.4f}
-ProTherm (N={results['protherm']['n']}): Spearman = {results['protherm']['spearman']:.4f}
+Combined (N={results["combined"]["n"]}): Spearman = {results["combined"]["spearman"]:.4f}
+S669 (N={results["s669"]["n"]}):         Spearman = {results["s669"]["spearman"]:.4f}
+ProTherm (N={results["protherm"]["n"]}): Spearman = {results["protherm"]["spearman"]:.4f}
 
 Comparison with individual models:
 ----------------------------------
-S669 VAE:             0.28 → Hybrid: {results['s669']['spearman']:.2f} ({'+' if results['s669']['spearman'] > 0.28 else ''}{(results['s669']['spearman'] - 0.28) / 0.28 * 100:.1f}%)
+S669 VAE:             0.28 → Hybrid: {results["s669"]["spearman"]:.2f} ({"+" if results["s669"]["spearman"] > 0.28 else ""}{(results["s669"]["spearman"] - 0.28) / 0.28 * 100:.1f}%)
 S669 Transformer:     {best_s669_t_spearman:.2f}
-ProTherm VAE:         0.85 → Hybrid: {results['protherm']['spearman']:.2f} ({'+' if results['protherm']['spearman'] > 0.85 else ''}{(results['protherm']['spearman'] - 0.85) / 0.85 * 100:.1f}%)
+ProTherm VAE:         0.85 → Hybrid: {results["protherm"]["spearman"]:.2f} ({"+" if results["protherm"]["spearman"] > 0.85 else ""}{(results["protherm"]["spearman"] - 0.85) / 0.85 * 100:.1f}%)
 ProTherm Refiner:     0.89 (BEST individual)
 """)
 
@@ -870,29 +833,39 @@ ProTherm Refiner:     0.89 (BEST individual)
     output_dir = project_root / "outputs" / f"hybrid_attention_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    torch.save({
-        "model_state_dict": attention_model.state_dict(),
-        "config": config.__dict__,
-        "specialist_dims": specialist_dims,
-        "history": history,
-        "results": results,
-        "s669_transformer_spearman": best_s669_t_spearman,
-    }, output_dir / "model.pt")
+    torch.save(
+        {
+            "model_state_dict": attention_model.state_dict(),
+            "config": config.__dict__,
+            "specialist_dims": specialist_dims,
+            "history": history,
+            "results": results,
+            "s669_transformer_spearman": best_s669_t_spearman,
+        },
+        output_dir / "model.pt",
+    )
 
     # Save S669 transformer separately
-    torch.save({
-        "model_state_dict": s669_transformer.state_dict(),
-        "best_spearman": best_s669_t_spearman,
-    }, output_dir / "s669_transformer.pt")
+    torch.save(
+        {
+            "model_state_dict": s669_transformer.state_dict(),
+            "best_spearman": best_s669_t_spearman,
+        },
+        output_dir / "s669_transformer.pt",
+    )
 
     with open(output_dir / "results.json", "w") as f:
-        json.dump({
-            "combined_spearman": results["combined"]["spearman"],
-            "s669_spearman": results["s669"]["spearman"],
-            "protherm_spearman": results["protherm"]["spearman"],
-            "s669_transformer_spearman": best_s669_t_spearman,
-            "training_history": history,
-        }, f, indent=2)
+        json.dump(
+            {
+                "combined_spearman": results["combined"]["spearman"],
+                "s669_spearman": results["s669"]["spearman"],
+                "protherm_spearman": results["protherm"]["spearman"],
+                "s669_transformer_spearman": best_s669_t_spearman,
+                "training_history": history,
+            },
+            f,
+            indent=2,
+        )
 
     print(f"\nSaved to: {output_dir}")
 

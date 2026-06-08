@@ -46,37 +46,32 @@ Usage:
 from __future__ import annotations
 
 import math
-from typing import Dict, List, Optional, Tuple, Union
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
 from src.encoders.padic_amino_acid_encoder import (
+    AA_PROPERTIES,
     AA_TO_GROUP,
     AA_TO_INDEX,
-    AA_PROPERTIES,
     INDEX_TO_AA,
     AminoAcidGroup,
 )
 from src.geometry import (
-    exp_map_zero,
     log_map_zero,
     poincare_distance,
-    project_to_poincare,
 )
 from src.models.hyperbolic_projection import HyperbolicProjection
-
 
 # =============================================================================
 # Constants
 # =============================================================================
 
 MAX_SEQ_LEN = 50  # Maximum peptide length (padded)
-VOCAB_SIZE = 22   # 20 AA + stop + unknown/pad
-PAD_IDX = 21      # Index for padding token (X)
+VOCAB_SIZE = 22  # 20 AA + stop + unknown/pad
+PAD_IDX = 21  # Index for padding token (X)
 
 
 # =============================================================================
@@ -112,15 +107,13 @@ class PeptideInputProcessor(nn.Module):
         # Precompute sinusoidal positional encoding
         pe = torch.zeros(max_seq_len, embedding_dim)
         position = torch.arange(0, max_seq_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, embedding_dim, 2).float() * (-math.log(10000.0) / embedding_dim)
-        )
+        div_term = torch.exp(torch.arange(0, embedding_dim, 2).float() * (-math.log(10000.0) / embedding_dim))
         pe[:, 0::2] = torch.sin(position * div_term)
         if embedding_dim % 2 == 1:
             pe[:, 1::2] = torch.cos(position * div_term[:-1])
         else:
             pe[:, 1::2] = torch.cos(position * div_term)
-        self.register_buffer('positional_encoding', pe)
+        self.register_buffer("positional_encoding", pe)
 
     def tokenize(self, sequence: str) -> Tensor:
         """Convert sequence string to token indices.
@@ -137,7 +130,7 @@ class PeptideInputProcessor(nn.Module):
             indices.append(idx)
         return torch.tensor(indices, dtype=torch.long)
 
-    def pad_sequence(self, tokens: Tensor) -> Tuple[Tensor, Tensor]:
+    def pad_sequence(self, tokens: Tensor) -> tuple[Tensor, Tensor]:
         """Pad sequence to max_seq_len.
 
         Args:
@@ -150,7 +143,7 @@ class PeptideInputProcessor(nn.Module):
 
         if seq_len > self.max_seq_len:
             # Truncate
-            padded = tokens[:self.max_seq_len]
+            padded = tokens[: self.max_seq_len]
             mask = torch.ones(self.max_seq_len, dtype=torch.bool)
         else:
             # Pad
@@ -170,7 +163,7 @@ class PeptideInputProcessor(nn.Module):
         Returns:
             Position embeddings (max_seq_len, embedding_dim)
         """
-        return self.positional_encoding[:self.max_seq_len].to(device)
+        return self.positional_encoding[: self.max_seq_len].to(device)
 
     def get_terminal_features(self, seq_len: int, device: torch.device) -> Tensor:
         """Get N/C-terminal distance features.
@@ -193,8 +186,8 @@ class PeptideInputProcessor(nn.Module):
 
     def forward(
         self,
-        sequences: List[str],
-    ) -> Dict[str, Tensor]:
+        sequences: list[str],
+    ) -> dict[str, Tensor]:
         """Process batch of sequences.
 
         Args:
@@ -203,7 +196,7 @@ class PeptideInputProcessor(nn.Module):
         Returns:
             Dictionary with tokens, mask, positions, terminal_features
         """
-        batch_size = len(sequences)
+        len(sequences)
         device = self.positional_encoding.device
 
         all_tokens = []
@@ -224,17 +217,14 @@ class PeptideInputProcessor(nn.Module):
         positions = self.get_position_embeddings(self.max_seq_len, device)
 
         # Terminal features per sequence
-        terminal_features = torch.stack([
-            self.get_terminal_features(length, device)
-            for length in all_lengths
-        ])
+        terminal_features = torch.stack([self.get_terminal_features(length, device) for length in all_lengths])
 
         return {
-            'tokens': tokens_batch,
-            'mask': masks_batch,
-            'positions': positions,
-            'terminal_features': terminal_features,
-            'lengths': torch.tensor(all_lengths, device=device),
+            "tokens": tokens_batch,
+            "mask": masks_batch,
+            "positions": positions,
+            "terminal_features": terminal_features,
+            "lengths": torch.tensor(all_lengths, device=device),
         }
 
 
@@ -272,13 +262,15 @@ class PropertyEncoder(nn.Module):
             if idx < VOCAB_SIZE and aa in AA_PROPERTIES:
                 p = AA_PROPERTIES[aa]
                 # Normalize to ~[0, 1]
-                props[idx] = torch.tensor([
-                    (p[0] + 5) / 10,  # hydrophobicity: [-4.5, 4.5] → [0, 1]
-                    p[1] / 250,       # molecular weight: [75, 204] → ~[0.3, 0.8]
-                    p[2] / 14,        # isoelectric point: [2.77, 10.76] → ~[0.2, 0.8]
-                    p[3],             # flexibility: already [0, 1]
-                ])
-        self.register_buffer('aa_properties', props)
+                props[idx] = torch.tensor(
+                    [
+                        (p[0] + 5) / 10,  # hydrophobicity: [-4.5, 4.5] → [0, 1]
+                        p[1] / 250,  # molecular weight: [75, 204] → ~[0.3, 0.8]
+                        p[2] / 14,  # isoelectric point: [2.77, 10.76] → ~[0.2, 0.8]
+                        p[3],  # flexibility: already [0, 1]
+                    ]
+                )
+        self.register_buffer("aa_properties", props)
 
     def forward(self, token_indices: Tensor) -> Tensor:
         """Encode token properties.
@@ -336,7 +328,7 @@ class MultiComponentEmbedding(nn.Module):
         for aa, idx in AA_TO_INDEX.items():
             if idx < VOCAB_SIZE:
                 groups[idx] = AA_TO_GROUP.get(aa, AminoAcidGroup.SPECIAL)
-        self.register_buffer('aa_to_group', groups)
+        self.register_buffer("aa_to_group", groups)
 
     def forward(self, token_indices: Tensor) -> Tensor:
         """Get multi-component embeddings.
@@ -399,7 +391,7 @@ class AttentionPooling(nn.Module):
     def forward(
         self,
         x: Tensor,
-        mask: Optional[Tensor] = None,
+        mask: Tensor | None = None,
     ) -> Tensor:
         """Apply attention pooling.
 
@@ -423,7 +415,9 @@ class AttentionPooling(nn.Module):
 
         # Attention pooling
         pooled, _ = self.attention(
-            query, x, x,
+            query,
+            x,
+            x,
             key_padding_mask=key_padding_mask,
         )
 
@@ -475,15 +469,13 @@ class PeptideEncoderTransformer(nn.Module):
         # Positional encoding (in hidden_dim space)
         pe = torch.zeros(MAX_SEQ_LEN, hidden_dim)
         position = torch.arange(0, MAX_SEQ_LEN, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, hidden_dim, 2).float() * (-math.log(10000.0) / hidden_dim)
-        )
+        div_term = torch.exp(torch.arange(0, hidden_dim, 2).float() * (-math.log(10000.0) / hidden_dim))
         pe[:, 0::2] = torch.sin(position * div_term)
         if hidden_dim % 2 == 1:
             pe[:, 1::2] = torch.cos(position * div_term[:-1])
         else:
             pe[:, 1::2] = torch.cos(position * div_term)
-        self.register_buffer('positional_encoding', pe)
+        self.register_buffer("positional_encoding", pe)
 
         # Transformer encoder
         encoder_layer = nn.TransformerEncoderLayer(
@@ -491,7 +483,7 @@ class PeptideEncoderTransformer(nn.Module):
             nhead=n_heads,
             dim_feedforward=hidden_dim * 4,
             dropout=dropout,
-            activation='gelu',
+            activation="gelu",
             batch_first=True,
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
@@ -524,9 +516,9 @@ class PeptideEncoderTransformer(nn.Module):
     def forward(
         self,
         embeddings: Tensor,
-        mask: Optional[Tensor] = None,
-        positions: Optional[Tensor] = None,
-    ) -> Dict[str, Tensor]:
+        mask: Tensor | None = None,
+        positions: Tensor | None = None,
+    ) -> dict[str, Tensor]:
         """Encode peptide embeddings to hyperbolic space.
 
         Args:
@@ -537,19 +529,16 @@ class PeptideEncoderTransformer(nn.Module):
         Returns:
             Dictionary with z_hyp, z_euclidean, direction, radius
         """
-        batch_size = embeddings.shape[0]
+        embeddings.shape[0]
 
         # Project to hidden dim
         x = self.input_proj(embeddings)
 
         # Add positional encoding (use internal PE in hidden_dim space)
-        x = x + self.positional_encoding[:x.shape[1]].unsqueeze(0)
+        x = x + self.positional_encoding[: x.shape[1]].unsqueeze(0)
 
         # Create transformer mask (True = ignore)
-        if mask is not None:
-            src_key_padding_mask = ~mask
-        else:
-            src_key_padding_mask = None
+        src_key_padding_mask = ~mask if mask is not None else None
 
         # Transformer encoding
         x = self.transformer(x, src_key_padding_mask=src_key_padding_mask)
@@ -576,11 +565,11 @@ class PeptideEncoderTransformer(nn.Module):
         z_hyp, direction, radius = self.hyperbolic_proj.forward_with_components(z_euclidean)
 
         return {
-            'z_hyp': z_hyp,
-            'z_euclidean': z_euclidean,
-            'direction': direction,
-            'radius': radius,
-            'transformer_output': x,
+            "z_hyp": z_hyp,
+            "z_euclidean": z_euclidean,
+            "direction": direction,
+            "radius": radius,
+            "transformer_output": x,
         }
 
 
@@ -639,15 +628,13 @@ class PeptideDecoder(nn.Module):
         # Positional encoding
         pe = torch.zeros(max_seq_len, hidden_dim)
         position = torch.arange(0, max_seq_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, hidden_dim, 2).float() * (-math.log(10000.0) / hidden_dim)
-        )
+        div_term = torch.exp(torch.arange(0, hidden_dim, 2).float() * (-math.log(10000.0) / hidden_dim))
         pe[:, 0::2] = torch.sin(position * div_term)
         if hidden_dim % 2 == 1:
             pe[:, 1::2] = torch.cos(position * div_term[:-1])
         else:
             pe[:, 1::2] = torch.cos(position * div_term)
-        self.register_buffer('positional_encoding', pe)
+        self.register_buffer("positional_encoding", pe)
 
         # Transformer decoder
         decoder_layer = nn.TransformerDecoderLayer(
@@ -655,7 +642,7 @@ class PeptideDecoder(nn.Module):
             nhead=n_heads,
             dim_feedforward=hidden_dim * 4,
             dropout=dropout,
-            activation='gelu',
+            activation="gelu",
             batch_first=True,
         )
         self.transformer = nn.TransformerDecoder(decoder_layer, num_layers=n_layers)
@@ -668,13 +655,13 @@ class PeptideDecoder(nn.Module):
             torch.ones(max_seq_len, max_seq_len, dtype=torch.bool),
             diagonal=1,
         )
-        self.register_buffer('causal_mask', causal_mask)
+        self.register_buffer("causal_mask", causal_mask)
 
     def forward(
         self,
         z_hyp: Tensor,
-        target_tokens: Optional[Tensor] = None,
-        target_mask: Optional[Tensor] = None,
+        target_tokens: Tensor | None = None,
+        target_mask: Tensor | None = None,
     ) -> Tensor:
         """Decode from hyperbolic latent to sequence logits.
 
@@ -710,7 +697,8 @@ class PeptideDecoder(nn.Module):
 
             # Decode
             output = self.transformer(
-                tgt, memory,
+                tgt,
+                memory,
                 tgt_mask=tgt_mask,
                 tgt_key_padding_mask=tgt_key_padding_mask,
             )
@@ -720,12 +708,12 @@ class PeptideDecoder(nn.Module):
             tgt = self.start_token.expand(batch_size, -1, -1)
             outputs = []
 
-            for i in range(self.max_seq_len):
+            for _i in range(self.max_seq_len):
                 # Add positional encoding
-                tgt_pos = tgt + self.positional_encoding[:tgt.shape[1]].unsqueeze(0)
+                tgt_pos = tgt + self.positional_encoding[: tgt.shape[1]].unsqueeze(0)
 
                 # Create causal mask
-                tgt_mask = self.causal_mask[:tgt.shape[1], :tgt.shape[1]].to(device)
+                tgt_mask = self.causal_mask[: tgt.shape[1], : tgt.shape[1]].to(device)
 
                 # Decode one step
                 output = self.transformer(tgt_pos, memory, tgt_mask=tgt_mask)
@@ -888,8 +876,8 @@ class PeptideVAE(nn.Module):
 
     def encode(
         self,
-        sequences: List[str],
-    ) -> Dict[str, Tensor]:
+        sequences: list[str],
+    ) -> dict[str, Tensor]:
         """Encode peptide sequences to hyperbolic space.
 
         Args:
@@ -902,27 +890,27 @@ class PeptideVAE(nn.Module):
         inputs = self.input_processor(sequences)
 
         # Get multi-component embeddings
-        embeddings = self.embedding(inputs['tokens'])
+        embeddings = self.embedding(inputs["tokens"])
 
         # Encode to hyperbolic space
         encoder_output = self.encoder(
             embeddings,
-            mask=inputs['mask'],
-            positions=inputs['positions'],
+            mask=inputs["mask"],
+            positions=inputs["positions"],
         )
 
         # Add input info to output
-        encoder_output['tokens'] = inputs['tokens']
-        encoder_output['mask'] = inputs['mask']
-        encoder_output['lengths'] = inputs['lengths']
+        encoder_output["tokens"] = inputs["tokens"]
+        encoder_output["mask"] = inputs["mask"]
+        encoder_output["lengths"] = inputs["lengths"]
 
         return encoder_output
 
     def decode(
         self,
         z_hyp: Tensor,
-        target_tokens: Optional[Tensor] = None,
-        target_mask: Optional[Tensor] = None,
+        target_tokens: Tensor | None = None,
+        target_mask: Tensor | None = None,
     ) -> Tensor:
         """Decode from hyperbolic latent to sequence.
 
@@ -949,9 +937,9 @@ class PeptideVAE(nn.Module):
 
     def forward(
         self,
-        sequences: List[str],
+        sequences: list[str],
         teacher_forcing: bool = True,
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """Full forward pass.
 
         Args:
@@ -967,20 +955,20 @@ class PeptideVAE(nn.Module):
         # Decode with teacher forcing
         if teacher_forcing:
             logits = self.decode(
-                encoder_output['z_hyp'],
-                target_tokens=encoder_output['tokens'],
-                target_mask=encoder_output['mask'],
+                encoder_output["z_hyp"],
+                target_tokens=encoder_output["tokens"],
+                target_mask=encoder_output["mask"],
             )
         else:
-            logits = self.decode(encoder_output['z_hyp'])
+            logits = self.decode(encoder_output["z_hyp"])
 
         # Predict MIC
-        mic_pred = self.predict_mic(encoder_output['z_hyp'])
+        mic_pred = self.predict_mic(encoder_output["z_hyp"])
 
         return {
             **encoder_output,
-            'logits': logits,
-            'mic_pred': mic_pred,
+            "logits": logits,
+            "mic_pred": mic_pred,
         }
 
     def get_hyperbolic_radii(self, z_hyp: Tensor) -> Tensor:
@@ -1000,8 +988,8 @@ class PeptideVAE(nn.Module):
         self,
         z_hyp: Tensor,
         temperature: float = 1.0,
-        max_len: Optional[int] = None,
-    ) -> List[str]:
+        max_len: int | None = None,
+    ) -> list[str]:
         """Generate sequences from latent codes.
 
         Args:
@@ -1031,11 +1019,11 @@ class PeptideVAE(nn.Module):
                 for idx in token_seq.cpu().numpy():
                     if idx == PAD_IDX:
                         break
-                    aa = INDEX_TO_AA.get(idx, 'X')
-                    if aa == '*':
+                    aa = INDEX_TO_AA.get(idx, "X")
+                    if aa == "*":
                         break
                     seq.append(aa)
-                sequences.append(''.join(seq))
+                sequences.append("".join(seq))
 
             return sequences
 
@@ -1045,15 +1033,15 @@ class PeptideVAE(nn.Module):
 # =============================================================================
 
 __all__ = [
-    'PeptideInputProcessor',
-    'PropertyEncoder',
-    'MultiComponentEmbedding',
-    'AttentionPooling',
-    'PeptideEncoderTransformer',
-    'PeptideDecoder',
-    'MICPredictionHead',
-    'PeptideVAE',
-    'MAX_SEQ_LEN',
-    'VOCAB_SIZE',
-    'PAD_IDX',
+    "PeptideInputProcessor",
+    "PropertyEncoder",
+    "MultiComponentEmbedding",
+    "AttentionPooling",
+    "PeptideEncoderTransformer",
+    "PeptideDecoder",
+    "MICPredictionHead",
+    "PeptideVAE",
+    "MAX_SEQ_LEN",
+    "VOCAB_SIZE",
+    "PAD_IDX",
 ]

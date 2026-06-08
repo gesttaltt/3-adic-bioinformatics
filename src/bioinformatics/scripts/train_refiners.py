@@ -11,29 +11,25 @@ Usage:
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parents[3]))
 
 import argparse
 import json
 from datetime import datetime
-from typing import Optional
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader, TensorDataset, random_split
+from scipy.stats import spearmanr
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from scipy.stats import spearmanr
-import numpy as np
+from torch.utils.data import DataLoader, Dataset, random_split
 
-from src.bioinformatics.models.ddg_vae import DDGVAE
-from src.bioinformatics.models.ddg_mlp_refiner import DDGMLPRefiner, RefinerConfig
-from src.bioinformatics.models.ddg_transformer import (
-    DDGTransformer, HierarchicalTransformer, TransformerConfig
-)
 from src.bioinformatics.data.protherm_loader import ProThermLoader
-from src.bioinformatics.data.s669_loader import S669Loader
+from src.bioinformatics.models.ddg_mlp_refiner import DDGMLPRefiner, RefinerConfig
+from src.bioinformatics.models.ddg_transformer import TransformerConfig
+from src.bioinformatics.models.ddg_vae import DDGVAE
 from src.bioinformatics.training.deterministic import set_deterministic_mode
 
 
@@ -100,7 +96,7 @@ def train_mlp_refiner(
     train_dataset: VAEEmbeddingDataset,
     val_dataset: VAEEmbeddingDataset,
     output_dir: Path,
-    config: Optional[RefinerConfig] = None,
+    config: RefinerConfig | None = None,
     epochs: int = 100,
     batch_size: int = 32,
     lr: float = 1e-4,
@@ -179,25 +175,33 @@ def train_mlp_refiner(
         history["val_spearman"].append(val_spearman)
 
         if verbose and epoch % 10 == 0:
-            rw = torch.sigmoid(model.residual_weight).item() if hasattr(model, 'residual_weight') else 0
-            print(f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
-                  f"spearman={val_spearman:.4f} res_weight={rw:.3f}")
+            rw = torch.sigmoid(model.residual_weight).item() if hasattr(model, "residual_weight") else 0
+            print(
+                f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
+                f"spearman={val_spearman:.4f} res_weight={rw:.3f}"
+            )
 
         if val_spearman > best_spearman:
             best_spearman = val_spearman
-            torch.save({
-                "model_state_dict": model.state_dict(),
-                "config": config,
-                "epoch": epoch,
-                "spearman": val_spearman,
-            }, output_dir / "best.pt")
+            torch.save(
+                {
+                    "model_state_dict": model.state_dict(),
+                    "config": config,
+                    "epoch": epoch,
+                    "spearman": val_spearman,
+                },
+                output_dir / "best.pt",
+            )
 
     # Save final
-    torch.save({
-        "model_state_dict": model.state_dict(),
-        "config": config,
-        "history": history,
-    }, output_dir / "final.pt")
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "config": config,
+            "history": history,
+        },
+        output_dir / "final.pt",
+    )
 
     with open(output_dir / "training_history.json", "w") as f:
         json.dump(history, f, indent=2)
@@ -210,7 +214,7 @@ def train_transformer(
     val_dataset: VAEEmbeddingDataset,
     output_dir: Path,
     model_type: str = "hierarchical",  # "full" or "hierarchical"
-    config: Optional[TransformerConfig] = None,
+    config: TransformerConfig | None = None,
     epochs: int = 50,
     batch_size: int = 16,
     lr: float = 1e-4,
@@ -249,17 +253,19 @@ def train_transformer(
             self.pos_enc = nn.Parameter(torch.randn(1, embedding_dim, config.d_model) * 0.02)
 
             # Transformer blocks
-            self.blocks = nn.ModuleList([
-                nn.TransformerEncoderLayer(
-                    d_model=config.d_model,
-                    nhead=config.n_heads,
-                    dim_feedforward=config.d_ff,
-                    dropout=config.dropout,
-                    activation="gelu",
-                    batch_first=True,
-                )
-                for _ in range(config.n_layers)
-            ])
+            self.blocks = nn.ModuleList(
+                [
+                    nn.TransformerEncoderLayer(
+                        d_model=config.d_model,
+                        nhead=config.n_heads,
+                        dim_feedforward=config.d_ff,
+                        dropout=config.dropout,
+                        activation="gelu",
+                        batch_first=True,
+                    )
+                    for _ in range(config.n_layers)
+                ]
+            )
 
             # Prediction head
             self.head = nn.Sequential(
@@ -347,24 +353,29 @@ def train_transformer(
         history["val_spearman"].append(val_spearman)
 
         if verbose and epoch % 10 == 0:
-            print(f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
-                  f"spearman={val_spearman:.4f}")
+            print(f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} spearman={val_spearman:.4f}")
 
         if val_spearman > best_spearman:
             best_spearman = val_spearman
-            torch.save({
-                "model_state_dict": model.state_dict(),
-                "config": config,
-                "epoch": epoch,
-                "spearman": val_spearman,
-            }, output_dir / "best.pt")
+            torch.save(
+                {
+                    "model_state_dict": model.state_dict(),
+                    "config": config,
+                    "epoch": epoch,
+                    "spearman": val_spearman,
+                },
+                output_dir / "best.pt",
+            )
 
     # Save final
-    torch.save({
-        "model_state_dict": model.state_dict(),
-        "config": config,
-        "history": history,
-    }, output_dir / "final.pt")
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "config": config,
+            "history": history,
+        },
+        output_dir / "final.pt",
+    )
 
     with open(output_dir / "training_history.json", "w") as f:
         json.dump(history, f, indent=2)
@@ -423,18 +434,17 @@ def main():
     # Split
     n_val = int(len(embedding_dataset) * 0.2)
     n_train = len(embedding_dataset) - n_val
-    train_emb, val_emb = random_split(
-        embedding_dataset, [n_train, n_val],
-        generator=torch.Generator().manual_seed(42)
-    )
+    train_emb, val_emb = random_split(embedding_dataset, [n_train, n_val], generator=torch.Generator().manual_seed(42))
 
     # Wrap in proper datasets
     class SubsetWrapper(Dataset):
         def __init__(self, subset):
             self.subset = subset
             self.embedding_dim = subset.dataset.embedding_dim
+
         def __len__(self):
             return len(self.subset)
+
         def __getitem__(self, idx):
             return self.subset[idx]
 
@@ -458,8 +468,9 @@ def main():
         initial_residual_weight=0.3,
     )
 
-    mlp_refiner = train_mlp_refiner(
-        train_emb, val_emb,
+    train_mlp_refiner(
+        train_emb,
+        val_emb,
         output_dir=base_output / "mlp_refiner",
         config=refiner_config,
         epochs=epochs,
@@ -485,8 +496,9 @@ def main():
         dropout=0.1,
     )
 
-    transformer = train_transformer(
-        train_emb, val_emb,
+    train_transformer(
+        train_emb,
+        val_emb,
         output_dir=base_output / "embedding_transformer",
         config=transformer_config,
         epochs=epochs,

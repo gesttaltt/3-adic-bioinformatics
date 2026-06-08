@@ -11,7 +11,6 @@ Consolidates duplicated epitope and HLA-related dataclasses from:
 """
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 import torch
 
@@ -64,13 +63,13 @@ class EpitopeAnalysisResult:
     source: str = ""
     target: str = ""
     padic_distance: float = 0.0
-    padic_embedding: Optional[torch.Tensor] = None
+    padic_embedding: torch.Tensor | None = None
     hla_binding_score: float = 0.0
     tcr_cross_reactivity: float = 0.0
     immunogenicity_score: float = 0.0
     in_goldilocks_zone: bool = False
     modification_positions: list[int] = field(default_factory=list)
-    modification_type: Optional[str] = None
+    modification_type: str | None = None
     additional_data: dict = field(default_factory=dict)
 
     @property

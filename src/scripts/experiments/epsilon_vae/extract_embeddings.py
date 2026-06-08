@@ -23,8 +23,8 @@ Usage:
 import argparse
 import json
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -96,20 +96,16 @@ def load_model_from_checkpoint(checkpoint_path: Path, device: str = "cpu"):
 
         # Get model state dict
         model_state = (
-            ckpt.get("model_state_dict") or
-            ckpt.get("model_state") or
-            ckpt.get("state_dict") or
-            ckpt.get("model") or
-            {}
+            ckpt.get("model_state_dict") or ckpt.get("model_state") or ckpt.get("state_dict") or ckpt.get("model") or {}
         )
 
         if not model_state:
             return None
 
         # Detect model type from state dict keys
-        has_projection = any("projection" in k for k in model_state.keys())
-        has_dual = any("proj_A" in k or "proj_B" in k for k in model_state.keys())
-        has_controller = any("controller" in k for k in model_state.keys())
+        any("projection" in k for k in model_state)
+        has_dual = any("proj_A" in k or "proj_B" in k for k in model_state)
+        has_controller = any("controller" in k for k in model_state)
 
         # Import model class
         from src.models.ternary_vae import TernaryVAEV5_11
@@ -146,6 +142,7 @@ def load_model_from_checkpoint(checkpoint_path: Path, device: str = "cpu"):
     except Exception as e:
         print(f"  Error loading model: {e}")
         import traceback
+
         traceback.print_exc()
         return None
 
@@ -176,18 +173,14 @@ def extract_embeddings_from_checkpoint(
 
         # Extract weights for Epsilon-VAE input
         model_state = (
-            ckpt.get("model_state_dict") or
-            ckpt.get("model_state") or
-            ckpt.get("state_dict") or
-            ckpt.get("model") or
-            {}
+            ckpt.get("model_state_dict") or ckpt.get("model_state") or ckpt.get("state_dict") or ckpt.get("model") or {}
         )
         weights = extract_key_weights(model_state)
         if not weights:
             return None
 
         # Ensure weights are on CPU
-        weights = [w.cpu() if hasattr(w, 'cpu') else w for w in weights]
+        weights = [w.cpu() if hasattr(w, "cpu") else w for w in weights]
 
         # Run inference on anchors
         anchor_ops_device = anchor_ops.to(device)
@@ -250,18 +243,22 @@ def find_all_checkpoints(checkpoint_dir: Path) -> list:
 
 def main():
     parser = argparse.ArgumentParser(description="Extract embeddings from checkpoints")
-    parser.add_argument("--checkpoint_dir", type=str, default=str(CHECKPOINTS_DIR),
-                       help="Directory containing checkpoint subdirectories")
-    parser.add_argument("--output_dir", type=str, default=str(OUTPUT_DIR / "epsilon_vae_hybrid"),
-                       help="Output directory for extracted data")
-    parser.add_argument("--n_anchors", type=int, default=256,
-                       help="Number of anchor operations")
-    parser.add_argument("--device", type=str, default="cuda",
-                       help="Device to run inference on")
-    parser.add_argument("--val_split", type=float, default=0.1,
-                       help="Fraction of data for validation (temporal split)")
-    parser.add_argument("--max_checkpoints", type=int, default=2000,
-                       help="Maximum number of checkpoints to process")
+    parser.add_argument(
+        "--checkpoint_dir",
+        type=str,
+        default=str(CHECKPOINTS_DIR),
+        help="Directory containing checkpoint subdirectories",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default=str(OUTPUT_DIR / "epsilon_vae_hybrid"),
+        help="Output directory for extracted data",
+    )
+    parser.add_argument("--n_anchors", type=int, default=256, help="Number of anchor operations")
+    parser.add_argument("--device", type=str, default="cuda", help="Device to run inference on")
+    parser.add_argument("--val_split", type=float, default=0.1, help="Fraction of data for validation (temporal split)")
+    parser.add_argument("--max_checkpoints", type=int, default=2000, help="Maximum number of checkpoints to process")
     args = parser.parse_args()
 
     checkpoint_dir = Path(args.checkpoint_dir)
@@ -272,9 +269,9 @@ def main():
     print(f"Using device: {device}")
 
     # Generate anchor operations
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("GENERATING ANCHOR OPERATIONS")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     anchor_ops = select_anchor_operations(args.n_anchors)
     print(f"Selected {len(anchor_ops)} anchor operations")
     print(f"Anchor shapes: {anchor_ops.shape}")
@@ -283,27 +280,27 @@ def main():
     np.save(output_dir / "anchor_operations.npy", anchor_ops.numpy())
 
     # Find all checkpoints
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("FINDING CHECKPOINTS")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     checkpoints = find_all_checkpoints(checkpoint_dir)
     print(f"Found {len(checkpoints)} checkpoints")
 
     if len(checkpoints) > args.max_checkpoints:
         print(f"Limiting to {args.max_checkpoints} checkpoints")
-        checkpoints = checkpoints[:args.max_checkpoints]
+        checkpoints = checkpoints[: args.max_checkpoints]
 
     # Extract embeddings from each checkpoint
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("EXTRACTING EMBEDDINGS")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     all_data = []
     failed = 0
 
     for i, (ckpt_path, mtime, run_name) in enumerate(checkpoints):
         if (i + 1) % 50 == 0 or i == 0:
-            print(f"Processing {i+1}/{len(checkpoints)}: {run_name}/{ckpt_path.name}")
+            print(f"Processing {i + 1}/{len(checkpoints)}: {run_name}/{ckpt_path.name}")
 
         data = extract_embeddings_from_checkpoint(ckpt_path, anchor_ops, device)
 
@@ -323,9 +320,9 @@ def main():
         return
 
     # Temporal split for train/val
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("CREATING TRAIN/VAL SPLIT (TEMPORAL)")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     # Sort by modification time (already sorted, but ensure)
     all_data.sort(key=lambda x: x["mtime"])
@@ -338,17 +335,18 @@ def main():
     print(f"Validation samples: {len(val_data)}")
 
     # Analyze data
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("DATA STATISTICS")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     # Weight dimensions
     weight_dims = [sum(np.prod(s) for s in d["weight_shapes"]) for d in all_data]
-    print(f"\nWeight dimensions:")
+    print("\nWeight dimensions:")
     print(f"  Min: {min(weight_dims)}, Max: {max(weight_dims)}")
 
     # Filter to consistent weight dimensions
     from collections import Counter
+
     dim_counts = Counter(weight_dims)
     most_common_dim = dim_counts.most_common(1)[0][0]
 
@@ -369,14 +367,14 @@ def main():
     train_coverages = [d["metrics"]["coverage"] for d in train_data]
     val_coverages = [d["metrics"]["coverage"] for d in val_data]
 
-    print(f"\nCoverage distribution:")
+    print("\nCoverage distribution:")
     print(f"  Train: mean={np.mean(train_coverages):.3f}, std={np.std(train_coverages):.3f}")
     print(f"  Val:   mean={np.mean(val_coverages):.3f}, std={np.std(val_coverages):.3f}")
 
     # Save processed data
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("SAVING DATA")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     # Save as numpy arrays for efficient loading
     def save_dataset(data, prefix):
@@ -391,11 +389,16 @@ def main():
         weights = np.stack([np.concatenate([w.flatten() for w in d["weights"]]) for d in data])
 
         # Metrics
-        metrics = np.array([[
-            d["metrics"]["coverage"],
-            d["metrics"]["distance_corr_A"],
-            d["metrics"]["radial_corr_A"],
-        ] for d in data])
+        metrics = np.array(
+            [
+                [
+                    d["metrics"]["coverage"],
+                    d["metrics"]["distance_corr_A"],
+                    d["metrics"]["radial_corr_A"],
+                ]
+                for d in data
+            ]
+        )
 
         # Save arrays
         np.save(output_dir / f"{prefix}_z_A_hyp.npy", z_A_hyp)
@@ -406,12 +409,15 @@ def main():
         np.save(output_dir / f"{prefix}_metrics.npy", metrics)
 
         # Save metadata
-        metadata = [{
-            "path": d["path"],
-            "run_name": d["run_name"],
-            "epoch": d["epoch"],
-            "metrics": d["metrics"],
-        } for d in data]
+        metadata = [
+            {
+                "path": d["path"],
+                "run_name": d["run_name"],
+                "epoch": d["epoch"],
+                "metrics": d["metrics"],
+            }
+            for d in data
+        ]
 
         with open(output_dir / f"{prefix}_metadata.json", "w") as f:
             json.dump(metadata, f, indent=2)

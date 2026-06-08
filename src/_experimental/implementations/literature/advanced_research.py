@@ -17,11 +17,12 @@ This script performs deep analysis to extract maximum value from the data.
 
 import json
 import sys
+import warnings
 from collections import Counter, defaultdict
 from datetime import datetime
 from itertools import combinations
 from pathlib import Path
-import warnings
+
 warnings.filterwarnings("ignore")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -37,25 +38,20 @@ except ImportError:
 
 try:
     import pyarrow.parquet as pq
+
     HAS_PARQUET = True
 except ImportError:
     HAS_PARQUET = False
 
-from scipy import stats
-from scipy.cluster.hierarchy import linkage, fcluster, dendrogram
-from scipy.spatial.distance import pdist, squareform
-from sklearn.ensemble import (
-    RandomForestClassifier, GradientBoostingClassifier,
-    VotingClassifier, AdaBoostClassifier
-)
-from sklearn.linear_model import LogisticRegression
-from sklearn.neural_network import MLPClassifier
-from sklearn.metrics import roc_auc_score, accuracy_score, f1_score
-from sklearn.model_selection import cross_val_score, StratifiedKFold, train_test_split
-from sklearn.preprocessing import StandardScaler
+from scipy.cluster.hierarchy import fcluster, linkage
+from scipy.spatial.distance import squareform
 from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
-
+from sklearn.ensemble import AdaBoostClassifier, GradientBoostingClassifier, RandomForestClassifier, VotingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import StandardScaler
 
 # =============================================================================
 # CONSTANTS
@@ -63,11 +59,31 @@ from sklearn.manifold import TSNE
 
 # Global HLA frequencies (approximate)
 GLOBAL_HLA_FREQUENCIES = {
-    "A*02": 0.29, "A*24": 0.20, "A*11": 0.15, "A*03": 0.14, "A*01": 0.12,
-    "A*26": 0.06, "A*68": 0.05, "A*31": 0.04, "A*33": 0.03, "A*29": 0.03,
-    "B*07": 0.12, "B*44": 0.11, "B*35": 0.11, "B*08": 0.09, "B*51": 0.08,
-    "B*15": 0.07, "B*40": 0.06, "B*57": 0.05, "B*27": 0.06, "B*58": 0.04,
-    "B*18": 0.05, "B*13": 0.03, "B*14": 0.03, "B*38": 0.02, "B*39": 0.02,
+    "A*02": 0.29,
+    "A*24": 0.20,
+    "A*11": 0.15,
+    "A*03": 0.14,
+    "A*01": 0.12,
+    "A*26": 0.06,
+    "A*68": 0.05,
+    "A*31": 0.04,
+    "A*33": 0.03,
+    "A*29": 0.03,
+    "B*07": 0.12,
+    "B*44": 0.11,
+    "B*35": 0.11,
+    "B*08": 0.09,
+    "B*51": 0.08,
+    "B*15": 0.07,
+    "B*40": 0.06,
+    "B*57": 0.05,
+    "B*27": 0.06,
+    "B*58": 0.04,
+    "B*18": 0.05,
+    "B*13": 0.03,
+    "B*14": 0.03,
+    "B*38": 0.02,
+    "B*39": 0.02,
 }
 
 # Known bnAb classes and epitopes
@@ -107,6 +123,7 @@ AA_PROPERTIES = {
 # =============================================================================
 # TOOL 1: OPTIMAL BNAB COMBINATION FINDER
 # =============================================================================
+
 
 def find_optimal_bnab_combinations(results_dir: Path) -> dict:
     """Find optimal bnAb combinations for maximum coverage."""
@@ -173,19 +190,23 @@ def find_optimal_bnab_combinations(results_dir: Path) -> dict:
         potency = estimate_combined_potency([ab1, ab2])
         # Score combines coverage and potency
         score = coverage * (1 / (potency + 0.1))
-        pair_results.append({
-            "combination": [ab1, ab2],
-            "coverage": coverage,
-            "potency": potency,
-            "score": score,
-        })
+        pair_results.append(
+            {
+                "combination": [ab1, ab2],
+                "coverage": coverage,
+                "potency": potency,
+                "score": score,
+            }
+        )
 
     pair_results.sort(key=lambda x: x["score"], reverse=True)
 
     print("\n  TOP PAIRWISE COMBINATIONS:")
     for combo in pair_results[:10]:
-        print(f"    {combo['combination'][0]} + {combo['combination'][1]}: "
-              f"{combo['coverage']:.1f}% coverage, IC50 = {combo['potency']:.3f}")
+        print(
+            f"    {combo['combination'][0]} + {combo['combination'][1]}: "
+            f"{combo['coverage']:.1f}% coverage, IC50 = {combo['potency']:.3f}"
+        )
 
     # Evaluate top triples
     triple_results = []
@@ -193,12 +214,14 @@ def find_optimal_bnab_combinations(results_dir: Path) -> dict:
         coverage = estimate_combined_coverage([ab1, ab2, ab3])
         potency = estimate_combined_potency([ab1, ab2, ab3])
         score = coverage * (1 / (potency + 0.1))
-        triple_results.append({
-            "combination": [ab1, ab2, ab3],
-            "coverage": coverage,
-            "potency": potency,
-            "score": score,
-        })
+        triple_results.append(
+            {
+                "combination": [ab1, ab2, ab3],
+                "coverage": coverage,
+                "potency": potency,
+                "score": score,
+            }
+        )
 
     triple_results.sort(key=lambda x: x["score"], reverse=True)
 
@@ -242,6 +265,7 @@ def find_optimal_bnab_combinations(results_dir: Path) -> dict:
 # =============================================================================
 # TOOL 2: RESISTANCE EVOLUTION PATHWAY MAPPER
 # =============================================================================
+
 
 def map_resistance_pathways(data_dir: Path) -> dict:
     """Map resistance evolution pathways from mutation cooccurrence."""
@@ -300,12 +324,14 @@ def map_resistance_pathways(data_dir: Path) -> dict:
                     expected = (mutation_counts[m1] * mutation_counts[m2]) / len(all_mutations)
                     lift = cooc / max(expected, 1)
                     if lift > 1.5:  # Significant association
-                        pathways.append({
-                            "from": m1,
-                            "to": m2,
-                            "cooccurrence": cooc,
-                            "lift": lift,
-                        })
+                        pathways.append(
+                            {
+                                "from": m1,
+                                "to": m2,
+                                "cooccurrence": cooc,
+                                "lift": lift,
+                            }
+                        )
 
     pathways.sort(key=lambda x: x["lift"], reverse=True)
 
@@ -315,7 +341,7 @@ def map_resistance_pathways(data_dir: Path) -> dict:
 
     # Identify mutation clusters (likely same pathway)
     # Simple clustering based on cooccurrence
-    from scipy.cluster.hierarchy import linkage, fcluster
+    from scipy.cluster.hierarchy import fcluster, linkage
 
     if len(top_mutations) >= 5:
         # Build distance matrix from cooccurrence
@@ -338,7 +364,7 @@ def map_resistance_pathways(data_dir: Path) -> dict:
 
         # Group mutations by cluster
         cluster_groups = defaultdict(list)
-        for mut, cluster in zip(top_mutations, clusters):
+        for mut, cluster in zip(top_mutations, clusters, strict=False):
             cluster_groups[cluster].append(mut)
 
         print("\n  MUTATION CLUSTERS (Likely Same Pathway):")
@@ -356,10 +382,12 @@ def map_resistance_pathways(data_dir: Path) -> dict:
         if primary in cooccurrence:
             accessories = cooccurrence[primary].most_common(5)
             if accessories:
-                accessory_patterns.append({
-                    "primary": primary,
-                    "common_accessories": [{"mutation": m, "count": c} for m, c in accessories],
-                })
+                accessory_patterns.append(
+                    {
+                        "primary": primary,
+                        "common_accessories": [{"mutation": m, "count": c} for m, c in accessories],
+                    }
+                )
 
     print("\n  PRIMARY -> ACCESSORY MUTATION PATTERNS:")
     for pattern in accessory_patterns:
@@ -377,6 +405,7 @@ def map_resistance_pathways(data_dir: Path) -> dict:
 # =============================================================================
 # TOOL 3: GLOBAL HLA COVERAGE OPTIMIZER
 # =============================================================================
+
 
 def optimize_hla_coverage(results_dir: Path) -> dict:
     """Optimize vaccine epitope selection for global HLA coverage."""
@@ -408,7 +437,7 @@ def optimize_hla_coverage(results_dir: Path) -> dict:
     if hla_col is None:
         print("  No HLA column found, using synthetic data")
         # Create synthetic HLA data based on epitope count
-        df["hla_restrictions"] = df.index.map(lambda i: list(GLOBAL_HLA_FREQUENCIES.keys())[:5 + i % 10])
+        df["hla_restrictions"] = df.index.map(lambda i: list(GLOBAL_HLA_FREQUENCIES.keys())[: 5 + i % 10])
     else:
         # Parse HLA restrictions
         def parse_hla(hla_str):
@@ -454,18 +483,22 @@ def optimize_hla_coverage(results_dir: Path) -> dict:
 
         remaining_hlas -= best_covered
         total_coverage += best_score
-        selected_epitopes.append({
-            "epitope": best_epitope,
-            "hlas_covered": list(best_covered),
-            "marginal_coverage": best_score,
-            "cumulative_coverage": total_coverage,
-        })
+        selected_epitopes.append(
+            {
+                "epitope": best_epitope,
+                "hlas_covered": list(best_covered),
+                "marginal_coverage": best_score,
+                "cumulative_coverage": total_coverage,
+            }
+        )
 
-    print(f"\n  OPTIMAL EPITOPE SET FOR GLOBAL COVERAGE:")
+    print("\n  OPTIMAL EPITOPE SET FOR GLOBAL COVERAGE:")
     for i, ep in enumerate(selected_epitopes[:10], 1):
-        print(f"    {i}. {ep['epitope'][:20]:20s} | "
-              f"HLAs: {len(ep['hlas_covered'])} | "
-              f"Coverage: +{ep['marginal_coverage']:.1%}")
+        print(
+            f"    {i}. {ep['epitope'][:20]:20s} | "
+            f"HLAs: {len(ep['hlas_covered'])} | "
+            f"Coverage: +{ep['marginal_coverage']:.1%}"
+        )
 
     # Calculate final coverage
     all_covered_hlas = set()
@@ -505,6 +538,7 @@ def optimize_hla_coverage(results_dir: Path) -> dict:
 # =============================================================================
 # TOOL 4: ENSEMBLE PREDICTION MODELS
 # =============================================================================
+
 
 def build_ensemble_models(data_dir: Path) -> dict:
     """Build ensemble models for improved predictions."""
@@ -579,9 +613,7 @@ def build_ensemble_models(data_dir: Path) -> dict:
     X_scaled = scaler.fit_transform(X)
 
     # Split data
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_scaled, y, test_size=0.2, random_state=42, stratify=y
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42, stratify=y)
 
     print(f"  Train: {len(X_train)}, Test: {len(X_test)}")
 
@@ -606,16 +638,13 @@ def build_ensemble_models(data_dir: Path) -> dict:
 
     # Ensemble: Voting classifier
     print("\n  Building ensemble...")
-    ensemble = VotingClassifier(
-        estimators=[(name, model) for name, model in models.items()],
-        voting="soft"
-    )
+    ensemble = VotingClassifier(estimators=[(name, model) for name, model in models.items()], voting="soft")
     ensemble.fit(X_train, y_train)
     y_pred_ens = ensemble.predict_proba(X_test)[:, 1]
     auc_ens = roc_auc_score(y_test, y_pred_ens)
     acc_ens = accuracy_score(y_test, ensemble.predict(X_test))
 
-    print(f"\n  ENSEMBLE RESULTS:")
+    print("\n  ENSEMBLE RESULTS:")
     print(f"    AUC = {auc_ens:.4f}, Accuracy = {acc_ens:.4f}")
 
     # Improvement over best individual
@@ -631,13 +660,14 @@ def build_ensemble_models(data_dir: Path) -> dict:
     # Stacking ensemble
     print("\n  Building stacking ensemble...")
     from sklearn.ensemble import StackingClassifier
+
     stacking = StackingClassifier(
         estimators=[
             ("rf", RandomForestClassifier(n_estimators=50, max_depth=8, random_state=42)),
             ("gb", GradientBoostingClassifier(n_estimators=50, max_depth=4, random_state=42)),
         ],
         final_estimator=LogisticRegression(max_iter=500),
-        cv=3
+        cv=3,
     )
     stacking.fit(X_train, y_train)
     y_pred_stack = stacking.predict_proba(X_test)[:, 1]
@@ -660,6 +690,7 @@ def build_ensemble_models(data_dir: Path) -> dict:
 # TOOL 5: PHYLOGENETIC CLUSTERING
 # =============================================================================
 
+
 def analyze_phylogenetic_clustering(data_dir: Path) -> dict:
     """Analyze phylogenetic relationships through clustering."""
     print("\n" + "=" * 70)
@@ -669,11 +700,13 @@ def analyze_phylogenetic_clustering(data_dir: Path) -> dict:
     findings = {"status": "failed", "clusters": []}
 
     # Load sequences
-    fasta_dir = data_dir / "external" / "github" / "HIV-1_Paper" / "Individual_Representative_Sequences_Used_for_Subtyping"
+    fasta_dir = (
+        data_dir / "external" / "github" / "HIV-1_Paper" / "Individual_Representative_Sequences_Used_for_Subtyping"
+    )
 
     sequences = []
     for fasta_path in fasta_dir.glob("*.fasta"):
-        with open(fasta_path, "r") as f:
+        with open(fasta_path) as f:
             current_name = None
             current_seq = []
             for line in f:
@@ -699,7 +732,7 @@ def analyze_phylogenetic_clustering(data_dir: Path) -> dict:
         min_len = min(len(s1), len(s2))
         if min_len == 0:
             return 1.0
-        return sum(c1 != c2 for c1, c2 in zip(s1[:min_len], s2[:min_len])) / min_len
+        return sum(c1 != c2 for c1, c2 in zip(s1[:min_len], s2[:min_len], strict=False)) / min_len
 
     n = len(sequences)
     dist_matrix = np.zeros((n, n))
@@ -716,7 +749,7 @@ def analyze_phylogenetic_clustering(data_dir: Path) -> dict:
 
     # Group by cluster
     cluster_groups = defaultdict(list)
-    for (name, seq, gene), cluster in zip(sequences, clusters):
+    for (name, seq, gene), cluster in zip(sequences, clusters, strict=False):
         cluster_groups[cluster].append({"name": name, "gene": gene, "length": len(seq)})
 
     print(f"\n  Found {len(cluster_groups)} clusters")
@@ -743,7 +776,7 @@ def analyze_phylogenetic_clustering(data_dir: Path) -> dict:
 
     X = np.array([encode_seq_simple(seq) for _, seq, _ in sequences])
     pca = PCA(n_components=3)
-    X_pca = pca.fit_transform(X)
+    pca.fit_transform(X)
 
     print(f"    Variance explained: {pca.explained_variance_ratio_.sum():.2%}")
 
@@ -753,12 +786,14 @@ def analyze_phylogenetic_clustering(data_dir: Path) -> dict:
         indices = [i for i, c in enumerate(clusters) if c == cid]
         if len(indices) >= 2:
             within_dists = [dist_matrix[i, j] for i in indices for j in indices if i < j]
-            cluster_stats.append({
-                "cluster_id": int(cid),
-                "n_members": len(indices),
-                "mean_within_distance": float(np.mean(within_dists)) if within_dists else 0,
-                "genes": dict(Counter(sequences[i][2] for i in indices)),
-            })
+            cluster_stats.append(
+                {
+                    "cluster_id": int(cid),
+                    "n_members": len(indices),
+                    "mean_within_distance": float(np.mean(within_dists)) if within_dists else 0,
+                    "genes": dict(Counter(sequences[i][2] for i in indices)),
+                }
+            )
 
     findings["status"] = "success"
     findings["n_sequences"] = n
@@ -772,6 +807,7 @@ def analyze_phylogenetic_clustering(data_dir: Path) -> dict:
 # =============================================================================
 # TOOL 6: SEQUENCE CONSERVATION ANALYZER
 # =============================================================================
+
 
 def analyze_sequence_conservation(data_dir: Path, results_dir: Path) -> dict:
     """Analyze sequence conservation across HIV proteins."""
@@ -839,16 +875,14 @@ def analyze_sequence_conservation(data_dir: Path, results_dir: Path) -> dict:
         }
 
     # Rank proteins by conservation
-    sorted_proteins = sorted(
-        protein_conservation.items(),
-        key=lambda x: x[1]["conservation_score"],
-        reverse=True
-    )
+    sorted_proteins = sorted(protein_conservation.items(), key=lambda x: x[1]["conservation_score"], reverse=True)
 
     print("\n  PROTEIN CONSERVATION RANKING:")
     for protein, stats in sorted_proteins:
-        print(f"    {protein}: conservation={stats['conservation_score']:.3f}, "
-              f"entropy={stats['mean_entropy']:.3f}, n_epitopes={stats['n_epitopes']}")
+        print(
+            f"    {protein}: conservation={stats['conservation_score']:.3f}, "
+            f"entropy={stats['mean_entropy']:.3f}, n_epitopes={stats['n_epitopes']}"
+        )
 
     # Identify highly conserved regions
     print("\n  MOST CONSERVED PROTEINS (best vaccine targets):")
@@ -870,6 +904,7 @@ def analyze_sequence_conservation(data_dir: Path, results_dir: Path) -> dict:
 # =============================================================================
 # TOOL 7: DRUG REPURPOSING SCREENER
 # =============================================================================
+
 
 def screen_drug_repurposing(data_dir: Path) -> dict:
     """Screen for drug repurposing opportunities."""
@@ -923,15 +958,17 @@ def screen_drug_repurposing(data_dir: Path) -> dict:
 
         for target_class, info in KNOWN_DRUG_TARGETS.items():
             if target_class in human_protein:
-                repurposing_candidates.append({
-                    "human_target": row.get("human_protein_name", ""),
-                    "hiv_protein": hiv_protein,
-                    "interaction_type": interaction,
-                    "target_class": target_class,
-                    "existing_drugs": info["drugs"],
-                    "mechanism": info["mechanism"],
-                    "repurposing_score": 0.8 if "activates" in interaction or "upregulates" in interaction else 0.5,
-                })
+                repurposing_candidates.append(
+                    {
+                        "human_target": row.get("human_protein_name", ""),
+                        "hiv_protein": hiv_protein,
+                        "interaction_type": interaction,
+                        "target_class": target_class,
+                        "existing_drugs": info["drugs"],
+                        "mechanism": info["mechanism"],
+                        "repurposing_score": 0.8 if "activates" in interaction or "upregulates" in interaction else 0.5,
+                    }
+                )
                 break
 
     # Score and rank candidates
@@ -980,6 +1017,7 @@ def screen_drug_repurposing(data_dir: Path) -> dict:
 # =============================================================================
 # TOOL 8: MUTATION COOCCURRENCE NETWORK
 # =============================================================================
+
 
 def build_mutation_network(data_dir: Path) -> dict:
     """Build mutation cooccurrence network."""
@@ -1043,12 +1081,14 @@ def build_mutation_network(data_dir: Path) -> dict:
                         expected = (mutation_counts[m1] * mutation_counts[m2]) / len(profiles)
                         phi = (cooc - expected) / max(np.sqrt(expected), 1)
                         if phi > 2:  # Strong positive association
-                            edges.append({
-                                "from": m1,
-                                "to": m2,
-                                "weight": cooc,
-                                "phi": float(phi),
-                            })
+                            edges.append(
+                                {
+                                    "from": m1,
+                                    "to": m2,
+                                    "weight": cooc,
+                                    "phi": float(phi),
+                                }
+                            )
 
         edges.sort(key=lambda x: x["phi"], reverse=True)
 
@@ -1101,6 +1141,7 @@ def build_mutation_network(data_dir: Path) -> dict:
 # =============================================================================
 # MAIN
 # =============================================================================
+
 
 def main():
     print("=" * 70)

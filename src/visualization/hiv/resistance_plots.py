@@ -8,19 +8,20 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
 
 try:
     import matplotlib.pyplot as plt
+
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
 
 try:
     import seaborn as sns
+
     HAS_SEABORN = True
 except ImportError:
     HAS_SEABORN = False
@@ -35,8 +36,8 @@ def plot_resistance_correlation(
     df: pd.DataFrame,
     distance_col: str = "hyperbolic_distance",
     resistance_col: str = "log_fold_change",
-    hue_col: Optional[str] = "drug_class",
-    save_path: Optional[Union[str, Path]] = None,
+    hue_col: str | None = "drug_class",
+    save_path: str | Path | None = None,
     figsize: tuple = (10, 8),
 ) -> plt.Figure:
     """Plot correlation between hyperbolic distance and resistance.
@@ -83,9 +84,11 @@ def plot_resistance_correlation(
 
         # Calculate correlation
         from scipy.stats import spearmanr
+
         r, pval = spearmanr(valid[distance_col], valid[resistance_col])
         ax.text(
-            0.05, 0.95,
+            0.05,
+            0.95,
             f"Spearman r = {r:.3f}\np = {pval:.2e}",
             transform=ax.transAxes,
             fontsize=10,
@@ -108,7 +111,7 @@ def plot_resistance_correlation(
 
 def plot_mutation_classification(
     df: pd.DataFrame,
-    save_path: Optional[Union[str, Path]] = None,
+    save_path: str | Path | None = None,
     figsize: tuple = (12, 5),
 ) -> plt.Figure:
     """Plot primary vs accessory mutation classification.
@@ -147,7 +150,7 @@ def plot_mutation_classification(
 
         bp = axes[1].boxplot(data, labels=labels, patch_artist=True)
         colors = ["#ff7f0e", "#1f77b4"]
-        for patch, color in zip(bp["boxes"], colors):
+        for patch, color in zip(bp["boxes"], colors, strict=False):
             patch.set_facecolor(color)
             patch.set_alpha(0.7)
 
@@ -164,8 +167,8 @@ def plot_mutation_classification(
 
 def plot_cross_resistance_heatmap(
     df: pd.DataFrame,
-    drugs: Optional[list[str]] = None,
-    save_path: Optional[Union[str, Path]] = None,
+    drugs: list[str] | None = None,
+    save_path: str | Path | None = None,
     figsize: tuple = (10, 8),
 ) -> plt.Figure:
     """Plot cross-resistance heatmap between drugs.
@@ -186,11 +189,23 @@ def plot_cross_resistance_heatmap(
 
     # Build cross-resistance matrix
     if drugs is None:
-        drug_cols = [c for c in df.columns if c not in [
-            "position", "wild_type", "mutant", "drug", "fold_change",
-            "hyperbolic_distance", "log_fold_change", "drug_class",
-            "is_primary", "radial_position",
-        ]]
+        drug_cols = [
+            c
+            for c in df.columns
+            if c
+            not in [
+                "position",
+                "wild_type",
+                "mutant",
+                "drug",
+                "fold_change",
+                "hyperbolic_distance",
+                "log_fold_change",
+                "drug_class",
+                "is_primary",
+                "radial_position",
+            ]
+        ]
         drugs = drug_cols[:15]  # Limit to 15 drugs
 
     if not drugs:
@@ -225,7 +240,7 @@ def plot_cross_resistance_heatmap(
 
 def plot_drug_class_embeddings(
     df: pd.DataFrame,
-    save_path: Optional[Union[str, Path]] = None,
+    save_path: str | Path | None = None,
     figsize: tuple = (10, 8),
 ) -> plt.Figure:
     """Plot drug class-specific geometric signatures.
@@ -245,8 +260,7 @@ def plot_drug_class_embeddings(
     drug_classes = df["drug_class"].unique() if "drug_class" in df.columns else []
 
     if len(drug_classes) == 0:
-        ax.text(0.5, 0.5, "No drug class data available",
-                ha="center", va="center", transform=ax.transAxes)
+        ax.text(0.5, 0.5, "No drug class data available", ha="center", va="center", transform=ax.transAxes)
         return fig
 
     colors = plt.cm.Set2(np.linspace(0, 1, len(drug_classes)))

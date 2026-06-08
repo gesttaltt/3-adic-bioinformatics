@@ -23,30 +23,27 @@ Author: Claude Code
 Date: 2026-01-14
 """
 
-import torch
-import torch.nn as nn
-import numpy as np
-from pathlib import Path
 import sys
 import time
-import math
+from pathlib import Path
+
+import numpy as np
+import torch
+import torch.nn as nn
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+from src.models.enhanced_controller import EnhancedDifferentiableController
+
 from src.geometry import (
-    get_riemannian_optimizer,
-    get_manifold,
-    ManifoldParameter,
-    ManifoldTensor,
     create_manifold_parameter,
+    get_manifold,
+    get_riemannian_optimizer,
     poincare_distance,
     project_to_poincare,
-    RiemannianAdam,
-    RiemannianSGD,
 )
-from src.models.enhanced_controller import EnhancedDifferentiableController
 from src.training.adaptive_lr_scheduler import AdaptiveLRScheduler, ValidationMetrics
 
 
@@ -80,7 +77,7 @@ class ManifoldAwareLRScheduler:
         self.distance_threshold = distance_threshold
 
         # Store original learning rates
-        self.original_lrs = [group['lr'] for group in optimizer.param_groups]
+        self.original_lrs = [group["lr"] for group in optimizer.param_groups]
 
     def step(self):
         """Adjust learning rates based on manifold position."""
@@ -88,8 +85,8 @@ class ManifoldAwareLRScheduler:
             # Check if any parameters in this group are near boundary
             near_boundary = False
 
-            for param in param_group['params']:
-                if hasattr(param, 'manifold'):  # ManifoldParameter
+            for param in param_group["params"]:
+                if hasattr(param, "manifold"):  # ManifoldParameter
                     # Compute distance to origin (Poincaré ball center)
                     with torch.no_grad():
                         distances = torch.norm(param, dim=-1)
@@ -102,9 +99,9 @@ class ManifoldAwareLRScheduler:
             # Adjust learning rate
             base_lr = self.original_lrs[i]
             if near_boundary:
-                param_group['lr'] = base_lr * self.boundary_lr_reduction
+                param_group["lr"] = base_lr * self.boundary_lr_reduction
             else:
-                param_group['lr'] = base_lr
+                param_group["lr"] = base_lr
 
 
 class RiemannianGradientClipper:
@@ -134,7 +131,7 @@ class RiemannianGradientClipper:
 
         # Separate manifold and Euclidean parameters
         for param in parameters:
-            if hasattr(param, 'manifold') and param.grad is not None:
+            if hasattr(param, "manifold") and param.grad is not None:
                 manifold_params.append(param)
             elif param.grad is not None:
                 euclidean_params.append(param)
@@ -161,18 +158,14 @@ def test_riemannian_vs_adam():
     class TestHyperbolicModel(nn.Module):
         def __init__(self, input_dim=16, latent_dim=8):
             super().__init__()
-            manifold = get_manifold(c=1.0)
+            get_manifold(c=1.0)
 
             # Euclidean parameters
             self.linear = nn.Linear(input_dim, latent_dim)
 
             # Hyperbolic parameters (on Poincaré ball)
-            self.hyperbolic_weight = create_manifold_parameter(
-                torch.randn(latent_dim, input_dim) * 0.1, c=1.0
-            )
-            self.hyperbolic_bias = create_manifold_parameter(
-                torch.randn(latent_dim) * 0.1, c=1.0
-            )
+            self.hyperbolic_weight = create_manifold_parameter(torch.randn(latent_dim, input_dim) * 0.1, c=1.0)
+            self.hyperbolic_bias = create_manifold_parameter(torch.randn(latent_dim) * 0.1, c=1.0)
 
         def forward(self, x):
             # Standard linear transformation
@@ -192,7 +185,9 @@ def test_riemannian_vs_adam():
 
     # Create optimizers with different LR for manifold parameters
     riemannian_optimizer = get_riemannian_optimizer(
-        model_riemannian.parameters(), lr=0.005, optimizer_type="adam"  # Lower LR for Riemannian
+        model_riemannian.parameters(),
+        lr=0.005,
+        optimizer_type="adam",  # Lower LR for Riemannian
     )
 
     # For standard Adam, we need to project manifold params manually
@@ -207,11 +202,11 @@ def test_riemannian_vs_adam():
     riemannian_losses = []
     adam_losses = []
 
-    for epoch in range(50):
+    for _epoch in range(50):
         # Riemannian training step
         riemannian_optimizer.zero_grad()
         linear_out, hyp_out = model_riemannian(x)
-        loss_riemannian = ((linear_out - target_linear)**2).mean() + ((hyp_out - target_hyp)**2).mean()
+        loss_riemannian = ((linear_out - target_linear) ** 2).mean() + ((hyp_out - target_hyp) ** 2).mean()
         loss_riemannian.backward()
         riemannian_optimizer.step()
         riemannian_losses.append(loss_riemannian.item())
@@ -225,7 +220,7 @@ def test_riemannian_vs_adam():
             model_adam.hyperbolic_weight.data = project_to_poincare(model_adam.hyperbolic_weight.data, c=1.0)
             model_adam.hyperbolic_bias.data = project_to_poincare(model_adam.hyperbolic_bias.data, c=1.0)
 
-        loss_adam = ((linear_out - target_linear)**2).mean() + ((hyp_out - target_hyp)**2).mean()
+        loss_adam = ((linear_out - target_linear) ** 2).mean() + ((hyp_out - target_hyp) ** 2).mean()
         loss_adam.backward()
         adam_optimizer.step()
         adam_losses.append(loss_adam.item())
@@ -234,7 +229,7 @@ def test_riemannian_vs_adam():
     final_riemannian_loss = np.mean(riemannian_losses[-10:])
     final_adam_loss = np.mean(adam_losses[-10:])
 
-    print(f"   Final loss (last 10 epochs average):")
+    print("   Final loss (last 10 epochs average):")
     print(f"   RiemannianAdam: {final_riemannian_loss:.6f}")
     print(f"   Standard Adam:  {final_adam_loss:.6f}")
 
@@ -246,21 +241,23 @@ def test_riemannian_vs_adam():
         riem_hyp_weight_norm = torch.norm(model_riemannian.hyperbolic_weight, dim=-1).max().item()
         adam_hyp_weight_norm = torch.norm(model_adam.hyperbolic_weight, dim=-1).max().item()
 
-    print(f"   Manifold constraint satisfaction:")
+    print("   Manifold constraint satisfaction:")
     print(f"   RiemannianAdam max norm: {riem_hyp_weight_norm:.6f}")
     print(f"   Standard Adam max norm:  {adam_hyp_weight_norm:.6f}")
-    print(f"   Constraint (< 1.0): {'✅' if riem_hyp_weight_norm < 1.0 else '❌'} vs {'✅' if adam_hyp_weight_norm < 1.0 else '❌'}")
+    print(
+        f"   Constraint (< 1.0): {'✅' if riem_hyp_weight_norm < 1.0 else '❌'} vs {'✅' if adam_hyp_weight_norm < 1.0 else '❌'}"
+    )
 
     # Riemannian optimization might have different convergence patterns
     # Focus on constraint satisfaction rather than absolute performance
     constraint_satisfaction_advantage = (adam_hyp_weight_norm > 1.0) and (riem_hyp_weight_norm < 1.0)
 
     if constraint_satisfaction_advantage:
-        print(f"   ✅ Riemannian optimization maintains manifold constraints better")
+        print("   ✅ Riemannian optimization maintains manifold constraints better")
     elif improvement > -50:  # More lenient threshold
-        print(f"   ✅ Riemannian optimization performance acceptable")
+        print("   ✅ Riemannian optimization performance acceptable")
     else:
-        print(f"   ⚠️  Riemannian optimization underperforming, may need tuning")
+        print("   ⚠️  Riemannian optimization underperforming, may need tuning")
 
     print("✅ Riemannian optimization comparison complete")
 
@@ -298,7 +295,7 @@ def test_manifold_parameter_handling():
     distances = poincare_distance(manifold_param, origin, c=1.0)
 
     assert distances.min() >= 0, "Negative distances detected"
-    assert distances.max() < float('inf'), "Infinite distances detected"
+    assert distances.max() < float("inf"), "Infinite distances detected"
     print(f"   Distance range: [{distances.min():.6f}, {distances.max():.6f}]")
     print("✅ Manifold distance computations stable")
 
@@ -321,9 +318,7 @@ def test_enhanced_controller_integration():
             super().__init__()
             self.controller = controller
             # Add a manifold parameter for testing
-            self.manifold_param = create_manifold_parameter(
-                torch.randn(4, 4) * 0.1, c=1.0, requires_grad=True
-            )
+            self.manifold_param = create_manifold_parameter(torch.randn(4, 4) * 0.1, c=1.0, requires_grad=True)
 
         def forward(self, x):
             controller_out = self.controller(x)
@@ -334,11 +329,7 @@ def test_enhanced_controller_integration():
     controller_with_manifold = ControllerWithManifold(controller)
 
     # Create Riemannian optimizer
-    riem_optimizer = get_riemannian_optimizer(
-        controller_with_manifold.parameters(),
-        lr=0.001,
-        optimizer_type="adam"
-    )
+    riem_optimizer = get_riemannian_optimizer(controller_with_manifold.parameters(), lr=0.001, optimizer_type="adam")
 
     # Test forward pass and gradient flow
     batch_stats = torch.randn(4, 8)
@@ -356,11 +347,7 @@ def test_enhanced_controller_integration():
 
     # Test adaptive LR scheduler integration
     scheduler = AdaptiveLRScheduler(
-        optimizer=riem_optimizer,
-        primary_metric="hierarchy_correlation",
-        patience=3,
-        factor=0.8,
-        warmup_epochs=2
+        optimizer=riem_optimizer, primary_metric="hierarchy_correlation", patience=3, factor=0.8, warmup_epochs=2
     )
 
     # Simulate training epochs
@@ -372,7 +359,7 @@ def test_enhanced_controller_integration():
             hierarchy_correlation=-0.5 - epoch * 0.1,
             coverage_accuracy=1.0,
             richness_ratio=0.5,
-            loss_value=2.0 - epoch * 0.1
+            loss_value=2.0 - epoch * 0.1,
         )
 
         state = scheduler.step(metrics)
@@ -392,7 +379,7 @@ def test_manifold_aware_lr_scheduling():
             super().__init__()
             self.manifold_param = create_manifold_parameter(
                 torch.randn(5, 3) * 0.9,  # Near boundary
-                c=1.0
+                c=1.0,
             )
             self.euclidean_param = nn.Parameter(torch.randn(5, 3))
 
@@ -401,14 +388,11 @@ def test_manifold_aware_lr_scheduling():
 
     # Create manifold-aware scheduler
     scheduler = ManifoldAwareLRScheduler(
-        optimizer=optimizer,
-        manifold_lr_scale=0.1,
-        boundary_lr_reduction=0.5,
-        distance_threshold=0.8
+        optimizer=optimizer, manifold_lr_scale=0.1, boundary_lr_reduction=0.5, distance_threshold=0.8
     )
 
     # Test initial LR
-    initial_lr = optimizer.param_groups[0]['lr']
+    initial_lr = optimizer.param_groups[0]["lr"]
     print(f"   Initial LR: {initial_lr:.6f}")
 
     # Push manifold parameter near boundary
@@ -417,7 +401,7 @@ def test_manifold_aware_lr_scheduling():
 
     # Apply scheduler
     scheduler.step()
-    boundary_lr = optimizer.param_groups[0]['lr']
+    boundary_lr = optimizer.param_groups[0]["lr"]
     print(f"   Near-boundary LR: {boundary_lr:.6f}")
 
     assert boundary_lr < initial_lr, "LR should be reduced near boundary"
@@ -428,7 +412,7 @@ def test_manifold_aware_lr_scheduling():
         model.manifold_param.data = model.manifold_param.data * 0.5  # Move to center
 
     scheduler.step()
-    center_lr = optimizer.param_groups[0]['lr']
+    center_lr = optimizer.param_groups[0]["lr"]
     print(f"   Center LR: {center_lr:.6f}")
 
     print("✅ Manifold-aware LR scheduling working")
@@ -458,7 +442,7 @@ def test_riemannian_gradient_clipping():
     euclidean_out = model.euclidean(x)
     manifold_out = torch.matmul(x, model.manifold.T)
 
-    large_loss = 100 * ((euclidean_out - y)**2).sum() + 100 * ((manifold_out - y)**2).sum()
+    large_loss = 100 * ((euclidean_out - y) ** 2).sum() + 100 * ((manifold_out - y) ** 2).sum()
 
     optimizer.zero_grad()
     large_loss.backward()
@@ -467,7 +451,7 @@ def test_riemannian_gradient_clipping():
     euclidean_grad_norm = torch.norm(model.euclidean.weight.grad).item()
     manifold_grad_norm = torch.norm(model.manifold.grad).item()
 
-    print(f"   Pre-clipping gradients:")
+    print("   Pre-clipping gradients:")
     print(f"   Euclidean grad norm: {euclidean_grad_norm:.6f}")
     print(f"   Manifold grad norm:  {manifold_grad_norm:.6f}")
 
@@ -478,7 +462,7 @@ def test_riemannian_gradient_clipping():
     euclidean_grad_norm_clipped = torch.norm(model.euclidean.weight.grad).item()
     manifold_grad_norm_clipped = torch.norm(model.manifold.grad).item()
 
-    print(f"   Post-clipping gradients:")
+    print("   Post-clipping gradients:")
     print(f"   Euclidean grad norm: {euclidean_grad_norm_clipped:.6f}")
     print(f"   Manifold grad norm:  {manifold_grad_norm_clipped:.6f}")
     print(f"   Total clipped norm:  {total_norm:.6f}")
@@ -502,15 +486,9 @@ def test_performance_characteristics():
     class RiemannianModel(nn.Module):
         def __init__(self):
             super().__init__()
-            self.encoder = nn.Sequential(
-                nn.Linear(input_dim, hidden_dim),
-                nn.SiLU(),
-                nn.Linear(hidden_dim, latent_dim)
-            )
+            self.encoder = nn.Sequential(nn.Linear(input_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, latent_dim))
             # Manifold parameters for hyperbolic latent space
-            self.manifold_projection = create_manifold_parameter(
-                torch.randn(latent_dim, latent_dim) * 0.1, c=1.0
-            )
+            self.manifold_projection = create_manifold_parameter(torch.randn(latent_dim, latent_dim) * 0.1, c=1.0)
 
         def forward(self, x):
             encoded = self.encoder(x)
@@ -525,7 +503,7 @@ def test_performance_characteristics():
                 nn.Linear(input_dim, hidden_dim),
                 nn.SiLU(),
                 nn.Linear(hidden_dim, latent_dim),
-                nn.Linear(latent_dim, latent_dim)
+                nn.Linear(latent_dim, latent_dim),
             )
 
         def forward(self, x):
@@ -552,7 +530,7 @@ def test_performance_characteristics():
     for _ in range(100):
         riem_optimizer.zero_grad()
         output = riem_model(x)
-        loss = ((output - target)**2).mean()
+        loss = ((output - target) ** 2).mean()
         loss.backward()
         riem_optimizer.step()
     riem_time = (time.time() - start_time) * 1000 / 100
@@ -562,7 +540,7 @@ def test_performance_characteristics():
     for _ in range(100):
         std_optimizer.zero_grad()
         output = std_model(x)
-        loss = ((output - target)**2).mean()
+        loss = ((output - target) ** 2).mean()
         loss.backward()
         std_optimizer.step()
     std_time = (time.time() - start_time) * 1000 / 100
@@ -571,7 +549,7 @@ def test_performance_characteristics():
     riem_params = sum(p.numel() for p in riem_model.parameters())
     std_params = sum(p.numel() for p in std_model.parameters())
 
-    print(f"   Model Comparison:")
+    print("   Model Comparison:")
     print(f"   Riemannian Model: {riem_params:6d} params, {riem_time:5.2f} ms/step")
     print(f"   Standard Model:   {std_params:6d} params, {std_time:5.2f} ms/step")
 
@@ -580,10 +558,10 @@ def test_performance_characteristics():
 
     # Test manifold constraint satisfaction over training
     distances_over_time = []
-    for step in range(20):
+    for _step in range(20):
         riem_optimizer.zero_grad()
         output = riem_model(x)
-        loss = ((output - target)**2).mean()
+        loss = ((output - target) ** 2).mean()
         loss.backward()
         riem_optimizer.step()
 
@@ -592,7 +570,7 @@ def test_performance_characteristics():
             max_distance = torch.norm(riem_model.manifold_projection, dim=-1).max().item()
             distances_over_time.append(max_distance)
 
-    print(f"   Manifold constraint over training:")
+    print("   Manifold constraint over training:")
     print(f"   Initial max norm: {distances_over_time[0]:.6f}")
     print(f"   Final max norm:   {distances_over_time[-1]:.6f}")
     print(f"   Always < 1.0:     {'✅' if all(d < 1.0 for d in distances_over_time) else '❌'}")
@@ -682,6 +660,7 @@ def main():
     except Exception as e:
         print(f"\n❌ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 

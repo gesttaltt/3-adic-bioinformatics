@@ -27,19 +27,16 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-from src.biology.codons import GENETIC_CODE, CODON_TO_INDEX, codon_index_to_triplet
+from src.biology.codons import codon_index_to_triplet
 from src.geometry import exp_map_zero, poincare_distance, project_to_poincare
 
-
 # Base encoding: A=0, C=1, G=2, T/U=3
-BASE_TO_IDX = {'A': 0, 'C': 1, 'G': 2, 'T': 3, 'U': 3}
+BASE_TO_IDX = {"A": 0, "C": 1, "G": 2, "T": 3, "U": 3}
 
 
 def codon_to_onehot_12dim(codon_idx: int) -> torch.Tensor:
@@ -80,7 +77,7 @@ class CodonSegmentEncoder(nn.Module):
         codon_onehots = torch.stack([codon_to_onehot_12dim(i) for i in range(64)])
         pad_onehot = torch.zeros(12)  # All zeros for padding
         codon_onehots = torch.cat([codon_onehots, pad_onehot.unsqueeze(0)])  # (65, 12)
-        self.register_buffer('codon_onehots', codon_onehots)
+        self.register_buffer("codon_onehots", codon_onehots)
 
         # Transformer for segment encoding
         encoder_layer = nn.TransformerEncoderLayer(
@@ -88,16 +85,14 @@ class CodonSegmentEncoder(nn.Module):
             nhead=n_heads,
             dim_feedforward=hidden_dim * 4,
             dropout=dropout,
-            activation='gelu',
+            activation="gelu",
             batch_first=True,
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=2)
 
         # Attention pooling
         self.pool_query = nn.Parameter(torch.randn(1, 1, hidden_dim) * 0.02)
-        self.pool_attention = nn.MultiheadAttention(
-            hidden_dim, n_heads, dropout=dropout, batch_first=True
-        )
+        self.pool_attention = nn.MultiheadAttention(hidden_dim, n_heads, dropout=dropout, batch_first=True)
 
         # Project to latent space
         self.output_proj = nn.Linear(hidden_dim, latent_dim)
@@ -105,7 +100,7 @@ class CodonSegmentEncoder(nn.Module):
     def forward(
         self,
         segment: Tensor,
-        mask: Optional[Tensor] = None,
+        mask: Tensor | None = None,
     ) -> Tensor:
         """Encode a segment of codon indices.
 
@@ -136,18 +131,13 @@ class CodonSegmentEncoder(nn.Module):
         x = x + pos_emb.unsqueeze(0)
 
         # Transformer encoding
-        if mask is not None:
-            src_key_padding_mask = ~mask
-        else:
-            src_key_padding_mask = None
+        src_key_padding_mask = ~mask if mask is not None else None
 
         x = self.transformer(x, src_key_padding_mask=src_key_padding_mask)
 
         # Attention pooling
         query = self.pool_query.expand(batch_size, -1, -1)
-        pooled, _ = self.pool_attention(
-            query, x, x, key_padding_mask=src_key_padding_mask
-        )
+        pooled, _ = self.pool_attention(query, x, x, key_padding_mask=src_key_padding_mask)
         pooled = pooled.squeeze(1)
 
         # Project to latent
@@ -176,9 +166,7 @@ class HierarchicalSegmentAggregator(nn.Module):
         self.segment_pos = nn.Embedding(max_segments, latent_dim)
 
         # Cross-segment attention
-        self.cross_attention = nn.MultiheadAttention(
-            latent_dim, n_heads, dropout=dropout, batch_first=True
-        )
+        self.cross_attention = nn.MultiheadAttention(latent_dim, n_heads, dropout=dropout, batch_first=True)
 
         # Final aggregation MLP
         self.aggregator = nn.Sequential(
@@ -192,8 +180,8 @@ class HierarchicalSegmentAggregator(nn.Module):
     def forward(
         self,
         segment_embeddings: Tensor,
-        segment_mask: Optional[Tensor] = None,
-    ) -> Tuple[Tensor, Tensor]:
+        segment_mask: Tensor | None = None,
+    ) -> tuple[Tensor, Tensor]:
         """Aggregate segment embeddings.
 
         Args:
@@ -299,8 +287,8 @@ class SegmentCodonEncoder(nn.Module):
     def _split_into_segments(
         self,
         x: Tensor,
-        lengths: Optional[Tensor] = None,
-    ) -> Tuple[Tensor, Tensor]:
+        lengths: Tensor | None = None,
+    ) -> tuple[Tensor, Tensor]:
         """Split sequence into overlapping segments.
 
         Args:
@@ -349,8 +337,8 @@ class SegmentCodonEncoder(nn.Module):
     def forward(
         self,
         x: Tensor,
-        lengths: Optional[Tensor] = None,
-    ) -> Dict[str, Tensor]:
+        lengths: Tensor | None = None,
+    ) -> dict[str, Tensor]:
         """Forward pass.
 
         Args:
@@ -377,9 +365,9 @@ class SegmentCodonEncoder(nn.Module):
             radius = poincare_distance(z_hyp, origin, c=self.curvature)
 
             return {
-                'z_hyp': z_hyp,
-                'radius': radius,
-                'n_segments': torch.ones(batch_size, device=device),
+                "z_hyp": z_hyp,
+                "radius": radius,
+                "n_segments": torch.ones(batch_size, device=device),
             }
 
         # Long sequence: segment-based encoding
@@ -395,14 +383,14 @@ class SegmentCodonEncoder(nn.Module):
         z_hyp, radius = self.aggregator(segment_embs, segment_mask)
 
         return {
-            'z_hyp': z_hyp,
-            'radius': radius,
-            'n_segments': torch.full((batch_size,), n_segments, device=device, dtype=torch.float),
+            "z_hyp": z_hyp,
+            "radius": radius,
+            "n_segments": torch.full((batch_size,), n_segments, device=device, dtype=torch.float),
         }
 
-    def encode(self, x: Tensor, lengths: Optional[Tensor] = None) -> Tensor:
+    def encode(self, x: Tensor, lengths: Tensor | None = None) -> Tensor:
         """Convenience method to get just the embedding."""
-        return self.forward(x, lengths)['z_hyp']
+        return self.forward(x, lengths)["z_hyp"]
 
 
 def create_segment_codon_encoder(**kwargs) -> SegmentCodonEncoder:
@@ -411,8 +399,8 @@ def create_segment_codon_encoder(**kwargs) -> SegmentCodonEncoder:
 
 
 __all__ = [
-    'SegmentCodonEncoder',
-    'CodonSegmentEncoder',
-    'HierarchicalSegmentAggregator',
-    'create_segment_codon_encoder',
+    "SegmentCodonEncoder",
+    "CodonSegmentEncoder",
+    "HierarchicalSegmentAggregator",
+    "create_segment_codon_encoder",
 ]

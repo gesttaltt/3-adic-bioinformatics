@@ -22,7 +22,6 @@ Usage:
 
 import argparse
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import torch
@@ -44,15 +43,15 @@ def check_cuda():
 
     device = torch.device("cuda:0")
     props = torch.cuda.get_device_properties(0)
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("DEVICE CONFIGURATION")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"  Device: {props.name}")
     print(f"  VRAM: {props.total_memory / 1024**3:.1f} GB")
     print(f"  Compute Capability: {props.major}.{props.minor}")
     print(f"  PyTorch: {torch.__version__}")
     print(f"  CUDA: {torch.version.cuda}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
     return device
 
 
@@ -69,9 +68,9 @@ def create_v5_5_checkpoint(device: torch.device, save_dir: Path):
 
     This is a simplified training loop that focuses on coverage only.
     """
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("PHASE 1: Training v5.5 Base Model (Coverage Training)")
-    print("="*60)
+    print("=" * 60)
     print("No existing v5.5 checkpoint found. Training from scratch...")
 
     from scipy.stats import spearmanr
@@ -233,18 +232,23 @@ def create_v5_5_checkpoint(device: torch.device, save_dir: Path):
         writer.add_scalar("Eval/radial_corr", radial_corr, epoch)
 
         if epoch % 10 == 0 or coverage > best_coverage:
-            print(f"  Epoch {epoch:3d}: loss={total_loss/n_batches:.4f}, "
-                  f"coverage={coverage*100:.1f}%, radial_corr={radial_corr:.3f}")
+            print(
+                f"  Epoch {epoch:3d}: loss={total_loss / n_batches:.4f}, "
+                f"coverage={coverage * 100:.1f}%, radial_corr={radial_corr:.3f}"
+            )
 
         # Save best
         if coverage > best_coverage:
             best_coverage = coverage
-            torch.save({
-                "epoch": epoch,
-                "model": model.state_dict(),
-                "coverage": coverage,
-                "radial_corr": radial_corr,
-            }, save_dir / "latest.pt")
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "model": model.state_dict(),
+                    "coverage": coverage,
+                    "radial_corr": radial_corr,
+                },
+                save_dir / "latest.pt",
+            )
 
             if coverage >= 1.0:
                 print(f"\n  *** 100% COVERAGE ACHIEVED at epoch {epoch}! ***\n")
@@ -252,7 +256,7 @@ def create_v5_5_checkpoint(device: torch.device, save_dir: Path):
 
     writer.close()
 
-    print(f"\nV5.5 training complete. Best coverage: {best_coverage*100:.1f}%")
+    print(f"\nV5.5 training complete. Best coverage: {best_coverage * 100:.1f}%")
     print(f"Checkpoint saved to: {save_dir / 'latest.pt'}")
 
     return save_dir / "latest.pt"
@@ -260,14 +264,12 @@ def create_v5_5_checkpoint(device: torch.device, save_dir: Path):
 
 def load_config(config_path: Path) -> dict:
     """Load configuration from YAML file."""
-    with open(config_path, "r") as f:
+    with open(config_path) as f:
         return yaml.safe_load(f)
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Train V5.11.11 Homeostatic Model - RTX 2060 SUPER Optimized"
-    )
+    parser = argparse.ArgumentParser(description="Train V5.11.11 Homeostatic Model - RTX 2060 SUPER Optimized")
     parser.add_argument(
         "--config",
         type=str,
@@ -315,9 +317,9 @@ def main():
         print(f"Using existing v5.5 checkpoint: {config['frozen_checkpoint']['path']}")
 
     # Now run the main V5.11.11 training
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("PHASE 2: Training V5.11.11 Homeostatic Model")
-    print("="*60)
+    print("=" * 60)
 
     # Build command line args for the main train.py
     train_args = [
@@ -355,7 +357,7 @@ def main():
         f"--n_pairs={config['loss']['geodesic'].get('n_pairs', 2000)}",
     ]
 
-    if config['homeostasis'].get('enable_annealing', True):
+    if config["homeostasis"].get("enable_annealing", True):
         train_args.append("--enable_annealing")
     else:
         train_args.append("--no_annealing")
@@ -365,28 +367,29 @@ def main():
     print(f"  Epochs: {config['training']['epochs']}")
     print(f"  Batch Size: {config['training']['batch_size']}")
     print(f"  Learning Rate: {config['training']['lr']}")
-    print(f"  Homeostasis: ENABLED")
+    print("  Homeostasis: ENABLED")
     print(f"  Q-gated Annealing: {config['homeostasis'].get('enable_annealing', True)}")
-    print(f"  Riemannian Optimizer: ENABLED")
-    print(f"  Learnable Curvature: ENABLED")
-    print(f"  Zero-Structure Loss: ENABLED")
-    print(f"\nCheckpoint: v5_11_11_homeostatic_ale_device")
-    print(f"TensorBoard: runs/ternary_option_c_dual_*")
+    print("  Riemannian Optimizer: ENABLED")
+    print("  Learnable Curvature: ENABLED")
+    print("  Zero-Structure Loss: ENABLED")
+    print("\nCheckpoint: v5_11_11_homeostatic_ale_device")
+    print("TensorBoard: runs/ternary_option_c_dual_*")
 
     # Execute training
     import subprocess
+
     print("\nStarting training...")
     print("-" * 60)
 
     result = subprocess.run(train_args, cwd=str(PROJECT_ROOT))
 
     if result.returncode == 0:
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("TRAINING COMPLETE")
-        print("="*60)
+        print("=" * 60)
         print(f"\nCheckpoint saved to: {CHECKPOINTS_DIR / 'v5_11_11_homeostatic_ale_device'}/")
-        print(f"  - best.pt: Best model (highest composite score)")
-        print(f"  - latest.pt: Final model")
+        print("  - best.pt: Best model (highest composite score)")
+        print("  - latest.pt: Final model")
     else:
         print(f"\nERROR: Training failed with return code {result.returncode}")
         sys.exit(result.returncode)

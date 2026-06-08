@@ -12,19 +12,19 @@ This module provides training for:
 
 from __future__ import annotations
 
+import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Callable
-import json
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
+from scipy.stats import pearsonr, spearmanr
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
-from scipy.stats import spearmanr, pearsonr
-import numpy as np
+from torch.utils.data import Dataset
 
 from src.bioinformatics.models.ddg_transformer import (
     DDGTransformer,
@@ -32,17 +32,32 @@ from src.bioinformatics.models.ddg_transformer import (
     TransformerConfig,
 )
 from src.bioinformatics.training.deterministic import (
-    DeterministicTrainer,
     DeterministicConfig,
+    DeterministicTrainer,
 )
-
 
 # Amino acid vocabulary
 AA_VOCAB = {
-    "A": 0, "C": 1, "D": 2, "E": 3, "F": 4,
-    "G": 5, "H": 6, "I": 7, "K": 8, "L": 9,
-    "M": 10, "N": 11, "P": 12, "Q": 13, "R": 14,
-    "S": 15, "T": 16, "V": 17, "W": 18, "Y": 19,
+    "A": 0,
+    "C": 1,
+    "D": 2,
+    "E": 3,
+    "F": 4,
+    "G": 5,
+    "H": 6,
+    "I": 7,
+    "K": 8,
+    "L": 9,
+    "M": 10,
+    "N": 11,
+    "P": 12,
+    "Q": 13,
+    "R": 14,
+    "S": 15,
+    "T": 16,
+    "V": 17,
+    "W": 18,
+    "Y": 19,
     "-": 20,  # Gap
     "*": 21,  # Mask/unknown
 }
@@ -121,7 +136,7 @@ class SequenceDataset(Dataset):
         if len(tokens) > self.max_len:
             # Center around mutation position
             start = max(0, pos - self.max_len // 2)
-            tokens = tokens[start:start + self.max_len]
+            tokens = tokens[start : start + self.max_len]
             pos = pos - start
         else:
             # Pad with gaps
@@ -129,7 +144,7 @@ class SequenceDataset(Dataset):
 
         # Create padding mask
         padding_mask = torch.zeros(self.max_len, dtype=torch.bool)
-        padding_mask[len(seq):] = True
+        padding_mask[len(seq) :] = True
 
         return {
             "sequence": torch.tensor(tokens, dtype=torch.long),
@@ -150,10 +165,10 @@ class TransformerTrainer(DeterministicTrainer):
         self,
         model: nn.Module,
         train_dataset: Dataset,
-        val_dataset: Optional[Dataset] = None,
-        config: Optional[TransformerTrainingConfig] = None,
+        val_dataset: Dataset | None = None,
+        config: TransformerTrainingConfig | None = None,
         device: str = "cuda",
-        output_dir: Optional[Path] = None,
+        output_dir: Path | None = None,
     ):
         """Initialize transformer trainer.
 
@@ -191,14 +206,10 @@ class TransformerTrainer(DeterministicTrainer):
         self.setup_determinism()
 
         # Create data loaders
-        self.train_loader = self.create_dataloader(
-            train_dataset, config.batch_size, shuffle=True
-        )
+        self.train_loader = self.create_dataloader(train_dataset, config.batch_size, shuffle=True)
         self.val_loader = None
         if val_dataset is not None:
-            self.val_loader = self.create_dataloader(
-                val_dataset, config.batch_size, shuffle=False
-            )
+            self.val_loader = self.create_dataloader(val_dataset, config.batch_size, shuffle=False)
 
         # Optimizer
         self.optimizer = AdamW(
@@ -253,9 +264,7 @@ class TransformerTrainer(DeterministicTrainer):
                 if self.config.grad_clip > 0:
                     if self.scaler is not None:
                         self.scaler.unscale_(self.optimizer)
-                    nn.utils.clip_grad_norm_(
-                        self.model.parameters(), self.config.grad_clip
-                    )
+                    nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_clip)
 
                 if self.scaler is not None:
                     self.scaler.step(self.optimizer)
@@ -308,7 +317,7 @@ class TransformerTrainer(DeterministicTrainer):
 
     def train(
         self,
-        callback: Optional[Callable[[int, dict], None]] = None,
+        callback: Callable[[int, dict], None] | None = None,
     ) -> dict:
         """Run full training loop."""
         for epoch in range(self.config.epochs):
@@ -358,13 +367,16 @@ class TransformerTrainer(DeterministicTrainer):
     def _save_best(self, epoch: int, train_metrics: dict, val_metrics: dict) -> None:
         """Save best model."""
         path = self.output_dir / "best.pt"
-        torch.save({
-            "epoch": epoch,
-            "model_state_dict": self.model.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict(),
-            "metrics": {**train_metrics, **val_metrics},
-            "best_metric": self.best_metric,
-        }, path)
+        torch.save(
+            {
+                "epoch": epoch,
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "metrics": {**train_metrics, **val_metrics},
+                "best_metric": self.best_metric,
+            },
+            path,
+        )
 
     def _save_final(self) -> None:
         """Save final state."""
@@ -375,11 +387,11 @@ class TransformerTrainer(DeterministicTrainer):
 
 def train_full_sequence_transformer(
     train_dataset: SequenceDataset,
-    val_dataset: Optional[SequenceDataset] = None,
-    config: Optional[TransformerTrainingConfig] = None,
-    transformer_config: Optional[TransformerConfig] = None,
+    val_dataset: SequenceDataset | None = None,
+    config: TransformerTrainingConfig | None = None,
+    transformer_config: TransformerConfig | None = None,
     device: str = "cuda",
-    output_dir: Optional[Path] = None,
+    output_dir: Path | None = None,
 ) -> DDGTransformer:
     """Train full-sequence DDG transformer.
 
@@ -421,11 +433,11 @@ def train_full_sequence_transformer(
 
 def train_hierarchical_transformer(
     train_dataset: SequenceDataset,
-    val_dataset: Optional[SequenceDataset] = None,
-    config: Optional[TransformerTrainingConfig] = None,
-    transformer_config: Optional[TransformerConfig] = None,
+    val_dataset: SequenceDataset | None = None,
+    config: TransformerTrainingConfig | None = None,
+    transformer_config: TransformerConfig | None = None,
     device: str = "cuda",
-    output_dir: Optional[Path] = None,
+    output_dir: Path | None = None,
 ) -> HierarchicalTransformer:
     """Train hierarchical DDG transformer.
 

@@ -18,9 +18,8 @@ References:
 
 from __future__ import annotations
 
-import copy
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -35,16 +34,16 @@ class UncertaintyEstimate:
     std: torch.Tensor  # Standard deviation
     lower: torch.Tensor  # Lower confidence bound
     upper: torch.Tensor  # Upper confidence bound
-    samples: Optional[torch.Tensor] = None  # Optional: raw samples
-    epistemic: Optional[torch.Tensor] = None  # Model uncertainty
-    aleatoric: Optional[torch.Tensor] = None  # Data uncertainty
+    samples: torch.Tensor | None = None  # Optional: raw samples
+    epistemic: torch.Tensor | None = None  # Model uncertainty
+    aleatoric: torch.Tensor | None = None  # Data uncertainty
 
     @property
     def confidence_width(self) -> torch.Tensor:
         """Width of confidence interval."""
         return self.upper - self.lower
 
-    def to_dict(self) -> Dict[str, torch.Tensor]:
+    def to_dict(self) -> dict[str, torch.Tensor]:
         """Convert to dictionary."""
         return {
             "mean": self.mean,
@@ -88,7 +87,7 @@ class MCDropoutWrapper(nn.Module):
             if isinstance(module, nn.Dropout):
                 module.train()
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Standard forward pass."""
         return self.model(x)
 
@@ -114,10 +113,7 @@ class MCDropoutWrapper(nn.Module):
             for _ in range(self.n_samples):
                 out = self.model(x)
                 # Extract prediction (handle different output formats)
-                if isinstance(out, dict):
-                    pred = out.get("prediction", out.get("z", out.get("mu"))[:, 0])
-                else:
-                    pred = out
+                pred = out.get("prediction", out.get("z", out.get("mu"))[:, 0]) if isinstance(out, dict) else out
                 samples.append(pred)
 
         samples = torch.stack(samples, dim=0)  # (n_samples, batch)
@@ -165,15 +161,12 @@ class DeepEnsemble(nn.Module):
         # Create ensemble members
         self.models = nn.ModuleList([model_fn() for _ in range(n_models)])
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Average prediction across ensemble."""
         predictions = []
         for model in self.models:
             out = model(x)
-            if isinstance(out, dict):
-                pred = out.get("prediction", out.get("z", out.get("mu"))[:, 0])
-            else:
-                pred = out
+            pred = out.get("prediction", out.get("z", out.get("mu"))[:, 0]) if isinstance(out, dict) else out
             predictions.append(pred)
 
         predictions = torch.stack(predictions, dim=0)
@@ -193,10 +186,7 @@ class DeepEnsemble(nn.Module):
         with torch.no_grad():
             for model in self.models:
                 out = model(x)
-                if isinstance(out, dict):
-                    pred = out.get("prediction", out.get("z", out.get("mu"))[:, 0])
-                else:
-                    pred = out
+                pred = out.get("prediction", out.get("z", out.get("mu"))[:, 0]) if isinstance(out, dict) else out
                 predictions.append(pred)
 
         predictions = torch.stack(predictions, dim=0)  # (n_models, batch)
@@ -241,7 +231,7 @@ class EvidentialVAE(nn.Module):
         self,
         input_dim: int,
         latent_dim: int = 16,
-        hidden_dims: List[int] = None,
+        hidden_dims: list[int] = None,
     ):
         super().__init__()
         if hidden_dims is None:
@@ -274,7 +264,7 @@ class EvidentialVAE(nn.Module):
             nn.Linear(32, 4),  # gamma, log_nu, log_alpha, log_beta
         )
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         # Encode
         h = self.encoder(x)
         mu = self.fc_mu(h)
@@ -337,11 +327,11 @@ class EvidentialVAE(nn.Module):
 
 
 def evidential_loss(
-    out: Dict[str, torch.Tensor],
+    out: dict[str, torch.Tensor],
     target: torch.Tensor,
     x: torch.Tensor,
     lambda_reg: float = 0.1,
-) -> Dict[str, torch.Tensor]:
+) -> dict[str, torch.Tensor]:
     """Loss function for evidential learning.
 
     Combines NIG negative log-likelihood with regularization
@@ -445,7 +435,7 @@ def evaluate_uncertainty(
     predictions: torch.Tensor,
     uncertainties: torch.Tensor,
     targets: torch.Tensor,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Evaluate quality of uncertainty estimates.
 
     Returns:

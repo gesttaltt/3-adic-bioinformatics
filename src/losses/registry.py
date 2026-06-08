@@ -65,8 +65,9 @@ import importlib
 import logging
 import pkgutil
 from collections import OrderedDict
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type
+from typing import TYPE_CHECKING, Any
 
 import torch
 import torch.nn as nn
@@ -90,10 +91,10 @@ class LossRegistry(nn.Module):
         """Initialize empty registry."""
         super().__init__()
         self._losses: OrderedDict[str, LossComponent] = OrderedDict()
-        self._enabled: Dict[str, bool] = {}
-        self._weight_overrides: Dict[str, float] = {}
+        self._enabled: dict[str, bool] = {}
+        self._weight_overrides: dict[str, float] = {}
 
-    def register(self, name: str, loss: LossComponent, enabled: bool = True) -> "LossRegistry":
+    def register(self, name: str, loss: LossComponent, enabled: bool = True) -> LossRegistry:
         """Register a loss component.
 
         Args:
@@ -117,7 +118,7 @@ class LossRegistry(nn.Module):
 
         return self
 
-    def unregister(self, name: str) -> "LossRegistry":
+    def unregister(self, name: str) -> LossRegistry:
         """Remove a loss component.
 
         Args:
@@ -179,7 +180,7 @@ class LossRegistry(nn.Module):
         """
         self._weight_overrides.pop(name, None)
 
-    def get_loss(self, name: str) -> Optional[LossComponent]:
+    def get_loss(self, name: str) -> LossComponent | None:
         """Get a registered loss by name.
 
         Args:
@@ -190,7 +191,7 @@ class LossRegistry(nn.Module):
         """
         return self._losses.get(name)
 
-    def list_losses(self) -> List[str]:
+    def list_losses(self) -> list[str]:
         """List all registered loss names.
 
         Returns:
@@ -198,7 +199,7 @@ class LossRegistry(nn.Module):
         """
         return list(self._losses.keys())
 
-    def list_enabled(self) -> List[str]:
+    def list_enabled(self) -> list[str]:
         """List all enabled loss names.
 
         Returns:
@@ -206,7 +207,7 @@ class LossRegistry(nn.Module):
         """
         return [name for name, enabled in self._enabled.items() if enabled]
 
-    def compose(self, outputs: Dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> LossResult:
+    def compose(self, outputs: dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> LossResult:
         """Compose all enabled losses into single result.
 
         This is the main entry point during training. It:
@@ -230,7 +231,7 @@ class LossRegistry(nn.Module):
             # Fallback to first available tensor or default
             device = next(iter(outputs.values())).device if outputs else torch.device("cpu")
         total_loss = torch.tensor(0.0, device=device)
-        all_metrics: Dict[str, float] = {}
+        all_metrics: dict[str, float] = {}
 
         for name, loss_component in self._losses.items():
             # Skip disabled losses
@@ -266,7 +267,7 @@ class LossRegistry(nn.Module):
             weight=1.0,  # Total is already weighted
         )
 
-    def compose_with_gradients(self, outputs: Dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> tuple:
+    def compose_with_gradients(self, outputs: dict[str, torch.Tensor], targets: torch.Tensor, **kwargs) -> tuple:
         """Compose losses and return individual gradients for analysis.
 
         Useful for gradient balancing and StateNet feedback.
@@ -282,7 +283,7 @@ class LossRegistry(nn.Module):
         result = self.compose(outputs, targets, **kwargs)
 
         # Compute per-loss gradient norms if needed
-        grad_norms: Dict[str, float] = {}
+        grad_norms: dict[str, float] = {}
 
         return result.loss, result.metrics, grad_norms
 
@@ -304,9 +305,9 @@ class LossGroup:
             name: Group name (used as prefix in metrics)
         """
         self.name = name
-        self._losses: Dict[str, LossComponent] = {}
+        self._losses: dict[str, LossComponent] = {}
 
-    def add(self, name: str, loss: LossComponent) -> "LossGroup":
+    def add(self, name: str, loss: LossComponent) -> LossGroup:
         """Add a loss to this group.
 
         Args:
@@ -320,12 +321,12 @@ class LossGroup:
         return self
 
     @property
-    def losses(self) -> Dict[str, LossComponent]:
+    def losses(self) -> dict[str, LossComponent]:
         """Return all losses in this group."""
         return self._losses
 
 
-def create_registry_from_config(config: Dict[str, Any]) -> LossRegistry:
+def create_registry_from_config(config: dict[str, Any]) -> LossRegistry:
     """Factory to create LossRegistry from configuration.
 
     This is the main entry point for creating a configured registry.
@@ -345,17 +346,20 @@ def create_registry_from_config(config: Dict[str, Any]) -> LossRegistry:
             }
         }
     """
-    from .components import (EntropyLossComponent, KLDivergenceLossComponent,
-                             PAdicHyperbolicLossComponent,
-                             PAdicRankingLossComponent,
-                             ReconstructionLossComponent,
-                             RepulsionLossComponent)
+    from .components import (
+        EntropyLossComponent,
+        KLDivergenceLossComponent,
+        PAdicHyperbolicLossComponent,
+        PAdicRankingLossComponent,
+        ReconstructionLossComponent,
+        RepulsionLossComponent,
+    )
 
     registry = LossRegistry()
     losses_config = config.get("losses", {})
 
     # Register each loss type if enabled
-    loss_factories: Dict[str, Callable] = {
+    loss_factories: dict[str, Callable] = {
         "reconstruction": lambda cfg: ReconstructionLossComponent(weight=cfg.get("weight", 1.0)),
         "kl": lambda cfg: KLDivergenceLossComponent(weight=cfg.get("weight", 0.1), free_bits=cfg.get("free_bits", 0.0)),
         "entropy": lambda cfg: EntropyLossComponent(weight=cfg.get("weight", 0.01)),
@@ -395,10 +399,10 @@ class LossComponentRegistry:
         print(LossComponentRegistry.list_all())
     """
 
-    _registry: Dict[str, Type[LossComponent]] = {}
+    _registry: dict[str, type[LossComponent]] = {}
 
     @classmethod
-    def register(cls, name: str) -> Callable[[Type[LossComponent]], Type[LossComponent]]:
+    def register(cls, name: str) -> Callable[[type[LossComponent]], type[LossComponent]]:
         """Decorator to register a loss component class.
 
         Args:
@@ -413,7 +417,7 @@ class LossComponentRegistry:
                 ...
         """
 
-        def decorator(loss_cls: Type[LossComponent]) -> Type[LossComponent]:
+        def decorator(loss_cls: type[LossComponent]) -> type[LossComponent]:
             if name in cls._registry:
                 logger.warning(f"Overwriting existing loss registration: {name}")
             cls._registry[name] = loss_cls
@@ -423,7 +427,7 @@ class LossComponentRegistry:
         return decorator
 
     @classmethod
-    def get(cls, name: str) -> Type[LossComponent]:
+    def get(cls, name: str) -> type[LossComponent]:
         """Get a registered loss component class by name.
 
         Args:
@@ -441,7 +445,7 @@ class LossComponentRegistry:
         return cls._registry[name]
 
     @classmethod
-    def list_all(cls) -> List[str]:
+    def list_all(cls) -> list[str]:
         """List all registered loss component names.
 
         Returns:
@@ -501,9 +505,7 @@ class LossComponentRegistry:
         return loaded
 
     @classmethod
-    def create_from_config(
-        cls, name: str, config: Dict[str, Any], **kwargs
-    ) -> LossComponent:
+    def create_from_config(cls, name: str, config: dict[str, Any], **kwargs) -> LossComponent:
         """Create a loss component instance from configuration.
 
         Args:
@@ -526,8 +528,8 @@ class LossComponentRegistry:
 
 
 def create_registry_with_plugins(
-    config: Dict[str, Any],
-    plugin_dir: Optional[Path] = None,
+    config: dict[str, Any],
+    plugin_dir: Path | None = None,
 ) -> LossRegistry:
     """Create a LossRegistry with plugin support.
 
@@ -562,7 +564,7 @@ def create_registry_with_plugins(
     return registry
 
 
-def create_registry_from_training_config(config: "TrainingConfig") -> LossRegistry:
+def create_registry_from_training_config(config: TrainingConfig) -> LossRegistry:
     """Create LossRegistry from TrainingConfig dataclass.
 
     This bridges the new config schema (src.config.TrainingConfig) with
@@ -665,7 +667,6 @@ def create_registry_from_training_config(config: "TrainingConfig") -> LossRegist
 
 # Import constants for default values
 from src.config.constants import DEFAULT_REPULSION_SIGMA
-
 
 __all__ = [
     "LossRegistry",

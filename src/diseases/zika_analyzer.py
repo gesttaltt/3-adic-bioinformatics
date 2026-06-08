@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -188,19 +188,23 @@ class ZikaConfig(DiseaseConfig):
     name: str = "zika"
     display_name: str = "Zika Fever"
     disease_type: DiseaseType = DiseaseType.VIRAL
-    tasks: list[TaskType] = field(default_factory=lambda: [
-        TaskType.RESISTANCE,
-        TaskType.ESCAPE,
-        TaskType.FITNESS,
-        TaskType.ANTIGENICITY,
-    ])
+    tasks: list[TaskType] = field(
+        default_factory=lambda: [
+            TaskType.RESISTANCE,
+            TaskType.ESCAPE,
+            TaskType.FITNESS,
+            TaskType.ANTIGENICITY,
+        ]
+    )
 
     # Data sources
-    data_sources: dict[str, str] = field(default_factory=lambda: {
-        "genbank": "https://www.ncbi.nlm.nih.gov/genbank/",
-        "vipr": "https://www.viprbrc.org/",
-        "nextstrain": "https://nextstrain.org/zika",
-    })
+    data_sources: dict[str, str] = field(
+        default_factory=lambda: {
+            "genbank": "https://www.ncbi.nlm.nih.gov/genbank/",
+            "vipr": "https://www.viprbrc.org/",
+            "nextstrain": "https://nextstrain.org/zika",
+        }
+    )
 
     # Zika-specific settings
     predict_czs_risk: bool = True
@@ -211,9 +215,7 @@ class ZikaConfig(DiseaseConfig):
     # Sequence settings
     min_sequence_length: int = 100
 
-    genes: list[str] = field(
-        default_factory=lambda: [g.value for g in ZikaGene]
-    )
+    genes: list[str] = field(default_factory=lambda: [g.value for g in ZikaGene])
 
 
 class ZikaAnalyzer(DiseaseAnalyzer):
@@ -227,7 +229,7 @@ class ZikaAnalyzer(DiseaseAnalyzer):
     - Neurovirulence prediction
     """
 
-    def __init__(self, config: Optional[ZikaConfig] = None):
+    def __init__(self, config: ZikaConfig | None = None):
         """Initialize Zika analyzer.
 
         Args:
@@ -239,7 +241,7 @@ class ZikaAnalyzer(DiseaseAnalyzer):
     def analyze(
         self,
         sequences: dict[ZikaGene, list[str]],
-        lineage: Optional[ZikaLineage] = None,
+        lineage: ZikaLineage | None = None,
         pregnancy_context: bool = False,
         **kwargs: Any,
     ) -> dict[str, Any]:
@@ -256,7 +258,7 @@ class ZikaAnalyzer(DiseaseAnalyzer):
         """
         results = {
             "n_sequences": len(next(iter(sequences.values()), [])),
-            "genes_analyzed": [g.value for g in sequences.keys()],
+            "genes_analyzed": [g.value for g in sequences],
             "lineage": lineage.value if lineage else None,
             "pregnancy_context": pregnancy_context,
         }
@@ -277,18 +279,14 @@ class ZikaAnalyzer(DiseaseAnalyzer):
 
         # Lineage classification
         if self.config.classify_lineage and ZikaGene.E in sequences:
-            results["lineage_classification"] = self._classify_lineage(
-                sequences[ZikaGene.E]
-            )
+            results["lineage_classification"] = self._classify_lineage(sequences[ZikaGene.E])
 
         # Neurovirulence prediction
         if self.config.predict_neurovirulence:
             neurovirulence_results = {}
             for gene, seqs in sequences.items():
                 if gene in NEUROVIRULENCE_MARKERS:
-                    neurovirulence_results[gene.value] = self._analyze_neurovirulence(
-                        seqs, gene
-                    )
+                    neurovirulence_results[gene.value] = self._analyze_neurovirulence(seqs, gene)
             if neurovirulence_results:
                 results["neurovirulence"] = neurovirulence_results
 
@@ -300,9 +298,7 @@ class ZikaAnalyzer(DiseaseAnalyzer):
                     czs_results[gene.value] = self._analyze_czs_risk(seqs, gene)
             if czs_results:
                 results["czs_risk"] = czs_results
-                results["czs_risk"]["overall_risk"] = self._calculate_overall_czs_risk(
-                    czs_results
-                )
+                results["czs_risk"]["overall_risk"] = self._calculate_overall_czs_risk(czs_results)
 
         # GBS risk
         if self.config.predict_gbs_risk:
@@ -465,11 +461,13 @@ class ZikaAnalyzer(DiseaseAnalyzer):
                         else:
                             score += 0.1
 
-                        detected.append({
-                            "position": pos,
-                            "amino_acid": aa,
-                            "risk_level": risk_level,
-                        })
+                        detected.append(
+                            {
+                                "position": pos,
+                                "amino_acid": aa,
+                                "risk_level": risk_level,
+                            }
+                        )
 
             results["risk_scores"].append(min(score, 1.0))
             results["markers_detected"].append(detected)
@@ -523,11 +521,13 @@ class ZikaAnalyzer(DiseaseAnalyzer):
                         else:
                             score += 0.1
 
-                        detected.append({
-                            "position": pos,
-                            "amino_acid": aa,
-                            "risk_level": risk_level,
-                        })
+                        detected.append(
+                            {
+                                "position": pos,
+                                "amino_acid": aa,
+                                "risk_level": risk_level,
+                            }
+                        )
 
             results["risk_scores"].append(min(score, 1.0))
             results["markers_detected"].append(detected)
@@ -611,11 +611,13 @@ class ZikaAnalyzer(DiseaseAnalyzer):
                         else:
                             score += 0.1
 
-                        detected.append({
-                            "position": pos,
-                            "amino_acid": aa,
-                            "risk_level": risk_level,
-                        })
+                        detected.append(
+                            {
+                                "position": pos,
+                                "amino_acid": aa,
+                                "risk_level": risk_level,
+                            }
+                        )
 
             results["risk_scores"].append(min(score, 1.0))
             results["markers_detected"].append(detected)
@@ -667,15 +669,12 @@ class ZikaAnalyzer(DiseaseAnalyzer):
             if isinstance(gene_data, dict)
         )
         if high_neuro:
-            recommendations["warnings"].append(
-                "High neurovirulence markers detected"
-            )
+            recommendations["warnings"].append("High neurovirulence markers detected")
 
         # Drug recommendations
         drug_resistance = analysis_results.get("drug_resistance", {})
         susceptible_drugs = [
-            drug for drug, data in drug_resistance.items()
-            if data.get("classifications", [""])[0] == "susceptible"
+            drug for drug, data in drug_resistance.items() if data.get("classifications", [""])[0] == "susceptible"
         ]
         if susceptible_drugs:
             recommendations["potential_treatments"] = susceptible_drugs
@@ -719,7 +718,7 @@ class ZikaAnalyzer(DiseaseAnalyzer):
             true_lineages = ground_truth["lineage"]
 
             if isinstance(true_lineages, list) and len(pred_lineages) == len(true_lineages):
-                correct = sum(1 for p, t in zip(pred_lineages, true_lineages) if p == t)
+                correct = sum(1 for p, t in zip(pred_lineages, true_lineages, strict=False) if p == t)
                 metrics["lineage_accuracy"] = correct / max(len(true_lineages), 1)
 
         # Validate CZS risk predictions

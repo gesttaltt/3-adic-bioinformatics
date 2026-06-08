@@ -32,14 +32,11 @@ Architecture:
                          LR Scales      Freeze Mask    Loss Weights
 """
 
-from typing import Dict, List, Optional, Tuple
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch import Tensor
 
-from .epsilon_vae import CheckpointEncoder, WeightBlockEmbedder
+from .epsilon_vae import CheckpointEncoder
 
 
 class StateNet(nn.Module):
@@ -103,7 +100,7 @@ class StateNet(nn.Module):
         self,
         z_epsilon: Tensor,
         metrics: Tensor,
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """
         Forward pass.
 
@@ -137,9 +134,9 @@ class StateNet(nn.Module):
         loss_weights = self.loss_head(h) + 0.1  # Minimum weight of 0.1
 
         return {
-            'lr_scales': lr_scales.squeeze(0),
-            'freeze_probs': freeze_probs.squeeze(0),
-            'loss_weights': loss_weights.squeeze(0),
+            "lr_scales": lr_scales.squeeze(0),
+            "freeze_probs": freeze_probs.squeeze(0),
+            "loss_weights": loss_weights.squeeze(0),
         }
 
 
@@ -181,10 +178,10 @@ class EpsilonStateNet(nn.Module):
         )
 
         # Metric history buffer for trajectory awareness
-        self.register_buffer('metric_history', torch.zeros(10, metric_dim))
-        self.register_buffer('history_idx', torch.tensor(0))
+        self.register_buffer("metric_history", torch.zeros(10, metric_dim))
+        self.register_buffer("history_idx", torch.tensor(0))
 
-    def encode_weights(self, weight_blocks: List[Tensor]) -> Tuple[Tensor, Tensor]:
+    def encode_weights(self, weight_blocks: list[Tensor]) -> tuple[Tensor, Tensor]:
         """Encode model weights to latent space."""
         return self.epsilon_encoder(weight_blocks)
 
@@ -207,16 +204,18 @@ class EpsilonStateNet(nn.Module):
         mean_metrics = history.mean(dim=0)
 
         # Return: [mean_coverage, mean_hierarchy, velocity_coverage, velocity_hierarchy]
-        return torch.cat([
-            mean_metrics[:2],  # mean coverage, mean hierarchy
-            velocity[:2],       # velocity coverage, velocity hierarchy
-        ])
+        return torch.cat(
+            [
+                mean_metrics[:2],  # mean coverage, mean hierarchy
+                velocity[:2],  # velocity coverage, velocity hierarchy
+            ]
+        )
 
     def forward(
         self,
-        weight_blocks: List[Tensor],
+        weight_blocks: list[Tensor],
         current_metrics: Tensor,
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """
         Get training control signals.
 
@@ -239,9 +238,9 @@ class EpsilonStateNet(nn.Module):
         controls = self.statenet(z_epsilon, current_metrics)
 
         # Add epsilon latent to outputs for monitoring
-        controls['z_epsilon'] = z_epsilon
-        controls['mu'] = mu
-        controls['logvar'] = logvar
+        controls["z_epsilon"] = z_epsilon
+        controls["mu"] = mu
+        controls["logvar"] = logvar
 
         return controls
 
@@ -250,7 +249,7 @@ class EpsilonStateNet(nn.Module):
         freeze_probs: Tensor,
         threshold: float = 0.5,
         temperature: float = 1.0,
-    ) -> Dict[str, bool]:
+    ) -> dict[str, bool]:
         """Convert freeze probabilities to discrete decisions.
 
         Args:
@@ -261,7 +260,7 @@ class EpsilonStateNet(nn.Module):
         Returns:
             Dict mapping component names to freeze decisions
         """
-        component_names = ['encoder_A', 'encoder_B', 'projection', 'controller']
+        component_names = ["encoder_A", "encoder_B", "projection", "controller"]
 
         # Deterministic decisions based on threshold
         decisions = {}
@@ -302,10 +301,10 @@ class EpsilonStateNetLoss(nn.Module):
 
     def forward(
         self,
-        controls: Dict[str, Tensor],
+        controls: dict[str, Tensor],
         actual_coverage: float,
         actual_hierarchy: float,
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """
         Compute loss for controller training.
 
@@ -323,43 +322,42 @@ class EpsilonStateNetLoss(nn.Module):
         """
         # Coverage loss: heavy penalty for dropping below target
         coverage_error = max(0, self.coverage_target - actual_coverage)
-        coverage_loss = self.coverage_weight * (coverage_error ** 2)
+        coverage_loss = self.coverage_weight * (coverage_error**2)
 
         # Hierarchy loss: reward for getting more negative
         # Use asymmetric loss: no penalty for exceeding target
         hierarchy_error = max(0, actual_hierarchy - self.hierarchy_target)
-        hierarchy_loss = self.hierarchy_weight * (hierarchy_error ** 2)
+        hierarchy_loss = self.hierarchy_weight * (hierarchy_error**2)
 
         # Smoothness loss: penalize large changes in control signals
-        smoothness_loss = torch.tensor(0.0, device=controls['lr_scales'].device)
+        smoothness_loss = torch.tensor(0.0, device=controls["lr_scales"].device)
         if self.prev_controls is not None:
-            lr_diff = (controls['lr_scales'] - self.prev_controls['lr_scales']).pow(2).mean()
-            freeze_diff = (controls['freeze_probs'] - self.prev_controls['freeze_probs']).pow(2).mean()
+            lr_diff = (controls["lr_scales"] - self.prev_controls["lr_scales"]).pow(2).mean()
+            freeze_diff = (controls["freeze_probs"] - self.prev_controls["freeze_probs"]).pow(2).mean()
             smoothness_loss = self.smoothness_weight * (lr_diff + freeze_diff)
 
         # KL loss on epsilon latent
-        mu = controls['mu']
-        logvar = controls['logvar']
+        mu = controls["mu"]
+        logvar = controls["logvar"]
         kl_loss = self.kl_weight * (-0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp()))
 
         # Total loss
         total = coverage_loss + hierarchy_loss + smoothness_loss + kl_loss
 
         # Update previous controls
-        self.prev_controls = {k: v.detach().clone() for k, v in controls.items()
-                             if isinstance(v, Tensor)}
+        self.prev_controls = {k: v.detach().clone() for k, v in controls.items() if isinstance(v, Tensor)}
 
         return {
-            'total': total,
-            'coverage_loss': torch.tensor(coverage_loss),
-            'hierarchy_loss': torch.tensor(hierarchy_loss),
-            'smoothness_loss': smoothness_loss,
-            'kl_loss': kl_loss,
+            "total": total,
+            "coverage_loss": torch.tensor(coverage_loss),
+            "hierarchy_loss": torch.tensor(hierarchy_loss),
+            "smoothness_loss": smoothness_loss,
+            "kl_loss": kl_loss,
         }
 
 
 def create_epsilon_statenet(
-    pretrained_epsilon_path: Optional[str] = None,
+    pretrained_epsilon_path: str | None = None,
     **kwargs,
 ) -> EpsilonStateNet:
     """Create an EpsilonStateNet, optionally loading pretrained Epsilon encoder.
@@ -375,13 +373,13 @@ def create_epsilon_statenet(
 
     if pretrained_epsilon_path is not None:
         # Load pretrained Epsilon encoder weights
-        ckpt = torch.load(pretrained_epsilon_path, map_location='cpu', weights_only=False)
+        ckpt = torch.load(pretrained_epsilon_path, map_location="cpu", weights_only=False)
 
         # Extract encoder weights
         encoder_state = {}
-        for k, v in ckpt.get('model_state_dict', ckpt).items():
-            if k.startswith('encoder.'):
-                encoder_state[k.replace('encoder.', '')] = v
+        for k, v in ckpt.get("model_state_dict", ckpt).items():
+            if k.startswith("encoder."):
+                encoder_state[k.replace("encoder.", "")] = v
 
         if encoder_state:
             model.epsilon_encoder.load_state_dict(encoder_state, strict=False)
@@ -393,8 +391,8 @@ def create_epsilon_statenet(
 
 
 __all__ = [
-    'StateNet',
-    'EpsilonStateNet',
-    'EpsilonStateNetLoss',
-    'create_epsilon_statenet',
+    "StateNet",
+    "EpsilonStateNet",
+    "EpsilonStateNetLoss",
+    "create_epsilon_statenet",
 ]

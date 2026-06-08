@@ -7,22 +7,21 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 
 from .base_predictor import BasePredictor
 
 try:
     from sklearn.ensemble import RandomForestClassifier
-    from sklearn.svm import SVC
     from sklearn.metrics import (
         accuracy_score,
+        confusion_matrix,
+        f1_score,
         precision_score,
         recall_score,
-        f1_score,
-        confusion_matrix,
     )
+    from sklearn.svm import SVC
+
     HAS_SKLEARN = True
 except ImportError:
     HAS_SKLEARN = False
@@ -40,7 +39,7 @@ class TropismClassifier(BasePredictor):
 
     def __init__(
         self,
-        model: Optional[any] = None,
+        model: any | None = None,
         classifier_type: str = "random_forest",
         n_estimators: int = 100,
         max_depth: int = 10,
@@ -89,12 +88,14 @@ class TropismClassifier(BasePredictor):
         crown_features = self.feature_extractor.sequence_features(crown)
 
         # Combine all features
-        extended = np.concatenate([
-            base_features,
-            [n_glycans, n_glycans / max(len(sequence), 1)],  # Glycan count and density
-            [positive, negative, net_charge],  # Charge features
-            crown_features,  # Crown-specific features
-        ])
+        extended = np.concatenate(
+            [
+                base_features,
+                [n_glycans, n_glycans / max(len(sequence), 1)],  # Glycan count and density
+                [positive, negative, net_charge],  # Charge features
+                crown_features,  # Crown-specific features
+            ]
+        )
 
         return extended
 
@@ -103,7 +104,7 @@ class TropismClassifier(BasePredictor):
         X: np.ndarray,
         y: np.ndarray,
         **kwargs,
-    ) -> "TropismClassifier":
+    ) -> TropismClassifier:
         """Train the tropism classifier.
 
         Args:
@@ -140,7 +141,7 @@ class TropismClassifier(BasePredictor):
         sequences: list[str],
         tropisms: list[str],
         **kwargs,
-    ) -> "TropismClassifier":
+    ) -> TropismClassifier:
         """Fit classifier from V3 sequences and tropism labels.
 
         Args:
@@ -256,14 +257,10 @@ class TropismClassifier(BasePredictor):
         }
 
         # Sensitivity (CCR5 correctly identified)
-        metrics["ccr5_sensitivity"] = (
-            cm[0, 0] / (cm[0, 0] + cm[0, 1]) if (cm[0, 0] + cm[0, 1]) > 0 else 0
-        )
+        metrics["ccr5_sensitivity"] = cm[0, 0] / (cm[0, 0] + cm[0, 1]) if (cm[0, 0] + cm[0, 1]) > 0 else 0
 
         # Specificity (CXCR4 correctly identified)
-        metrics["cxcr4_sensitivity"] = (
-            cm[1, 1] / (cm[1, 0] + cm[1, 1]) if (cm[1, 0] + cm[1, 1]) > 0 else 0
-        )
+        metrics["cxcr4_sensitivity"] = cm[1, 1] / (cm[1, 0] + cm[1, 1]) if (cm[1, 0] + cm[1, 1]) > 0 else 0
 
         return metrics
 
@@ -274,13 +271,24 @@ class TropismClassifier(BasePredictor):
             return {}
 
         feature_names = [
-            "mean_radial", "std_radial", "min_radial", "max_radial",
-            "range_radial", "skew",
-            "n_glycans", "glycan_density",
-            "positive_charge", "negative_charge", "net_charge",
-            "crown_mean_radial", "crown_std_radial", "crown_min_radial",
-            "crown_max_radial", "crown_range_radial", "crown_skew",
+            "mean_radial",
+            "std_radial",
+            "min_radial",
+            "max_radial",
+            "range_radial",
+            "skew",
+            "n_glycans",
+            "glycan_density",
+            "positive_charge",
+            "negative_charge",
+            "net_charge",
+            "crown_mean_radial",
+            "crown_std_radial",
+            "crown_min_radial",
+            "crown_max_radial",
+            "crown_range_radial",
+            "crown_skew",
         ]
 
         importances = self.model.feature_importances_
-        return dict(zip(feature_names[:len(importances)], importances))
+        return dict(zip(feature_names[: len(importances)], importances, strict=False))

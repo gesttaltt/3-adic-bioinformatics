@@ -15,11 +15,11 @@ This script integrates previous research into clinical workflows.
 
 import json
 import sys
+import warnings
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
-import warnings
 warnings.filterwarnings("ignore")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -35,20 +35,15 @@ except ImportError:
 
 try:
     import pyarrow.parquet as pq
+
     HAS_PARQUET = True
 except ImportError:
     HAS_PARQUET = False
 
-from scipy import stats
-from scipy.cluster.hierarchy import linkage, fcluster
-from scipy.spatial.distance import pdist
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score, accuracy_score, precision_score, recall_score
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.cluster import KMeans
-
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import StandardScaler
 
 # =============================================================================
 # AMINO ACID PROPERTIES
@@ -147,11 +142,13 @@ def predict_escape_velocity(data_dir: Path) -> dict:
             if len(seq) >= 8:
                 # Extract 9-mer windows as potential epitopes
                 for i in range(0, len(seq) - 8, 4):
-                    epitopes.append({
-                        "sequence": seq[i:i + 9],
-                        "protein": "Env",
-                        "hla": "A*02",
-                    })
+                    epitopes.append(
+                        {
+                            "sequence": seq[i : i + 9],
+                            "protein": "Env",
+                            "hla": "A*02",
+                        }
+                    )
     print(f"  Loaded {len(epitopes)} epitopes for analysis")
 
     # Extract features for escape prediction
@@ -192,20 +189,22 @@ def predict_escape_velocity(data_dir: Path) -> dict:
         # 6. Predict escape velocity (composite score)
         # Higher entropy + lower anchor strength + higher exposure = faster escape
         escape_velocity = (
-            0.3 * (entropy / 4) +  # Normalized entropy contribution
-            0.2 * (1 - features["anchor_strength"]) +  # Weak anchors escape faster
-            0.2 * (1 - (hydro + 4.5) / 9) +  # Hydrophilic regions more exposed
-            0.15 * (1 - aromatic) +  # Less aromatic = less HLA binding
-            0.15 * min(1, abs(features["net_charge"]) / 3)  # Charged residues variable
+            0.3 * (entropy / 4)  # Normalized entropy contribution
+            + 0.2 * (1 - features["anchor_strength"])  # Weak anchors escape faster
+            + 0.2 * (1 - (hydro + 4.5) / 9)  # Hydrophilic regions more exposed
+            + 0.15 * (1 - aromatic)  # Less aromatic = less HLA binding
+            + 0.15 * min(1, abs(features["net_charge"]) / 3)  # Charged residues variable
         )
 
-        escape_predictions.append({
-            "epitope": seq,
-            "protein": ep.get("protein", "Unknown"),
-            "hla": ep.get("hla", "Unknown"),
-            "escape_velocity": round(escape_velocity, 4),
-            "features": features,
-        })
+        escape_predictions.append(
+            {
+                "epitope": seq,
+                "protein": ep.get("protein", "Unknown"),
+                "hla": ep.get("hla", "Unknown"),
+                "escape_velocity": round(escape_velocity, 4),
+                "features": features,
+            }
+        )
 
     # Sort by escape velocity
     escape_predictions.sort(key=lambda x: -x["escape_velocity"])
@@ -228,12 +227,14 @@ def predict_escape_velocity(data_dir: Path) -> dict:
     for protein, velocities in protein_velocities.items():
         mean_vel = np.mean(velocities)
         std_vel = np.std(velocities)
-        protein_stats.append({
-            "protein": protein,
-            "mean_velocity": mean_vel,
-            "std_velocity": std_vel,
-            "n_epitopes": len(velocities),
-        })
+        protein_stats.append(
+            {
+                "protein": protein,
+                "mean_velocity": mean_vel,
+                "std_velocity": std_vel,
+                "n_epitopes": len(velocities),
+            }
+        )
         print(f"    {protein:<15}: {mean_vel:.3f} +/- {std_vel:.3f} (n={len(velocities)})")
 
     protein_stats.sort(key=lambda x: x["mean_velocity"])
@@ -265,12 +266,18 @@ def calculate_therapeutic_window(data_dir: Path) -> dict:
     # Group mutations by drug class from our built-in database
     drug_class_mutations = defaultdict(list)
     for mut, info in RESISTANCE_FITNESS.items():
-        drug_class_mutations[info["drug_class"]].append({
-            "mutation": mut,
-            "fitness_cost": info["fitness_cost"],
-            "drugs": info["drugs"],
-            "resistance_level": "high" if info["fitness_cost"] < 0.05 else "moderate" if info["fitness_cost"] < 0.10 else "low",
-        })
+        drug_class_mutations[info["drug_class"]].append(
+            {
+                "mutation": mut,
+                "fitness_cost": info["fitness_cost"],
+                "drugs": info["drugs"],
+                "resistance_level": "high"
+                if info["fitness_cost"] < 0.05
+                else "moderate"
+                if info["fitness_cost"] < 0.10
+                else "low",
+            }
+        )
 
     # Analyze resistance levels by drug class
     drug_classes = ["PI", "NRTI", "NNRTI", "INSTI"]
@@ -403,7 +410,7 @@ def build_clinical_dashboard(data_dir: Path, results_dir: Path) -> dict:
             "epitope_diverse": bnab_data.get("epitope_diverse", [])[:5],
             "summary": "Optimal antibody combinations for therapy",
         }
-        print(f"  Loaded bnAb combinations")
+        print("  Loaded bnAb combinations")
 
     # Module 5: Conservation Analysis
     if advanced_report.exists():
@@ -413,7 +420,7 @@ def build_clinical_dashboard(data_dir: Path, results_dir: Path) -> dict:
             "most_variable": conservation.get("most_variable_proteins", []),
             "summary": "Protein conservation for vaccine targeting",
         }
-        print(f"  Loaded conservation data")
+        print("  Loaded conservation data")
 
     # Generate quick-reference cards
     print("\n  CLINICAL QUICK REFERENCE CARDS:")
@@ -514,13 +521,19 @@ def estimate_transmission_fitness(data_dir: Path) -> dict:
 
         transmission_fitness = min(1.0, transmission_fitness + compensatory_boost)
 
-        transmission_analysis.append({
-            "mutation": mut_str,
-            "drug_class": drug_class,
-            "fitness_cost": round(fitness_cost, 4),
-            "transmission_fitness": round(transmission_fitness, 4),
-            "transmission_risk": "HIGH" if transmission_fitness > 0.9 else "MEDIUM" if transmission_fitness > 0.8 else "LOW",
-        })
+        transmission_analysis.append(
+            {
+                "mutation": mut_str,
+                "drug_class": drug_class,
+                "fitness_cost": round(fitness_cost, 4),
+                "transmission_fitness": round(transmission_fitness, 4),
+                "transmission_risk": "HIGH"
+                if transmission_fitness > 0.9
+                else "MEDIUM"
+                if transmission_fitness > 0.8
+                else "LOW",
+            }
+        )
 
     # Add additional mutations
     for add_mut in additional_mutations:
@@ -530,13 +543,19 @@ def estimate_transmission_fitness(data_dir: Path) -> dict:
 
         transmission_fitness = 1 - fitness_cost
 
-        transmission_analysis.append({
-            "mutation": mut_str,
-            "drug_class": drug_class,
-            "fitness_cost": round(fitness_cost, 4),
-            "transmission_fitness": round(transmission_fitness, 4),
-            "transmission_risk": "HIGH" if transmission_fitness > 0.9 else "MEDIUM" if transmission_fitness > 0.8 else "LOW",
-        })
+        transmission_analysis.append(
+            {
+                "mutation": mut_str,
+                "drug_class": drug_class,
+                "fitness_cost": round(fitness_cost, 4),
+                "transmission_fitness": round(transmission_fitness, 4),
+                "transmission_risk": "HIGH"
+                if transmission_fitness > 0.9
+                else "MEDIUM"
+                if transmission_fitness > 0.8
+                else "LOW",
+            }
+        )
 
     # Sort by transmission fitness
     transmission_analysis.sort(key=lambda x: -x["transmission_fitness"])
@@ -545,13 +564,17 @@ def estimate_transmission_fitness(data_dir: Path) -> dict:
 
     print("\n  HIGHEST TRANSMISSION RISK MUTATIONS:")
     for mut in transmission_analysis[:15]:
-        print(f"    {mut['mutation']:<10} | Class: {mut['drug_class']:<6} | "
-              f"Fitness: {mut['transmission_fitness']:.3f} | Risk: {mut['transmission_risk']}")
+        print(
+            f"    {mut['mutation']:<10} | Class: {mut['drug_class']:<6} | "
+            f"Fitness: {mut['transmission_fitness']:.3f} | Risk: {mut['transmission_risk']}"
+        )
 
     print("\n  LOWEST TRANSMISSION RISK MUTATIONS (Treatment Success):")
     for mut in transmission_analysis[-10:]:
-        print(f"    {mut['mutation']:<10} | Class: {mut['drug_class']:<6} | "
-              f"Fitness: {mut['transmission_fitness']:.3f} | Risk: {mut['transmission_risk']}")
+        print(
+            f"    {mut['mutation']:<10} | Class: {mut['drug_class']:<6} | "
+            f"Fitness: {mut['transmission_fitness']:.3f} | Risk: {mut['transmission_risk']}"
+        )
 
     # Summary by drug class
     print("\n  MEAN TRANSMISSION FITNESS BY CLASS:")
@@ -562,11 +585,13 @@ def estimate_transmission_fitness(data_dir: Path) -> dict:
     class_summary = []
     for drug_class, fitnesses in class_fitness.items():
         mean_fitness = np.mean(fitnesses)
-        class_summary.append({
-            "drug_class": drug_class,
-            "mean_fitness": mean_fitness,
-            "n_mutations": len(fitnesses),
-        })
+        class_summary.append(
+            {
+                "drug_class": drug_class,
+                "mean_fitness": mean_fitness,
+                "n_mutations": len(fitnesses),
+            }
+        )
         print(f"    {drug_class}: {mean_fitness:.3f} (n={len(fitnesses)})")
 
     findings["status"] = "success"
@@ -679,13 +704,15 @@ def build_patient_stratification(data_dir: Path) -> dict:
     strata_info = []
     for stratum in range(n_clusters):
         stratum_df = feature_df[feature_df["risk_stratum"] == stratum]
-        strata_info.append({
-            "stratum": stratum + 1,
-            "n_patients": len(stratum_df),
-            "cxcr4_rate": float(stratum_df["cxcr4"].mean()),
-            "mean_charge": float(stratum_df["net_charge"].mean()),
-            "mean_risk_score": float(stratum_df["risk_score"].mean()),
-        })
+        strata_info.append(
+            {
+                "stratum": stratum + 1,
+                "n_patients": len(stratum_df),
+                "cxcr4_rate": float(stratum_df["cxcr4"].mean()),
+                "mean_charge": float(stratum_df["net_charge"].mean()),
+                "mean_risk_score": float(stratum_df["risk_score"].mean()),
+            }
+        )
 
     findings["status"] = "success"
     findings["n_patients"] = len(feature_df)
@@ -742,7 +769,7 @@ def analyze_geographic_spread(data_dir: Path) -> dict:
                 if hla:
                     hla_distribution[hla] += 1
 
-            print(f"\n  HLA TYPE DISTRIBUTION (proxy for regional spread):")
+            print("\n  HLA TYPE DISTRIBUTION (proxy for regional spread):")
             for hla, count in hla_distribution.most_common(15):
                 print(f"    {hla}: {count}")
 
@@ -756,13 +783,20 @@ def analyze_geographic_spread(data_dir: Path) -> dict:
 
             print("\n  ESTIMATED REGIONAL EPITOPE COVERAGE:")
             for region, hlas in regional_hlas.items():
-                count = sum(hla_distribution.get(h, 0) for h in hlas for h in hla_distribution if any(h.startswith(hla) for hla in hlas))
+                count = sum(
+                    hla_distribution.get(h, 0)
+                    for h in hlas
+                    for h in hla_distribution
+                    if any(h.startswith(hla) for hla in hlas)
+                )
                 total = sum(hla_distribution.values())
                 coverage = count / total if total > 0 else 0
                 print(f"    {region}: {100 * coverage:.1f}%")
 
             findings["hla_distribution"] = dict(hla_distribution.most_common(20))
-            findings["regional_coverage"] = {r: len([h for h in hlas for k in hla_distribution if h in k]) for r, hlas in regional_hlas.items()}
+            findings["regional_coverage"] = {
+                r: len([h for h in hlas for k in hla_distribution if h in k]) for r, hlas in regional_hlas.items()
+            }
 
     # Simulate resistance spread model
     print("\n  SIMULATED RESISTANCE SPREAD MODEL:")
@@ -776,20 +810,22 @@ def analyze_geographic_spread(data_dir: Path) -> dict:
     print("\n  Region                  | Current | 5-Year | 10-Year | Priority")
     print("  " + "-" * 70)
 
-    for region, base, resist in zip(regions, base_rates, resistance_rates):
+    for region, _base, resist in zip(regions, base_rates, resistance_rates, strict=False):
         # Simple projection model
         growth_rate = 0.05  # 5% annual growth in resistance
         year_5 = min(0.95, resist * (1 + growth_rate) ** 5)
         year_10 = min(0.95, resist * (1 + growth_rate) ** 10)
         priority = "HIGH" if year_5 > 0.3 else "MEDIUM" if year_5 > 0.15 else "LOW"
 
-        spread_projections.append({
-            "region": region,
-            "current_resistance": resist,
-            "projected_5yr": year_5,
-            "projected_10yr": year_10,
-            "priority": priority,
-        })
+        spread_projections.append(
+            {
+                "region": region,
+                "current_resistance": resist,
+                "projected_5yr": year_5,
+                "projected_10yr": year_10,
+                "priority": priority,
+            }
+        )
 
         print(f"  {region:<25}| {100 * resist:>5.1f}% | {100 * year_5:>5.1f}% | {100 * year_10:>5.1f}% | {priority}")
 
@@ -862,7 +898,7 @@ def main():
     print(f"  - Built clinical dashboard with {len(findings_3.get('modules_loaded', []))} modules")
     print(f"  - Assessed transmission fitness for {findings_4.get('mutations_analyzed', 0)} mutations")
     print(f"  - Stratified {findings_5.get('n_patients', 0)} patients into {findings_5.get('n_strata', 0)} risk groups")
-    print(f"  - Projected resistance spread for 5 regions")
+    print("  - Projected resistance spread for 5 regions")
 
     print(f"\nReports saved to: {output_dir}")
 

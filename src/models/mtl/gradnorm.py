@@ -15,8 +15,6 @@ References:
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
-
 import torch
 import torch.nn as nn
 
@@ -41,7 +39,7 @@ class GradNormOptimizer:
         n_tasks: int,
         alpha: float = 1.5,
         lr: float = 0.025,
-        shared_layer_name: Optional[str] = "shared_encoder",
+        shared_layer_name: str | None = "shared_encoder",
     ):
         """Initialize GradNorm optimizer.
 
@@ -59,18 +57,16 @@ class GradNormOptimizer:
         self.shared_layer_name = shared_layer_name
 
         # Initialize task weights
-        self.task_weights = nn.Parameter(
-            torch.ones(n_tasks, requires_grad=True)
-        )
+        self.task_weights = nn.Parameter(torch.ones(n_tasks, requires_grad=True))
 
         # Track initial losses for relative improvement
-        self.initial_losses: Optional[torch.Tensor] = None
-        self.loss_ratios: List[torch.Tensor] = []
+        self.initial_losses: torch.Tensor | None = None
+        self.loss_ratios: list[torch.Tensor] = []
 
         # Get shared layer parameters
         self.shared_params = self._get_shared_params()
 
-    def _get_shared_params(self) -> List[nn.Parameter]:
+    def _get_shared_params(self) -> list[nn.Parameter]:
         """Get parameters of the shared layer."""
         shared_params = []
 
@@ -92,9 +88,9 @@ class GradNormOptimizer:
 
     def step(
         self,
-        task_losses: Dict[str, torch.Tensor],
+        task_losses: dict[str, torch.Tensor],
         update_weights: bool = True,
-    ) -> Tuple[torch.Tensor, Dict[str, float]]:
+    ) -> tuple[torch.Tensor, dict[str, float]]:
         """Perform GradNorm step.
 
         Args:
@@ -129,7 +125,7 @@ class GradNormOptimizer:
         if update_weights:
             # Compute gradients w.r.t. shared parameters
             grads = []
-            for i, loss in enumerate(losses):
+            for _i, loss in enumerate(losses):
                 if loss.requires_grad:
                     grad = torch.autograd.grad(
                         loss,
@@ -137,9 +133,7 @@ class GradNormOptimizer:
                         retain_graph=True,
                         allow_unused=True,
                     )
-                    grad_norm = sum(
-                        g.norm() ** 2 for g in grad if g is not None
-                    ) ** 0.5
+                    grad_norm = sum(g.norm() ** 2 for g in grad if g is not None) ** 0.5
                     grads.append(grad_norm)
                 else:
                     grads.append(torch.tensor(0.0, device=losses[0].device))
@@ -151,7 +145,7 @@ class GradNormOptimizer:
 
             # Target gradient magnitudes
             mean_grad = weighted_grads.mean()
-            target_grads = mean_grad * (r_i ** self.alpha)
+            target_grads = mean_grad * (r_i**self.alpha)
 
             # GradNorm loss
             gradnorm_loss = (weighted_grads - target_grads).abs().sum()
@@ -167,11 +161,7 @@ class GradNormOptimizer:
                 self.task_weights.data -= self.lr * grad_weights
 
                 # Renormalize weights
-                self.task_weights.data = (
-                    self.task_weights.data *
-                    self.n_tasks /
-                    self.task_weights.data.sum()
-                )
+                self.task_weights.data = self.task_weights.data * self.n_tasks / self.task_weights.data.sum()
 
                 # Clamp to positive
                 self.task_weights.data = self.task_weights.data.clamp(min=0.1)
@@ -180,19 +170,13 @@ class GradNormOptimizer:
         weighted_loss = (losses_tensor * self.task_weights).sum()
 
         # Return weight dictionary
-        weight_dict = {
-            name: self.task_weights[i].item()
-            for i, name in enumerate(task_names[:self.n_tasks])
-        }
+        weight_dict = {name: self.task_weights[i].item() for i, name in enumerate(task_names[: self.n_tasks])}
 
         return weighted_loss, weight_dict
 
-    def get_weights(self) -> Dict[str, float]:
+    def get_weights(self) -> dict[str, float]:
         """Get current task weights."""
-        return {
-            f"task_{i}": self.task_weights[i].item()
-            for i in range(self.n_tasks)
-        }
+        return {f"task_{i}": self.task_weights[i].item() for i in range(self.n_tasks)}
 
     def reset(self):
         """Reset optimizer state."""
@@ -226,8 +210,8 @@ class UncertaintyWeighting(nn.Module):
 
     def forward(
         self,
-        task_losses: List[torch.Tensor],
-    ) -> Tuple[torch.Tensor, Dict[str, float]]:
+        task_losses: list[torch.Tensor],
+    ) -> tuple[torch.Tensor, dict[str, float]]:
         """Compute uncertainty-weighted loss.
 
         Args:
@@ -247,19 +231,13 @@ class UncertaintyWeighting(nn.Module):
         total_loss = sum(weighted_losses)
 
         # Extract weights for logging
-        weights = {
-            f"task_{i}": torch.exp(-self.log_vars[i]).item()
-            for i in range(self.n_tasks)
-        }
+        weights = {f"task_{i}": torch.exp(-self.log_vars[i]).item() for i in range(self.n_tasks)}
 
         return total_loss, weights
 
-    def get_uncertainties(self) -> Dict[str, float]:
+    def get_uncertainties(self) -> dict[str, float]:
         """Get learned task uncertainties."""
-        return {
-            f"task_{i}": torch.exp(self.log_vars[i]).item()
-            for i in range(self.n_tasks)
-        }
+        return {f"task_{i}": torch.exp(self.log_vars[i]).item() for i in range(self.n_tasks)}
 
 
 class DynamicWeightAveraging(nn.Module):
@@ -287,13 +265,13 @@ class DynamicWeightAveraging(nn.Module):
         self.temperature = temperature
 
         # Track loss history
-        self.loss_history: List[torch.Tensor] = []
+        self.loss_history: list[torch.Tensor] = []
         self.max_history = 2
 
     def forward(
         self,
-        task_losses: List[torch.Tensor],
-    ) -> Tuple[torch.Tensor, Dict[str, float]]:
+        task_losses: list[torch.Tensor],
+    ) -> tuple[torch.Tensor, dict[str, float]]:
         """Compute DWA-weighted loss.
 
         Args:
@@ -325,10 +303,7 @@ class DynamicWeightAveraging(nn.Module):
         # Weighted sum
         weighted_loss = (torch.stack(task_losses) * weights).sum()
 
-        weight_dict = {
-            f"task_{i}": weights[i].item()
-            for i in range(self.n_tasks)
-        }
+        weight_dict = {f"task_{i}": weights[i].item() for i in range(self.n_tasks)}
 
         return weighted_loss, weight_dict
 
@@ -352,7 +327,7 @@ class PCGrad:
 
     def step(
         self,
-        task_losses: List[torch.Tensor],
+        task_losses: list[torch.Tensor],
         model: nn.Module,
     ):
         """Perform PCGrad step.
@@ -385,14 +360,14 @@ class PCGrad:
         offset = 0
         for param in model.parameters():
             numel = param.numel()
-            param.grad = projected_grads[offset:offset + numel].view_as(param)
+            param.grad = projected_grads[offset : offset + numel].view_as(param)
             offset += numel
 
         self.optimizer.step()
 
     def _project_gradients(
         self,
-        grads: List[torch.Tensor],
+        grads: list[torch.Tensor],
     ) -> torch.Tensor:
         """Project gradients to reduce conflicts.
 

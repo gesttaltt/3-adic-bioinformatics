@@ -19,10 +19,30 @@ from src.core.padic_math import padic_valuation
 
 # Position weights for mismatch tolerance (empirical from literature)
 # Seed region (11-20 from PAM) is more critical than non-seed (1-10)
-POSITION_WEIGHTS = torch.tensor([
-    0.1, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,  # Non-seed (1-10)
-    0.9, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,   # Seed (11-20)
-])
+POSITION_WEIGHTS = torch.tensor(
+    [
+        0.1,
+        0.1,
+        0.15,
+        0.2,
+        0.3,
+        0.4,
+        0.5,
+        0.6,
+        0.7,
+        0.8,  # Non-seed (1-10)
+        0.9,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,  # Seed (11-20)
+    ]
+)
 
 
 class PAdicSequenceDistance:
@@ -62,7 +82,7 @@ class PAdicSequenceDistance:
         """
         seq1 = seq1.upper()
         seq2 = seq2.upper()
-        return [i for i, (a, b) in enumerate(zip(seq1, seq2)) if a != b]
+        return [i for i, (a, b) in enumerate(zip(seq1, seq2, strict=False)) if a != b]
 
     def padic_valuation(self, position: int) -> int:
         """Compute p-adic valuation for a position.

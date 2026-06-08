@@ -26,12 +26,12 @@ as aliases for backward compatibility.
 
 import logging
 from pathlib import Path
-from typing import Dict
 
 import torch
 import torch.optim as optim
 
 from src.geometry.poincare import log_map_zero, poincare_distance
+
 from .ternary_vae import TernaryVAEV5_11
 
 logger = logging.getLogger(__name__)
@@ -184,7 +184,7 @@ class TernaryVAEV5_11_PartialFreeze(TernaryVAEV5_11):
         states.append(f"ctrl:{ctrl_state}")
         return " ".join(states)
 
-    def forward(self, x: torch.Tensor, compute_control: bool = True) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, compute_control: bool = True) -> dict[str, torch.Tensor]:
         """Forward pass with conditional gradient flow for both encoders.
 
         Override parent to allow gradients through encoder_A and encoder_B
@@ -228,23 +228,25 @@ class TernaryVAEV5_11_PartialFreeze(TernaryVAEV5_11):
         if compute_control and self.controller is not None:
             # V5.12.2: Use hyperbolic distance (poincare_distance) instead of Euclidean norm
             # This ensures Controller operates in consistent geometry with losses
-            curvature_ctrl = self.projection.get_curvature() if hasattr(self.projection, 'get_curvature') else 1.0
+            curvature_ctrl = self.projection.get_curvature() if hasattr(self.projection, "get_curvature") else 1.0
             origin = torch.zeros_like(z_A_hyp)
             radius_A = poincare_distance(z_A_hyp, origin, c=curvature_ctrl).mean()
             radius_B = poincare_distance(z_B_hyp, origin, c=curvature_ctrl).mean()
             kl_A = -0.5 * (1 + logvar_A - mu_A.pow(2) - logvar_A.exp()).sum(dim=-1).mean()
             kl_B = -0.5 * (1 + logvar_B - mu_B.pow(2) - logvar_B.exp()).sum(dim=-1).mean()
 
-            batch_stats = torch.stack([
-                radius_A,
-                radius_B,
-                torch.tensor(1.0, device=x.device),
-                torch.tensor(1.0, device=x.device),
-                kl_A,
-                kl_B,
-                torch.tensor(0.0, device=x.device),
-                torch.tensor(0.0, device=x.device),
-            ])
+            batch_stats = torch.stack(
+                [
+                    radius_A,
+                    radius_B,
+                    torch.tensor(1.0, device=x.device),
+                    torch.tensor(1.0, device=x.device),
+                    kl_A,
+                    kl_B,
+                    torch.tensor(0.0, device=x.device),
+                    torch.tensor(0.0, device=x.device),
+                ]
+            )
 
             control = self.controller(batch_stats)
             control = {k: v.squeeze(0) for k, v in control.items()}
@@ -254,7 +256,7 @@ class TernaryVAEV5_11_PartialFreeze(TernaryVAEV5_11):
         # V5.12.1: Decoder uses hyperbolic representation via log_map_zero
         # This creates gradient flow through the hyperbolic projection,
         # providing geometric pressure for richness preservation
-        curvature = self.projection.get_curvature() if hasattr(self.projection, 'get_curvature') else 1.0
+        curvature = self.projection.get_curvature() if hasattr(self.projection, "get_curvature") else 1.0
         z_tangent_A = log_map_zero(z_A_hyp, c=curvature)
         logits_A = self.decoder_A(z_tangent_A)
 
@@ -305,58 +307,72 @@ class TernaryVAEV5_11_PartialFreeze(TernaryVAEV5_11):
 
         # Projections always trainable (fast adaptation layer)
         if self.use_dual_projection:
-            param_groups.append({
-                "params": list(self.projection.proj_A.parameters()),
-                "lr": base_lr,
-                "name": "proj_A",
-            })
+            param_groups.append(
+                {
+                    "params": list(self.projection.proj_A.parameters()),
+                    "lr": base_lr,
+                    "name": "proj_A",
+                }
+            )
             if hasattr(self.projection, "proj_B"):
                 proj_b_params = list(self.projection.proj_B.parameters())
             else:
                 proj_b_params = list(self.projection.proj_B_radius.parameters())
-            param_groups.append({
-                "params": proj_b_params,
-                "lr": base_lr,
-                "name": "proj_B",
-            })
+            param_groups.append(
+                {
+                    "params": proj_b_params,
+                    "lr": base_lr,
+                    "name": "proj_B",
+                }
+            )
         else:
-            param_groups.append({
-                "params": list(self.projection.parameters()),
-                "lr": base_lr,
-                "name": "projection",
-            })
+            param_groups.append(
+                {
+                    "params": list(self.projection.parameters()),
+                    "lr": base_lr,
+                    "name": "projection",
+                }
+            )
 
         # Controller (can be frozen by homeostasis)
         if self.controller is not None and not getattr(self, "freeze_controller", False):
-            param_groups.append({
-                "params": list(self.controller.parameters()),
-                "lr": base_lr * self.controller_lr_scale,
-                "name": "controller",
-            })
+            param_groups.append(
+                {
+                    "params": list(self.controller.parameters()),
+                    "lr": base_lr * self.controller_lr_scale,
+                    "name": "controller",
+                }
+            )
 
         # Encoder A (can be frozen by homeostasis)
         if not self.freeze_encoder_a:
-            param_groups.append({
-                "params": list(self.encoder_A.parameters()),
-                "lr": base_lr * self.encoder_a_lr_scale,
-                "name": "encoder_A",
-            })
+            param_groups.append(
+                {
+                    "params": list(self.encoder_A.parameters()),
+                    "lr": base_lr * self.encoder_a_lr_scale,
+                    "name": "encoder_A",
+                }
+            )
 
         # Encoder B (can be frozen by homeostasis)
         if not self.freeze_encoder_b:
-            param_groups.append({
-                "params": list(self.encoder_B.parameters()),
-                "lr": base_lr * self.encoder_b_lr_scale,
-                "name": "encoder_B",
-            })
+            param_groups.append(
+                {
+                    "params": list(self.encoder_B.parameters()),
+                    "lr": base_lr * self.encoder_b_lr_scale,
+                    "name": "encoder_B",
+                }
+            )
 
         # Decoder A (V5.12.1: must be trainable when using hyperbolic input)
         if not getattr(self, "freeze_decoder", True):
-            param_groups.append({
-                "params": list(self.decoder_A.parameters()),
-                "lr": base_lr,  # Full LR for decoder adaptation
-                "name": "decoder_A",
-            })
+            param_groups.append(
+                {
+                    "params": list(self.decoder_A.parameters()),
+                    "lr": base_lr,  # Full LR for decoder adaptation
+                    "name": "decoder_A",
+                }
+            )
 
         return param_groups
 
@@ -379,7 +395,7 @@ class TernaryVAEV5_11_PartialFreeze(TernaryVAEV5_11):
         )
         return new_optimizer
 
-    def count_parameters(self) -> Dict[str, int]:
+    def count_parameters(self) -> dict[str, int]:
         """Count parameters by component.
 
         Returns:

@@ -22,7 +22,6 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import torch
@@ -37,8 +36,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.core import TERNARY
 from src.data.generation import generate_all_ternary_operations
 from src.models import TernaryVAEV5_11_PartialFreeze
-from src.models.homeostasis import HomeostasisController, compute_Q
-
 
 # =============================================================================
 # Advanced Module Imports (Optional - gracefully degrade if unavailable)
@@ -47,11 +44,12 @@ from src.models.homeostasis import HomeostasisController, compute_Q
 # Information Geometry
 try:
     from src.information import (
+        FisherInformationEstimator,
+        InformationGeometricAnalyzer,
         KFACOptimizer,
         NaturalGradientOptimizer,
-        InformationGeometricAnalyzer,
-        FisherInformationEstimator,
     )
+
     INFORMATION_AVAILABLE = True
 except ImportError:
     INFORMATION_AVAILABLE = False
@@ -60,6 +58,7 @@ except ImportError:
 # Tropical Geometry
 try:
     from src.tropical import TropicalNNAnalyzer, TropicalSemiring
+
     TROPICAL_AVAILABLE = True
 except ImportError:
     TROPICAL_AVAILABLE = False
@@ -68,6 +67,7 @@ except ImportError:
 # Meta-Learning
 try:
     from src.meta import MAML, PAdicTaskSampler
+
     META_AVAILABLE = True
 except ImportError:
     META_AVAILABLE = False
@@ -77,6 +77,7 @@ except ImportError:
 # =============================================================================
 # Training Configuration
 # =============================================================================
+
 
 class AdvancedTrainingConfig:
     """Configuration for advanced module integration."""
@@ -113,6 +114,7 @@ class AdvancedTrainingConfig:
 # =============================================================================
 # Advanced Training Loop
 # =============================================================================
+
 
 def create_optimizer(
     model: nn.Module,
@@ -177,7 +179,7 @@ def analyze_fisher_information(
     model: nn.Module,
     dataloader: DataLoader,
     epoch: int,
-    analyzer: Optional[object] = None,
+    analyzer: object | None = None,
 ) -> dict:
     """Analyze Fisher information for training diagnostics."""
     if not INFORMATION_AVAILABLE or analyzer is None:
@@ -211,14 +213,14 @@ def train_epoch(
     device: str,
     epoch: int,
     config: AdvancedTrainingConfig,
-    fisher_analyzer: Optional[object] = None,
+    fisher_analyzer: object | None = None,
 ) -> dict:
     """Train one epoch with advanced module integration."""
     model.train()
     total_loss = 0.0
     n_batches = 0
 
-    for batch_idx, (indices, ops) in enumerate(dataloader):
+    for _batch_idx, (indices, ops) in enumerate(dataloader):
         indices = indices.to(device)
         ops = ops.to(device)
 
@@ -248,9 +250,7 @@ def train_epoch(
     metrics = {"loss": avg_loss}
 
     if config.track_fisher and epoch % config.fisher_log_freq == 0:
-        fisher_metrics = analyze_fisher_information(
-            model, dataloader, epoch, fisher_analyzer
-        )
+        fisher_metrics = analyze_fisher_information(model, dataloader, epoch, fisher_analyzer)
         metrics.update(fisher_metrics)
 
     if config.analyze_expressivity and epoch % config.expressivity_log_freq == 0:
@@ -315,6 +315,7 @@ def evaluate(
 # Loss Function
 # =============================================================================
 
+
 class RichHierarchyLoss(nn.Module):
     """Loss function balancing hierarchy, coverage, and richness."""
 
@@ -338,10 +339,7 @@ class RichHierarchyLoss(nn.Module):
 
         self.register_buffer(
             "target_radii",
-            torch.tensor([
-                outer_radius - (v / self.max_valuation) * (outer_radius - inner_radius)
-                for v in range(10)
-            ])
+            torch.tensor([outer_radius - (v / self.max_valuation) * (outer_radius - inner_radius) for v in range(10)]),
         )
 
     def forward(
@@ -410,6 +408,7 @@ class RichHierarchyLoss(nn.Module):
 # Main
 # =============================================================================
 
+
 def main():
     parser = argparse.ArgumentParser(description="Train with advanced modules")
     parser.add_argument("--epochs", type=int, default=100)
@@ -433,7 +432,7 @@ def main():
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Device: {device}")
-    print(f"Advanced modules available:")
+    print("Advanced modules available:")
     print(f"  Information Geometry: {INFORMATION_AVAILABLE}")
     print(f"  Tropical Geometry: {TROPICAL_AVAILABLE}")
     print(f"  Meta-Learning: {META_AVAILABLE}")
@@ -481,9 +480,7 @@ def main():
     best_hierarchy = 0.0
 
     for epoch in range(1, config.epochs + 1):
-        metrics = train_epoch(
-            model, dataloader, optimizer, loss_fn, device, epoch, config, fisher_analyzer
-        )
+        metrics = train_epoch(model, dataloader, optimizer, loss_fn, device, epoch, config, fisher_analyzer)
 
         # Evaluate
         eval_metrics = evaluate(model, dataloader, device)
@@ -500,13 +497,16 @@ def main():
             best_hierarchy = eval_metrics["hierarchy"]
             checkpoint_path = Path(config.checkpoint_dir) / config.run_name / "best.pt"
             checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-            torch.save({
-                "epoch": epoch,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "metrics": eval_metrics,
-                "config": vars(config),
-            }, checkpoint_path)
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "metrics": eval_metrics,
+                    "config": vars(config),
+                },
+                checkpoint_path,
+            )
             print(f"  -> Saved best model (hierarchy: {best_hierarchy:.4f})")
 
     print(f"\nTraining complete! Best hierarchy: {best_hierarchy:.4f}")

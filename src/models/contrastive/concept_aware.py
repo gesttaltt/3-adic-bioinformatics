@@ -17,19 +17,16 @@ samples with similar mutation-resistance patterns are close.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Tuple
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.analysis.set_theory.mutation_sets import MutationSet
 from src.analysis.set_theory.formal_concepts import (
-    FormalContext,
-    FormalConcept,
     ConceptLattice,
 )
 from src.analysis.set_theory.lattice import ResistanceLattice
+from src.analysis.set_theory.mutation_sets import MutationSet
 from src.geometry import poincare_distance
 
 
@@ -69,7 +66,7 @@ class ConceptAwareContrastive(nn.Module):
     def __init__(
         self,
         concept_lattice: ConceptLattice,
-        config: Optional[ConceptContrastiveConfig] = None,
+        config: ConceptContrastiveConfig | None = None,
     ):
         """Initialize concept-aware contrastive module.
 
@@ -89,8 +86,8 @@ class ConceptAwareContrastive(nn.Module):
 
     def _build_concept_membership(self):
         """Build mapping from samples to their concepts."""
-        self.sample_concepts: Dict[str, List[int]] = {}
-        self.concept_samples: Dict[int, Set[str]] = {}
+        self.sample_concepts: dict[str, list[int]] = {}
+        self.concept_samples: dict[int, set[str]] = {}
 
         for idx, concept in enumerate(self.lattice.concepts):
             self.concept_samples[idx] = set(concept.extent)
@@ -127,7 +124,7 @@ class ConceptAwareContrastive(nn.Module):
     def forward(
         self,
         embeddings: torch.Tensor,
-        sample_ids: List[str],
+        sample_ids: list[str],
     ) -> torch.Tensor:
         """Compute concept-aware contrastive loss.
 
@@ -151,9 +148,7 @@ class ConceptAwareContrastive(nn.Module):
         similarity = torch.mm(embeddings, embeddings.t()) / self.config.temperature
 
         # Build concept-based masks
-        positive_mask, negative_mask, weights = self._build_masks(
-            sample_ids, batch_size, device
-        )
+        positive_mask, negative_mask, weights = self._build_masks(sample_ids, batch_size, device)
 
         # Compute loss
         loss = self._compute_loss(similarity, positive_mask, negative_mask, weights)
@@ -162,10 +157,10 @@ class ConceptAwareContrastive(nn.Module):
 
     def _build_masks(
         self,
-        sample_ids: List[str],
+        sample_ids: list[str],
         batch_size: int,
         device: torch.device,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Build positive/negative masks based on concept membership.
 
         Args:
@@ -276,8 +271,8 @@ class ConceptAwareContrastive(nn.Module):
 
     def get_positive_pairs(
         self,
-        sample_ids: List[str],
-    ) -> List[Tuple[str, str]]:
+        sample_ids: list[str],
+    ) -> list[tuple[str, str]]:
         """Get positive pairs based on concept membership.
 
         Args:
@@ -294,7 +289,7 @@ class ConceptAwareContrastive(nn.Module):
             extent = [s for s in concept.extent if s in sample_set]
 
             for i, s1 in enumerate(extent):
-                for s2 in extent[i + 1:]:
+                for s2 in extent[i + 1 :]:
                     pairs.append((s1, s2))
 
         return pairs
@@ -330,7 +325,7 @@ class LatticeContrastiveLoss(nn.Module):
     def forward(
         self,
         embeddings: torch.Tensor,
-        mutation_sets: List[MutationSet],
+        mutation_sets: list[MutationSet],
     ) -> torch.Tensor:
         """Compute lattice-aware contrastive loss.
 
@@ -364,7 +359,7 @@ class LatticeContrastiveLoss(nn.Module):
 
     def _compute_target_similarity(
         self,
-        mutation_sets: List[MutationSet],
+        mutation_sets: list[MutationSet],
         device: torch.device,
     ) -> torch.Tensor:
         """Compute target similarity matrix from lattice.
@@ -481,7 +476,7 @@ class ConceptPrototypeNetwork(nn.Module):
     def prototype_loss(
         self,
         embeddings: torch.Tensor,
-        sample_ids: List[str],
+        sample_ids: list[str],
     ) -> torch.Tensor:
         """Compute loss to pull samples toward their concept prototypes.
 

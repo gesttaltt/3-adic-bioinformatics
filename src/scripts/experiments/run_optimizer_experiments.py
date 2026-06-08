@@ -20,15 +20,14 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+import argparse
+
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-import pandas as pd
 from scipy import stats
-from typing import Dict, List, Tuple, Optional
-import argparse
-import copy
 
 
 class SAM(torch.optim.Optimizer):
@@ -39,7 +38,7 @@ class SAM(torch.optim.Optimizer):
 
     def __init__(self, params, base_optimizer, rho=0.05, **kwargs):
         defaults = dict(rho=rho, **kwargs)
-        super(SAM, self).__init__(params, defaults)
+        super().__init__(params, defaults)
         self.base_optimizer = base_optimizer(self.param_groups, **kwargs)
         self.param_groups = self.base_optimizer.param_groups
 
@@ -71,13 +70,10 @@ class SAM(torch.optim.Optimizer):
 
     def _grad_norm(self):
         norm = torch.norm(
-            torch.stack([
-                p.grad.norm(p=2)
-                for group in self.param_groups
-                for p in group["params"]
-                if p.grad is not None
-            ]),
-            p=2
+            torch.stack(
+                [p.grad.norm(p=2) for group in self.param_groups for p in group["params"] if p.grad is not None]
+            ),
+            p=2,
         )
         return norm
 
@@ -88,7 +84,7 @@ class OptimizerExperimentRunner:
     def __init__(self, device: str = "cuda" if torch.cuda.is_available() else "cpu"):
         self.device = device
 
-    def load_stanford_raw(self, drug_class: str = "pi") -> Tuple[pd.DataFrame, List[str], List[str]]:
+    def load_stanford_raw(self, drug_class: str = "pi") -> tuple[pd.DataFrame, list[str], list[str]]:
         """Load Stanford HIVDB data."""
         data_dir = project_root / "data" / "research"
 
@@ -112,12 +108,12 @@ class OptimizerExperimentRunner:
 
         df = pd.read_csv(filepath, sep="\t", low_memory=False)
         prefix = "P"
-        position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix):].isdigit()]
-        position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix):]))
+        position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix) :].isdigit()]
+        position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix) :]))
 
         return df, position_cols, drug_columns[drug_class]
 
-    def encode_amino_acids(self, df: pd.DataFrame, position_cols: List[str]) -> np.ndarray:
+    def encode_amino_acids(self, df: pd.DataFrame, position_cols: list[str]) -> np.ndarray:
         """One-hot encode amino acid sequences."""
         aa_alphabet = "ACDEFGHIKLMNPQRSTVWY*-"
         aa_to_idx = {aa: i for i, aa in enumerate(aa_alphabet)}
@@ -138,7 +134,7 @@ class OptimizerExperimentRunner:
 
         return encoded
 
-    def load_data(self, drug_class: str = "pi") -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
+    def load_data(self, drug_class: str = "pi") -> dict[str, tuple[np.ndarray, np.ndarray]]:
         """Load HIV resistance data."""
         data = {}
 
@@ -179,11 +175,16 @@ class OptimizerExperimentRunner:
             nn.Linear(64, 1),
         ).to(self.device)
 
-    def train_with_optimizer(self, model: nn.Module,
-                             X_train: np.ndarray, y_train: np.ndarray,
-                             X_test: np.ndarray, y_test: np.ndarray,
-                             optimizer_name: str,
-                             epochs: int = 100) -> Dict:
+    def train_with_optimizer(
+        self,
+        model: nn.Module,
+        X_train: np.ndarray,
+        y_train: np.ndarray,
+        X_test: np.ndarray,
+        y_test: np.ndarray,
+        optimizer_name: str,
+        epochs: int = 100,
+    ) -> dict:
         """Train model with specific optimizer."""
         X_train_t = torch.tensor(X_train, dtype=torch.float32).to(self.device)
         y_train_t = torch.tensor(y_train, dtype=torch.float32).to(self.device)
@@ -210,8 +211,7 @@ class OptimizerExperimentRunner:
             optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer if not isinstance(optimizer, SAM) else optimizer.base_optimizer,
-            patience=10
+            optimizer if not isinstance(optimizer, SAM) else optimizer.base_optimizer, patience=10
         )
 
         best_corr = -1.0
@@ -230,8 +230,8 @@ class OptimizerExperimentRunner:
                     pred_mean = pred - pred.mean()
                     target_mean = y_train_t - y_train_t.mean()
                     cov = (pred_mean * target_mean).sum()
-                    pred_std = torch.sqrt((pred_mean ** 2).sum() + 1e-8)
-                    target_std = torch.sqrt((target_mean ** 2).sum() + 1e-8)
+                    pred_std = torch.sqrt((pred_mean**2).sum() + 1e-8)
+                    target_std = torch.sqrt((target_mean**2).sum() + 1e-8)
                     corr_loss = 1 - cov / (pred_std * target_std)
                     loss = loss + 0.5 * corr_loss
 
@@ -245,8 +245,8 @@ class OptimizerExperimentRunner:
                     pred_mean = pred - pred.mean()
                     target_mean = y_train_t - y_train_t.mean()
                     cov = (pred_mean * target_mean).sum()
-                    pred_std = torch.sqrt((pred_mean ** 2).sum() + 1e-8)
-                    target_std = torch.sqrt((target_mean ** 2).sum() + 1e-8)
+                    pred_std = torch.sqrt((pred_mean**2).sum() + 1e-8)
+                    target_std = torch.sqrt((target_mean**2).sum() + 1e-8)
                     corr_loss = 1 - cov / (pred_std * target_std)
                     loss2 = loss2 + 0.5 * corr_loss
                 loss2.backward()
@@ -261,8 +261,8 @@ class OptimizerExperimentRunner:
                     pred_mean = pred - pred.mean()
                     target_mean = y_train_t - y_train_t.mean()
                     cov = (pred_mean * target_mean).sum()
-                    pred_std = torch.sqrt((pred_mean ** 2).sum() + 1e-8)
-                    target_std = torch.sqrt((target_mean ** 2).sum() + 1e-8)
+                    pred_std = torch.sqrt((pred_mean**2).sum() + 1e-8)
+                    target_std = torch.sqrt((target_mean**2).sum() + 1e-8)
                     corr_loss = 1 - cov / (pred_std * target_std)
                     loss = loss + 0.5 * corr_loss
 
@@ -288,9 +288,9 @@ class OptimizerExperimentRunner:
 
     def run_experiment(self, drug_class: str = "pi") -> pd.DataFrame:
         """Run all optimizer experiments."""
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"OPTIMIZER EXPERIMENTS - {drug_class.upper()}")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
         data = self.load_data(drug_class)
 
@@ -322,9 +322,7 @@ class OptimizerExperimentRunner:
 
                 try:
                     model = self.create_model(X.shape[1])
-                    result = self.train_with_optimizer(
-                        model, X_train, y_train, X_test, y_test, opt_name
-                    )
+                    result = self.train_with_optimizer(model, X_train, y_train, X_test, y_test, opt_name)
                     result["drug"] = drug
                     result["drug_class"] = drug_class
                     result["n_samples"] = len(X)
@@ -332,21 +330,22 @@ class OptimizerExperimentRunner:
                     print(f"corr = {result['best_corr']:+.3f}")
                 except Exception as e:
                     print(f"FAILED: {e}")
-                    results.append({
-                        "drug": drug,
-                        "drug_class": drug_class,
-                        "optimizer": opt_name,
-                        "best_corr": np.nan,
-                        "error": str(e),
-                    })
+                    results.append(
+                        {
+                            "drug": drug,
+                            "drug_class": drug_class,
+                            "optimizer": opt_name,
+                            "best_corr": np.nan,
+                            "error": str(e),
+                        }
+                    )
 
         return pd.DataFrame(results)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Optimizer Experiments")
-    parser.add_argument("--drug-class", type=str, default="pi",
-                        choices=["pi", "nrti", "nnrti", "ini", "all"])
+    parser.add_argument("--drug-class", type=str, default="pi", choices=["pi", "nrti", "nnrti", "ini", "all"])
     args = parser.parse_args()
 
     runner = OptimizerExperimentRunner()
@@ -366,9 +365,9 @@ def main():
     print(f"\nResults saved to: {output_path}")
 
     # Summary
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("SUMMARY - Best Optimizer per Drug")
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
     for drug in results["drug"].unique():
         drug_results = results[results["drug"] == drug].dropna(subset=["best_corr"])
@@ -377,9 +376,9 @@ def main():
             print(f"{drug}: {best['optimizer']} -> {best['best_corr']:+.3f}")
 
     # Overall average
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("OVERALL - Average Correlation by Optimizer")
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
     avg_by_opt = results.groupby("optimizer")["best_corr"].mean().sort_values(ascending=False)
     for opt, avg_corr in avg_by_opt.items():

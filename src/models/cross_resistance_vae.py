@@ -19,13 +19,10 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-
 
 # =============================================================================
 # Cross-Resistance Knowledge Base
@@ -69,8 +66,8 @@ class CrossResistanceConfig:
 
     input_dim: int
     latent_dim: int = 32
-    hidden_dims: List[int] = field(default_factory=lambda: [256, 128, 64])
-    drug_names: List[str] = field(default_factory=lambda: ["AZT", "D4T", "ABC", "TDF", "DDI", "3TC"])
+    hidden_dims: list[int] = field(default_factory=lambda: [256, 128, 64])
+    drug_names: list[str] = field(default_factory=lambda: ["AZT", "D4T", "ABC", "TDF", "DDI", "3TC"])
     n_positions: int = 240
     dropout: float = 0.1
     use_cross_attention: bool = True
@@ -193,12 +190,14 @@ class CrossResistanceVAE(nn.Module):
         layers = []
         in_dim = cfg.input_dim
         for h in cfg.hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, h),
-                nn.GELU(),
-                nn.LayerNorm(h),
-                nn.Dropout(cfg.dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, h),
+                    nn.GELU(),
+                    nn.LayerNorm(h),
+                    nn.Dropout(cfg.dropout),
+                ]
+            )
             in_dim = h
         self.encoder = nn.Sequential(*layers)
 
@@ -228,21 +227,20 @@ class CrossResistanceVAE(nn.Module):
             self.mutation_embed = None
 
         # Drug-specific prediction heads
-        self.drug_heads = nn.ModuleDict({
-            drug: nn.Sequential(
-                nn.Linear(cfg.latent_dim + (self.n_drugs if cfg.use_mutation_embeddings else 0), 32),
-                nn.GELU(),
-                nn.Dropout(cfg.dropout),
-                nn.Linear(32, 1),
-            )
-            for drug in cfg.drug_names
-        })
+        self.drug_heads = nn.ModuleDict(
+            {
+                drug: nn.Sequential(
+                    nn.Linear(cfg.latent_dim + (self.n_drugs if cfg.use_mutation_embeddings else 0), 32),
+                    nn.GELU(),
+                    nn.Dropout(cfg.dropout),
+                    nn.Linear(32, 1),
+                )
+                for drug in cfg.drug_names
+            }
+        )
 
         # Cross-resistance regularization weight
-        self.register_buffer(
-            "cross_resistance_matrix",
-            self._build_cross_resistance_tensor()
-        )
+        self.register_buffer("cross_resistance_matrix", self._build_cross_resistance_tensor())
 
     def _build_cross_resistance_tensor(self) -> torch.Tensor:
         """Build cross-resistance matrix as tensor."""
@@ -262,8 +260,8 @@ class CrossResistanceVAE(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        target_drugs: Optional[List[str]] = None,
-    ) -> Dict[str, torch.Tensor]:
+        target_drugs: list[str] | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Forward pass with optional drug selection.
 
         Args:
@@ -273,7 +271,7 @@ class CrossResistanceVAE(nn.Module):
         Returns:
             Dict with predictions, latent, reconstruction
         """
-        batch_size = x.size(0)
+        x.size(0)
 
         # Encode
         h = self.encoder(x)
@@ -328,7 +326,7 @@ class CrossResistanceVAE(nn.Module):
 
     def compute_cross_resistance_loss(
         self,
-        predictions: Dict[str, torch.Tensor],
+        predictions: dict[str, torch.Tensor],
     ) -> torch.Tensor:
         """Compute cross-resistance consistency loss.
 
@@ -375,11 +373,11 @@ class CrossResistanceVAE(nn.Module):
 
 def compute_cross_resistance_loss(
     cfg: CrossResistanceConfig,
-    out: Dict[str, torch.Tensor],
+    out: dict[str, torch.Tensor],
     x: torch.Tensor,
-    targets: Dict[str, torch.Tensor],
+    targets: dict[str, torch.Tensor],
     cross_weight: float = 0.1,
-) -> Dict[str, torch.Tensor]:
+) -> dict[str, torch.Tensor]:
     """Compute full loss with cross-resistance regularization.
 
     Args:

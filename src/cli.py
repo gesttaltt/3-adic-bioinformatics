@@ -6,6 +6,7 @@
 """CLI Entry Point for Ternary VAE."""
 
 import sys
+
 from src.train import main
 
 

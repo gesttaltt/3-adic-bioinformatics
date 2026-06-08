@@ -14,12 +14,9 @@ This module provides:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
 
 # Known HIV-1 subtypes and their characteristics
 SUBTYPE_INFO = {
@@ -55,9 +52,10 @@ SUBTYPE_POLYMORPHISMS = {
 @dataclass
 class SubtypeConfig:
     """Configuration for subtype-specific model."""
+
     input_dim: int
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [256, 128, 64])
+    hidden_dims: list[int] = field(default_factory=lambda: [256, 128, 64])
     n_subtypes: int = 7
     subtype_embed_dim: int = 16
     dropout: float = 0.1
@@ -170,12 +168,14 @@ class SubtypeSpecificVAE(nn.Module):
         layers = []
         in_dim = encoder_input
         for h in cfg.hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, h),
-                nn.GELU(),
-                nn.LayerNorm(h),
-                nn.Dropout(cfg.dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, h),
+                    nn.GELU(),
+                    nn.LayerNorm(h),
+                    nn.Dropout(cfg.dropout),
+                ]
+            )
             in_dim = h
         self.encoder = nn.Sequential(*layers)
 
@@ -203,9 +203,9 @@ class SubtypeSpecificVAE(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        subtype_idx: Optional[torch.Tensor] = None,
+        subtype_idx: torch.Tensor | None = None,
         subtype_name: str = "B",
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         batch_size = x.size(0)
         device = x.device
 
@@ -279,7 +279,7 @@ class SubtypeTransferLearning(nn.Module):
         x: torch.Tensor,
         subtype: str,
         use_adapter: bool = True,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         # Get base model output
         output = self.base_model(x, subtype_name=subtype)
 
@@ -333,12 +333,14 @@ class MultiSubtypeVAE(nn.Module):
         layers = []
         in_dim = cfg.input_dim
         for h in cfg.hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, h),
-                nn.GELU(),
-                nn.LayerNorm(h),
-                nn.Dropout(cfg.dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, h),
+                    nn.GELU(),
+                    nn.LayerNorm(h),
+                    nn.Dropout(cfg.dropout),
+                ]
+            )
             in_dim = h
         self.shared_encoder = nn.Sequential(*layers)
 
@@ -346,14 +348,16 @@ class MultiSubtypeVAE(nn.Module):
         self.fc_logvar = nn.Linear(in_dim, cfg.latent_dim)
 
         # Subtype-specific prediction heads
-        self.subtype_heads = nn.ModuleDict({
-            subtype: nn.Sequential(
-                nn.Linear(cfg.latent_dim + cfg.subtype_embed_dim, 32),
-                nn.GELU(),
-                nn.Linear(32, 1),
-            )
-            for subtype in self.subtypes
-        })
+        self.subtype_heads = nn.ModuleDict(
+            {
+                subtype: nn.Sequential(
+                    nn.Linear(cfg.latent_dim + cfg.subtype_embed_dim, 32),
+                    nn.GELU(),
+                    nn.Linear(32, 1),
+                )
+                for subtype in self.subtypes
+            }
+        )
 
         # Shared prediction head (for regularization)
         self.shared_head = nn.Sequential(
@@ -366,7 +370,7 @@ class MultiSubtypeVAE(nn.Module):
         self,
         x: torch.Tensor,
         subtype: str = "B",
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         batch_size = x.size(0)
         device = x.device
 
@@ -398,7 +402,7 @@ class MultiSubtypeVAE(nn.Module):
             "subtype_embed": subtype_embed,
         }
 
-    def predict_all_subtypes(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def predict_all_subtypes(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Get predictions for all subtypes."""
         batch_size = x.size(0)
         device = x.device

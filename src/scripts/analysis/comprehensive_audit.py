@@ -84,10 +84,7 @@ def run_command(command):
 
 def check_tool_availability(tool_cmd):
     """Check if the executable exists."""
-    if isinstance(tool_cmd, list):
-        bin_name = tool_cmd[0]
-    else:
-        bin_name = tool_cmd.split()[0]
+    bin_name = tool_cmd[0] if isinstance(tool_cmd, list) else tool_cmd.split()[0]
     return shutil.which(bin_name) is not None
 
 
@@ -241,7 +238,9 @@ def generate_markdown(results):
             if results_list:
                 f.write(f"Found {len(results_list)} security issues.\n\n")
                 for issue in results_list:
-                    f.write(f"- **{issue['issue_severity']}**: {issue['issue_text']} in `{issue['filename']}:{issue['line_number']}`\n")
+                    f.write(
+                        f"- **{issue['issue_severity']}**: {issue['issue_text']} in `{issue['filename']}:{issue['line_number']}`\n"
+                    )
             else:
                 f.write("No security issues found. 🔒\n")
             f.write("\n")

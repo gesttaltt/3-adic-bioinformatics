@@ -18,8 +18,9 @@ Single responsibility: TensorBoard visualization only.
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
@@ -53,9 +54,9 @@ class TensorBoardLogger:
 
     def __init__(
         self,
-        tensorboard_dir: Optional[str],
+        tensorboard_dir: str | None,
         experiment_name: str,
-        log_callback: Optional[Callable[[str], None]] = None,
+        log_callback: Callable[[str], None] | None = None,
     ):
         """Initialize TensorBoard logger.
 
@@ -64,7 +65,7 @@ class TensorBoardLogger:
             experiment_name: Name for this experiment run
             log_callback: Optional callback for log messages
         """
-        self.writer: Optional[SummaryWriterType] = None
+        self.writer: SummaryWriterType | None = None
         self.log_callback = log_callback or (lambda msg: None)
 
         if TENSORBOARD_AVAILABLE and tensorboard_dir is not None:
@@ -72,10 +73,7 @@ class TensorBoardLogger:
             self.writer = SummaryWriter(str(log_path))
             self.log_callback(f"TensorBoard logging to: {log_path}")
         elif tensorboard_dir is not None and not TENSORBOARD_AVAILABLE:
-            self.log_callback(
-                "Warning: TensorBoard requested but not installed "
-                "(pip install tensorboard)"
-            )
+            self.log_callback("Warning: TensorBoard requested but not installed (pip install tensorboard)")
 
     @property
     def is_available(self) -> bool:
@@ -153,7 +151,7 @@ class TensorBoardLogger:
         hyp_kl_A: float = 0.0,
         hyp_kl_B: float = 0.0,
         centroid_loss: float = 0.0,
-        homeostatic_metrics: Optional[Dict[str, float]] = None,
+        homeostatic_metrics: dict[str, float] | None = None,
     ) -> None:
         """Log v5.10 hyperbolic metrics at epoch level.
 
@@ -241,8 +239,8 @@ class TensorBoardLogger:
     def log_epoch(
         self,
         epoch: int,
-        train_losses: Dict[str, Any],
-        val_losses: Dict[str, Any],
+        train_losses: dict[str, Any],
+        val_losses: dict[str, Any],
         unique_A: int,
         unique_B: int,
         cov_A: float,
@@ -299,9 +297,7 @@ class TensorBoardLogger:
         self.writer.add_scalar("Dynamics/Phase", train_losses["phase"], epoch)
         self.writer.add_scalar("Dynamics/Rho", train_losses["rho"], epoch)
         self.writer.add_scalar("Dynamics/GradRatio", train_losses["grad_ratio"], epoch)
-        self.writer.add_scalar(
-            "Dynamics/EMA_Momentum", train_losses["ema_momentum"], epoch
-        )
+        self.writer.add_scalar("Dynamics/EMA_Momentum", train_losses["ema_momentum"], epoch)
 
         # Lambda weights
         self.writer.add_scalars(
@@ -353,7 +349,7 @@ class TensorBoardLogger:
         # Single flush per epoch
         self.writer.flush()
 
-    def _log_padic_losses(self, epoch: int, train_losses: Dict[str, Any]) -> None:
+    def _log_padic_losses(self, epoch: int, train_losses: dict[str, Any]) -> None:
         """Log p-adic loss components.
 
         Args:
@@ -492,15 +488,17 @@ class TensorBoardLogger:
             r_A = hyp_radii_A[idx].item()
             r_B = hyp_radii_B[idx].item()
 
-            metadata.append([
-                str(op_idx),
-                str(prefix_1),
-                str(prefix_2),
-                str(prefix_3),
-                str(depth),
-                f"{r_A:.3f}",
-                f"{r_B:.3f}",
-            ])
+            metadata.append(
+                [
+                    str(op_idx),
+                    str(prefix_1),
+                    str(prefix_2),
+                    str(prefix_3),
+                    str(depth),
+                    f"{r_A:.3f}",
+                    f"{r_B:.3f}",
+                ]
+            )
 
         # Log embeddings
         self.writer.add_embedding(
@@ -533,9 +531,7 @@ class TensorBoardLogger:
         )
 
         self.writer.flush()
-        self.log_callback(
-            f"Logged {len(indices)} embeddings to TensorBoard (epoch {epoch})"
-        )
+        self.log_callback(f"Logged {len(indices)} embeddings to TensorBoard (epoch {epoch})")
 
     def _compute_3adic_depth(self, n: int) -> int:
         """Compute 3-adic valuation (tree depth) of integer n.

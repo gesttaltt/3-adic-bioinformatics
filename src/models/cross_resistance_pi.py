@@ -14,12 +14,9 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
 
 # PI Cross-Resistance Matrix (based on Stanford HIVDB overlap)
 PI_CROSS_RESISTANCE = {
@@ -43,10 +40,11 @@ PI_KEY_MUTATIONS = {
 @dataclass
 class PIConfig:
     """Configuration for PI cross-resistance VAE."""
+
     input_dim: int
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [256, 128, 64])
-    drug_names: List[str] = field(default_factory=lambda: ["LPV", "ATV", "FPV", "IDV", "NFV", "SQV", "TPV", "DRV"])
+    hidden_dims: list[int] = field(default_factory=lambda: [256, 128, 64])
+    drug_names: list[str] = field(default_factory=lambda: ["LPV", "ATV", "FPV", "IDV", "NFV", "SQV", "TPV", "DRV"])
     n_positions: int = 99
     dropout: float = 0.1
     ranking_weight: float = 0.3
@@ -131,12 +129,14 @@ class PICrossResistanceVAE(nn.Module):
         layers = []
         in_dim = cfg.input_dim
         for h in cfg.hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, h),
-                nn.GELU(),
-                nn.LayerNorm(h),
-                nn.Dropout(cfg.dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, h),
+                    nn.GELU(),
+                    nn.LayerNorm(h),
+                    nn.Dropout(cfg.dropout),
+                ]
+            )
             in_dim = h
         self.encoder = nn.Sequential(*layers)
 
@@ -159,15 +159,17 @@ class PICrossResistanceVAE(nn.Module):
         self.cross_attention = nn.MultiheadAttention(cfg.latent_dim, 4, batch_first=True)
 
         # Drug-specific heads (latent + mutation embedding)
-        self.drug_heads = nn.ModuleDict({
-            drug: nn.Sequential(
-                nn.Linear(cfg.latent_dim + 32, 32),
-                nn.GELU(),
-                nn.Dropout(cfg.dropout),
-                nn.Linear(32, 1),
-            )
-            for drug in cfg.drug_names
-        })
+        self.drug_heads = nn.ModuleDict(
+            {
+                drug: nn.Sequential(
+                    nn.Linear(cfg.latent_dim + 32, 32),
+                    nn.GELU(),
+                    nn.Dropout(cfg.dropout),
+                    nn.Linear(32, 1),
+                )
+                for drug in cfg.drug_names
+            }
+        )
 
         # Cross-resistance matrix
         self.register_buffer("cross_resistance_matrix", self._build_matrix())
@@ -180,7 +182,7 @@ class PICrossResistanceVAE(nn.Module):
                 matrix[i, j] = PI_CROSS_RESISTANCE.get(d1, {}).get(d2, 0)
         return matrix
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         batch_size = x.size(0)
         device = x.device
 

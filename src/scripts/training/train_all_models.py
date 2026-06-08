@@ -53,7 +53,7 @@ def run_training(name: str, command: list[str], description: str) -> bool:
     print("-" * 70)
 
     try:
-        result = subprocess.run(
+        subprocess.run(
             command,
             cwd=PROJECT_ROOT,
             check=True,
@@ -113,7 +113,8 @@ def main():
         cmd = [
             python_exe,
             "src/scripts/training/train_contrastive_pretrain.py",
-            "--method", "byol",
+            "--method",
+            "byol",
             "--use-codon-sampler",
             "--evaluate",
             "-y",
@@ -134,7 +135,8 @@ def main():
         cmd = [
             python_exe,
             "src/scripts/training/train_diffusion_codon.py",
-            "--disease", "hiv",
+            "--disease",
+            "hiv",
             "--use-codon-loss",
             "--evaluate",
             "-y",
@@ -155,7 +157,8 @@ def main():
         cmd = [
             python_exe,
             "src/scripts/training/train_multitask_disease.py",
-            "--diseases", *args.diseases,
+            "--diseases",
+            *args.diseases,
             "--use-escape-head",
             "--evaluate",
             "-y",
@@ -176,8 +179,10 @@ def main():
         cmd = [
             python_exe,
             "src/scripts/training/train_meta_learning.py",
-            "--disease", "hiv",
-            "--algorithm", "reptile",
+            "--disease",
+            "hiv",
+            "--algorithm",
+            "reptile",
             "--use-escape-head",
             "--evaluate",
             "-y",

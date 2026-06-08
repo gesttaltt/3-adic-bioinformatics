@@ -6,13 +6,12 @@
 """Training commands for Ternary VAE CLI."""
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from src.config.paths import CHECKPOINTS_DIR, RESULTS_DIR
+from src.config.paths import RESULTS_DIR
 
 app = typer.Typer(help="Training commands for Ternary VAE models")
 console = Console()
@@ -20,19 +19,22 @@ console = Console()
 
 @app.command("run")
 def train_run(
-    config: Optional[Path] = typer.Option(
+    config: Path | None = typer.Option(
         None,
-        "--config", "-c",
+        "--config",
+        "-c",
         help="Path to YAML configuration file",
     ),
     epochs: int = typer.Option(
         100,
-        "--epochs", "-e",
+        "--epochs",
+        "-e",
         help="Number of training epochs",
     ),
     batch_size: int = typer.Option(
         512,
-        "--batch-size", "-b",
+        "--batch-size",
+        "-b",
         help="Training batch size",
     ),
     learning_rate: float = typer.Option(
@@ -42,12 +44,14 @@ def train_run(
     ),
     device: str = typer.Option(
         "cuda",
-        "--device", "-d",
+        "--device",
+        "-d",
         help="Device to train on (cuda/cpu)",
     ),
     save_dir: Path = typer.Option(
         RESULTS_DIR / "training",
-        "--save-dir", "-o",
+        "--save-dir",
+        "-o",
         help="Directory to save checkpoints",
     ),
     partial_freeze: bool = typer.Option(
@@ -67,7 +71,8 @@ def train_run(
     ),
     verbose: bool = typer.Option(
         False,
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         help="Enable verbose output",
     ),
 ):
@@ -95,15 +100,16 @@ def train_run(
     training_config = {}
     if config and config.exists():
         import yaml
+
         with open(config) as f:
             training_config = yaml.safe_load(f)
         console.print(f"[green]Loaded config from {config}[/green]")
 
     # Import training components
+    from src import TrainingConfig
     from src.data import generate_all_ternary_operations
     from src.models import TernaryVAEV5_11, TernaryVAEV5_11_PartialFreeze
     from src.training import TernaryVAETrainer
-    from src import TrainingConfig
 
     # Generate data
     with Progress(
@@ -149,30 +155,36 @@ def train_run(
 
     # Save final model
     final_path = save_dir / "final_model.pt"
-    torch.save({
-        "model_state_dict": model.state_dict(),
-        "config": training_config,
-        "epochs": epochs,
-    }, final_path)
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "config": training_config,
+            "epochs": epochs,
+        },
+        final_path,
+    )
 
     console.print(f"[bold green]Training complete! Model saved to {final_path}[/bold green]")
 
 
 @app.command("hiv")
 def train_hiv(
-    config: Optional[Path] = typer.Option(
+    config: Path | None = typer.Option(
         None,
-        "--config", "-c",
+        "--config",
+        "-c",
         help="Path to YAML configuration file",
     ),
     epochs: int = typer.Option(
         100,
-        "--epochs", "-e",
+        "--epochs",
+        "-e",
         help="Number of training epochs",
     ),
     save_dir: Path = typer.Option(
         RESULTS_DIR / "hiv_training",
-        "--save-dir", "-o",
+        "--save-dir",
+        "-o",
         help="Directory to save results",
     ),
 ):
@@ -190,8 +202,10 @@ def train_hiv(
     cmd = [
         sys.executable,
         "src/scripts/train_codon_vae_hiv.py",
-        "--epochs", str(epochs),
-        "--save_dir", str(save_dir),
+        "--epochs",
+        str(epochs),
+        "--save_dir",
+        str(save_dir),
     ]
     if config:
         cmd.extend(["--config", str(config)])
@@ -207,27 +221,31 @@ def train_resume(
     ),
     epochs: int = typer.Option(
         50,
-        "--epochs", "-e",
+        "--epochs",
+        "-e",
         help="Additional epochs to train",
     ),
     batch_size: int = typer.Option(
         512,
-        "--batch-size", "-b",
+        "--batch-size",
+        "-b",
         help="Training batch size",
     ),
-    learning_rate: Optional[float] = typer.Option(
+    learning_rate: float | None = typer.Option(
         None,
         "--lr",
         help="Learning rate (default: use checkpoint value)",
     ),
     device: str = typer.Option(
         "cuda",
-        "--device", "-d",
+        "--device",
+        "-d",
         help="Device to train on (cuda/cpu)",
     ),
-    save_dir: Optional[Path] = typer.Option(
+    save_dir: Path | None = typer.Option(
         None,
-        "--save-dir", "-o",
+        "--save-dir",
+        "-o",
         help="Directory to save checkpoints (default: same as checkpoint)",
     ),
 ):
@@ -261,7 +279,7 @@ def train_resume(
     # Display saved metrics if available
     if "metrics" in ckpt:
         metrics = ckpt["metrics"]
-        console.print(f"  Coverage: {metrics.get('coverage', 0)*100:.1f}%")
+        console.print(f"  Coverage: {metrics.get('coverage', 0) * 100:.1f}%")
         console.print(f"  Radial Corr A: {metrics.get('radial_corr_A', 0):.4f}")
 
     # Import training components
@@ -410,39 +428,45 @@ def train_resume(
         # Print progress every 5 epochs
         if (epoch + 1) % 5 == 0 or epoch == start_epoch:
             console.print(
-                f"  Epoch {epoch+1}/{end_epoch}: loss={avg_loss:.4f}, "
-                f"coverage={coverage*100:.1f}%, radial_corr={radial_corr:.4f}"
+                f"  Epoch {epoch + 1}/{end_epoch}: loss={avg_loss:.4f}, "
+                f"coverage={coverage * 100:.1f}%, radial_corr={radial_corr:.4f}"
             )
 
         # Save best model
         if radial_corr < best_radial_corr:
             best_radial_corr = radial_corr
-            torch.save({
-                "epoch": epoch + 1,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "metrics": {
-                    "coverage": coverage,
-                    "radial_corr_A": radial_corr,
+            torch.save(
+                {
+                    "epoch": epoch + 1,
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "metrics": {
+                        "coverage": coverage,
+                        "radial_corr_A": radial_corr,
+                    },
+                    "config": saved_config,
                 },
-                "config": saved_config,
-            }, save_dir / "best.pt")
+                save_dir / "best.pt",
+            )
 
     # Save final checkpoint
     final_path = save_dir / "latest.pt"
-    torch.save({
-        "epoch": end_epoch,
-        "model_state_dict": model.state_dict(),
-        "optimizer_state_dict": optimizer.state_dict(),
-        "metrics": {
-            "coverage": coverage,
-            "radial_corr_A": radial_corr,
+    torch.save(
+        {
+            "epoch": end_epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "metrics": {
+                "coverage": coverage,
+                "radial_corr_A": radial_corr,
+            },
+            "config": saved_config,
         },
-        "config": saved_config,
-    }, final_path)
+        final_path,
+    )
 
-    console.print(f"\n[bold green]Training complete![/bold green]")
-    console.print(f"  Final coverage: {coverage*100:.1f}%")
+    console.print("\n[bold green]Training complete![/bold green]")
+    console.print(f"  Final coverage: {coverage * 100:.1f}%")
     console.print(f"  Final radial correlation: {radial_corr:.4f}")
     console.print(f"  Best radial correlation: {best_radial_corr:.4f}")
     console.print(f"  Checkpoints saved to: {save_dir}")

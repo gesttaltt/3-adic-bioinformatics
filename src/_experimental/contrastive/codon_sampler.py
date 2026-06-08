@@ -23,17 +23,14 @@ Based on research from:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Tuple
 
 import torch
-import torch.nn as nn
 
 from src.biology.codons import GENETIC_CODE, codon_index_to_triplet
 from src.encoders.codon_encoder import (
     compute_amino_acid_distance,
     compute_padic_distance_between_codons,
 )
-
 
 # Amino acid similarity groups based on biochemical properties
 AA_SIMILARITY_GROUPS = {
@@ -93,9 +90,9 @@ class CodonSamplerConfig:
     hard_negative_ratio: float = 0.5  # Fraction of hard negatives
 
 
-def build_synonymous_codon_groups() -> Dict[str, List[int]]:
+def build_synonymous_codon_groups() -> dict[str, list[int]]:
     """Build mapping from amino acid to codon indices."""
-    groups: Dict[str, List[int]] = {}
+    groups: dict[str, list[int]] = {}
 
     for idx in range(64):
         triplet = codon_index_to_triplet(idx)
@@ -107,7 +104,7 @@ def build_synonymous_codon_groups() -> Dict[str, List[int]]:
     return groups
 
 
-def build_wobble_variants(codon_idx: int) -> List[int]:
+def build_wobble_variants(codon_idx: int) -> list[int]:
     """Get codon indices that differ only in wobble (3rd) position.
 
     Args:
@@ -141,7 +138,7 @@ class CodonPositiveSampler:
 
     def __init__(
         self,
-        config: Optional[CodonSamplerConfig] = None,
+        config: CodonSamplerConfig | None = None,
     ):
         """Initialize sampler.
 
@@ -156,7 +153,7 @@ class CodonPositiveSampler:
         self.synonymous_groups = build_synonymous_codon_groups()
 
         # Build amino acid to codon mapping
-        self.aa_to_codons: Dict[str, List[int]] = self.synonymous_groups.copy()
+        self.aa_to_codons: dict[str, list[int]] = self.synonymous_groups.copy()
 
         # Build conservative substitution map
         self.conservative_codons = self._build_conservative_map()
@@ -164,9 +161,9 @@ class CodonPositiveSampler:
         # Precompute p-adic distances
         self.padic_matrix = self._compute_padic_matrix()
 
-    def _build_conservative_map(self) -> Dict[int, Set[int]]:
+    def _build_conservative_map(self) -> dict[int, set[int]]:
         """Build map of conservatively substitutable codons."""
-        conservative: Dict[int, Set[int]] = {}
+        conservative: dict[int, set[int]] = {}
 
         for idx in range(64):
             triplet = codon_index_to_triplet(idx)
@@ -201,7 +198,7 @@ class CodonPositiveSampler:
         self,
         anchor_idx: int,
         strategy: str = "all",
-    ) -> Set[int]:
+    ) -> set[int]:
         """Get positive candidate codons for an anchor.
 
         Args:
@@ -211,7 +208,7 @@ class CodonPositiveSampler:
         Returns:
             Set of positive candidate indices
         """
-        candidates: Set[int] = set()
+        candidates: set[int] = set()
 
         if strategy == "all" or (strategy == "synonymous" and self.config.use_synonymous):
             # Get synonymous codons
@@ -284,8 +281,8 @@ class CodonPositiveSampler:
     def sample_positive(
         self,
         anchor_idx: int,
-        exclude: Optional[Set[int]] = None,
-    ) -> Optional[int]:
+        exclude: set[int] | None = None,
+    ) -> int | None:
         """Sample a single positive for anchor.
 
         Args:
@@ -305,16 +302,10 @@ class CodonPositiveSampler:
 
         # Compute weights
         candidate_list = list(candidates)
-        weights = torch.tensor([
-            self.get_positive_weights(anchor_idx, c)
-            for c in candidate_list
-        ])
+        weights = torch.tensor([self.get_positive_weights(anchor_idx, c) for c in candidate_list])
 
         # Normalize to probabilities
-        if weights.sum() == 0:
-            probs = torch.ones_like(weights) / len(weights)
-        else:
-            probs = weights / weights.sum()
+        probs = torch.ones_like(weights) / len(weights) if weights.sum() == 0 else weights / weights.sum()
 
         # Sample
         idx = torch.multinomial(probs, 1).item()
@@ -324,8 +315,8 @@ class CodonPositiveSampler:
         self,
         anchor_idx: int,
         n_negatives: int = 10,
-        hard_negative_ratio: Optional[float] = None,
-    ) -> List[int]:
+        hard_negative_ratio: float | None = None,
+    ) -> list[int]:
         """Sample negative codons for anchor.
 
         Args:
@@ -385,8 +376,8 @@ class CodonContrastiveDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         sequences: torch.Tensor,
-        sampler: Optional[CodonPositiveSampler] = None,
-        augmentation_fn: Optional[callable] = None,
+        sampler: CodonPositiveSampler | None = None,
+        augmentation_fn: callable | None = None,
     ):
         """Initialize dataset.
 
@@ -402,7 +393,7 @@ class CodonContrastiveDataset(torch.utils.data.Dataset):
     def __len__(self) -> int:
         return len(self.sequences)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Get anchor and positive pair.
 
         Args:

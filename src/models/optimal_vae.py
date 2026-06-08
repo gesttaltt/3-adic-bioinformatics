@@ -40,7 +40,7 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
 import numpy as np
 import torch
@@ -68,7 +68,7 @@ class OptimalVAEConfig:
     model_type: str = "tropical_hyperbolic"  # "simple", "simple_hyperbolic", "tropical_hyperbolic"
     input_dim: int = 9
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [64, 32])
+    hidden_dims: list[int] = field(default_factory=lambda: [64, 32])
     dropout: float = 0.0
 
     # Hyperbolic geometry
@@ -121,7 +121,7 @@ class OptimalVAE(nn.Module):
         config: OptimalVAEConfig with model settings
     """
 
-    def __init__(self, config: Optional[OptimalVAEConfig] = None):
+    def __init__(self, config: OptimalVAEConfig | None = None):
         super().__init__()
 
         if config is None:
@@ -191,7 +191,7 @@ class OptimalVAE(nn.Module):
 
                 self.radial_loss = GlobalRankLoss()
 
-    def forward(self, x: torch.Tensor) -> Dict[str, Any]:
+    def forward(self, x: torch.Tensor) -> dict[str, Any]:
         """Forward pass through the VAE."""
         return self.vae(x)
 
@@ -247,20 +247,14 @@ class OptimalVAE(nn.Module):
         # P-adic ranking loss
         if self.padic_loss is not None:
             padic_out = self.padic_loss(z, batch_indices)
-            if isinstance(padic_out, tuple):
-                padic_loss = padic_out[0]
-            else:
-                padic_loss = padic_out
+            padic_loss = padic_out[0] if isinstance(padic_out, tuple) else padic_out
             total_loss = total_loss + self.config.padic_weight * padic_loss
             loss_dict["padic"] = padic_loss.item()
 
         # Radial loss
         if self.radial_loss is not None:
             radial_out = self.radial_loss(z, batch_indices)
-            if isinstance(radial_out, tuple):
-                radial_loss = radial_out[0]
-            else:
-                radial_loss = radial_out
+            radial_loss = radial_out[0] if isinstance(radial_out, tuple) else radial_out
             total_loss = total_loss + self.config.radial_weight * radial_loss
             loss_dict["radial"] = radial_loss.item()
 

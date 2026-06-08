@@ -15,21 +15,21 @@ import json
 import logging
 import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional, Type
+from typing import Any
 
 import numpy as np
 import torch
 from scipy import stats
 from sklearn.metrics import (
+    accuracy_score,
     mean_absolute_error,
     mean_squared_error,
+    precision_recall_fscore_support,
     r2_score,
     roc_auc_score,
-    accuracy_score,
-    precision_recall_fscore_support,
 )
 from sklearn.model_selection import KFold, StratifiedKFold
 
@@ -87,8 +87,8 @@ class ExperimentResult:
     config: ExperimentConfig
     metrics: dict[str, float]
     fold_metrics: list[dict[str, float]]
-    predictions: Optional[dict[str, np.ndarray]] = None
-    training_history: Optional[list[dict[str, float]]] = None
+    predictions: dict[str, np.ndarray] | None = None
+    training_history: list[dict[str, float]] | None = None
     runtime_seconds: float = 0.0
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
@@ -103,14 +103,13 @@ class ExperimentResult:
         }
         if self.predictions is not None:
             result["predictions"] = {
-                k: v.tolist() if isinstance(v, np.ndarray) else v
-                for k, v in self.predictions.items()
+                k: v.tolist() if isinstance(v, np.ndarray) else v for k, v in self.predictions.items()
             }
         if self.training_history is not None:
             result["training_history"] = self.training_history
         return result
 
-    def save(self, path: Optional[Path] = None) -> Path:
+    def save(self, path: Path | None = None) -> Path:
         """Save results to JSON file."""
         if path is None:
             output_dir = Path(self.config.output_dir)
@@ -187,15 +186,11 @@ class MetricComputer:
             return 0.5  # Default for single-class
 
     @staticmethod
-    def classification_metrics(
-        y_true: np.ndarray, y_pred: np.ndarray
-    ) -> dict[str, float]:
+    def classification_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
         """Compute classification metrics."""
         y_pred_binary = (y_pred > 0.5).astype(int)
         acc = accuracy_score(y_true, y_pred_binary)
-        prec, rec, f1, _ = precision_recall_fscore_support(
-            y_true, y_pred_binary, average="binary", zero_division=0
-        )
+        prec, rec, f1, _ = precision_recall_fscore_support(y_true, y_pred_binary, average="binary", zero_division=0)
         return {
             "accuracy": float(acc),
             "precision": float(prec),
@@ -228,15 +223,17 @@ class MetricComputer:
         if task_type == "regression":
             spearman_rho, spearman_p = cls.spearman(y_true, y_pred)
             pearson_rho, pearson_p = cls.pearson(y_true, y_pred)
-            metrics.update({
-                "spearman": spearman_rho,
-                "spearman_p": spearman_p,
-                "pearson": pearson_rho,
-                "pearson_p": pearson_p,
-                "rmse": cls.rmse(y_true, y_pred),
-                "mae": cls.mae(y_true, y_pred),
-                "r2": cls.r2(y_true, y_pred),
-            })
+            metrics.update(
+                {
+                    "spearman": spearman_rho,
+                    "spearman_p": spearman_p,
+                    "pearson": pearson_rho,
+                    "pearson_p": pearson_p,
+                    "rmse": cls.rmse(y_true, y_pred),
+                    "mae": cls.mae(y_true, y_pred),
+                    "r2": cls.r2(y_true, y_pred),
+                }
+            )
         elif task_type == "classification":
             metrics.update(cls.classification_metrics(y_true, y_pred))
             metrics["auc_roc"] = cls.auc_roc(y_true, y_pred)
@@ -373,8 +370,7 @@ class BaseExperiment(ABC):
                 split_iter = kfold.split(X)
 
             for fold, (train_idx, val_idx) in enumerate(split_iter):
-                logger.info(f"Repeat {repeat + 1}/{self.config.n_repeats}, "
-                           f"Fold {fold + 1}/{self.config.n_folds}")
+                logger.info(f"Repeat {repeat + 1}/{self.config.n_repeats}, Fold {fold + 1}/{self.config.n_folds}")
 
                 # Split data
                 X_train, X_val = X[train_idx], X[val_idx]
@@ -406,8 +402,7 @@ class BaseExperiment(ABC):
             config=self.config,
             metrics=aggregated,
             fold_metrics=all_fold_metrics,
-            predictions={k: np.array(v) for k, v in all_predictions.items()}
-            if self.config.save_predictions else None,
+            predictions={k: np.array(v) for k, v in all_predictions.items()} if self.config.save_predictions else None,
             runtime_seconds=runtime,
         )
 
@@ -418,9 +413,7 @@ class BaseExperiment(ABC):
 
         return result
 
-    def _aggregate_metrics(
-        self, fold_metrics: list[dict[str, float]]
-    ) -> dict[str, float]:
+    def _aggregate_metrics(self, fold_metrics: list[dict[str, float]]) -> dict[str, float]:
         """Aggregate metrics across folds."""
         aggregated = {}
         keys = fold_metrics[0].keys()

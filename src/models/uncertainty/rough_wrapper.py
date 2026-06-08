@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -29,19 +29,16 @@ import torch.nn.functional as F
 
 from src.analysis.set_theory.mutation_sets import MutationSet
 from src.analysis.set_theory.rough_sets import (
-    RoughSet,
     RoughClassifier,
-    ApproximationSpace,
-    VariablePrecisionRoughSet,
 )
 
 
 class Decision(Enum):
     """Three-way decision types."""
 
-    ACCEPT = "accept"     # Definitely positive (resistant)
-    REJECT = "reject"     # Definitely negative (susceptible)
-    DEFER = "defer"       # Uncertain, need more information
+    ACCEPT = "accept"  # Definitely positive (resistant)
+    REJECT = "reject"  # Definitely negative (susceptible)
+    DEFER = "defer"  # Uncertain, need more information
 
 
 @dataclass
@@ -57,14 +54,14 @@ class UncertaintyResult:
         evidence: Supporting evidence from rough sets
     """
 
-    prediction: Union[float, str]
+    prediction: float | str
     neural_uncertainty: float
     rough_classification: str
     combined_confidence: float
     decision: Decision
-    evidence: Dict[str, Any]
+    evidence: dict[str, Any]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "prediction": self.prediction,
@@ -118,9 +115,9 @@ class RoughUncertaintyWrapper(nn.Module):
     def __init__(
         self,
         model: nn.Module,
-        rough_classifiers: Dict[str, RoughClassifier],
-        config: Optional[RoughWrapperConfig] = None,
-        drug_names: Optional[List[str]] = None,
+        rough_classifiers: dict[str, RoughClassifier],
+        config: RoughWrapperConfig | None = None,
+        drug_names: list[str] | None = None,
     ):
         """Initialize rough uncertainty wrapper.
 
@@ -163,8 +160,8 @@ class RoughUncertaintyWrapper(nn.Module):
     def predict_with_uncertainty(
         self,
         x: torch.Tensor,
-        mutations: Optional[MutationSet] = None,
-    ) -> Dict[str, torch.Tensor]:
+        mutations: MutationSet | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Get predictions with neural uncertainty.
 
         Args:
@@ -202,7 +199,7 @@ class RoughUncertaintyWrapper(nn.Module):
         self,
         x: torch.Tensor,
         mutations: MutationSet,
-        drug: Optional[str] = None,
+        drug: str | None = None,
     ) -> UncertaintyResult:
         """Make three-way decision combining neural and rough uncertainty.
 
@@ -234,14 +231,10 @@ class RoughUncertaintyWrapper(nn.Module):
         neural_uncertainty = std.mean().item()
         rough_conf = rough_result.get("confidence", 0.5)
 
-        combined_confidence = self._combine_confidence(
-            neural_uncertainty, rough_conf, rough_result
-        )
+        combined_confidence = self._combine_confidence(neural_uncertainty, rough_conf, rough_result)
 
         # Make three-way decision
-        decision = self._make_decision(
-            prediction, combined_confidence, rough_result
-        )
+        decision = self._make_decision(prediction, combined_confidence, rough_result)
 
         # Extract evidence
         evidence = {
@@ -264,7 +257,7 @@ class RoughUncertaintyWrapper(nn.Module):
         self,
         neural_uncertainty: float,
         rough_confidence: float,
-        rough_result: Dict[str, Any],
+        rough_result: dict[str, Any],
     ) -> float:
         """Combine neural and rough confidence scores.
 
@@ -281,7 +274,7 @@ class RoughUncertaintyWrapper(nn.Module):
 
         # Apply boundary penalty
         if rough_result.get("classification") == "uncertain":
-            neural_confidence *= (1 - self.config.boundary_entropy_boost)
+            neural_confidence *= 1 - self.config.boundary_entropy_boost
 
         # Combine based on method
         if self.config.combine_method == "weighted":
@@ -310,7 +303,7 @@ class RoughUncertaintyWrapper(nn.Module):
         self,
         prediction: torch.Tensor,
         confidence: float,
-        rough_result: Dict[str, Any],
+        rough_result: dict[str, Any],
     ) -> Decision:
         """Make three-way decision.
 
@@ -353,9 +346,9 @@ class RoughUncertaintyWrapper(nn.Module):
     def batch_predict(
         self,
         x: torch.Tensor,
-        mutation_sets: List[MutationSet],
+        mutation_sets: list[MutationSet],
         drug: str,
-    ) -> List[UncertaintyResult]:
+    ) -> list[UncertaintyResult]:
         """Predict for batch of samples.
 
         Args:
@@ -369,18 +362,16 @@ class RoughUncertaintyWrapper(nn.Module):
         results = []
 
         for i in range(len(mutation_sets)):
-            sample_x = x[i:i+1] if x.dim() > 1 else x[i:i+1]
-            result = self.predict_with_three_way_decision(
-                sample_x, mutation_sets[i], drug
-            )
+            sample_x = x[i : i + 1] if x.dim() > 1 else x[i : i + 1]
+            result = self.predict_with_three_way_decision(sample_x, mutation_sets[i], drug)
             results.append(result)
 
         return results
 
     def get_deferred_samples(
         self,
-        results: List[UncertaintyResult],
-    ) -> List[int]:
+        results: list[UncertaintyResult],
+    ) -> list[int]:
         """Get indices of samples that were deferred.
 
         Args:
@@ -428,9 +419,9 @@ class EnsembleRoughWrapper(nn.Module):
 
     def __init__(
         self,
-        models: List[nn.Module],
-        rough_classifiers: Dict[str, RoughClassifier],
-        config: Optional[RoughWrapperConfig] = None,
+        models: list[nn.Module],
+        rough_classifiers: dict[str, RoughClassifier],
+        config: RoughWrapperConfig | None = None,
     ):
         """Initialize ensemble wrapper.
 
@@ -459,8 +450,8 @@ class EnsembleRoughWrapper(nn.Module):
     def predict_with_uncertainty(
         self,
         x: torch.Tensor,
-        mutations: Optional[MutationSet] = None,
-    ) -> Dict[str, torch.Tensor]:
+        mutations: MutationSet | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Get predictions with ensemble uncertainty.
 
         Args:
@@ -524,10 +515,7 @@ class EnsembleRoughWrapper(nn.Module):
         rough_class = rough_result.get("classification", "unknown")
 
         if combined >= self.config.accept_threshold:
-            if pred_prob > 0.5 or rough_class == "resistant":
-                decision = Decision.ACCEPT
-            else:
-                decision = Decision.REJECT
+            decision = Decision.ACCEPT if pred_prob > 0.5 or rough_class == "resistant" else Decision.REJECT
         elif rough_class == "uncertain" or combined < self.config.reject_threshold:
             decision = Decision.DEFER
         else:

@@ -18,8 +18,9 @@ Usage:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import torch
@@ -69,7 +70,7 @@ class CurriculumTrainer:
     def __init__(
         self,
         model: nn.Module,
-        config: Optional[CurriculumConfig] = None,
+        config: CurriculumConfig | None = None,
         device: str = "cpu",
     ):
         self.model = model
@@ -81,7 +82,7 @@ class CurriculumTrainer:
         self._init_losses()
 
         # Training history
-        self.history: Dict[str, List[float]] = {
+        self.history: dict[str, list[float]] = {
             "loss": [],
             "recon": [],
             "kl": [],
@@ -122,7 +123,7 @@ class CurriculumTrainer:
         else:
             self.radial_fn = None
 
-    def get_phase(self, epoch: int) -> Tuple[int, float, float, float, float]:
+    def get_phase(self, epoch: int) -> tuple[int, float, float, float, float]:
         """Get current phase and loss weights.
 
         Returns: (phase, recon_weight, kl_weight, padic_weight, radial_weight)
@@ -148,10 +149,7 @@ class CurriculumTrainer:
             kl_weight = smooth_weight(epoch_in_phase, c.smooth_transition_epochs)
 
             # Beta warmup within phase
-            if c.beta_warmup:
-                beta = c.beta_max * min(1.0, (epoch_in_phase + 1) / 10)
-            else:
-                beta = c.beta_max
+            beta = c.beta_max * min(1.0, (epoch_in_phase + 1) / 10) if c.beta_warmup else c.beta_max
 
             return 2, 1.0, beta * kl_weight, 0.0, 0.0
 
@@ -193,7 +191,7 @@ class CurriculumTrainer:
         indices: torch.Tensor,
         optimizer: torch.optim.Optimizer,
         epoch: int,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Train for one epoch."""
         self.model.train()
 
@@ -256,9 +254,9 @@ class CurriculumTrainer:
         self,
         ops: torch.Tensor,
         indices: torch.Tensor,
-        eval_fn: Optional[Callable] = None,
+        eval_fn: Callable | None = None,
         verbose: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Full training with curriculum.
 
         Args:
@@ -321,16 +319,13 @@ class CurriculumTrainer:
         with torch.no_grad():
             outputs = self.model(ops)
             z = outputs.get("z_euc", outputs["z"])
-            z_hyp = outputs.get("z_hyp", z)
+            outputs.get("z_hyp", z)
 
             pred = outputs["logits"].argmax(dim=-1)
             target = (ops + 1).long()
             final_accuracy = (pred == target).float().mean().item()
 
-            if eval_fn is not None:
-                final_metrics = eval_fn(z, indices)
-            else:
-                final_metrics = {}
+            final_metrics = eval_fn(z, indices) if eval_fn is not None else {}
 
         return {
             "accuracy": final_accuracy,

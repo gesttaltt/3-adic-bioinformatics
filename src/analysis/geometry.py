@@ -5,7 +5,6 @@
 #
 # For commercial licensing inquiries: support@aiwhisperers.com
 
-from typing import Optional
 
 import torch
 
@@ -46,7 +45,7 @@ def compute_delta_hyperbolicity(embeddings: torch.Tensor, sample_size: int = 100
     N = embeddings.shape[0]
 
     # Subsample if N is too large
-    if N > sample_size:
+    if sample_size < N:
         indices = torch.randperm(N)[:sample_size]
         X = embeddings[indices]
         N = sample_size
@@ -130,7 +129,7 @@ def compute_ultrametricity_score(embeddings: torch.Tensor, sample_size: int = 10
         float: Score in [0, 1]
     """
     N = embeddings.shape[0]
-    if N > sample_size:
+    if sample_size < N:
         indices = torch.randperm(N)[:sample_size]
         X = embeddings[indices]
         N = sample_size
@@ -179,7 +178,7 @@ def compute_ultrametricity_score(embeddings: torch.Tensor, sample_size: int = 10
     return score
 
 
-def compute_tree_correlation(embeddings: torch.Tensor, labels: Optional[torch.Tensor] = None) -> float:
+def compute_tree_correlation(embeddings: torch.Tensor, labels: torch.Tensor | None = None) -> float:
     """Compute correlation with tree distance if ground truth structure is known.
 
     Since we don't always have tree labels, we might compute 'hierarchical' score.

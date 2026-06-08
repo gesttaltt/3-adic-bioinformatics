@@ -30,7 +30,7 @@ Usage:
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 # Type variables for input and output
 InputType = TypeVar("InputType")
@@ -44,9 +44,9 @@ class AnalysisMetadata:
     analysis_name: str
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     version: str = "1.0.0"
-    parameters: Dict[str, Any] = field(default_factory=dict)
-    warnings: List[str] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    parameters: dict[str, Any] = field(default_factory=dict)
+    warnings: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -93,7 +93,7 @@ class AnalysisOrchestrator(ABC, Generic[InputType, OutputType]):
             **config: Configuration parameters stored in self.config
         """
         self.config = config
-        self._metadata: Optional[AnalysisMetadata] = None
+        self._metadata: AnalysisMetadata | None = None
 
     @abstractmethod
     def _validate_inputs(self, data: InputType) -> None:
@@ -217,7 +217,7 @@ class AnalysisOrchestrator(ABC, Generic[InputType, OutputType]):
             raise
 
 
-class BatchAnalysisOrchestrator(AnalysisOrchestrator[List[InputType], List[OutputType]]):
+class BatchAnalysisOrchestrator(AnalysisOrchestrator[list[InputType], list[OutputType]]):
     """Base class for batch analysis pipelines.
 
     Extends AnalysisOrchestrator to process lists of inputs.
@@ -234,7 +234,7 @@ class BatchAnalysisOrchestrator(AnalysisOrchestrator[List[InputType], List[Outpu
         super().__init__(**config)
         self.parallel = parallel
 
-    def _validate_inputs(self, data: List[InputType]) -> None:
+    def _validate_inputs(self, data: list[InputType]) -> None:
         """Validate batch input.
 
         Args:
@@ -279,7 +279,7 @@ class BatchAnalysisOrchestrator(AnalysisOrchestrator[List[InputType], List[Outpu
         """
         pass
 
-    def _compute(self, data: List[InputType], **kwargs: Any) -> List[OutputType]:
+    def _compute(self, data: list[InputType], **kwargs: Any) -> list[OutputType]:
         """Process all items in the batch.
 
         Args:

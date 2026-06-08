@@ -1174,7 +1174,7 @@ class DrugInteractionChecker:
 
         # Check all pairs
         for i, drug1 in enumerate(normalized_drugs):
-            for drug2 in normalized_drugs[i + 1:]:
+            for drug2 in normalized_drugs[i + 1 :]:
                 interaction = self.check_interaction(drug1, drug2)
                 if interaction:
                     interactions.append(interaction)
@@ -1186,9 +1186,21 @@ class DrugInteractionChecker:
         n_minor = sum(1 for i in interactions if i.severity == InteractionSeverity.MINOR)
 
         # Assess overall risks
-        qt_drugs = [d for d in normalized_drugs if self.drug_database.get(d, DrugInfo("", "", DrugCategory.BETA_LACTAM)).qt_prolongation]
-        nephro_drugs = [d for d in normalized_drugs if self.drug_database.get(d, DrugInfo("", "", DrugCategory.BETA_LACTAM)).nephrotoxic]
-        hepato_drugs = [d for d in normalized_drugs if self.drug_database.get(d, DrugInfo("", "", DrugCategory.BETA_LACTAM)).hepatotoxic]
+        qt_drugs = [
+            d
+            for d in normalized_drugs
+            if self.drug_database.get(d, DrugInfo("", "", DrugCategory.BETA_LACTAM)).qt_prolongation
+        ]
+        nephro_drugs = [
+            d
+            for d in normalized_drugs
+            if self.drug_database.get(d, DrugInfo("", "", DrugCategory.BETA_LACTAM)).nephrotoxic
+        ]
+        hepato_drugs = [
+            d
+            for d in normalized_drugs
+            if self.drug_database.get(d, DrugInfo("", "", DrugCategory.BETA_LACTAM)).hepatotoxic
+        ]
 
         qt_risk = "low"
         if len(qt_drugs) >= 3:
@@ -1213,9 +1225,13 @@ class DrugInteractionChecker:
         if n_contraindicated > 0:
             recommendations.append("URGENT: Contraindicated drug combination(s) detected. Revise regimen immediately.")
         if n_major > 0:
-            recommendations.append(f"CAUTION: {n_major} major interaction(s) detected. Consider alternatives or monitoring.")
+            recommendations.append(
+                f"CAUTION: {n_major} major interaction(s) detected. Consider alternatives or monitoring."
+            )
         if qt_risk == "high":
-            recommendations.append("HIGH QT RISK: Multiple QT-prolonging drugs. Baseline ECG and electrolytes recommended.")
+            recommendations.append(
+                "HIGH QT RISK: Multiple QT-prolonging drugs. Baseline ECG and electrolytes recommended."
+            )
         if nephro_risk == "high":
             recommendations.append("HIGH NEPHROTOXICITY RISK: Monitor renal function daily.")
         if hepato_risk == "high":
@@ -1320,11 +1336,13 @@ class DrugInteractionChecker:
             if name != normalized:
                 interaction = self.check_interaction(normalized, name)
                 if interaction:
-                    interactions.append({
-                        "drug": name,
-                        "severity": interaction.severity.value,
-                        "mechanism": interaction.mechanism.value,
-                    })
+                    interactions.append(
+                        {
+                            "drug": name,
+                            "severity": interaction.severity.value,
+                            "mechanism": interaction.mechanism.value,
+                        }
+                    )
 
         # Sort by severity
         severity_order = {

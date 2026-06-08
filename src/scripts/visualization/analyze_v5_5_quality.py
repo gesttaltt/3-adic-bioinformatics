@@ -156,16 +156,18 @@ def analyze_manifold_quality(encoder_A, encoder_B, decoder_A, device="cpu"):
 
     print("\nPer-position accuracy:")
     for i, acc in enumerate(per_position_acc):
-        print(f"  Position {i}: {acc.item()*100:.2f}%")
+        print(f"  Position {i}: {acc.item() * 100:.2f}%")
 
     # Overall accuracy
     sample_acc = correct.mean(dim=1)
     perfect_recon = (sample_acc == 1.0).sum().item()
     overall_acc = correct.mean().item()
 
-    print(f"\nOverall element accuracy: {overall_acc*100:.2f}%")
-    print(f"Perfect reconstructions: {perfect_recon}/{n_ops} ({perfect_recon/n_ops*100:.2f}%)")
-    print(f"Coverage (>0 correct): {(sample_acc > 0).sum().item()}/{n_ops} ({(sample_acc > 0).sum().item()/n_ops*100:.2f}%)")
+    print(f"\nOverall element accuracy: {overall_acc * 100:.2f}%")
+    print(f"Perfect reconstructions: {perfect_recon}/{n_ops} ({perfect_recon / n_ops * 100:.2f}%)")
+    print(
+        f"Coverage (>0 correct): {(sample_acc > 0).sum().item()}/{n_ops} ({(sample_acc > 0).sum().item() / n_ops * 100:.2f}%)"
+    )
 
     # 2. RADIAL DISTRIBUTION
     print("\n" + "-" * 70)
@@ -177,8 +179,12 @@ def analyze_manifold_quality(encoder_A, encoder_B, decoder_A, device="cpu"):
     radii_A = poincare_distance(z_A, origin, c=1.0).cpu().numpy()
     radii_B = poincare_distance(z_B, origin, c=1.0).cpu().numpy()
 
-    print(f"\nVAE-A radii: mean={radii_A.mean():.4f}, std={radii_A.std():.4f}, min={radii_A.min():.4f}, max={radii_A.max():.4f}")
-    print(f"VAE-B radii: mean={radii_B.mean():.4f}, std={radii_B.std():.4f}, min={radii_B.min():.4f}, max={radii_B.max():.4f}")
+    print(
+        f"\nVAE-A radii: mean={radii_A.mean():.4f}, std={radii_A.std():.4f}, min={radii_A.min():.4f}, max={radii_A.max():.4f}"
+    )
+    print(
+        f"VAE-B radii: mean={radii_B.mean():.4f}, std={radii_B.std():.4f}, min={radii_B.min():.4f}, max={radii_B.max():.4f}"
+    )
 
     # Analyze radius vs 3-adic valuation
     valuations = np.array([compute_3adic_valuation(i) for i in range(n_ops)])
@@ -257,7 +263,7 @@ def analyze_manifold_quality(encoder_A, encoder_B, decoder_A, device="cpu"):
         if count > 0:
             region_correct = correct[mask].mean().item()
             region_perfect = (sample_acc[mask] == 1.0).sum().item()
-            print(f"  v={v:6d} | {count:5d} | {region_correct*100:7.2f}% | {region_perfect:5d}")
+            print(f"  v={v:6d} | {count:5d} | {region_correct * 100:7.2f}% | {region_perfect:5d}")
 
     # 5. SPECIAL OPERATIONS ANALYSIS
     print("\n" + "-" * 70)
@@ -276,7 +282,7 @@ def analyze_manifold_quality(encoder_A, encoder_B, decoder_A, device="cpu"):
     # Constant operations
     const_ops = [np.full(9, -1), np.full(9, 0), np.full(9, 1)]
     const_names = ["const_-1", "const_0", "const_1"]
-    for name, const_op in zip(const_names, const_ops):
+    for name, const_op in zip(const_names, const_ops, strict=False):
         for idx, op in enumerate(operations):
             if np.array_equal(op, const_op):
                 special_ops[name] = idx
@@ -296,7 +302,7 @@ def analyze_manifold_quality(encoder_A, encoder_B, decoder_A, device="cpu"):
         radius_A = radii_A[idx]
         radius_B = radii_B[idx]
         v = compute_3adic_valuation(idx)
-        print(f"  {name:10s}: idx={idx:5d}, v_3={v}, acc={acc*100:.0f}%, r_A={radius_A:.3f}, r_B={radius_B:.3f}")
+        print(f"  {name:10s}: idx={idx:5d}, v_3={v}, acc={acc * 100:.0f}%, r_A={radius_A:.3f}, r_B={radius_B:.3f}")
 
     # 6. SUMMARY METRICS
     print("\n" + "=" * 70)
@@ -306,8 +312,8 @@ def analyze_manifold_quality(encoder_A, encoder_B, decoder_A, device="cpu"):
     print(
         f"""
 COVERAGE:
-  - Perfect reconstructions: {perfect_recon/n_ops*100:.1f}%
-  - Overall element accuracy: {overall_acc*100:.1f}%
+  - Perfect reconstructions: {perfect_recon / n_ops * 100:.1f}%
+  - Overall element accuracy: {overall_acc * 100:.1f}%
 
 3-ADIC STRUCTURE:
   - Distance correlation: VAE-A r={corr_A:.3f}, VAE-B r={corr_B:.3f}

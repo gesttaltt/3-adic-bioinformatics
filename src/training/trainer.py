@@ -23,7 +23,7 @@ Inherits from BaseTrainer for:
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import torch
 import torch.optim as optim
@@ -31,14 +31,13 @@ from torch.utils.data import DataLoader
 
 logger = logging.getLogger(__name__)
 
-from .checkpoint_manager import CheckpointManager
 from ..config.constants import N_TERNARY_OPERATIONS
 from ..losses import DualVAELoss, RadialStratificationLoss
 from ..models.curriculum import ContinuousCurriculumModule
 from .base import BaseTrainer
+from .checkpoint_manager import CheckpointManager
 from .monitor import TrainingMonitor
-from .schedulers import (BetaScheduler, LearningRateScheduler,
-                         TemperatureScheduler)
+from .schedulers import BetaScheduler, LearningRateScheduler, TemperatureScheduler
 
 
 class TernaryVAETrainer(BaseTrainer):
@@ -50,7 +49,7 @@ class TernaryVAETrainer(BaseTrainer):
     def __init__(
         self,
         model: torch.nn.Module,
-        config: Dict[str, Any],
+        config: dict[str, Any],
         device: str = "cuda",
     ):
         """Initialize trainer with model and config.
@@ -168,9 +167,13 @@ class TernaryVAETrainer(BaseTrainer):
         logger.info("=" * 60)
         logger.info(f"Total parameters: {total_params:,}")
 
-        if self.config["model"].get("use_statenet", True) and hasattr(self.model, "state_net") and self.model.state_net is not None:
+        if (
+            self.config["model"].get("use_statenet", True)
+            and hasattr(self.model, "state_net")
+            and self.model.state_net is not None
+        ):
             statenet_params = sum(p.numel() for p in self.model.state_net.parameters())
-            logger.info(f"StateNet parameters: {statenet_params:,} ({statenet_params/total_params*100:.2f}%)")
+            logger.info(f"StateNet parameters: {statenet_params:,} ({statenet_params / total_params * 100:.2f}%)")
 
         logger.info(f"Device: {self.device}")
         logger.info(f"Gradient balance: {self.config['model'].get('gradient_balance', True)}")
@@ -178,7 +181,7 @@ class TernaryVAETrainer(BaseTrainer):
         logger.info(f"StateNet enabled: {self.config['model'].get('use_statenet', True)}")
         logger.info(f"torch.compile: {'enabled' if self.compiled else 'disabled'}")
 
-    def _check_best(self, losses: Dict[str, Any]) -> bool:
+    def _check_best(self, losses: dict[str, Any]) -> bool:
         """Check if current losses represent best model."""
         return self.monitor.check_best(losses["loss"])
 
@@ -213,8 +216,8 @@ class TernaryVAETrainer(BaseTrainer):
 
     def _apply_structure_loss(
         self,
-        losses: Dict[str, Any],
-        outputs: Dict[str, Any],
+        losses: dict[str, Any],
+        outputs: dict[str, Any],
         batch_indices: torch.Tensor,
     ) -> None:
         """Apply curriculum-controlled radial stratification loss."""
@@ -251,10 +254,10 @@ class TernaryVAETrainer(BaseTrainer):
 
     def _apply_optimization_feedback(
         self,
-        losses: Dict[str, Any],
-        epoch_losses: Dict[str, Any],
+        losses: dict[str, Any],
+        epoch_losses: dict[str, Any],
         lr_scheduled: float,
-        outputs: Dict[str, Any],
+        outputs: dict[str, Any],
     ) -> None:
         """Apply StateNet corrections or standard LR scheduling."""
         if not self.model.use_statenet:
@@ -324,8 +327,8 @@ class TernaryVAETrainer(BaseTrainer):
 
     def _process_batch_metrics(
         self,
-        losses: Dict[str, Any],
-        epoch_losses: Dict[str, float],
+        losses: dict[str, Any],
+        epoch_losses: dict[str, float],
         batch_idx: int,
         total_batches: int,
         log_interval: int,
@@ -352,7 +355,7 @@ class TernaryVAETrainer(BaseTrainer):
             else:
                 epoch_losses[key] += val
 
-    def train_epoch(self, train_loader: DataLoader, log_interval: int = 10) -> Dict[str, Any]:
+    def train_epoch(self, train_loader: DataLoader, log_interval: int = 10) -> dict[str, Any]:
         """Train for one epoch with batch-level TensorBoard logging."""
         model: Any = self.model  # Cast to avoid mypy errors
         model.train()
@@ -379,7 +382,7 @@ class TernaryVAETrainer(BaseTrainer):
         entropy_weight = self.config["vae_b"]["entropy_weight"]
         repulsion_weight = self.config["vae_b"]["repulsion_weight"]
 
-        epoch_losses: Dict[str, float] = defaultdict(float)
+        epoch_losses: dict[str, float] = defaultdict(float)
         num_batches = len(train_loader)
 
         for batch_idx, batch in enumerate(train_loader):
@@ -467,11 +470,11 @@ class TernaryVAETrainer(BaseTrainer):
 
         return epoch_losses
 
-    def validate(self, val_loader: DataLoader) -> Dict[str, Any]:
+    def validate(self, val_loader: DataLoader) -> dict[str, Any]:
         """Validation pass."""
         model: Any = self.model
         model.eval()
-        epoch_losses: Dict[str, float] = defaultdict(float)
+        epoch_losses: dict[str, float] = defaultdict(float)
         num_batches = 0
 
         temp_a = self.temp_scheduler.get_temperature(self.epoch, "A")
@@ -523,7 +526,7 @@ class TernaryVAETrainer(BaseTrainer):
 
         return epoch_losses
 
-    def train(self, train_loader: DataLoader, val_loader: Optional[DataLoader] = None) -> None:
+    def train(self, train_loader: DataLoader, val_loader: DataLoader | None = None) -> None:
         """Main training loop."""
         logger.info("=" * 60)
         logger.info("Starting Dual Neural VAE Training")
@@ -616,7 +619,9 @@ class TernaryVAETrainer(BaseTrainer):
                     (self.monitor.coverage_A_history[-1] if self.monitor.coverage_A_history else 0),
                     (self.monitor.coverage_B_history[-1] if self.monitor.coverage_B_history else 0),
                 )
-                logger.info(f"Coverage plateaued at {current_cov/N_TERNARY_OPERATIONS*100:.2f}% (no improvement for {coverage_plateau_patience} epochs)")
+                logger.info(
+                    f"Coverage plateaued at {current_cov / N_TERNARY_OPERATIONS * 100:.2f}% (no improvement for {coverage_plateau_patience} epochs)"
+                )
                 break
 
         self.monitor.print_training_summary()

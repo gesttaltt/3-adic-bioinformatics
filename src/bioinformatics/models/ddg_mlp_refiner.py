@@ -18,7 +18,6 @@ The refiner:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -112,8 +111,8 @@ class DDGMLPRefiner(nn.Module):
 
     def __init__(
         self,
-        multimodal_vae: Optional[nn.Module] = None,
-        config: Optional[RefinerConfig] = None,
+        multimodal_vae: nn.Module | None = None,
+        config: RefinerConfig | None = None,
         freeze_vae: bool = True,
     ):
         """Initialize MLP Refiner.
@@ -140,16 +139,14 @@ class DDGMLPRefiner(nn.Module):
 
         # Learnable residual weight
         if config.use_residual:
-            self.residual_weight = nn.Parameter(
-                torch.tensor(config.initial_residual_weight)
-            )
+            self.residual_weight = nn.Parameter(torch.tensor(config.initial_residual_weight))
 
     def _build_refiner(self) -> nn.Module:
         """Build the refinement MLP."""
         layers = []
         in_dim = self.config.latent_dim
 
-        for i, out_dim in enumerate(self.config.hidden_dims):
+        for _i, out_dim in enumerate(self.config.hidden_dims):
             layers.append(
                 ResidualBlock(
                     in_dim=in_dim,
@@ -169,7 +166,7 @@ class DDGMLPRefiner(nn.Module):
     def forward(
         self,
         z_fused: torch.Tensor,
-        vae_pred: Optional[torch.Tensor] = None,
+        vae_pred: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         """Forward pass.
 
@@ -217,9 +214,7 @@ class DDGMLPRefiner(nn.Module):
             raise ValueError("Multimodal VAE not set. Use forward() with latent input.")
 
         # Get VAE predictions and latent
-        vae_output = self.multimodal_vae(
-            x_s669, x_protherm, x_wide, return_latent=True
-        )
+        vae_output = self.multimodal_vae(x_s669, x_protherm, x_wide, return_latent=True)
 
         z_fused = vae_output["z_fused"]
         vae_pred = vae_output["ddg_pred"]
@@ -230,7 +225,7 @@ class DDGMLPRefiner(nn.Module):
         self,
         z_fused: torch.Tensor,
         y: torch.Tensor,
-        vae_pred: Optional[torch.Tensor] = None,
+        vae_pred: torch.Tensor | None = None,
         reduction: str = "mean",
     ) -> dict[str, torch.Tensor]:
         """Compute refiner loss.
@@ -264,7 +259,7 @@ class DDGMLPRefiner(nn.Module):
     def predict(
         self,
         z_fused: torch.Tensor,
-        vae_pred: Optional[torch.Tensor] = None,
+        vae_pred: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Make refined DDG predictions.
 

@@ -21,14 +21,13 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config.paths import CHECKPOINTS_DIR
-
 import json
 
 import numpy as np
 import torch
 from scipy import stats
 
+from src.config.paths import CHECKPOINTS_DIR
 from src.data.generation import generate_all_ternary_operations
 from src.geometry import poincare_distance
 from src.models import TernaryVAE_PartialFreeze
@@ -61,10 +60,10 @@ def compute_zero_pattern(op: np.ndarray) -> str:
 def analyze_checkpoint(checkpoint_path: str, device: str = "cuda"):
     """Run full zero-structure analysis on a checkpoint."""
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("ZERO-TRIT STRUCTURE ANALYSIS")
     print(f"Checkpoint: {checkpoint_path}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # Load model
     model = TernaryVAE_PartialFreeze(
@@ -77,10 +76,7 @@ def analyze_checkpoint(checkpoint_path: str, device: str = "cuda"):
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
     # Handle different checkpoint formats
-    if "model" in checkpoint:
-        state_dict = checkpoint["model"]
-    else:
-        state_dict = checkpoint
+    state_dict = checkpoint.get("model", checkpoint)
 
     # Try to load, handling missing keys gracefully
     try:
@@ -217,10 +213,7 @@ def analyze_checkpoint(checkpoint_path: str, device: str = "cuda"):
 
                 # Zero-position accuracy (how well are zeros reconstructed as zeros?)
                 zero_mask = ops_subset == 0
-                if zero_mask.sum() > 0:
-                    zero_acc = np.mean(recon_subset[zero_mask] == 0)
-                else:
-                    zero_acc = float("nan")
+                zero_acc = np.mean(recon_subset[zero_mask] == 0) if zero_mask.sum() > 0 else float("nan")
 
                 # Non-zero accuracy
                 nonzero_mask = ops_subset != 0

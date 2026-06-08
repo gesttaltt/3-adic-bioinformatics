@@ -34,7 +34,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -65,12 +64,12 @@ class TreeNode:
     """Node in a phylogenetic tree."""
 
     name: str
-    embedding: Optional[torch.Tensor] = None  # Latent representation
-    children: List["TreeNode"] = field(default_factory=list)
-    parent: Optional["TreeNode"] = None
+    embedding: torch.Tensor | None = None  # Latent representation
+    children: list[TreeNode] = field(default_factory=list)
+    parent: TreeNode | None = None
     branch_length: float = 1.0
     is_leaf: bool = True
-    sequence: Optional[str] = None
+    sequence: str | None = None
 
 
 @dataclass
@@ -80,8 +79,8 @@ class AncestralState:
     embedding: torch.Tensor  # Mean ancestral embedding
     uncertainty: torch.Tensor  # Uncertainty (covariance or confidence)
     confidence: float  # Overall confidence score
-    decoded_sequence: Optional[str] = None
-    support_values: Optional[Dict[int, float]] = None  # Per-position support
+    decoded_sequence: str | None = None
+    support_values: dict[int, float] | None = None  # Per-position support
 
 
 @dataclass
@@ -90,7 +89,7 @@ class AncestralNode:
 
     node: TreeNode
     state: AncestralState
-    children_states: List[AncestralState] = field(default_factory=list)
+    children_states: list[AncestralState] = field(default_factory=list)
     reconstruction_method: str = "geodesic_midpoint"
 
 
@@ -104,7 +103,7 @@ class GeodesicInterpolator(nn.Module):
     4. Uncertainty quantification
     """
 
-    def __init__(self, config: Optional[ReconstructionConfig] = None):
+    def __init__(self, config: ReconstructionConfig | None = None):
         """Initialize geodesic interpolator.
 
         Args:
@@ -220,7 +219,7 @@ class GeodesicInterpolator(nn.Module):
     def frechet_mean(
         self,
         points: torch.Tensor,
-        weights: Optional[torch.Tensor] = None,
+        weights: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute Frechet mean (Karcher/Riemannian center of mass).
 
@@ -239,16 +238,11 @@ class GeodesicInterpolator(nn.Module):
         n = points.size(0)
         device = points.device
 
-        if weights is None:
-            weights = torch.ones(n, device=device) / n
-        else:
-            weights = weights / weights.sum()
+        weights = torch.ones(n, device=device) / n if weights is None else weights / weights.sum()
 
         # Initialize with weighted Euclidean mean (projected)
         mean = (weights.unsqueeze(-1) * points).sum(dim=0)
-        mean = project_to_poincare(
-            mean.unsqueeze(0), self.config.max_norm, self.config.curvature
-        ).squeeze(0)
+        mean = project_to_poincare(mean.unsqueeze(0), self.config.max_norm, self.config.curvature).squeeze(0)
 
         # Iterative refinement
         for _ in range(self.config.frechet_max_iterations):
@@ -264,9 +258,7 @@ class GeodesicInterpolator(nn.Module):
 
             # Update mean via exponential map
             mean = self.manifold.expmap(mean.unsqueeze(0), weighted_tangent.unsqueeze(0)).squeeze(0)
-            mean = project_to_poincare(
-                mean.unsqueeze(0), self.config.max_norm, self.config.curvature
-            ).squeeze(0)
+            mean = project_to_poincare(mean.unsqueeze(0), self.config.max_norm, self.config.curvature).squeeze(0)
 
         return mean
 
@@ -274,7 +266,7 @@ class GeodesicInterpolator(nn.Module):
         self,
         mean: torch.Tensor,
         points: torch.Tensor,
-        weights: Optional[torch.Tensor] = None,
+        weights: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute geodesic variance around mean.
 
@@ -293,11 +285,14 @@ class GeodesicInterpolator(nn.Module):
             weights = torch.ones(n, device=device) / n
 
         # Compute squared distances
-        dists_sq = poincare_distance(
-            mean.unsqueeze(0).expand(n, -1),
-            points,
-            c=self.config.curvature,
-        ) ** 2
+        dists_sq = (
+            poincare_distance(
+                mean.unsqueeze(0).expand(n, -1),
+                points,
+                c=self.config.curvature,
+            )
+            ** 2
+        )
 
         return (weights * dists_sq).sum()
 
@@ -336,8 +331,8 @@ class PhylogeneticReconstructor(nn.Module):
 
     def __init__(
         self,
-        config: Optional[ReconstructionConfig] = None,
-        decoder: Optional[nn.Module] = None,
+        config: ReconstructionConfig | None = None,
+        decoder: nn.Module | None = None,
     ):
         """Initialize phylogenetic reconstructor.
 
@@ -352,7 +347,7 @@ class PhylogeneticReconstructor(nn.Module):
 
     def reconstruct_internal_node(
         self,
-        children: List[TreeNode],
+        children: list[TreeNode],
     ) -> AncestralState:
         """Reconstruct internal node from its children.
 
@@ -417,7 +412,7 @@ class PhylogeneticReconstructor(nn.Module):
     def reconstruct_tree(
         self,
         root: TreeNode,
-    ) -> Dict[str, AncestralNode]:
+    ) -> dict[str, AncestralNode]:
         """Reconstruct all internal nodes in a tree.
 
         Performs bottom-up reconstruction from leaves to root.
@@ -435,7 +430,7 @@ class PhylogeneticReconstructor(nn.Module):
     def _reconstruct_recursive(
         self,
         node: TreeNode,
-        results: Dict[str, AncestralNode],
+        results: dict[str, AncestralNode],
     ) -> AncestralState:
         """Recursively reconstruct from leaves up.
 
@@ -485,7 +480,7 @@ class PhylogeneticReconstructor(nn.Module):
         self,
         node: TreeNode,
         n_samples: int = 100,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute bootstrap confidence for ancestral reconstruction.
 
         Args:
@@ -611,7 +606,7 @@ class PhylogeneticReconstructor(nn.Module):
 
 def reconstruct_mrca(
     embeddings: torch.Tensor,
-    weights: Optional[torch.Tensor] = None,
+    weights: torch.Tensor | None = None,
     curvature: float = 1.0,
 ) -> torch.Tensor:
     """Reconstruct Most Recent Common Ancestor from leaf embeddings.
@@ -647,6 +642,7 @@ def evolutionary_distance_matrix(
         Distance matrix (n, n)
     """
     from src.geometry.poincare import poincare_distance_matrix
+
     return poincare_distance_matrix(embeddings, c=curvature)
 
 

@@ -21,11 +21,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
+from typing import Any
 
 import torch
 import torch.nn as nn
-
 
 # =============================================================================
 # Pathogen Configurations
@@ -117,11 +116,12 @@ PATHOGEN_CONFIGS = {
 @dataclass
 class PathogenConfig:
     """Configuration for pathogen-specific model."""
+
     pathogen: str
     gene: str
     input_dim: int
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [256, 128, 64])
+    hidden_dims: list[int] = field(default_factory=lambda: [256, 128, 64])
     dropout: float = 0.1
     n_aa: int = 22
 
@@ -130,11 +130,12 @@ class PathogenConfig:
 # Pathogen-Specific Encoders
 # =============================================================================
 
+
 class PathogenEncoder(ABC, nn.Module):
     """Abstract base class for pathogen-specific encoders."""
 
     @abstractmethod
-    def get_mutation_positions(self) -> List[int]:
+    def get_mutation_positions(self) -> list[int]:
         """Get known resistance mutation positions."""
         pass
 
@@ -170,12 +171,11 @@ class HCVEncoder(PathogenEncoder):
 
         self.output_dim = hidden_dim // 2 + (32 if self.mutation_embed else 0)
 
-    def get_mutation_positions(self) -> List[int]:
+    def get_mutation_positions(self) -> list[int]:
         return self.mutations
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
         batch_size = x.size(0)
-        device = x.device
         n_aa = 22
 
         # Main encoding
@@ -228,7 +228,7 @@ class HBVEncoder(PathogenEncoder):
 
         self.output_dim = hidden_dim // 2 + 32
 
-    def get_mutation_positions(self) -> List[int]:
+    def get_mutation_positions(self) -> list[int]:
         return list(self.key_positions.values())
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
@@ -240,7 +240,7 @@ class HBVEncoder(PathogenEncoder):
         # Extract key position features
         x_reshaped = x.view(batch_size, -1, n_aa)
         pos_features = []
-        for name, pos in self.key_positions.items():
+        for _name, pos in self.key_positions.items():
             if pos <= x_reshaped.size(1):
                 pos_data = x_reshaped[:, pos - 1, :]
                 is_mutated = (pos_data.sum(dim=-1) > 0).float()
@@ -276,9 +276,9 @@ class TBEncoder(PathogenEncoder):
 
         self.output_dim = hidden_dim // 2
 
-    def get_mutation_positions(self) -> List[int]:
+    def get_mutation_positions(self) -> list[int]:
         positions = []
-        for region_name, region_positions in self.resistance_region.items():
+        for _region_name, region_positions in self.resistance_region.items():
             if isinstance(region_positions, list):
                 positions.extend(region_positions)
         return positions
@@ -290,6 +290,7 @@ class TBEncoder(PathogenEncoder):
 # =============================================================================
 # Universal Drug Resistance VAE
 # =============================================================================
+
 
 class UniversalDrugResistanceVAE(nn.Module):
     """Universal VAE for multi-pathogen drug resistance prediction.
@@ -306,7 +307,7 @@ class UniversalDrugResistanceVAE(nn.Module):
         gene: str,
         input_dim: int,
         latent_dim: int = 16,
-        hidden_dims: List[int] = None,
+        hidden_dims: list[int] = None,
         dropout: float = 0.1,
     ):
         super().__init__()
@@ -334,12 +335,14 @@ class UniversalDrugResistanceVAE(nn.Module):
         shared_layers = []
         in_dim = encoder_input
         for h in hidden_dims[1:]:
-            shared_layers.extend([
-                nn.Linear(in_dim, h),
-                nn.GELU(),
-                nn.LayerNorm(h),
-                nn.Dropout(dropout),
-            ])
+            shared_layers.extend(
+                [
+                    nn.Linear(in_dim, h),
+                    nn.GELU(),
+                    nn.LayerNorm(h),
+                    nn.Dropout(dropout),
+                ]
+            )
             in_dim = h
         self.shared_encoder = nn.Sequential(*shared_layers) if shared_layers else nn.Identity()
 
@@ -365,12 +368,9 @@ class UniversalDrugResistanceVAE(nn.Module):
 
         self.drug_names = list(self.drug_heads.keys())
 
-    def forward(self, x: torch.Tensor, drug: str = None) -> Dict[str, Any]:
+    def forward(self, x: torch.Tensor, drug: str = None) -> dict[str, Any]:
         # Pathogen-specific encoding
-        if self.pathogen_encoder:
-            h = self.pathogen_encoder.encode(x)
-        else:
-            h = x
+        h = self.pathogen_encoder.encode(x) if self.pathogen_encoder else x
 
         # Shared encoding
         h = self.shared_encoder(h)
@@ -385,10 +385,7 @@ class UniversalDrugResistanceVAE(nn.Module):
         if drug and drug in self.drug_heads:
             predictions = {drug: self.drug_heads[drug](z).squeeze(-1)}
         else:
-            predictions = {
-                d: head(z).squeeze(-1)
-                for d, head in self.drug_heads.items()
-            }
+            predictions = {d: head(z).squeeze(-1) for d, head in self.drug_heads.items()}
 
         return {
             "mu": mu,
@@ -446,7 +443,7 @@ class CrossPathogenTransfer(nn.Module):
         # New drug heads for target
         self.drug_heads = nn.ModuleDict()
         target_drugs = PATHOGEN_CONFIGS.get(target_pathogen, {}).get("drugs", {})
-        for drug_class, drugs in target_drugs.items():
+        for _drug_class, drugs in target_drugs.items():
             for drug in drugs:
                 self.drug_heads[drug] = nn.Sequential(
                     nn.Linear(self.fc_mu.out_features, 32),
@@ -454,7 +451,7 @@ class CrossPathogenTransfer(nn.Module):
                     nn.Linear(32, 1),
                 )
 
-    def forward(self, x: torch.Tensor, drug: str = None) -> Dict[str, Any]:
+    def forward(self, x: torch.Tensor, drug: str = None) -> dict[str, Any]:
         # Target encoding
         h = self.target_encoder.encode(x)
         h = self.projection(h)
@@ -470,10 +467,7 @@ class CrossPathogenTransfer(nn.Module):
         if drug and drug in self.drug_heads:
             predictions = {drug: self.drug_heads[drug](z).squeeze(-1)}
         else:
-            predictions = {
-                d: head(z).squeeze(-1)
-                for d, head in self.drug_heads.items()
-            }
+            predictions = {d: head(z).squeeze(-1) for d, head in self.drug_heads.items()}
 
         return {
             "mu": mu,

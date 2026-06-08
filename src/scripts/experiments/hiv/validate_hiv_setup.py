@@ -105,7 +105,9 @@ def validate_natural_positions(verbose=False):
     """Validate natural positions JSON."""
     print("\n[3] Validating Natural Positions...")
 
-    positions_path = PROJECT_ROOT / "research" / "bioinformatics" / "genetic_code" / "data" / "natural_positions_v5_11_3.json"
+    positions_path = (
+        PROJECT_ROOT / "research" / "bioinformatics" / "genetic_code" / "data" / "natural_positions_v5_11_3.json"
+    )
 
     if not positions_path.exists():
         print("  [-] Natural positions file not found!")
@@ -116,7 +118,7 @@ def validate_natural_positions(verbose=False):
             data = json.load(f)
 
         positions = data["positions"]
-        labels = data["labels"]
+        data["labels"]
         clusters = data["clusters"]
 
         print(f"  [+] Positions: {len(positions)}")
@@ -156,7 +158,13 @@ def validate_codon_encoder(verbose=False):
 
     encoder_paths = [
         PROJECT_ROOT / "research" / "bioinformatics" / "genetic_code" / "data" / "codon_encoder_3adic.pt",
-        PROJECT_ROOT / "research" / "bioinformatics" / "codon_encoder_research" / "hiv" / "data" / "codon_encoder_3adic.pt",
+        PROJECT_ROOT
+        / "research"
+        / "bioinformatics"
+        / "codon_encoder_research"
+        / "hiv"
+        / "data"
+        / "codon_encoder_3adic.pt",
     ]
 
     encoder_path = None
@@ -187,8 +195,8 @@ def validate_codon_encoder(verbose=False):
         cluster_acc = metadata.get("cluster_accuracy", 0)
         synonymous_acc = metadata.get("synonymous_accuracy", 0)
 
-        print(f"  [+] Cluster accuracy: {cluster_acc*100:.1f}%")
-        print(f"  [+] Synonymous accuracy: {synonymous_acc*100:.1f}%")
+        print(f"  [+] Cluster accuracy: {cluster_acc * 100:.1f}%")
+        print(f"  [+] Synonymous accuracy: {synonymous_acc * 100:.1f}%")
 
         if cluster_acc < 0.7:
             print("  [-] Warning: Low cluster accuracy (< 70%)")
@@ -197,16 +205,74 @@ def validate_codon_encoder(verbose=False):
             print("  [-] Warning: Low synonymous accuracy (< 95%)")
 
         # Validate codon mappings
-        expected_codons = set([
-            "TTT", "TTC", "TTA", "TTG", "TCT", "TCC", "TCA", "TCG",
-            "TAT", "TAC", "TAA", "TAG", "TGT", "TGC", "TGA", "TGG",
-            "CTT", "CTC", "CTA", "CTG", "CCT", "CCC", "CCA", "CCG",
-            "CAT", "CAC", "CAA", "CAG", "CGT", "CGC", "CGA", "CGG",
-            "ATT", "ATC", "ATA", "ATG", "ACT", "ACC", "ACA", "ACG",
-            "AAT", "AAC", "AAA", "AAG", "AGT", "AGC", "AGA", "AGG",
-            "GTT", "GTC", "GTA", "GTG", "GCT", "GCC", "GCA", "GCG",
-            "GAT", "GAC", "GAA", "GAG", "GGT", "GGC", "GGA", "GGG",
-        ])
+        expected_codons = set(
+            [
+                "TTT",
+                "TTC",
+                "TTA",
+                "TTG",
+                "TCT",
+                "TCC",
+                "TCA",
+                "TCG",
+                "TAT",
+                "TAC",
+                "TAA",
+                "TAG",
+                "TGT",
+                "TGC",
+                "TGA",
+                "TGG",
+                "CTT",
+                "CTC",
+                "CTA",
+                "CTG",
+                "CCT",
+                "CCC",
+                "CCA",
+                "CCG",
+                "CAT",
+                "CAC",
+                "CAA",
+                "CAG",
+                "CGT",
+                "CGC",
+                "CGA",
+                "CGG",
+                "ATT",
+                "ATC",
+                "ATA",
+                "ATG",
+                "ACT",
+                "ACC",
+                "ACA",
+                "ACG",
+                "AAT",
+                "AAC",
+                "AAA",
+                "AAG",
+                "AGT",
+                "AGC",
+                "AGA",
+                "AGG",
+                "GTT",
+                "GTC",
+                "GTA",
+                "GTG",
+                "GCT",
+                "GCC",
+                "GCA",
+                "GCG",
+                "GAT",
+                "GAC",
+                "GAA",
+                "GAG",
+                "GGT",
+                "GGC",
+                "GGA",
+                "GGG",
+            ]
+        )
 
         actual_codons = set(codon_map.keys())
         if actual_codons == expected_codons:
@@ -293,9 +359,21 @@ def main():
         (PROJECT_ROOT / "results" / "checkpoints" / "v5_5" / "best.pt", "v5.5 checkpoint", True),
         (PROJECT_ROOT / "results" / "checkpoints" / "v5_11" / "best.pt", "v5.11 checkpoint", False),
         (PROJECT_ROOT / "results" / "checkpoints" / "v5_11_overnight" / "best.pt", "v5.11_overnight checkpoint", False),
-        (PROJECT_ROOT / "research" / "bioinformatics" / "genetic_code" / "data" / "v5_11_3_embeddings.pt", "Embeddings", True),
-        (PROJECT_ROOT / "research" / "bioinformatics" / "genetic_code" / "data" / "natural_positions_v5_11_3.json", "Natural positions", True),
-        (PROJECT_ROOT / "research" / "bioinformatics" / "genetic_code" / "data" / "codon_encoder_3adic.pt", "Codon encoder", True),
+        (
+            PROJECT_ROOT / "research" / "bioinformatics" / "genetic_code" / "data" / "v5_11_3_embeddings.pt",
+            "Embeddings",
+            True,
+        ),
+        (
+            PROJECT_ROOT / "research" / "bioinformatics" / "genetic_code" / "data" / "natural_positions_v5_11_3.json",
+            "Natural positions",
+            True,
+        ),
+        (
+            PROJECT_ROOT / "research" / "bioinformatics" / "genetic_code" / "data" / "codon_encoder_3adic.pt",
+            "Codon encoder",
+            True,
+        ),
     ]
 
     for path, name, required in files_to_check:

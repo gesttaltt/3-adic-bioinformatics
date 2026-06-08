@@ -14,8 +14,9 @@ combining multiple objectives in Pareto optimization.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 import torch
 
@@ -32,7 +33,7 @@ class ObjectiveResult:
 
     score: torch.Tensor
     name: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __repr__(self) -> str:
         return f"ObjectiveResult(name={self.name}, score={self.score.mean().item():.4f})"
@@ -59,7 +60,7 @@ class Objective(ABC):
     def evaluate(
         self,
         latent: torch.Tensor,
-        decoded: Optional[torch.Tensor] = None,
+        decoded: torch.Tensor | None = None,
         **kwargs: Any,
     ) -> ObjectiveResult:
         """Evaluate the objective for given inputs.
@@ -77,7 +78,7 @@ class Objective(ABC):
     def __call__(
         self,
         latent: torch.Tensor,
-        decoded: Optional[torch.Tensor] = None,
+        decoded: torch.Tensor | None = None,
         **kwargs: Any,
     ) -> ObjectiveResult:
         """Alias for evaluate."""
@@ -95,15 +96,15 @@ class ObjectiveRegistry:
 
     def __init__(self):
         """Initialize empty registry."""
-        self._objectives: Dict[str, Objective] = {}
-        self._weights: Dict[str, float] = {}
+        self._objectives: dict[str, Objective] = {}
+        self._weights: dict[str, float] = {}
 
     def register(
         self,
         name: str,
         objective: Objective,
         weight: float = 1.0,
-    ) -> "ObjectiveRegistry":
+    ) -> ObjectiveRegistry:
         """Register an objective function.
 
         Args:
@@ -118,7 +119,7 @@ class ObjectiveRegistry:
         self._weights[name] = weight
         return self
 
-    def unregister(self, name: str) -> "ObjectiveRegistry":
+    def unregister(self, name: str) -> ObjectiveRegistry:
         """Remove an objective from the registry.
 
         Args:
@@ -133,7 +134,7 @@ class ObjectiveRegistry:
         return self
 
     @property
-    def objective_names(self) -> List[str]:
+    def objective_names(self) -> list[str]:
         """Get list of registered objective names."""
         return list(self._objectives.keys())
 
@@ -145,9 +146,9 @@ class ObjectiveRegistry:
     def evaluate_all(
         self,
         latent: torch.Tensor,
-        decoded: Optional[torch.Tensor] = None,
+        decoded: torch.Tensor | None = None,
         **kwargs: Any,
-    ) -> Dict[str, ObjectiveResult]:
+    ) -> dict[str, ObjectiveResult]:
         """Evaluate all registered objectives.
 
         Args:
@@ -166,7 +167,7 @@ class ObjectiveRegistry:
     def get_score_matrix(
         self,
         latent: torch.Tensor,
-        decoded: Optional[torch.Tensor] = None,
+        decoded: torch.Tensor | None = None,
         **kwargs: Any,
     ) -> torch.Tensor:
         """Get matrix of all objective scores for Pareto optimization.
@@ -198,7 +199,7 @@ class ObjectiveRegistry:
     def weighted_sum(
         self,
         latent: torch.Tensor,
-        decoded: Optional[torch.Tensor] = None,
+        decoded: torch.Tensor | None = None,
         **kwargs: Any,
     ) -> torch.Tensor:
         """Compute weighted sum of all objectives.
@@ -225,9 +226,9 @@ class ObjectiveRegistry:
 
     def create_from_config(
         self,
-        config: Dict[str, Dict[str, Any]],
-        objective_factory: Callable[[str, Dict[str, Any]], Objective],
-    ) -> "ObjectiveRegistry":
+        config: dict[str, dict[str, Any]],
+        objective_factory: Callable[[str, dict[str, Any]], Objective],
+    ) -> ObjectiveRegistry:
         """Create registry from configuration dictionary.
 
         Args:

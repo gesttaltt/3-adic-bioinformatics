@@ -18,7 +18,6 @@ Single responsibility: Improved encoder/decoder with modern architecture.
 """
 
 from pathlib import Path
-from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -98,7 +97,7 @@ class ImprovedEncoder(nn.Module):
                 nn.init.ones_(module.weight)
                 nn.init.zeros_(module.bias)
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass with logvar clamping.
 
         Args:
@@ -339,7 +338,7 @@ class ImprovedDecoder(nn.Module):
 
 def create_encoder(
     encoder_type: str = "improved",
-    checkpoint_path: Optional[Path] = None,
+    checkpoint_path: Path | None = None,
     encoder_prefix: str = "encoder_A",
     device: str = "cpu",
     freeze: bool = False,
@@ -362,9 +361,7 @@ def create_encoder(
 
     if encoder_type == "frozen":
         if checkpoint_path:
-            encoder = FrozenEncoder.from_v5_5_checkpoint(
-                checkpoint_path, encoder_prefix, device
-            )
+            encoder = FrozenEncoder.from_v5_5_checkpoint(checkpoint_path, encoder_prefix, device)
         else:
             encoder = FrozenEncoder()
     elif encoder_type == "improved":
@@ -385,7 +382,7 @@ def create_encoder(
 
 def create_decoder(
     decoder_type: str = "improved",
-    checkpoint_path: Optional[Path] = None,
+    checkpoint_path: Path | None = None,
     decoder_prefix: str = "decoder_A",
     device: str = "cpu",
     freeze: bool = False,
@@ -408,9 +405,7 @@ def create_decoder(
 
     if decoder_type == "frozen":
         if checkpoint_path:
-            decoder = FrozenDecoder.from_v5_5_checkpoint(
-                checkpoint_path, decoder_prefix, device
-            )
+            decoder = FrozenDecoder.from_v5_5_checkpoint(checkpoint_path, decoder_prefix, device)
         else:
             decoder = FrozenDecoder()
     elif decoder_type == "improved":

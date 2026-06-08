@@ -29,7 +29,7 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 
 class StructuredFormatter(logging.Formatter):
@@ -88,9 +88,8 @@ class StructuredFormatter(logging.Formatter):
                 "threadName",
                 "event",
                 "metrics",
-            ):
-                if not key.startswith("_"):
-                    log_entry[key] = value
+            ) and not key.startswith("_"):
+                log_entry[key] = value
 
         return json.dumps(log_entry)
 
@@ -110,7 +109,7 @@ class ColoredFormatter(logging.Formatter):
     }
     RESET = "\033[0m"
 
-    def __init__(self, fmt: Optional[str] = None, use_colors: bool = True):
+    def __init__(self, fmt: str | None = None, use_colors: bool = True):
         """Initialize colored formatter.
 
         Args:
@@ -130,8 +129,8 @@ class ColoredFormatter(logging.Formatter):
 
 
 def setup_logging(
-    level: Union[str, int] = "INFO",
-    log_file: Optional[Union[str, Path]] = None,
+    level: str | int = "INFO",
+    log_file: str | Path | None = None,
     json_format: bool = False,
     console: bool = True,
     colored: bool = True,
@@ -193,11 +192,7 @@ def setup_logging(
         if json_format:
             file_handler.setFormatter(StructuredFormatter())
         else:
-            file_handler.setFormatter(
-                logging.Formatter(
-                    "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
-                )
-            )
+            file_handler.setFormatter(logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"))
 
         root_logger.addHandler(file_handler)
 
@@ -236,7 +231,7 @@ class LogContext:
             logger.info("Processing...")  # Includes epoch and phase
     """
 
-    _context: Dict[str, Any] = {}
+    _context: dict[str, Any] = {}
 
     def __init__(self, **kwargs):
         """Initialize log context with extra fields."""

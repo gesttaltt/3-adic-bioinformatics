@@ -385,10 +385,7 @@ def create_tube_mesh(path, radius=0.008, n_sides=6):
             t = path[i + 1] - path[i - 1]
         t = t / (np.linalg.norm(t) + 1e-8)
 
-        if abs(t[0]) < 0.9:
-            p1 = np.cross(t, [1, 0, 0])
-        else:
-            p1 = np.cross(t, [0, 1, 0])
+        p1 = np.cross(t, [1, 0, 0]) if abs(t[0]) < 0.9 else np.cross(t, [0, 1, 0])
         p1 = p1 / (np.linalg.norm(p1) + 1e-8)
         p2 = np.cross(t, p1)
 
@@ -529,7 +526,7 @@ for idx, (name, result) in enumerate(all_results.items()):
 
 plt.suptitle(
     f"v5.8 Multi-Layer Embeddings: 8 Calabi-Yau Projections ({N_FIBERS} fibers each)\n"
-    f'Coverage: {ckpt["best_coverage"]:.1f}%, Correlation: {ckpt["best_corr"]:.3f}',
+    f"Coverage: {ckpt['best_coverage']:.1f}%, Correlation: {ckpt['best_corr']:.3f}",
     fontsize=14,
 )
 plt.tight_layout()
@@ -570,7 +567,7 @@ for i in range(n_proj):
         ax.text(
             j,
             i,
-            f"{corr_matrix[i,j]:.2f}",
+            f"{corr_matrix[i, j]:.2f}",
             ha="center",
             va="center",
             fontsize=9,

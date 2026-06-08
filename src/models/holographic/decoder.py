@@ -18,7 +18,6 @@ with the latent code as a "bulk" field that propagates outward.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -79,7 +78,7 @@ class HolographicDecoder(nn.Module):
 
     def __init__(
         self,
-        config: Optional[HolographicDecoderConfig] = None,
+        config: HolographicDecoderConfig | None = None,
     ):
         """Initialize holographic decoder.
 
@@ -134,9 +133,9 @@ class HolographicDecoder(nn.Module):
     def forward(
         self,
         z: torch.Tensor,
-        seq_len: Optional[int] = None,
+        seq_len: int | None = None,
         return_intermediates: bool = False,
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, torch.Tensor]]]:
+    ) -> torch.Tensor | tuple[torch.Tensor, dict[str, torch.Tensor]]:
         """Decode latent code to sequence logits.
 
         Args:
@@ -148,7 +147,7 @@ class HolographicDecoder(nn.Module):
             logits: Output logits (batch, seq_len, output_dim)
             intermediates: Optional dict of intermediate values
         """
-        batch_size = z.size(0)
+        z.size(0)
         device = z.device
         seq_len = seq_len or self.config.max_seq_len
 
@@ -156,9 +155,7 @@ class HolographicDecoder(nn.Module):
 
         # Step 1: Bulk-to-boundary propagation
         # This is the core holographic operation
-        boundary_repr = self.propagator(
-            z, n_boundary_points=seq_len
-        )  # (batch, seq_len, hidden_dim)
+        boundary_repr = self.propagator(z, n_boundary_points=seq_len)  # (batch, seq_len, hidden_dim)
 
         if return_intermediates:
             intermediates["after_propagation"] = boundary_repr.clone()
@@ -185,8 +182,8 @@ class HolographicDecoder(nn.Module):
     def decode_with_radius_conditioning(
         self,
         z: torch.Tensor,
-        target_radius: Optional[torch.Tensor] = None,
-        seq_len: Optional[int] = None,
+        target_radius: torch.Tensor | None = None,
+        seq_len: int | None = None,
     ) -> torch.Tensor:
         """Decode with explicit radius conditioning.
 
@@ -207,9 +204,7 @@ class HolographicDecoder(nn.Module):
             origin = torch.zeros_like(z)
             current_radius = poincare_distance(z, origin, c=self.config.curvature).unsqueeze(-1)
             direction = z / current_radius.clamp(min=1e-8)
-            z = direction * target_radius.unsqueeze(-1).clamp(
-                max=self.config.curvature - 1e-3
-            )
+            z = direction * target_radius.unsqueeze(-1).clamp(max=self.config.curvature - 1e-3)
 
         return self.forward(z, seq_len)
 
@@ -217,7 +212,7 @@ class HolographicDecoder(nn.Module):
         self,
         z: torch.Tensor,
         target: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
+        mask: torch.Tensor | None = None,
         reduction: str = "mean",
     ) -> torch.Tensor:
         """Compute reconstruction loss with optional masking.
@@ -243,13 +238,11 @@ class HolographicDecoder(nn.Module):
             logits_flat = logits_flat[mask_flat]
             target_flat = target_flat[mask_flat]
 
-        loss = F.cross_entropy(
-            logits_flat, target_flat, reduction=reduction
-        )
+        loss = F.cross_entropy(logits_flat, target_flat, reduction=reduction)
 
         return loss
 
-    def get_parameter_efficiency(self) -> Dict[str, int]:
+    def get_parameter_efficiency(self) -> dict[str, int]:
         """Compare parameter count with standard MLP decoder.
 
         Returns:
@@ -295,16 +288,12 @@ class HolographicRefinementLayer(nn.Module):
         self.use_attention = use_attention
 
         # Local convolution for short-range dependencies
-        self.conv = nn.Conv1d(
-            hidden_dim, hidden_dim, kernel_size=3, padding=1
-        )
+        self.conv = nn.Conv1d(hidden_dim, hidden_dim, kernel_size=3, padding=1)
         self.norm1 = nn.LayerNorm(hidden_dim)
 
         # Optional attention for long-range dependencies
         if use_attention:
-            self.attention = nn.MultiheadAttention(
-                hidden_dim, num_heads=4, dropout=dropout, batch_first=True
-            )
+            self.attention = nn.MultiheadAttention(hidden_dim, num_heads=4, dropout=dropout, batch_first=True)
             self.norm2 = nn.LayerNorm(hidden_dim)
 
         # Feed-forward
@@ -355,7 +344,7 @@ class HierarchicalHolographicDecoder(nn.Module):
 
     def __init__(
         self,
-        config: Optional[HolographicDecoderConfig] = None,
+        config: HolographicDecoderConfig | None = None,
         n_scales: int = 3,
     ):
         """Initialize hierarchical decoder.
@@ -374,7 +363,7 @@ class HierarchicalHolographicDecoder(nn.Module):
 
         for i in range(n_scales):
             # Conformal dimension increases with scale
-            delta = self.config.conformal_dim * (2 ** i)
+            delta = self.config.conformal_dim * (2**i)
             prop_config = PropagatorConfig(
                 latent_dim=self.config.latent_dim,
                 boundary_dim=self.config.hidden_dim,
@@ -392,14 +381,12 @@ class HierarchicalHolographicDecoder(nn.Module):
         )
 
         # Output projection
-        self.output_proj = nn.Linear(
-            self.config.hidden_dim, self.config.output_dim
-        )
+        self.output_proj = nn.Linear(self.config.hidden_dim, self.config.output_dim)
 
     def forward(
         self,
         z: torch.Tensor,
-        seq_len: Optional[int] = None,
+        seq_len: int | None = None,
     ) -> torch.Tensor:
         """Decode with multi-scale propagation.
 
@@ -429,7 +416,7 @@ class HierarchicalHolographicDecoder(nn.Module):
 
         return logits
 
-    def get_scale_weights(self) -> List[float]:
+    def get_scale_weights(self) -> list[float]:
         """Get current scale weights."""
         return F.softmax(self.scale_weights, dim=0).tolist()
 

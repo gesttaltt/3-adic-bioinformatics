@@ -11,8 +11,6 @@ with support for cross-task information sharing.
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -28,7 +26,7 @@ class TaskHead(nn.Module):
         self,
         input_dim: int,
         output_dim: int,
-        hidden_dims: List[int] = [128, 64],
+        hidden_dims: list[int] = None,
         dropout: float = 0.1,
     ):
         """Initialize task head.
@@ -39,6 +37,8 @@ class TaskHead(nn.Module):
             hidden_dims: Hidden layer dimensions
             dropout: Dropout rate
         """
+        if hidden_dims is None:
+            hidden_dims = [128, 64]
         super().__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
@@ -47,12 +47,14 @@ class TaskHead(nn.Module):
         prev_dim = input_dim
 
         for hidden_dim in hidden_dims:
-            layers.extend([
-                nn.Linear(prev_dim, hidden_dim),
-                nn.LayerNorm(hidden_dim),
-                nn.SiLU(),
-                nn.Dropout(dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(prev_dim, hidden_dim),
+                    nn.LayerNorm(hidden_dim),
+                    nn.SiLU(),
+                    nn.Dropout(dropout),
+                ]
+            )
             prev_dim = hidden_dim
 
         self.backbone = nn.Sequential(*layers)
@@ -105,7 +107,7 @@ class RegressionHead(TaskHead):
         self,
         x: torch.Tensor,
         return_variance: bool = False,
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """Forward pass with optional variance.
 
         Args:
@@ -129,7 +131,7 @@ class RegressionHead(TaskHead):
         self,
         predictions: torch.Tensor,
         targets: torch.Tensor,
-        variance: Optional[torch.Tensor] = None,
+        variance: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute regression loss.
 
@@ -160,7 +162,7 @@ class ClassificationHead(TaskHead):
         input_dim: int,
         n_classes: int,
         task_type: str = "multiclass",
-        class_weights: Optional[torch.Tensor] = None,
+        class_weights: torch.Tensor | None = None,
         **kwargs,
     ):
         """Initialize classification head.
@@ -272,8 +274,8 @@ class DrugResistanceHead(nn.Module):
         input_dim: int,
         n_drugs: int = 18,
         drug_embedding_dim: int = 32,
-        hidden_dims: List[int] = [256, 128],
-        drug_names: Optional[List[str]] = None,
+        hidden_dims: list[int] = None,
+        drug_names: list[str] | None = None,
     ):
         """Initialize drug resistance head.
 
@@ -284,6 +286,8 @@ class DrugResistanceHead(nn.Module):
             hidden_dims: Hidden layer dimensions
             drug_names: Optional list of drug names
         """
+        if hidden_dims is None:
+            hidden_dims = [256, 128]
         super().__init__()
         self.n_drugs = n_drugs
         self.drug_names = drug_names or [f"Drug_{i}" for i in range(n_drugs)]
@@ -296,30 +300,34 @@ class DrugResistanceHead(nn.Module):
         prev_dim = input_dim
 
         for hidden_dim in hidden_dims[:-1]:
-            shared_layers.extend([
-                nn.Linear(prev_dim, hidden_dim),
-                nn.LayerNorm(hidden_dim),
-                nn.SiLU(),
-            ])
+            shared_layers.extend(
+                [
+                    nn.Linear(prev_dim, hidden_dim),
+                    nn.LayerNorm(hidden_dim),
+                    nn.SiLU(),
+                ]
+            )
             prev_dim = hidden_dim
 
         self.shared_encoder = nn.Sequential(*shared_layers)
 
         # Drug-specific layers
-        self.drug_specific = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(prev_dim + drug_embedding_dim, hidden_dims[-1]),
-                nn.LayerNorm(hidden_dims[-1]),
-                nn.SiLU(),
-                nn.Linear(hidden_dims[-1], 1),
-            )
-            for _ in range(n_drugs)
-        ])
+        self.drug_specific = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Linear(prev_dim + drug_embedding_dim, hidden_dims[-1]),
+                    nn.LayerNorm(hidden_dims[-1]),
+                    nn.SiLU(),
+                    nn.Linear(hidden_dims[-1], 1),
+                )
+                for _ in range(n_drugs)
+            ]
+        )
 
     def forward(
         self,
         x: torch.Tensor,
-        drug_indices: Optional[torch.Tensor] = None,
+        drug_indices: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Predict resistance for drugs.
 
@@ -337,9 +345,7 @@ class DrugResistanceHead(nn.Module):
             # Predict all drugs
             outputs = []
             for i, drug_layer in enumerate(self.drug_specific):
-                drug_emb = self.drug_embeddings(
-                    torch.tensor([i], device=x.device)
-                ).expand(x.shape[0], -1)
+                drug_emb = self.drug_embeddings(torch.tensor([i], device=x.device)).expand(x.shape[0], -1)
                 combined = torch.cat([shared, drug_emb], dim=-1)
                 outputs.append(drug_layer(combined))
 
@@ -348,9 +354,7 @@ class DrugResistanceHead(nn.Module):
             # Predict specific drugs
             outputs = []
             for idx in drug_indices:
-                drug_emb = self.drug_embeddings(
-                    torch.tensor([idx], device=x.device)
-                ).expand(x.shape[0], -1)
+                drug_emb = self.drug_embeddings(torch.tensor([idx], device=x.device)).expand(x.shape[0], -1)
                 combined = torch.cat([shared, drug_emb], dim=-1)
                 outputs.append(self.drug_specific[idx](combined))
 
@@ -417,7 +421,7 @@ class CrossTaskAttention(nn.Module):
     def forward(
         self,
         task_representations: torch.Tensor,
-        task_mask: Optional[torch.Tensor] = None,
+        task_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Apply cross-task attention.
 
@@ -442,7 +446,7 @@ class CrossTaskAttention(nn.Module):
         V = V.view(batch_size, self.n_tasks, self.n_heads, self.head_dim).transpose(1, 2)
 
         # Attention scores
-        scores = torch.matmul(Q, K.transpose(-2, -1)) / (self.head_dim ** 0.5)
+        scores = torch.matmul(Q, K.transpose(-2, -1)) / (self.head_dim**0.5)
 
         if task_mask is not None:
             scores = scores.masked_fill(~task_mask.unsqueeze(1), float("-inf"))
@@ -454,9 +458,7 @@ class CrossTaskAttention(nn.Module):
         context = torch.matmul(attn, V)
 
         # Reshape and project
-        context = context.transpose(1, 2).contiguous().view(
-            batch_size, self.n_tasks, -1
-        )
+        context = context.transpose(1, 2).contiguous().view(batch_size, self.n_tasks, -1)
         output = self.out_proj(context)
 
         # Residual connection and layer norm
@@ -503,8 +505,8 @@ class TaskRouter(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        task_id: Optional[int] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        task_id: int | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Compute routing weights.
 
         Args:

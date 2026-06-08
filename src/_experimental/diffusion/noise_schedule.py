@@ -16,7 +16,6 @@ References:
 from __future__ import annotations
 
 import math
-from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -131,7 +130,7 @@ class NoiseScheduler(nn.Module):
         betas = self.beta_start * (self.beta_end / self.beta_start) ** t
         return betas
 
-    def _extract(self, a: Tensor, t: Tensor, x_shape: Tuple[int, ...]) -> Tensor:
+    def _extract(self, a: Tensor, t: Tensor, x_shape: tuple[int, ...]) -> Tensor:
         """Extract values from a at timestep t.
 
         Args:
@@ -150,8 +149,8 @@ class NoiseScheduler(nn.Module):
         self,
         x: Tensor,
         t: Tensor,
-        noise: Optional[Tensor] = None,
-    ) -> Tuple[Tensor, Tensor]:
+        noise: Tensor | None = None,
+    ) -> tuple[Tensor, Tensor]:
         """Add noise to x at timestep t (forward diffusion).
 
         q(x_t | x_0) = N(x_t; sqrt(alpha_bar_t) * x_0, (1 - alpha_bar_t) * I)
@@ -216,7 +215,7 @@ class NoiseScheduler(nn.Module):
         coef2 = self._extract(self.posterior_mean_coef2, t, x_t.shape)
         return coef1 * x_start + coef2 * x_t
 
-    def get_posterior_variance(self, t: Tensor, x_shape: Tuple[int, ...]) -> Tensor:
+    def get_posterior_variance(self, t: Tensor, x_shape: tuple[int, ...]) -> Tensor:
         """Get posterior variance at timestep t.
 
         Args:
@@ -235,7 +234,7 @@ class NoiseScheduler(nn.Module):
         x_t: Tensor,
         predict_epsilon: bool = True,
         clip_denoised: bool = True,
-        clip_range: Tuple[float, float] = (-1.0, 1.0),
+        clip_range: tuple[float, float] = (-1.0, 1.0),
     ) -> Tensor:
         """Perform one reverse diffusion step.
 
@@ -251,10 +250,7 @@ class NoiseScheduler(nn.Module):
             x_{t-1}
         """
         # Get x_0 prediction
-        if predict_epsilon:
-            x_start = self.remove_noise(x_t, model_output, t)
-        else:
-            x_start = model_output
+        x_start = self.remove_noise(x_t, model_output, t) if predict_epsilon else model_output
 
         # Clip if requested
         if clip_denoised:

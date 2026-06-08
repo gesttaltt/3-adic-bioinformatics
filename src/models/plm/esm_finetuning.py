@@ -30,9 +30,8 @@ References:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -166,7 +165,7 @@ class DiseaseSpecificHead(nn.Module):
         self,
         hidden_size: int,
         num_drugs: int = 1,
-        hidden_dims: Optional[List[int]] = None,
+        hidden_dims: list[int] | None = None,
         dropout: float = 0.1,
     ):
         super().__init__()
@@ -176,11 +175,13 @@ class DiseaseSpecificHead(nn.Module):
         layers = []
         in_dim = hidden_size
         for out_dim in hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, out_dim),
-                nn.GELU(),
-                nn.Dropout(dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, out_dim),
+                    nn.GELU(),
+                    nn.Dropout(dropout),
+                ]
+            )
             in_dim = out_dim
 
         # Output layer
@@ -233,7 +234,7 @@ class ESMFineTuner(nn.Module):
 
     def __init__(
         self,
-        config: Optional[ESMFineTuningConfig] = None,
+        config: ESMFineTuningConfig | None = None,
         disease: str = "hiv",
         device: str = "cuda",
     ):
@@ -339,14 +340,16 @@ class ESMFineTuner(nn.Module):
     def _init_adaptation_layers(self):
         """Initialize adapter layers."""
         if self.config.strategy == FineTuneStrategy.ADAPTER:
-            self.adapters = nn.ModuleList([
-                AdapterLayer(
-                    self.hidden_size,
-                    self.config.adapter_dim,
-                    self.config.dropout,
-                )
-                for _ in range(4)  # Add adapters to last 4 layers
-            ])
+            self.adapters = nn.ModuleList(
+                [
+                    AdapterLayer(
+                        self.hidden_size,
+                        self.config.adapter_dim,
+                        self.config.dropout,
+                    )
+                    for _ in range(4)  # Add adapters to last 4 layers
+                ]
+            )
         else:
             self.adapters = None
 
@@ -365,7 +368,7 @@ class ESMFineTuner(nn.Module):
 
     def encode_sequences(
         self,
-        sequences: Union[str, List[str]],
+        sequences: str | list[str],
     ) -> torch.Tensor:
         """Encode protein sequences using ESM-2.
 
@@ -426,7 +429,7 @@ class ESMFineTuner(nn.Module):
         pooled = self.pooler_activation(self.pooler(pooled))
         return pooled
 
-    def _forward_with_lora(self, inputs: Dict[str, torch.Tensor]):
+    def _forward_with_lora(self, inputs: dict[str, torch.Tensor]):
         """Forward pass with LoRA modifications."""
         # Standard forward pass - LoRA layers are applied separately
         # In practice, would modify attention computation
@@ -434,9 +437,9 @@ class ESMFineTuner(nn.Module):
 
     def forward(
         self,
-        sequences: Union[str, List[str]],
-        labels: Optional[torch.Tensor] = None,
-    ) -> Dict[str, torch.Tensor]:
+        sequences: str | list[str],
+        labels: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Forward pass for drug resistance prediction.
 
         Args:
@@ -467,7 +470,7 @@ class ESMFineTuner(nn.Module):
 
     def predict(
         self,
-        sequences: Union[str, List[str]],
+        sequences: str | list[str],
     ) -> np.ndarray:
         """Predict drug resistance scores.
 
@@ -484,7 +487,7 @@ class ESMFineTuner(nn.Module):
 
     def get_embeddings(
         self,
-        sequences: Union[str, List[str]],
+        sequences: str | list[str],
     ) -> np.ndarray:
         """Get ESM-2 embeddings for sequences.
 
@@ -499,7 +502,7 @@ class ESMFineTuner(nn.Module):
             embeddings = self.encode_sequences(sequences)
             return embeddings.cpu().numpy()
 
-    def get_trainable_parameters(self) -> List[nn.Parameter]:
+    def get_trainable_parameters(self) -> list[nn.Parameter]:
         """Get list of trainable parameters based on strategy."""
         trainable = []
 
@@ -507,7 +510,7 @@ class ESMFineTuner(nn.Module):
             trainable.extend(self.esm2.parameters())
         elif self.config.strategy == FineTuneStrategy.LAST_LAYERS:
             if hasattr(self.esm2, "encoder") and hasattr(self.esm2.encoder, "layer"):
-                for layer in self.esm2.encoder.layer[-self.config.num_unfreeze_layers:]:
+                for layer in self.esm2.encoder.layer[-self.config.num_unfreeze_layers :]:
                     trainable.extend(layer.parameters())
         elif self.config.strategy == FineTuneStrategy.LORA:
             trainable.extend(self.lora_layers.parameters())
@@ -527,28 +530,36 @@ class ESMFineTuner(nn.Module):
         # ESM-2 parameters (if trainable)
         esm_params = [p for p in self.esm2.parameters() if p.requires_grad]
         if esm_params:
-            param_groups.append({
-                "params": esm_params,
-                "lr": self.config.learning_rate * 0.1,  # Lower LR for backbone
-            })
+            param_groups.append(
+                {
+                    "params": esm_params,
+                    "lr": self.config.learning_rate * 0.1,  # Lower LR for backbone
+                }
+            )
 
         # Adaptation layers
         if self.config.strategy == FineTuneStrategy.LORA:
-            param_groups.append({
-                "params": self.lora_layers.parameters(),
-                "lr": self.config.learning_rate,
-            })
+            param_groups.append(
+                {
+                    "params": self.lora_layers.parameters(),
+                    "lr": self.config.learning_rate,
+                }
+            )
         elif self.config.strategy == FineTuneStrategy.ADAPTER:
-            param_groups.append({
-                "params": self.adapters.parameters(),
-                "lr": self.config.learning_rate,
-            })
+            param_groups.append(
+                {
+                    "params": self.adapters.parameters(),
+                    "lr": self.config.learning_rate,
+                }
+            )
 
         # Task head
-        param_groups.append({
-            "params": list(self.pooler.parameters()) + list(self.task_head.parameters()),
-            "lr": self.config.learning_rate,
-        })
+        param_groups.append(
+            {
+                "params": list(self.pooler.parameters()) + list(self.task_head.parameters()),
+                "lr": self.config.learning_rate,
+            }
+        )
 
         return torch.optim.AdamW(
             param_groups,
@@ -565,10 +576,10 @@ class ESMDiseaseTrainer:
     def __init__(
         self,
         model: ESMFineTuner,
-        train_sequences: List[str],
+        train_sequences: list[str],
         train_labels: np.ndarray,
-        val_sequences: Optional[List[str]] = None,
-        val_labels: Optional[np.ndarray] = None,
+        val_sequences: list[str] | None = None,
+        val_labels: np.ndarray | None = None,
         batch_size: int = 16,
         num_epochs: int = 10,
         early_stopping_patience: int = 3,
@@ -587,7 +598,7 @@ class ESMDiseaseTrainer:
         self.best_state = None
         self.patience_counter = 0
 
-    def train(self) -> Dict[str, List[float]]:
+    def train(self) -> dict[str, list[float]]:
         """Train the model.
 
         Returns:
@@ -609,7 +620,7 @@ class ESMDiseaseTrainer:
 
             # Training batches
             for i in range(0, n_samples, self.batch_size):
-                batch_idx = indices[i:i + self.batch_size]
+                batch_idx = indices[i : i + self.batch_size]
                 batch_seqs = [self.train_sequences[j] for j in batch_idx]
                 batch_labels = torch.tensor(
                     self.train_labels[batch_idx],
@@ -658,9 +669,9 @@ class ESMDiseaseTrainer:
 
         with torch.no_grad():
             for i in range(0, n_samples, self.batch_size):
-                batch_seqs = self.val_sequences[i:i + self.batch_size]
+                batch_seqs = self.val_sequences[i : i + self.batch_size]
                 batch_labels = torch.tensor(
-                    self.val_labels[i:i + self.batch_size],
+                    self.val_labels[i : i + self.batch_size],
                     dtype=torch.float32,
                     device=self.model.device_str,
                 )

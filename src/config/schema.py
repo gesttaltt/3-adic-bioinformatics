@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Literal
 
 from .constants import (
     DEFAULT_BATCH_SIZE,
@@ -202,19 +202,15 @@ class TrainingConfig:
     vae_b: VAEConfig = field(default_factory=VAEConfig)
 
     # Paths (support environment variables)
-    checkpoint_dir: str = field(
-        default_factory=lambda: os.getenv("TVAE_CHECKPOINT_DIR", DEFAULT_CHECKPOINT_DIR)
-    )
+    checkpoint_dir: str = field(default_factory=lambda: os.getenv("TVAE_CHECKPOINT_DIR", DEFAULT_CHECKPOINT_DIR))
     log_dir: str = field(default_factory=lambda: os.getenv("TVAE_LOG_DIR", DEFAULT_LOG_DIR))
-    tensorboard_dir: str = field(
-        default_factory=lambda: os.getenv("TVAE_TENSORBOARD_DIR", DEFAULT_TENSORBOARD_DIR)
-    )
+    tensorboard_dir: str = field(default_factory=lambda: os.getenv("TVAE_TENSORBOARD_DIR", DEFAULT_TENSORBOARD_DIR))
 
     # Observability
     log_interval: int = DEFAULT_LOG_INTERVAL
     checkpoint_freq: int = DEFAULT_CHECKPOINT_FREQ
     eval_samples: int = DEFAULT_EVAL_SAMPLES
-    experiment_name: Optional[str] = None
+    experiment_name: str | None = None
 
     # Feature flags
     use_controller: bool = True
@@ -232,7 +228,7 @@ class TrainingConfig:
             raise ConfigValidationError(f"grad_clip must be > 0, got {self.grad_clip}")
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TrainingConfig":
+    def from_dict(cls, data: dict[str, Any]) -> TrainingConfig:
         """Create config from dictionary (e.g., from YAML).
 
         Handles nested dictionaries for sub-configurations.
@@ -263,7 +259,7 @@ class TrainingConfig:
             **data,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert config to dictionary for serialization."""
         from dataclasses import asdict
 

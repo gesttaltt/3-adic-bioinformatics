@@ -36,7 +36,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -48,11 +48,11 @@ from .utils.synthetic_data import ensure_minimum_samples
 class PlasmodiumSpecies(Enum):
     """Plasmodium species."""
 
-    P_FALCIPARUM = "Pf"   # Most deadly
-    P_VIVAX = "Pv"        # Most widespread
+    P_FALCIPARUM = "Pf"  # Most deadly
+    P_VIVAX = "Pv"  # Most widespread
     P_MALARIAE = "Pm"
     P_OVALE = "Po"
-    P_KNOWLESI = "Pk"     # Zoonotic
+    P_KNOWLESI = "Pk"  # Zoonotic
 
 
 class MalariaGene(Enum):
@@ -108,16 +108,20 @@ class MalariaConfig(DiseaseConfig):
     name: str = "malaria"
     display_name: str = "Malaria (Plasmodium)"
     disease_type: DiseaseType = DiseaseType.PARASITIC
-    tasks: list[TaskType] = field(default_factory=lambda: [
-        TaskType.RESISTANCE,
-    ])
+    tasks: list[TaskType] = field(
+        default_factory=lambda: [
+            TaskType.RESISTANCE,
+        ]
+    )
 
-    data_sources: dict[str, str] = field(default_factory=lambda: {
-        "plasmodb": "https://plasmodb.org/",
-        "malariagen": "https://www.malariagen.net/",
-        "who_markers": "https://www.who.int/publications/",
-        "wwarn": "https://www.wwarn.org/",
-    })
+    data_sources: dict[str, str] = field(
+        default_factory=lambda: {
+            "plasmodb": "https://plasmodb.org/",
+            "malariagen": "https://www.malariagen.net/",
+            "who_markers": "https://www.who.int/publications/",
+            "wwarn": "https://www.wwarn.org/",
+        }
+    )
 
 
 # PfKelch13 Artemisinin Resistance Mutations
@@ -137,7 +141,6 @@ KELCH13_MUTATIONS = {
     574: {"P": {"mutations": ["L"], "effect": "high", "category": "validated"}},
     575: {"C": {"mutations": ["Y"], "effect": "high", "category": "validated"}},
     580: {"C": {"mutations": ["Y"], "effect": "high", "category": "validated"}},  # Most common
-
     # WHO Candidate/Associated Markers
     441: {"P": {"mutations": ["L"], "effect": "moderate", "category": "candidate"}},
     481: {"A": {"mutations": ["V"], "effect": "moderate", "category": "candidate"}},
@@ -203,7 +206,7 @@ class MalariaAnalyzer(DiseaseAnalyzer):
     - Geographic spread tracking support
     """
 
-    def __init__(self, config: Optional[MalariaConfig] = None):
+    def __init__(self, config: MalariaConfig | None = None):
         """Initialize analyzer."""
         self.config = config or MalariaConfig()
         super().__init__(self.config)
@@ -215,7 +218,7 @@ class MalariaAnalyzer(DiseaseAnalyzer):
         self,
         sequences: dict[MalariaGene, list[str]],
         species: PlasmodiumSpecies = PlasmodiumSpecies.P_FALCIPARUM,
-        embeddings: Optional[torch.Tensor] = None,
+        embeddings: torch.Tensor | None = None,
         **kwargs,
     ) -> dict[str, Any]:
         """Analyze Plasmodium sequences for drug resistance.
@@ -231,7 +234,7 @@ class MalariaAnalyzer(DiseaseAnalyzer):
         results = {
             "n_sequences": len(next(iter(sequences.values()))) if sequences else 0,
             "species": species.value,
-            "genes_analyzed": [g.value for g in sequences.keys()],
+            "genes_analyzed": [g.value for g in sequences],
             "drug_resistance": {},
             "artemisinin_status": [],
             "act_efficacy": [],
@@ -245,31 +248,21 @@ class MalariaAnalyzer(DiseaseAnalyzer):
 
         # Chloroquine resistance (CRT)
         if MalariaGene.CRT in sequences:
-            results["drug_resistance"]["chloroquine"] = self._analyze_crt(
-                sequences[MalariaGene.CRT]
-            )
+            results["drug_resistance"]["chloroquine"] = self._analyze_crt(sequences[MalariaGene.CRT])
 
         # MDR1
         if MalariaGene.MDR1 in sequences:
-            results["drug_resistance"]["mdr1_profile"] = self._analyze_mdr1(
-                sequences[MalariaGene.MDR1]
-            )
+            results["drug_resistance"]["mdr1_profile"] = self._analyze_mdr1(sequences[MalariaGene.MDR1])
 
         # Antifolates (DHFR + DHPS)
         if MalariaGene.DHFR in sequences:
-            results["drug_resistance"]["pyrimethamine"] = self._analyze_dhfr(
-                sequences[MalariaGene.DHFR]
-            )
+            results["drug_resistance"]["pyrimethamine"] = self._analyze_dhfr(sequences[MalariaGene.DHFR])
         if MalariaGene.DHPS in sequences:
-            results["drug_resistance"]["sulfadoxine"] = self._analyze_dhps(
-                sequences[MalariaGene.DHPS]
-            )
+            results["drug_resistance"]["sulfadoxine"] = self._analyze_dhps(sequences[MalariaGene.DHPS])
 
         # Atovaquone
         if MalariaGene.CYTB in sequences:
-            results["drug_resistance"]["atovaquone"] = self._analyze_cytb(
-                sequences[MalariaGene.CYTB]
-            )
+            results["drug_resistance"]["atovaquone"] = self._analyze_cytb(sequences[MalariaGene.CYTB])
 
         # ACT efficacy prediction
         results["act_efficacy"] = self._predict_act_efficacy(results["drug_resistance"])
@@ -305,14 +298,16 @@ class MalariaAnalyzer(DiseaseAnalyzer):
                     score += effect_scores.get(effect, 0.3)
                     categories.append(category)
 
-                    mutations.append({
-                        "position": pos,
-                        "ref": ref_aa,
-                        "alt": seq_aa,
-                        "effect": effect,
-                        "who_category": category,
-                        "notation": f"K13 {ref_aa}{pos}{seq_aa}",
-                    })
+                    mutations.append(
+                        {
+                            "position": pos,
+                            "ref": ref_aa,
+                            "alt": seq_aa,
+                            "effect": effect,
+                            "who_category": category,
+                            "notation": f"K13 {ref_aa}{pos}{seq_aa}",
+                        }
+                    )
 
             # Normalize
             max_score = 3.0
@@ -388,13 +383,15 @@ class MalariaAnalyzer(DiseaseAnalyzer):
                     effect_scores = {"high": 1.0, "moderate": 0.5, "low": 0.2}
                     score += effect_scores.get(effect, 0.3)
 
-                    mutations.append({
-                        "position": pos,
-                        "ref": ref_aa,
-                        "alt": seq_aa,
-                        "effect": effect,
-                        "notation": f"{gene}_{ref_aa}{pos}{seq_aa}",
-                    })
+                    mutations.append(
+                        {
+                            "position": pos,
+                            "ref": ref_aa,
+                            "alt": seq_aa,
+                            "effect": effect,
+                            "notation": f"{gene}_{ref_aa}{pos}{seq_aa}",
+                        }
+                    )
 
             max_score = 4.0
             normalized = min(score / max_score, 1.0)
@@ -413,9 +410,7 @@ class MalariaAnalyzer(DiseaseAnalyzer):
 
         return results
 
-    def _predict_act_efficacy(
-        self, drug_resistance: dict
-    ) -> list[dict[str, Any]]:
+    def _predict_act_efficacy(self, drug_resistance: dict) -> list[dict[str, Any]]:
         """Predict ACT efficacy based on resistance profiles."""
         efficacy = []
 
@@ -424,21 +419,31 @@ class MalariaAnalyzer(DiseaseAnalyzer):
 
         for i in range(n_seq):
             # Get scores for each component
-            art_score = drug_resistance.get("artemisinin", {}).get("scores", [0])[i] if i < len(drug_resistance.get("artemisinin", {}).get("scores", [])) else 0
+            art_score = (
+                drug_resistance.get("artemisinin", {}).get("scores", [0])[i]
+                if i < len(drug_resistance.get("artemisinin", {}).get("scores", []))
+                else 0
+            )
 
             # Check partner drugs
-            mdr1_score = drug_resistance.get("mdr1_profile", {}).get("scores", [0])[i] if i < len(drug_resistance.get("mdr1_profile", {}).get("scores", [])) else 0
+            mdr1_score = (
+                drug_resistance.get("mdr1_profile", {}).get("scores", [0])[i]
+                if i < len(drug_resistance.get("mdr1_profile", {}).get("scores", []))
+                else 0
+            )
 
             # Predict efficacy for common ACTs
             al_efficacy = 1.0 - (art_score * 0.5 + mdr1_score * 0.3)  # Artemether-lumefantrine
             dha_ppq = 1.0 - (art_score * 0.6)  # DHA-piperaquine
 
-            efficacy.append({
-                "isolate": i,
-                "AL_efficacy": max(0, min(1, al_efficacy)),
-                "DHAPPQ_efficacy": max(0, min(1, dha_ppq)),
-                "treatment_recommendation": self._get_treatment_rec(art_score, mdr1_score),
-            })
+            efficacy.append(
+                {
+                    "isolate": i,
+                    "AL_efficacy": max(0, min(1, al_efficacy)),
+                    "DHAPPQ_efficacy": max(0, min(1, dha_ppq)),
+                    "treatment_recommendation": self._get_treatment_rec(art_score, mdr1_score),
+                }
+            )
 
         return efficacy
 

@@ -25,8 +25,8 @@ from src.models.diffusion.noise_schedule import (
     PAdicNoiseSchedule,
 )
 from src.models.diffusion.sequence_generator import (
-    SequenceGenerator,
     ConditionalGenerator,
+    SequenceGenerator,
 )
 
 __all__ = [

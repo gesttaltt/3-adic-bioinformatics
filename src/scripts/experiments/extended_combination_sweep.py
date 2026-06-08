@@ -23,7 +23,6 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 import numpy as np
 import torch
@@ -39,14 +38,16 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # EXTENDED CONFIGURATION
 # =============================================================================
 
+
 @dataclass
 class ExtendedExperimentConfig:
     """Extended configuration with advanced components."""
+
     name: str
     # Architecture
     model_type: str = "simple_hyperbolic"
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [64, 32])
+    hidden_dims: list[int] = field(default_factory=lambda: [64, 32])
     # Projection
     use_hyperbolic: bool = True
     curvature: float = 1.0
@@ -77,6 +78,7 @@ class ExtendedExperimentConfig:
 @dataclass
 class ExtendedExperimentResult:
     """Results with extended metrics."""
+
     name: str
     accuracy: float
     spearman: float
@@ -87,12 +89,13 @@ class ExtendedExperimentResult:
     # Extended metrics
     coverage: float = 0.0
     stability: float = 1.0
-    error: Optional[str] = None
+    error: str | None = None
 
 
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
+
 
 def compute_padic_distance(i: int, j: int) -> float:
     """Compute 3-adic distance."""
@@ -106,7 +109,7 @@ def compute_padic_distance(i: int, j: int) -> float:
     return 3.0 ** (-k)
 
 
-def evaluate_embeddings(z: torch.Tensor, indices: torch.Tensor) -> Dict[str, float]:
+def evaluate_embeddings(z: torch.Tensor, indices: torch.Tensor) -> dict[str, float]:
     """Evaluate latent space structure."""
     from sklearn.cluster import KMeans
     from sklearn.metrics import silhouette_score
@@ -123,8 +126,7 @@ def evaluate_embeddings(z: torch.Tensor, indices: torch.Tensor) -> Dict[str, flo
     mask = i_idx != j_idx
     i_idx, j_idx = i_idx[mask], j_idx[mask]
 
-    padic_dists = [compute_padic_distance(indices_np[i], indices_np[j])
-                   for i, j in zip(i_idx, j_idx)]
+    padic_dists = [compute_padic_distance(indices_np[i], indices_np[j]) for i, j in zip(i_idx, j_idx, strict=False)]
     latent_dists = np.linalg.norm(z_np[i_idx] - z_np[j_idx], axis=1)
 
     corr, _ = spearmanr(padic_dists, latent_dists)
@@ -149,10 +151,12 @@ def evaluate_embeddings(z: torch.Tensor, indices: torch.Tensor) -> Dict[str, flo
 # MODEL FACTORY
 # =============================================================================
 
+
 def create_model(config: ExtendedExperimentConfig):
     """Create model based on configuration."""
     if config.model_type == "simple":
         from src.models.simple_vae import SimpleVAE
+
         return SimpleVAE(
             input_dim=9,
             latent_dim=config.latent_dim,
@@ -160,6 +164,7 @@ def create_model(config: ExtendedExperimentConfig):
         )
     elif config.model_type == "simple_hyperbolic":
         from src.models.simple_vae import SimpleVAEWithHyperbolic
+
         return SimpleVAEWithHyperbolic(
             input_dim=9,
             latent_dim=config.latent_dim,
@@ -169,6 +174,7 @@ def create_model(config: ExtendedExperimentConfig):
     elif config.model_type == "swarm":
         try:
             from src.models.swarm_vae import SwarmVAE
+
             return SwarmVAE(
                 input_dim=9,
                 latent_dim=config.latent_dim,
@@ -177,10 +183,12 @@ def create_model(config: ExtendedExperimentConfig):
         except ImportError:
             # Fall back to simple
             from src.models.simple_vae import SimpleVAE
+
             return SimpleVAE(input_dim=9, latent_dim=config.latent_dim)
     elif config.model_type == "tropical":
         try:
             from src.models.tropical.tropical_vae import TropicalVAE
+
             return TropicalVAE(
                 input_dim=9,
                 latent_dim=config.latent_dim,
@@ -188,9 +196,11 @@ def create_model(config: ExtendedExperimentConfig):
             )
         except ImportError:
             from src.models.simple_vae import SimpleVAE
+
             return SimpleVAE(input_dim=9, latent_dim=config.latent_dim)
     else:
         from src.models.simple_vae import SimpleVAE
+
         return SimpleVAE(input_dim=9, latent_dim=config.latent_dim)
 
 
@@ -198,11 +208,13 @@ def create_model(config: ExtendedExperimentConfig):
 # OPTIMIZER FACTORY
 # =============================================================================
 
+
 def create_optimizer(model, config: ExtendedExperimentConfig):
     """Create optimizer based on configuration."""
     if config.optimizer_type == "mixed_riemannian":
         try:
             from src.training.optimizers.riemannian import MixedRiemannianOptimizer, OptimizerConfig
+
             opt_config = OptimizerConfig(
                 euclidean_lr=config.learning_rate,
                 manifold_lr=config.learning_rate * 0.1,  # Lower for manifold
@@ -219,27 +231,32 @@ def create_optimizer(model, config: ExtendedExperimentConfig):
 # LOSS FACTORY
 # =============================================================================
 
+
 def create_padic_loss(config: ExtendedExperimentConfig):
     """Create p-adic loss based on configuration."""
     if config.padic_loss_type == "none":
         return None
     elif config.padic_loss_type == "triplet":
         from src.losses.padic import PAdicRankingLoss
+
         return PAdicRankingLoss(margin=0.1, n_triplets=500)
     elif config.padic_loss_type == "soft_ranking":
         return SoftPadicRankingLoss(temperature=0.5)
     elif config.padic_loss_type == "geodesic":
         from src.losses.padic_geodesic import PAdicGeodesicLoss
+
         return PAdicGeodesicLoss(curvature=config.curvature)
     elif config.padic_loss_type == "norm":
         try:
             from src.losses.padic.norm_loss import PAdicNormLoss
+
             return PAdicNormLoss()
         except ImportError:
             return None
     elif config.padic_loss_type == "metric":
         try:
             from src.losses.padic.metric_loss import PAdicMetricLoss
+
             return PAdicMetricLoss()
         except ImportError:
             return None
@@ -252,12 +269,15 @@ def create_radial_loss(config: ExtendedExperimentConfig):
         return None
     elif config.radial_loss_type == "hierarchy":
         from src.losses.padic_geodesic import RadialHierarchyLoss
+
         return RadialHierarchyLoss()
     elif config.radial_loss_type == "monotonic":
         from src.losses.padic_geodesic import MonotonicRadialLoss
+
         return MonotonicRadialLoss()
     elif config.radial_loss_type == "global_rank":
         from src.losses.padic_geodesic import GlobalRankLoss
+
         return GlobalRankLoss()
     return None
 
@@ -267,21 +287,25 @@ def create_kl_loss(config: ExtendedExperimentConfig):
     if config.use_homeostatic_prior:
         try:
             from src.losses.hyperbolic_prior import HomeostaticHyperbolicPrior
+
             return HomeostaticHyperbolicPrior(
                 latent_dim=config.latent_dim,
                 curvature=config.curvature,
             )
         except ImportError:
             from src.losses.dual_vae_loss import KLDivergenceLoss
+
             return KLDivergenceLoss()
     else:
         from src.losses.dual_vae_loss import KLDivergenceLoss
+
         return KLDivergenceLoss()
 
 
 # =============================================================================
 # SOFT P-ADIC RANKING LOSS
 # =============================================================================
+
 
 class SoftPadicRankingLoss(nn.Module):
     """Soft p-adic ranking using KL divergence."""
@@ -297,7 +321,7 @@ class SoftPadicRankingLoss(nn.Module):
             return torch.tensor(0.0, device=z.device)
 
         if n > self.n_samples:
-            idx = torch.randperm(n)[:self.n_samples]
+            idx = torch.randperm(n)[: self.n_samples]
             z = z[idx]
             indices = indices[idx]
             n = self.n_samples
@@ -311,13 +335,14 @@ class SoftPadicRankingLoss(nn.Module):
         latent_ranks = F.softmax(-latent_dist / self.temperature, dim=1)
         padic_ranks = F.softmax(-padic_dist / self.temperature, dim=1)
 
-        loss = F.kl_div(latent_ranks.log(), padic_ranks, reduction='batchmean')
+        loss = F.kl_div(latent_ranks.log(), padic_ranks, reduction="batchmean")
         return loss
 
 
 # =============================================================================
 # FEEDBACK CONTROLLERS
 # =============================================================================
+
 
 class SimpleFeedbackController:
     """Simplified feedback controller for sweep."""
@@ -343,6 +368,7 @@ class SimpleFeedbackController:
 # =============================================================================
 # EXPERIMENT RUNNER
 # =============================================================================
+
 
 def run_experiment(config: ExtendedExperimentConfig) -> ExtendedExperimentResult:
     """Run a single experiment with extended configuration."""
@@ -384,7 +410,7 @@ def run_experiment(config: ExtendedExperimentConfig) -> ExtendedExperimentResult
             recon = recon_fn(logits, ops)
 
             # KL loss
-            if hasattr(kl_fn, 'forward') and 'z' in kl_fn.forward.__code__.co_varnames:
+            if hasattr(kl_fn, "forward") and "z" in kl_fn.forward.__code__.co_varnames:
                 kl = kl_fn(mu, logvar, z)
             else:
                 kl = kl_fn(mu, logvar)
@@ -466,6 +492,7 @@ def run_experiment(config: ExtendedExperimentConfig) -> ExtendedExperimentResult
 
     except Exception as e:
         import traceback
+
         return ExtendedExperimentResult(
             name=config.name,
             accuracy=0.0,
@@ -482,7 +509,8 @@ def run_experiment(config: ExtendedExperimentConfig) -> ExtendedExperimentResult
 # EXPERIMENT DEFINITIONS
 # =============================================================================
 
-def get_phase5_experiments() -> List[ExtendedExperimentConfig]:
+
+def get_phase5_experiments() -> list[ExtendedExperimentConfig]:
     """Phase 5: Advanced training components."""
     experiments = []
 
@@ -497,58 +525,40 @@ def get_phase5_experiments() -> List[ExtendedExperimentConfig]:
     }
 
     # Test feedback controllers
-    experiments.append(ExtendedExperimentConfig(
-        name="adv_baseline",
-        **base
-    ))
+    experiments.append(ExtendedExperimentConfig(name="adv_baseline", **base))
 
-    experiments.append(ExtendedExperimentConfig(
-        name="adv_continuous_feedback",
-        use_continuous_feedback=True,
-        **base
-    ))
+    experiments.append(ExtendedExperimentConfig(name="adv_continuous_feedback", use_continuous_feedback=True, **base))
 
-    experiments.append(ExtendedExperimentConfig(
-        name="adv_curriculum",
-        use_curriculum=True,
-        **base
-    ))
+    experiments.append(ExtendedExperimentConfig(name="adv_curriculum", use_curriculum=True, **base))
 
-    experiments.append(ExtendedExperimentConfig(
-        name="adv_feedback_curriculum",
-        use_continuous_feedback=True,
-        use_curriculum=True,
-        **base
-    ))
+    experiments.append(
+        ExtendedExperimentConfig(
+            name="adv_feedback_curriculum", use_continuous_feedback=True, use_curriculum=True, **base
+        )
+    )
 
     # Test homeostatic losses
-    experiments.append(ExtendedExperimentConfig(
-        name="adv_homeostatic_prior",
-        use_homeostatic_prior=True,
-        **base
-    ))
+    experiments.append(ExtendedExperimentConfig(name="adv_homeostatic_prior", use_homeostatic_prior=True, **base))
 
     # Test different optimizers
-    experiments.append(ExtendedExperimentConfig(
-        name="adv_riemannian_opt",
-        optimizer_type="mixed_riemannian",
-        **base
-    ))
+    experiments.append(ExtendedExperimentConfig(name="adv_riemannian_opt", optimizer_type="mixed_riemannian", **base))
 
     # Combined advanced
-    experiments.append(ExtendedExperimentConfig(
-        name="adv_full_stack",
-        use_continuous_feedback=True,
-        use_curriculum=True,
-        use_homeostatic_prior=True,
-        optimizer_type="mixed_riemannian",
-        **base
-    ))
+    experiments.append(
+        ExtendedExperimentConfig(
+            name="adv_full_stack",
+            use_continuous_feedback=True,
+            use_curriculum=True,
+            use_homeostatic_prior=True,
+            optimizer_type="mixed_riemannian",
+            **base,
+        )
+    )
 
     return experiments
 
 
-def get_phase6_experiments() -> List[ExtendedExperimentConfig]:
+def get_phase6_experiments() -> list[ExtendedExperimentConfig]:
     """Phase 6: Alternative model architectures."""
     experiments = []
 
@@ -559,42 +569,40 @@ def get_phase6_experiments() -> List[ExtendedExperimentConfig]:
     }
 
     # SwarmVAE tests
-    experiments.append(ExtendedExperimentConfig(
-        name="swarm_baseline",
-        model_type="swarm",
-        use_hyperbolic=False,
-        **base
-    ))
+    experiments.append(
+        ExtendedExperimentConfig(name="swarm_baseline", model_type="swarm", use_hyperbolic=False, **base)
+    )
 
-    experiments.append(ExtendedExperimentConfig(
-        name="swarm_triplet_monotonic",
-        model_type="swarm",
-        use_hyperbolic=False,
-        padic_loss_type="triplet",
-        radial_loss_type="monotonic",
-        **base
-    ))
+    experiments.append(
+        ExtendedExperimentConfig(
+            name="swarm_triplet_monotonic",
+            model_type="swarm",
+            use_hyperbolic=False,
+            padic_loss_type="triplet",
+            radial_loss_type="monotonic",
+            **base,
+        )
+    )
 
     # TropicalVAE tests
-    experiments.append(ExtendedExperimentConfig(
-        name="tropical_baseline",
-        model_type="tropical",
-        use_hyperbolic=False,
-        **base
-    ))
+    experiments.append(
+        ExtendedExperimentConfig(name="tropical_baseline", model_type="tropical", use_hyperbolic=False, **base)
+    )
 
-    experiments.append(ExtendedExperimentConfig(
-        name="tropical_soft_ranking",
-        model_type="tropical",
-        use_hyperbolic=False,
-        padic_loss_type="soft_ranking",
-        **base
-    ))
+    experiments.append(
+        ExtendedExperimentConfig(
+            name="tropical_soft_ranking",
+            model_type="tropical",
+            use_hyperbolic=False,
+            padic_loss_type="soft_ranking",
+            **base,
+        )
+    )
 
     return experiments
 
 
-def get_phase7_experiments() -> List[ExtendedExperimentConfig]:
+def get_phase7_experiments() -> list[ExtendedExperimentConfig]:
     """Phase 7: Alternative loss combinations."""
     experiments = []
 
@@ -607,28 +615,28 @@ def get_phase7_experiments() -> List[ExtendedExperimentConfig]:
 
     # Test untested p-adic losses
     for padic_type in ["norm", "metric"]:
-        experiments.append(ExtendedExperimentConfig(
-            name=f"loss_padic_{padic_type}",
-            padic_loss_type=padic_type,
-            radial_loss_type="monotonic",
-            **base
-        ))
+        experiments.append(
+            ExtendedExperimentConfig(
+                name=f"loss_padic_{padic_type}", padic_loss_type=padic_type, radial_loss_type="monotonic", **base
+            )
+        )
 
     # Homeostatic combinations
-    experiments.append(ExtendedExperimentConfig(
-        name="loss_homeostatic_soft",
-        use_homeostatic_prior=True,
-        padic_loss_type="soft_ranking",
-        **base
-    ))
+    experiments.append(
+        ExtendedExperimentConfig(
+            name="loss_homeostatic_soft", use_homeostatic_prior=True, padic_loss_type="soft_ranking", **base
+        )
+    )
 
-    experiments.append(ExtendedExperimentConfig(
-        name="loss_homeostatic_geodesic",
-        use_homeostatic_prior=True,
-        padic_loss_type="geodesic",
-        radial_loss_type="hierarchy",
-        **base
-    ))
+    experiments.append(
+        ExtendedExperimentConfig(
+            name="loss_homeostatic_geodesic",
+            use_homeostatic_prior=True,
+            padic_loss_type="geodesic",
+            radial_loss_type="hierarchy",
+            **base,
+        )
+    )
 
     return experiments
 
@@ -636,6 +644,7 @@ def get_phase7_experiments() -> List[ExtendedExperimentConfig]:
 # =============================================================================
 # MAIN
 # =============================================================================
+
 
 def main():
     parser = argparse.ArgumentParser(description="Extended Combination Sweep")
@@ -692,7 +701,9 @@ def main():
     print("\n" + "=" * 100)
     print("RESULTS SUMMARY (sorted by composite score)")
     print("=" * 100)
-    print(f"{'Rank':<5} {'Experiment':<35} {'Accuracy':>10} {'Spearman':>10} {'Silhouette':>10} {'Stability':>10} {'Score':>8}")
+    print(
+        f"{'Rank':<5} {'Experiment':<35} {'Accuracy':>10} {'Spearman':>10} {'Silhouette':>10} {'Stability':>10} {'Score':>8}"
+    )
     print("-" * 100)
 
     for i, r in enumerate(results, 1):
@@ -700,35 +711,39 @@ def main():
             print(f"{i:<5} {r.name:<35} {'ERROR':<10} {r.error[:40]}")
         else:
             s = score(r)
-            print(f"{i:<5} {r.name:<35} {r.accuracy:>9.1%} {r.spearman:>+10.4f} {r.silhouette:>10.4f} {r.stability:>10.2f} {s:>8.4f}")
+            print(
+                f"{i:<5} {r.name:<35} {r.accuracy:>9.1%} {r.spearman:>+10.4f} {r.silhouette:>10.4f} {r.stability:>10.2f} {s:>8.4f}"
+            )
 
     # Save results
     results_data = []
     for r in results:
-        results_data.append({
-            "name": r.name,
-            "accuracy": r.accuracy,
-            "spearman": r.spearman,
-            "silhouette": r.silhouette,
-            "stability": r.stability,
-            "training_time": r.training_time,
-            "final_loss": r.final_loss,
-            "error": r.error,
-            "config": {
-                "model_type": r.config.model_type,
-                "latent_dim": r.config.latent_dim,
-                "use_hyperbolic": r.config.use_hyperbolic,
-                "curvature": r.config.curvature,
-                "padic_loss_type": r.config.padic_loss_type,
-                "radial_loss_type": r.config.radial_loss_type,
-                "beta": r.config.beta,
-                "beta_schedule": r.config.beta_schedule,
-                "optimizer_type": r.config.optimizer_type,
-                "use_continuous_feedback": r.config.use_continuous_feedback,
-                "use_curriculum": r.config.use_curriculum,
-                "use_homeostatic_prior": r.config.use_homeostatic_prior,
+        results_data.append(
+            {
+                "name": r.name,
+                "accuracy": r.accuracy,
+                "spearman": r.spearman,
+                "silhouette": r.silhouette,
+                "stability": r.stability,
+                "training_time": r.training_time,
+                "final_loss": r.final_loss,
+                "error": r.error,
+                "config": {
+                    "model_type": r.config.model_type,
+                    "latent_dim": r.config.latent_dim,
+                    "use_hyperbolic": r.config.use_hyperbolic,
+                    "curvature": r.config.curvature,
+                    "padic_loss_type": r.config.padic_loss_type,
+                    "radial_loss_type": r.config.radial_loss_type,
+                    "beta": r.config.beta,
+                    "beta_schedule": r.config.beta_schedule,
+                    "optimizer_type": r.config.optimizer_type,
+                    "use_continuous_feedback": r.config.use_continuous_feedback,
+                    "use_curriculum": r.config.use_curriculum,
+                    "use_homeostatic_prior": r.config.use_homeostatic_prior,
+                },
             }
-        })
+        )
 
     output_path = PROJECT_ROOT / "outputs" / args.output
     output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -19,8 +19,6 @@ Research Reference:
     RESEARCH_PROPOSALS/Spectral_BioML_Holographic_Embeddings/proposal.md
 """
 
-from typing import Dict, Optional, Tuple
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -84,7 +82,7 @@ class GraphLaplacianEncoder(nn.Module):
 
         return laplacian
 
-    def forward(self, adjacency: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, adjacency: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Extract spectral features from graph.
 
         Args:
@@ -137,7 +135,7 @@ class MultiScaleGraphFeatures(nn.Module):
     def forward(
         self,
         adjacency: torch.Tensor,
-        node_features: Optional[torch.Tensor] = None,
+        node_features: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute multi-scale graph features.
 
@@ -170,7 +168,7 @@ class MultiScaleGraphFeatures(nn.Module):
 
         # Weighted combination
         weights = F.softmax(self.scale_weights, dim=0)
-        combined = sum(w * f for w, f in zip(weights, scale_features))
+        combined = sum(w * f for w, f in zip(weights, scale_features, strict=False))
 
         # Pad or project to hidden_dim
         if combined.shape[-1] < self.hidden_dim:
@@ -306,8 +304,8 @@ class HolographicEncoder(nn.Module):
     def forward(
         self,
         adjacency: torch.Tensor,
-        node_features: Optional[torch.Tensor] = None,
-    ) -> Dict[str, torch.Tensor]:
+        node_features: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Encode graph to holographic Poincare embedding.
 
         Args:
@@ -437,8 +435,8 @@ class PPINetworkEncoder(nn.Module):
         self,
         protein_ids: torch.Tensor,
         adjacency: torch.Tensor,
-        confidence_scores: Optional[torch.Tensor] = None,
-    ) -> Dict[str, torch.Tensor]:
+        confidence_scores: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Encode PPI network.
 
         Args:
@@ -473,7 +471,7 @@ class HierarchicalProteinEmbedding(nn.Module):
 
     def __init__(
         self,
-        sequence_encoder: Optional[nn.Module] = None,
+        sequence_encoder: nn.Module | None = None,
         hidden_dim: int = 128,
         output_dim: int = 16,
         curvature: float = 1.0,
@@ -515,9 +513,9 @@ class HierarchicalProteinEmbedding(nn.Module):
     def forward(
         self,
         adjacency: torch.Tensor,
-        sequences: Optional[torch.Tensor] = None,
-        node_features: Optional[torch.Tensor] = None,
-    ) -> Dict[str, torch.Tensor]:
+        sequences: torch.Tensor | None = None,
+        node_features: torch.Tensor | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Embed proteins hierarchically.
 
         Args:

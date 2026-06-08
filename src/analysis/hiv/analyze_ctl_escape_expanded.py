@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -32,13 +32,13 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.biology.codons import AMINO_ACID_TO_CODONS, codon_to_index
 from src.data.hiv import (
+    get_epitopes_by_hla,
+    get_epitopes_by_protein,
     load_lanl_ctl,
     parse_hla_restrictions,
-    get_epitopes_by_protein,
-    get_epitopes_by_hla,
 )
-from src.biology.codons import AMINO_ACID_TO_CODONS, codon_to_index
 
 
 def compute_epitope_embedding(epitope_seq: str) -> np.ndarray:
@@ -121,13 +121,15 @@ def analyze_hla_landscapes(df: pd.DataFrame) -> pd.DataFrame:
         hla_epitopes = get_epitopes_by_hla(df, hla)
         velocity = compute_escape_velocity(hla_epitopes)
 
-        hla_results.append({
-            "HLA": hla,
-            "n_epitopes": count,
-            "mean_radial": velocity["mean_radial_position"],
-            "radial_variance": velocity["radial_variance"],
-            "conservation_score": velocity["conservation_score"],
-        })
+        hla_results.append(
+            {
+                "HLA": hla,
+                "n_epitopes": count,
+                "mean_radial": velocity["mean_radial_position"],
+                "radial_variance": velocity["radial_variance"],
+                "conservation_score": velocity["conservation_score"],
+            }
+        )
 
     return pd.DataFrame(hla_results)
 
@@ -162,15 +164,17 @@ def identify_conserved_epitopes(df: pd.DataFrame, threshold: float = 0.8) -> pd.
         conservation = 1.0 / (1.0 + variance)
 
         if conservation >= threshold:
-            results.append({
-                "Epitope": epitope,
-                "Protein": row.get("Protein", ""),
-                "HLA": row.get("HLA", ""),
-                "HXB2_start": row.get("HXB2_start", ""),
-                "HXB2_end": row.get("HXB2_end", ""),
-                "mean_radial": mean_radial,
-                "conservation_score": conservation,
-            })
+            results.append(
+                {
+                    "Epitope": epitope,
+                    "Protein": row.get("Protein", ""),
+                    "HLA": row.get("HLA", ""),
+                    "HXB2_start": row.get("HXB2_start", ""),
+                    "HXB2_end": row.get("HXB2_end", ""),
+                    "mean_radial": mean_radial,
+                    "conservation_score": conservation,
+                }
+            )
 
     return pd.DataFrame(results).sort_values("conservation_score", ascending=False)
 
@@ -251,14 +255,14 @@ def main():
     if not protein_escape.empty:
         print("\nEscape Velocity by Protein:")
         for _, row in protein_escape.iterrows():
-            print(f"  {row['protein']}: {row['mean_radial_position']:.3f} "
-                  f"(conservation: {row['conservation_score']:.3f})")
+            print(
+                f"  {row['protein']}: {row['mean_radial_position']:.3f} (conservation: {row['conservation_score']:.3f})"
+            )
 
     if not conserved.empty:
         print("\nTop Conserved Epitopes for Vaccine Design:")
         for _, row in conserved.head(10).iterrows():
-            print(f"  {row['Epitope'][:15]}... ({row['Protein']}) - "
-                  f"score: {row['conservation_score']:.3f}")
+            print(f"  {row['Epitope'][:15]}... ({row['Protein']}) - score: {row['conservation_score']:.3f}")
 
     # Save results
     print(f"\nSaving results to {args.output}...")

@@ -26,17 +26,15 @@ Mathematical Background:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from src.models.tropical.tropical_layers import (
-    TropicalLinear,
-    TropicalLayerNorm,
     TropicalActivation,
-    TropicalMLP,
+    TropicalLayerNorm,
+    TropicalLinear,
 )
 
 
@@ -96,7 +94,8 @@ class TropicalEncoder(nn.Module):
             self.layers.append(
                 nn.Sequential(
                     TropicalLinear(
-                        in_dim, config.hidden_dim,
+                        in_dim,
+                        config.hidden_dim,
                         temperature=config.temperature,
                         soft_tropical=config.soft_tropical,
                     ),
@@ -113,12 +112,14 @@ class TropicalEncoder(nn.Module):
         # For Gaussian prior: mean and log_var
         if config.use_tropical_prior:
             self.latent_proj = TropicalLinear(
-                config.hidden_dim, config.latent_dim,
+                config.hidden_dim,
+                config.latent_dim,
                 temperature=config.temperature,
                 soft_tropical=config.soft_tropical,
             )
             self.scale_proj = TropicalLinear(
-                config.hidden_dim, config.latent_dim,
+                config.hidden_dim,
+                config.latent_dim,
                 temperature=config.temperature,
                 soft_tropical=config.soft_tropical,
             )
@@ -130,7 +131,7 @@ class TropicalEncoder(nn.Module):
         self,
         x: torch.Tensor,
         return_hidden: bool = False,
-    ) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    ) -> tuple[torch.Tensor, torch.Tensor] | tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Encode input to latent parameters.
 
         Args:
@@ -184,7 +185,8 @@ class TropicalDecoder(nn.Module):
 
         # Project latent to hidden
         self.latent_proj = TropicalLinear(
-            config.latent_dim, config.hidden_dim,
+            config.latent_dim,
+            config.hidden_dim,
             temperature=config.temperature,
             soft_tropical=config.soft_tropical,
         )
@@ -198,7 +200,8 @@ class TropicalDecoder(nn.Module):
             self.layers.append(
                 nn.Sequential(
                     TropicalLinear(
-                        config.hidden_dim, config.hidden_dim,
+                        config.hidden_dim,
+                        config.hidden_dim,
                         temperature=config.temperature,
                         soft_tropical=config.soft_tropical,
                     ),
@@ -213,7 +216,7 @@ class TropicalDecoder(nn.Module):
     def forward(
         self,
         z: torch.Tensor,
-        seq_len: Optional[int] = None,
+        seq_len: int | None = None,
     ) -> torch.Tensor:
         """Decode latent to output logits.
 
@@ -224,7 +227,7 @@ class TropicalDecoder(nn.Module):
         Returns:
             Output logits (batch, seq_len, vocab_size)
         """
-        batch_size = z.size(0)
+        z.size(0)
         seq_len = seq_len or self.config.max_seq_len
 
         # Project and expand latent
@@ -307,7 +310,7 @@ class TropicalVAE(nn.Module):
     - Discrete structures (graphs, trees)
     """
 
-    def __init__(self, config: Optional[TropicalVAEConfig] = None):
+    def __init__(self, config: TropicalVAEConfig | None = None):
         """Initialize Tropical VAE.
 
         Args:
@@ -328,7 +331,7 @@ class TropicalVAE(nn.Module):
     def encode(
         self,
         x: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Encode input to latent distribution parameters.
 
         Args:
@@ -342,7 +345,7 @@ class TropicalVAE(nn.Module):
     def decode(
         self,
         z: torch.Tensor,
-        seq_len: Optional[int] = None,
+        seq_len: int | None = None,
     ) -> torch.Tensor:
         """Decode latent to output logits.
 
@@ -386,7 +389,7 @@ class TropicalVAE(nn.Module):
         self,
         x: torch.Tensor,
         return_components: bool = False,
-    ) -> Union[Tuple[torch.Tensor, torch.Tensor, torch.Tensor], Dict[str, torch.Tensor]]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | dict[str, torch.Tensor]:
         """Forward pass.
 
         Args:
@@ -421,7 +424,7 @@ class TropicalVAE(nn.Module):
         location: torch.Tensor,
         scale: torch.Tensor,
         reduction: str = "mean",
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Compute VAE loss.
 
         Args:
@@ -486,18 +489,14 @@ class TropicalVAE(nn.Module):
 
         # Laplace KL divergence
         diff = (location - prior_loc).abs()
-        kl = (
-            torch.log(prior_scale / scale)
-            + (scale + diff) / prior_scale
-            - 1
-        )
+        kl = torch.log(prior_scale / scale) + (scale + diff) / prior_scale - 1
 
         return kl.sum(dim=-1)
 
     def sample(
         self,
         n_samples: int = 1,
-        seq_len: Optional[int] = None,
+        seq_len: int | None = None,
         temperature: float = 1.0,
     ) -> torch.Tensor:
         """Sample from the prior and decode.
@@ -603,7 +602,7 @@ class TropicalVAELoss(nn.Module):
         logits: torch.Tensor,
         location: torch.Tensor,
         scale: torch.Tensor,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Compute loss with regularization.
 
         Args:
@@ -656,14 +655,14 @@ class TropicalVAELoss(nn.Module):
 
         # Sample triplets
         n_triplets = min(100, batch_size * (batch_size - 1) * (batch_size - 2) // 6)
-        idx = torch.randperm(batch_size)[:n_triplets * 3].view(n_triplets, 3)
+        idx = torch.randperm(batch_size)[: n_triplets * 3].view(n_triplets, 3)
 
         loss = torch.tensor(0.0, device=z.device)
         for i in range(n_triplets):
             a, b, c = idx[i]
-            d_ab = model.tropical_distance(z[a:a+1], z[b:b+1])
-            d_bc = model.tropical_distance(z[b:b+1], z[c:c+1])
-            d_ac = model.tropical_distance(z[a:a+1], z[c:c+1])
+            d_ab = model.tropical_distance(z[a : a + 1], z[b : b + 1])
+            d_bc = model.tropical_distance(z[b : b + 1], z[c : c + 1])
+            d_ac = model.tropical_distance(z[a : a + 1], z[c : c + 1])
 
             # Ultrametric: d_ac ≤ max(d_ab, d_bc)
             violation = F.relu(d_ac - torch.maximum(d_ab, d_bc))

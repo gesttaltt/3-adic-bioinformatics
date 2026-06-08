@@ -7,8 +7,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 
 from .base_predictor import BasePredictor
@@ -17,10 +15,11 @@ try:
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.metrics import (
         accuracy_score,
+        f1_score,
         precision_score,
         recall_score,
-        f1_score,
     )
+
     HAS_SKLEARN = True
 except ImportError:
     HAS_SKLEARN = False
@@ -35,7 +34,7 @@ class EscapePredictor(BasePredictor):
 
     def __init__(
         self,
-        model: Optional[any] = None,
+        model: any | None = None,
         n_estimators: int = 100,
         max_depth: int = 10,
         class_weight: str = "balanced",
@@ -58,7 +57,7 @@ class EscapePredictor(BasePredictor):
         X: np.ndarray,
         y: np.ndarray,
         **kwargs,
-    ) -> "EscapePredictor":
+    ) -> EscapePredictor:
         """Train the escape predictor.
 
         Args:
@@ -130,7 +129,7 @@ class EscapePredictor(BasePredictor):
             raise ValueError("mutation_positions and mutant_aas must have same length")
 
         features = []
-        for pos, mut_aa in zip(mutation_positions, mutant_aas):
+        for pos, mut_aa in zip(mutation_positions, mutant_aas, strict=False):
             if pos >= len(epitope_sequence):
                 continue
 
@@ -198,4 +197,4 @@ class EscapePredictor(BasePredictor):
         ]
 
         importances = self.model.feature_importances_
-        return dict(zip(feature_names[:len(importances)], importances))
+        return dict(zip(feature_names[: len(importances)], importances, strict=False))

@@ -35,7 +35,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -56,40 +56,40 @@ class DengueGene(Enum):
     """Dengue virus gene segments."""
 
     # Structural proteins
-    C = "C"       # Capsid
-    prM = "prM"   # Precursor membrane
-    E = "E"       # Envelope - immune target
+    C = "C"  # Capsid
+    prM = "prM"  # Precursor membrane
+    E = "E"  # Envelope - immune target
 
     # Non-structural proteins
-    NS1 = "NS1"   # Secreted, diagnostic target
+    NS1 = "NS1"  # Secreted, diagnostic target
     NS2A = "NS2A"
     NS2B = "NS2B"  # NS3 cofactor
-    NS3 = "NS3"   # Protease/helicase - drug target
+    NS3 = "NS3"  # Protease/helicase - drug target
     NS4A = "NS4A"
     NS4B = "NS4B"
-    NS5 = "NS5"   # RdRp/MTase - drug target
+    NS5 = "NS5"  # RdRp/MTase - drug target
 
 
 class DengueDrug(Enum):
     """Dengue antiviral drug candidates."""
 
     # NS3 protease inhibitors
-    ASUNAPREVIR = "asunaprevir"      # HCV drug, cross-reactive
-    BORTEZOMIB = "bortezomib"        # Protease inhibitor
+    ASUNAPREVIR = "asunaprevir"  # HCV drug, cross-reactive
+    BORTEZOMIB = "bortezomib"  # Protease inhibitor
 
     # NS5 polymerase inhibitors
-    SOFOSBUVIR = "sofosbuvir"        # HCV NS5B inhibitor
-    BALAPIRAVIR = "balapiravir"      # Nucleoside analog
-    RIBAVIRIN = "ribavirin"          # Broad-spectrum
+    SOFOSBUVIR = "sofosbuvir"  # HCV NS5B inhibitor
+    BALAPIRAVIR = "balapiravir"  # Nucleoside analog
+    RIBAVIRIN = "ribavirin"  # Broad-spectrum
 
     # NS5 MTase inhibitors
-    SINEFUNGIN = "sinefungin"        # SAH analog
+    SINEFUNGIN = "sinefungin"  # SAH analog
 
     # NS4B inhibitors
-    NITAZOXANIDE = "nitazoxanide"    # Broad-spectrum
+    NITAZOXANIDE = "nitazoxanide"  # Broad-spectrum
 
     # Entry inhibitors
-    CELGOSIVIR = "celgosivir"        # Alpha-glucosidase inhibitor
+    CELGOSIVIR = "celgosivir"  # Alpha-glucosidase inhibitor
 
 
 @dataclass
@@ -99,19 +99,23 @@ class DengueConfig(DiseaseConfig):
     name: str = "dengue"
     display_name: str = "Dengue Fever"
     disease_type: DiseaseType = DiseaseType.VIRAL
-    tasks: list[TaskType] = field(default_factory=lambda: [
-        TaskType.RESISTANCE,
-        TaskType.ESCAPE,
-        TaskType.FITNESS,
-        TaskType.ANTIGENICITY,
-    ])
+    tasks: list[TaskType] = field(
+        default_factory=lambda: [
+            TaskType.RESISTANCE,
+            TaskType.ESCAPE,
+            TaskType.FITNESS,
+            TaskType.ANTIGENICITY,
+        ]
+    )
 
     # Data sources
-    data_sources: dict[str, str] = field(default_factory=lambda: {
-        "vipr": "https://www.viprbrc.org/",
-        "ncbi_virus": "https://www.ncbi.nlm.nih.gov/genomes/VirusVariation/",
-        "who_dengue": "https://www.who.int/denguecontrol/",
-    })
+    data_sources: dict[str, str] = field(
+        default_factory=lambda: {
+            "vipr": "https://www.viprbrc.org/",
+            "ncbi_virus": "https://www.ncbi.nlm.nih.gov/genomes/VirusVariation/",
+            "who_dengue": "https://www.who.int/denguecontrol/",
+        }
+    )
 
 
 # NS3 protease resistance mutations
@@ -121,11 +125,9 @@ NS3_MUTATIONS = {
     51: {"H": {"mutations": ["Y", "F"], "effect": "high", "drugs": ["asunaprevir"]}},
     75: {"D": {"mutations": ["E", "N"], "effect": "moderate", "drugs": ["asunaprevir"]}},
     80: {"Q": {"mutations": ["K", "R"], "effect": "moderate", "drugs": ["asunaprevir"]}},
-
     # Substrate binding mutations
     132: {"A": {"mutations": ["V", "T"], "effect": "moderate", "drugs": ["asunaprevir"]}},
     135: {"T": {"mutations": ["A", "S"], "effect": "low", "drugs": ["bortezomib"]}},
-
     # Helicase domain mutations (affect ATP binding)
     290: {"K": {"mutations": ["R", "Q"], "effect": "moderate", "drugs": ["asunaprevir", "bortezomib"]}},
     298: {"D": {"mutations": ["E", "N"], "effect": "moderate", "drugs": ["asunaprevir"]}},
@@ -137,11 +139,9 @@ NS5_RDPP_MUTATIONS = {
     # Active site mutations
     310: {"G": {"mutations": ["S", "A"], "effect": "high", "drugs": ["sofosbuvir", "balapiravir"]}},
     314: {"S": {"mutations": ["G", "A"], "effect": "high", "drugs": ["sofosbuvir"]}},
-
     # Palm domain
     244: {"C": {"mutations": ["S", "F"], "effect": "moderate", "drugs": ["balapiravir"]}},
     282: {"S": {"mutations": ["T"], "effect": "high", "drugs": ["sofosbuvir"]}},
-
     # Thumb domain
     316: {"L": {"mutations": ["F", "M"], "effect": "moderate", "drugs": ["balapiravir", "ribavirin"]}},
     368: {"M": {"mutations": ["V", "I"], "effect": "moderate", "drugs": ["ribavirin"]}},
@@ -220,7 +220,7 @@ class DengueAnalyzer(DiseaseAnalyzer):
     - Serotype classification
     """
 
-    def __init__(self, config: Optional[DengueConfig] = None):
+    def __init__(self, config: DengueConfig | None = None):
         """Initialize analyzer.
 
         Args:
@@ -236,8 +236,8 @@ class DengueAnalyzer(DiseaseAnalyzer):
     def analyze(
         self,
         sequences: dict[DengueGene, list[str]],
-        serotype: Optional[DengueSerotype] = None,
-        embeddings: Optional[torch.Tensor] = None,
+        serotype: DengueSerotype | None = None,
+        embeddings: torch.Tensor | None = None,
         **kwargs,
     ) -> dict[str, Any]:
         """Analyze dengue virus sequences.
@@ -253,7 +253,7 @@ class DengueAnalyzer(DiseaseAnalyzer):
         results = {
             "n_sequences": len(next(iter(sequences.values()))) if sequences else 0,
             "serotype": serotype.value if serotype else "unknown",
-            "genes_analyzed": [g.value for g in sequences.keys()],
+            "genes_analyzed": [g.value for g in sequences],
             "drug_resistance": {},
             "ade_risk": {},
             "ns1_antigenicity": {},
@@ -272,22 +272,16 @@ class DengueAnalyzer(DiseaseAnalyzer):
         for drug in DengueDrug:
             gene = DRUG_GENE_MAP.get(drug)
             if gene and gene in sequences:
-                drug_results = self.predict_drug_resistance(
-                    sequences[gene], drug, gene
-                )
+                drug_results = self.predict_drug_resistance(sequences[gene], drug, gene)
                 results["drug_resistance"][drug.value] = drug_results
 
         # ADE risk analysis (E protein)
         if DengueGene.E in sequences:
-            results["ade_risk"] = self._analyze_ade_risk(
-                sequences[DengueGene.E], serotype
-            )
+            results["ade_risk"] = self._analyze_ade_risk(sequences[DengueGene.E], serotype)
 
         # NS1 antigenicity
         if DengueGene.NS1 in sequences:
-            results["ns1_antigenicity"] = self._analyze_ns1_antigenicity(
-                sequences[DengueGene.NS1]
-            )
+            results["ns1_antigenicity"] = self._analyze_ns1_antigenicity(sequences[DengueGene.NS1])
 
         return results
 
@@ -342,13 +336,15 @@ class DengueAnalyzer(DiseaseAnalyzer):
                         effect = data["effect"]
                         effect_scores = {"high": 1.0, "moderate": 0.5, "low": 0.2}
                         score += effect_scores.get(effect, 0.3)
-                        mutations.append({
-                            "position": pos,
-                            "ref": ref_aa,
-                            "alt": seq_aa,
-                            "effect": effect,
-                            "notation": f"{ref_aa}{pos}{seq_aa}",
-                        })
+                        mutations.append(
+                            {
+                                "position": pos,
+                                "ref": ref_aa,
+                                "alt": seq_aa,
+                                "effect": effect,
+                                "notation": f"{ref_aa}{pos}{seq_aa}",
+                            }
+                        )
 
             # Normalize
             max_score = 3.0
@@ -419,7 +415,7 @@ class DengueAnalyzer(DiseaseAnalyzer):
     def _analyze_ade_risk(
         self,
         e_sequences: list[str],
-        serotype: Optional[DengueSerotype] = None,
+        serotype: DengueSerotype | None = None,
     ) -> dict[str, Any]:
         """Analyze antibody-dependent enhancement risk.
 
@@ -457,10 +453,12 @@ class DengueAnalyzer(DiseaseAnalyzer):
                         elif aa in "AVILMFYW":  # Hydrophobic
                             variations += 0.1
 
-                epitope_variations.append({
-                    "epitope": epitope_name,
-                    "variation_score": variations / len(positions),
-                })
+                epitope_variations.append(
+                    {
+                        "epitope": epitope_name,
+                        "variation_score": variations / len(positions),
+                    }
+                )
                 ade_score += variations
 
             # Normalize ADE score
@@ -605,7 +603,7 @@ class DengueAnalyzer(DiseaseAnalyzer):
         self,
         e_sequence: str,
         prior_serotypes: list[DengueSerotype],
-        current_serotype: Optional[DengueSerotype] = None,
+        current_serotype: DengueSerotype | None = None,
     ) -> dict[str, Any]:
         """Predict risk of severe dengue based on secondary infection.
 
@@ -643,9 +641,7 @@ class DengueAnalyzer(DiseaseAnalyzer):
                 protection = cross_protection.get(prior.value, 0.2)
                 # Low cross-protection = higher ADE risk
                 if protection < 0.3:
-                    results["ade_risk_factors"].append(
-                        f"Low cross-protection from {prior.value}"
-                    )
+                    results["ade_risk_factors"].append(f"Low cross-protection from {prior.value}")
                     base_risk += 0.15
 
         # Combine risks
@@ -701,7 +697,7 @@ class DengueAnalyzer(DiseaseAnalyzer):
             true_serotypes = ground_truth["serotype"]
 
             if isinstance(true_serotypes, list) and len(pred_serotypes) == len(true_serotypes):
-                correct = sum(1 for p, t in zip(pred_serotypes, true_serotypes) if p == t)
+                correct = sum(1 for p, t in zip(pred_serotypes, true_serotypes, strict=False) if p == t)
                 metrics["serotype_accuracy"] = correct / max(len(true_serotypes), 1)
 
         # Validate ADE risk predictions

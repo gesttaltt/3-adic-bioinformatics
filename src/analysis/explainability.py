@@ -16,19 +16,18 @@ Formal Concept Analysis. Explanations include:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
-from src.analysis.set_theory.mutation_sets import Mutation, MutationSet
 from src.analysis.set_theory.formal_concepts import (
-    FormalContext,
-    FormalConcept,
     ConceptLattice,
-    ImplicationRule,
-    ImplicationMiner,
+    FormalConcept,
     GenotypePhenotypeAnalyzer,
+    ImplicationMiner,
+    ImplicationRule,
 )
+from src.analysis.set_theory.lattice import ResistanceLattice
+from src.analysis.set_theory.mutation_sets import MutationSet
 from src.analysis.set_theory.rough_sets import RoughClassifier
-from src.analysis.set_theory.lattice import ResistanceLattice, ResistanceLevel
 
 
 @dataclass
@@ -48,13 +47,13 @@ class Explanation:
     prediction: str
     confidence: float
     drug: str
-    triggered_rules: List[ImplicationRule] = field(default_factory=list)
-    supporting_concepts: List[FormalConcept] = field(default_factory=list)
-    key_mutations: List[Tuple[str, float]] = field(default_factory=list)
-    counterfactuals: List[Dict[str, Any]] = field(default_factory=list)
+    triggered_rules: list[ImplicationRule] = field(default_factory=list)
+    supporting_concepts: list[FormalConcept] = field(default_factory=list)
+    key_mutations: list[tuple[str, float]] = field(default_factory=list)
+    counterfactuals: list[dict[str, Any]] = field(default_factory=list)
     natural_language: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "prediction": self.prediction,
@@ -86,8 +85,8 @@ class FCAExplainer:
     def __init__(
         self,
         fca_analyzer: GenotypePhenotypeAnalyzer,
-        rough_classifiers: Optional[Dict[str, RoughClassifier]] = None,
-        lattice: Optional[ResistanceLattice] = None,
+        rough_classifiers: dict[str, RoughClassifier] | None = None,
+        lattice: ResistanceLattice | None = None,
     ):
         """Initialize FCA explainer.
 
@@ -105,9 +104,7 @@ class FCAExplainer:
         self.implications = self.miner.compute_implications()
 
         # Precompute approximate rules with different confidence thresholds
-        self.approximate_rules = self.miner.find_approximate_rules(
-            min_support=0.05, min_confidence=0.7
-        )
+        self.approximate_rules = self.miner.find_approximate_rules(min_support=0.05, min_confidence=0.7)
 
     def explain(
         self,
@@ -143,9 +140,7 @@ class FCAExplainer:
         counterfactuals = self._generate_counterfactuals(drug, mutations, prediction)
 
         # 5. Generate natural language explanation
-        natural_language = self._generate_natural_language(
-            drug, mutations, prediction, triggered_rules, key_mutations
-        )
+        natural_language = self._generate_natural_language(drug, mutations, prediction, triggered_rules, key_mutations)
 
         return Explanation(
             prediction=prediction,
@@ -160,9 +155,9 @@ class FCAExplainer:
 
     def _find_triggered_rules(
         self,
-        mutation_attrs: Set[str],
+        mutation_attrs: set[str],
         resistance_attr: str,
-    ) -> List[ImplicationRule]:
+    ) -> list[ImplicationRule]:
         """Find implication rules triggered by mutations.
 
         Args:
@@ -178,10 +173,7 @@ class FCAExplainer:
             # Check if antecedent is satisfied
             if rule.applies_to(mutation_attrs):
                 # Check if consequent relates to resistance
-                if resistance_attr in rule.consequent:
-                    triggered.append(rule)
-                # Or if mutations in antecedent are key resistance mutations
-                elif not rule.consequent.isdisjoint(mutation_attrs):
+                if resistance_attr in rule.consequent or not rule.consequent.isdisjoint(mutation_attrs):
                     triggered.append(rule)
 
         # Sort by confidence
@@ -191,8 +183,8 @@ class FCAExplainer:
 
     def _find_supporting_concepts(
         self,
-        mutation_attrs: Set[str],
-    ) -> List[FormalConcept]:
+        mutation_attrs: set[str],
+    ) -> list[FormalConcept]:
         """Find FCA concepts that match the mutation profile.
 
         Args:
@@ -205,10 +197,7 @@ class FCAExplainer:
 
         for concept in self.fca.lattice.concepts:
             # Get mutation-only attributes from concept intent
-            concept_mutations = {
-                attr for attr in concept.intent
-                if not attr.endswith("_R")
-            }
+            concept_mutations = {attr for attr in concept.intent if not attr.endswith("_R")}
 
             # Check if concept mutations are subset of sample mutations
             if concept_mutations and concept_mutations.issubset(mutation_attrs):
@@ -223,7 +212,7 @@ class FCAExplainer:
         self,
         drug: str,
         mutations: MutationSet,
-    ) -> List[Tuple[str, float]]:
+    ) -> list[tuple[str, float]]:
         """Identify mutations most important for this drug.
 
         Args:
@@ -277,7 +266,7 @@ class FCAExplainer:
         drug: str,
         mutations: MutationSet,
         prediction: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Generate counterfactual explanations.
 
         What would need to change to flip the prediction?
@@ -299,12 +288,14 @@ class FCAExplainer:
 
             for mut_str, importance in key_muts[:3]:
                 if importance > 0.5:
-                    counterfactuals.append({
-                        "action": "remove",
-                        "mutation": mut_str,
-                        "expected_change": "susceptible",
-                        "confidence": importance,
-                    })
+                    counterfactuals.append(
+                        {
+                            "action": "remove",
+                            "mutation": mut_str,
+                            "expected_change": "susceptible",
+                            "confidence": importance,
+                        }
+                    )
 
         else:  # susceptible
             # What mutations would confer resistance?
@@ -313,12 +304,14 @@ class FCAExplainer:
                 if resistance_attr in rule.consequent:
                     missing = rule.antecedent - set(str(m) for m in mutations)
                     if missing and len(missing) <= 2:
-                        counterfactuals.append({
-                            "action": "add",
-                            "mutations": list(missing),
-                            "expected_change": "resistant",
-                            "confidence": rule.confidence,
-                        })
+                        counterfactuals.append(
+                            {
+                                "action": "add",
+                                "mutations": list(missing),
+                                "expected_change": "resistant",
+                                "confidence": rule.confidence,
+                            }
+                        )
 
         return counterfactuals[:5]
 
@@ -327,8 +320,8 @@ class FCAExplainer:
         drug: str,
         mutations: MutationSet,
         prediction: str,
-        triggered_rules: List[ImplicationRule],
-        key_mutations: List[Tuple[str, float]],
+        triggered_rules: list[ImplicationRule],
+        key_mutations: list[tuple[str, float]],
     ) -> str:
         """Generate human-readable explanation.
 
@@ -375,10 +368,10 @@ class FCAExplainer:
     def explain_batch(
         self,
         drug: str,
-        mutation_sets: List[MutationSet],
-        predictions: List[str],
-        confidences: Optional[List[float]] = None,
-    ) -> List[Explanation]:
+        mutation_sets: list[MutationSet],
+        predictions: list[str],
+        confidences: list[float] | None = None,
+    ) -> list[Explanation]:
         """Explain a batch of predictions.
 
         Args:
@@ -395,7 +388,7 @@ class FCAExplainer:
 
         return [
             self.explain(drug, ms, pred, conf)
-            for ms, pred, conf in zip(mutation_sets, predictions, confidences)
+            for ms, pred, conf in zip(mutation_sets, predictions, confidences, strict=False)
         ]
 
 
@@ -408,7 +401,7 @@ class RuleBasedValidator:
 
     def __init__(
         self,
-        implications: List[ImplicationRule],
+        implications: list[ImplicationRule],
         strict: bool = False,
     ):
         """Initialize validator.
@@ -423,8 +416,8 @@ class RuleBasedValidator:
     def validate(
         self,
         mutations: MutationSet,
-        predictions: Dict[str, str],
-    ) -> Dict[str, Any]:
+        predictions: dict[str, str],
+    ) -> dict[str, Any]:
         """Validate predictions against rules.
 
         Args:
@@ -449,19 +442,23 @@ class RuleBasedValidator:
                             # If rule says resistant but prediction is susceptible
                             if predictions[drug] == "susceptible":
                                 if rule.confidence > 0.9:
-                                    violations.append({
-                                        "rule": str(rule),
-                                        "drug": drug,
-                                        "expected": "resistant",
-                                        "predicted": "susceptible",
-                                        "confidence": rule.confidence,
-                                    })
+                                    violations.append(
+                                        {
+                                            "rule": str(rule),
+                                            "drug": drug,
+                                            "expected": "resistant",
+                                            "predicted": "susceptible",
+                                            "confidence": rule.confidence,
+                                        }
+                                    )
                                 else:
-                                    warnings.append({
-                                        "rule": str(rule),
-                                        "drug": drug,
-                                        "message": f"Rule suggests resistance but predicted susceptible",
-                                    })
+                                    warnings.append(
+                                        {
+                                            "rule": str(rule),
+                                            "drug": drug,
+                                            "message": "Rule suggests resistance but predicted susceptible",
+                                        }
+                                    )
 
         return {
             "valid": len(violations) == 0,
@@ -489,7 +486,7 @@ class AttributeExplorer:
     def attribute_importance(
         self,
         target_attribute: str,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Compute importance of each attribute for predicting target.
 
         Args:
@@ -530,7 +527,7 @@ class AttributeExplorer:
         self,
         target_attribute: str,
         max_size: int = 3,
-    ) -> List[Set[str]]:
+    ) -> list[set[str]]:
         """Find minimal attribute sets that predict target.
 
         Args:
@@ -548,10 +545,7 @@ class AttributeExplorer:
             return predictors
 
         # The intent of the introducing concept (minus target) predicts it
-        predictor = {
-            attr for attr in intro.intent
-            if attr != target_attribute and not attr.endswith("_R")
-        }
+        predictor = {attr for attr in intro.intent if attr != target_attribute and not attr.endswith("_R")}
 
         if predictor and len(predictor) <= max_size:
             predictors.append(predictor)
@@ -559,15 +553,10 @@ class AttributeExplorer:
         # Look for smaller predictors in subconcepts
         for concept in self.lattice.concepts:
             if target_attribute in concept.intent:
-                pred = {
-                    attr for attr in concept.intent
-                    if attr != target_attribute and not attr.endswith("_R")
-                }
+                pred = {attr for attr in concept.intent if attr != target_attribute and not attr.endswith("_R")}
                 if pred and len(pred) <= max_size:
                     # Check if minimal
-                    is_minimal = not any(
-                        existing < pred for existing in predictors
-                    )
+                    is_minimal = not any(existing < pred for existing in predictors)
                     if is_minimal:
                         predictors.append(pred)
 

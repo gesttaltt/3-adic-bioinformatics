@@ -15,24 +15,22 @@ Author: Claude Code
 Date: December 28, 2024
 """
 
-import sys
 import io
 import json
+import sys
+import warnings
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from pathlib import Path
-from typing import Dict, List, Tuple
 from scipy.stats import spearmanr
-import warnings
-import gc
-from collections import defaultdict
 
 # Fix Windows encoding
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-warnings.filterwarnings('ignore')
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+warnings.filterwarnings("ignore")
 
 # Paths
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -45,7 +43,8 @@ RESULTS_DIR.mkdir(exist_ok=True)
 # DATA LOADING
 # =============================================================================
 
-def load_all_drug_data(gene: str) -> Dict[str, Tuple[np.ndarray, List[str]]]:
+
+def load_all_drug_data(gene: str) -> dict[str, tuple[np.ndarray, list[str]]]:
     """Load data for all drugs in a gene class."""
     gene_files = {
         "PI": "stanford_hivdb_pi.txt",
@@ -64,7 +63,7 @@ def load_all_drug_data(gene: str) -> Dict[str, Tuple[np.ndarray, List[str]]]:
     # Find sequence column
     seq_col = None
     for col in df.columns:
-        if 'seq' in col.lower():
+        if "seq" in col.lower():
             seq_col = col
             break
     if seq_col is None:
@@ -79,8 +78,8 @@ def load_all_drug_data(gene: str) -> Dict[str, Tuple[np.ndarray, List[str]]]:
 
         # Check if column has numeric resistance values
         temp = df[[seq_col, col]].dropna()
-        temp = temp[temp[col] != '']
-        temp[col] = pd.to_numeric(temp[col], errors='coerce')
+        temp = temp[temp[col] != ""]
+        temp[col] = pd.to_numeric(temp[col], errors="coerce")
         temp = temp.dropna()
 
         if len(temp) < 50:  # Skip drugs with too few samples
@@ -89,8 +88,8 @@ def load_all_drug_data(gene: str) -> Dict[str, Tuple[np.ndarray, List[str]]]:
         # Clean sequences
         sequences = []
         for seq in temp[seq_col].tolist():
-            seq = str(seq).upper().replace('.', '-').replace('~', '-').replace('*', 'X')
-            seq = ''.join(c if c in 'ACDEFGHIKLMNPQRSTVWY-X' else 'X' for c in seq)
+            seq = str(seq).upper().replace(".", "-").replace("~", "-").replace("*", "X")
+            seq = "".join(c if c in "ACDEFGHIKLMNPQRSTVWY-X" else "X" for c in seq)
             sequences.append(seq)
 
         drug_data[col] = (temp[col].values.astype(np.float32), sequences)
@@ -102,11 +101,12 @@ def load_all_drug_data(gene: str) -> Dict[str, Tuple[np.ndarray, List[str]]]:
 # ESM-2 EMBEDDER
 # =============================================================================
 
+
 class ESM2Embedder:
     """Extract ESM-2 embeddings."""
 
     def __init__(self, model_size: str = "small", device: str = None):
-        from transformers import AutoTokenizer, AutoModel
+        from transformers import AutoModel, AutoTokenizer
 
         models = {
             "small": ("facebook/esm2_t6_8M_UR50D", 320),
@@ -121,22 +121,18 @@ class ESM2Embedder:
         self.model.eval()
         print(f"  Embedding dim: {self.embedding_dim}")
 
-    def embed_sequences(self, sequences: List[str], batch_size: int = 16) -> np.ndarray:
+    def embed_sequences(self, sequences: list[str], batch_size: int = 16) -> np.ndarray:
         """Embed multiple sequences."""
         embeddings = []
         total = len(sequences)
 
         for i in range(0, total, batch_size):
-            batch = sequences[i:i + batch_size]
-            clean_batch = [s.replace('-', '').replace('X', 'A') for s in batch]
+            batch = sequences[i : i + batch_size]
+            clean_batch = [s.replace("-", "").replace("X", "A") for s in batch]
 
-            inputs = self.tokenizer(
-                clean_batch,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=512
-            ).to(self.device)
+            inputs = self.tokenizer(clean_batch, return_tensors="pt", padding=True, truncation=True, max_length=512).to(
+                self.device
+            )
 
             with torch.no_grad():
                 outputs = self.model(**inputs)
@@ -150,6 +146,7 @@ class ESM2Embedder:
 # =============================================================================
 # HYBRID MODEL
 # =============================================================================
+
 
 class HybridTransferVAE(nn.Module):
     """
@@ -197,17 +194,19 @@ class HybridTransferVAE(nn.Module):
         )
 
         # Drug-specific prediction heads
-        self.drug_heads = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(latent_dim, 32),
-                nn.ReLU(),
-                nn.Dropout(0.1),
-                nn.Linear(32, 16),
-                nn.ReLU(),
-                nn.Linear(16, 1)
-            )
-            for _ in range(n_drugs)
-        ])
+        self.drug_heads = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Linear(latent_dim, 32),
+                    nn.ReLU(),
+                    nn.Dropout(0.1),
+                    nn.Linear(32, 16),
+                    nn.ReLU(),
+                    nn.Linear(16, 1),
+                )
+                for _ in range(n_drugs)
+            ]
+        )
 
         self.n_drugs = n_drugs
         self.latent_dim = latent_dim
@@ -232,6 +231,7 @@ class HybridTransferVAE(nn.Module):
 # =============================================================================
 # LOSS FUNCTIONS
 # =============================================================================
+
 
 def listmle_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """ListMLE ranking loss."""
@@ -280,12 +280,13 @@ def contrastive_loss(z: torch.Tensor, y: torch.Tensor, margin: float = 1.0) -> t
 # TRAINING FUNCTIONS
 # =============================================================================
 
+
 def pretrain_model(
     model: HybridTransferVAE,
-    all_data: Dict[str, Tuple[np.ndarray, torch.Tensor]],
-    drug_to_idx: Dict[str, int],
+    all_data: dict[str, tuple[np.ndarray, torch.Tensor]],
+    drug_to_idx: dict[str, int],
     epochs: int = 50,
-    lr: float = 1e-3
+    lr: float = 1e-3,
 ) -> None:
     """Pre-train model on all drugs in the class."""
     device = next(model.parameters()).device
@@ -334,10 +335,10 @@ def finetune_model(
     y_test: torch.Tensor,
     drug_idx: int,
     epochs: int = 100,
-    freeze_epochs: int = 20
+    freeze_epochs: int = 20,
 ) -> float:
     """Fine-tune model on target drug with gradual unfreezing."""
-    device = next(model.parameters()).device
+    next(model.parameters()).device
 
     # Phase 1: Train only the drug head (frozen encoder)
     print(f"  Fine-tuning Phase 1: Training head only ({freeze_epochs} epochs)...")
@@ -349,11 +350,7 @@ def finetune_model(
     for param in model.fc_logvar.parameters():
         param.requires_grad = False
 
-    optimizer = optim.AdamW(
-        [p for p in model.parameters() if p.requires_grad],
-        lr=1e-3,
-        weight_decay=0.01
-    )
+    optimizer = optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=1e-3, weight_decay=0.01)
 
     for epoch in range(freeze_epochs):
         model.train()
@@ -411,6 +408,7 @@ def finetune_model(
 # =============================================================================
 # BASELINE METHODS
 # =============================================================================
+
 
 class SimpleESM2VAE(nn.Module):
     """Simple ESM-2 VAE without transfer learning (baseline)."""
@@ -507,7 +505,8 @@ def train_baseline_esm2(X: np.ndarray, y: np.ndarray, esm_dim: int, epochs: int 
 # MAIN EXPERIMENT
 # =============================================================================
 
-def run_hybrid_experiment(target_drug: str, gene: str, embedder: ESM2Embedder) -> Dict[str, float]:
+
+def run_hybrid_experiment(target_drug: str, gene: str, embedder: ESM2Embedder) -> dict[str, float]:
     """Run hybrid ESM-2 + Transfer Learning experiment."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -566,11 +565,7 @@ def run_hybrid_experiment(target_drug: str, gene: str, embedder: ESM2Embedder) -
     # Experiment 2: Hybrid (ESM-2 + Transfer)
     print("\n4. Hybrid ESM-2 + Transfer Learning...")
 
-    model = HybridTransferVAE(
-        esm_dim=embedder.embedding_dim,
-        latent_dim=16,
-        n_drugs=n_drugs
-    ).to(device)
+    model = HybridTransferVAE(esm_dim=embedder.embedding_dim, latent_dim=16, n_drugs=n_drugs).to(device)
 
     # Pre-train on all drugs
     pretrain_model(model, all_embeddings, drug_to_idx, epochs=50)
@@ -639,7 +634,7 @@ def main():
 
     # Save results
     output_file = RESULTS_DIR / "hybrid_esm2_transfer_results.json"
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json.dump(all_results, f, indent=2)
     print(f"\nResults saved to: {output_file}")
 

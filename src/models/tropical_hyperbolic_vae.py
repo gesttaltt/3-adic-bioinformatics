@@ -17,11 +17,10 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class TropicalLinear(nn.Module):
@@ -64,7 +63,7 @@ class TropicalEncoder(nn.Module):
         self,
         input_dim: int,
         latent_dim: int,
-        hidden_dims: List[int],
+        hidden_dims: list[int],
         temperature: float = 0.1,
     ):
         super().__init__()
@@ -96,7 +95,7 @@ class TropicalDecoder(nn.Module):
         self,
         latent_dim: int,
         output_dim: int,
-        hidden_dims: List[int],
+        hidden_dims: list[int],
         temperature: float = 0.1,
     ):
         super().__init__()
@@ -130,7 +129,7 @@ class HyperbolicProjection(nn.Module):
     def exp_map(self, v: torch.Tensor) -> torch.Tensor:
         """Exponential map: tangent space -> Poincare ball."""
         c = self.curvature
-        sqrt_c = c ** 0.5
+        sqrt_c = c**0.5
         v_norm = torch.clamp(torch.norm(v, dim=-1, keepdim=True), min=1e-8)
 
         # Softer projection to stay well within ball
@@ -140,7 +139,7 @@ class HyperbolicProjection(nn.Module):
     def log_map(self, y: torch.Tensor) -> torch.Tensor:
         """Logarithmic map: Poincare ball -> tangent space."""
         c = self.curvature
-        sqrt_c = c ** 0.5
+        sqrt_c = c**0.5
         y_norm = torch.clamp(torch.norm(y, dim=-1, keepdim=True), min=1e-8, max=1.0 - 1e-6)
 
         # Inverse of exp_map
@@ -161,7 +160,7 @@ class HyperbolicProjection(nn.Module):
     def hyperbolic_distance(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """Distance in Poincare ball."""
         c = self.curvature
-        sqrt_c = c ** 0.5
+        sqrt_c = c**0.5
 
         diff = x - y
         diff_norm2 = torch.sum(diff * diff, dim=-1)
@@ -183,9 +182,7 @@ class TropicalAggregation(nn.Module):
         self.n_heads = n_heads
         self.temperature = temperature
 
-        self.projections = nn.ModuleList([
-            nn.Linear(dim, dim) for _ in range(n_heads)
-        ])
+        self.projections = nn.ModuleList([nn.Linear(dim, dim) for _ in range(n_heads)])
         self.output_proj = nn.Linear(dim * n_heads, dim)
 
     def forward(self, z: torch.Tensor) -> torch.Tensor:
@@ -199,7 +196,7 @@ class TropicalAggregation(nn.Module):
         stacked = torch.stack(heads, dim=1)
 
         # Tropical max across heads using logsumexp
-        z_tropical = torch.logsumexp(stacked / self.temperature, dim=1) * self.temperature
+        torch.logsumexp(stacked / self.temperature, dim=1) * self.temperature
 
         # Project back
         concat = stacked.view(z.size(0), -1)
@@ -234,7 +231,7 @@ class TropicalHyperbolicVAE(nn.Module):
         self,
         input_dim: int = 9,
         latent_dim: int = 16,
-        hidden_dims: Optional[List[int]] = None,
+        hidden_dims: list[int] | None = None,
         curvature: float = 1.0,
         temperature: float = 0.1,
         use_tropical_aggregation: bool = True,
@@ -272,7 +269,7 @@ class TropicalHyperbolicVAE(nn.Module):
             return mu + eps * std
         return mu
 
-    def forward(self, x: torch.Tensor) -> Dict[str, Any]:
+    def forward(self, x: torch.Tensor) -> dict[str, Any]:
         """Forward pass through hybrid architecture.
 
         Returns dict with:
@@ -331,10 +328,7 @@ class TropicalHyperbolicVAE(nn.Module):
         dists = torch.zeros(n, n, device=z.device)
 
         for i in range(n):
-            dists[i] = self.hyperbolic.hyperbolic_distance(
-                z_hyp[i].unsqueeze(0).expand(n, -1),
-                z_hyp
-            )
+            dists[i] = self.hyperbolic.hyperbolic_distance(z_hyp[i].unsqueeze(0).expand(n, -1), z_hyp)
         return dists
 
     def count_parameters(self) -> dict:
@@ -355,7 +349,7 @@ class TropicalHyperbolicVAELight(nn.Module):
         self,
         input_dim: int = 9,
         latent_dim: int = 16,
-        hidden_dims: Optional[List[int]] = None,
+        hidden_dims: list[int] | None = None,
         curvature: float = 1.0,
         temperature: float = 0.1,
     ):
@@ -394,7 +388,7 @@ class TropicalHyperbolicVAELight(nn.Module):
     def exp_map(self, v: torch.Tensor) -> torch.Tensor:
         """Exponential map to Poincare ball."""
         c = self.curvature
-        sqrt_c = c ** 0.5
+        sqrt_c = c**0.5
         v_norm = torch.clamp(torch.norm(v, dim=-1, keepdim=True), min=1e-8)
         scale = torch.tanh(sqrt_c * v_norm / 2.0) / (sqrt_c * v_norm)
         return v * scale
@@ -405,7 +399,7 @@ class TropicalHyperbolicVAELight(nn.Module):
         combined = torch.stack([z, z_transformed], dim=-1)
         return torch.logsumexp(combined / self.temperature, dim=-1) * self.temperature
 
-    def forward(self, x: torch.Tensor) -> Dict[str, Any]:
+    def forward(self, x: torch.Tensor) -> dict[str, Any]:
         # Encode
         h = self.encoder(x)
         mu = self.fc_mu(h)

@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -95,13 +94,13 @@ class TropicalMonomial:
     """
 
     coefficient: float
-    exponents: Tuple[int, ...]
+    exponents: tuple[int, ...]
 
     def evaluate(self, x: np.ndarray) -> float:
         """Evaluate monomial at point x."""
         if len(x) != len(self.exponents):
             raise ValueError(f"Expected {len(self.exponents)} variables, got {len(x)}")
-        return self.coefficient + sum(e * xi for e, xi in zip(self.exponents, x))
+        return self.coefficient + sum(e * xi for e, xi in zip(self.exponents, x, strict=False))
 
     def __repr__(self) -> str:
         terms = [f"{self.coefficient}"]
@@ -123,7 +122,7 @@ class TropicalPolynomial:
     - Solutions to tropical linear systems
     """
 
-    def __init__(self, monomials: Optional[List[TropicalMonomial]] = None):
+    def __init__(self, monomials: list[TropicalMonomial] | None = None):
         """Initialize tropical polynomial.
 
         Args:
@@ -152,24 +151,24 @@ class TropicalPolynomial:
         values = [m.evaluate(x) for m in self.monomials]
         return int(np.argmax(values))
 
-    def tropical_add(self, other: "TropicalPolynomial") -> "TropicalPolynomial":
+    def tropical_add(self, other: TropicalPolynomial) -> TropicalPolynomial:
         """Tropical addition: max of all monomials from both."""
         result = TropicalPolynomial()
         result.monomials = self.monomials + other.monomials
         return result
 
-    def tropical_multiply(self, other: "TropicalPolynomial") -> "TropicalPolynomial":
+    def tropical_multiply(self, other: TropicalPolynomial) -> TropicalPolynomial:
         """Tropical multiplication: sum coefficients, add exponents."""
         result = TropicalPolynomial()
         for m1 in self.monomials:
             for m2 in other.monomials:
                 new_coef = m1.coefficient + m2.coefficient
-                new_exp = tuple(e1 + e2 for e1, e2 in zip(m1.exponents, m2.exponents))
+                new_exp = tuple(e1 + e2 for e1, e2 in zip(m1.exponents, m2.exponents, strict=False))
                 result.add_monomial(TropicalMonomial(new_coef, new_exp))
         return result
 
     @classmethod
-    def from_linear(cls, weights: np.ndarray, bias: float) -> "TropicalPolynomial":
+    def from_linear(cls, weights: np.ndarray, bias: float) -> TropicalPolynomial:
         """Create tropical polynomial from linear function weights^T x + bias."""
         poly = cls()
         tuple(int(w) if w == int(w) else 1 for w in weights)
@@ -178,7 +177,7 @@ class TropicalPolynomial:
         return poly
 
     @classmethod
-    def relu(cls, input_poly: "TropicalPolynomial") -> "TropicalPolynomial":
+    def relu(cls, input_poly: TropicalPolynomial) -> TropicalPolynomial:
         """Apply ReLU: max(0, f) = max(f, 0) in tropical."""
         zero_poly = cls()
         zero_poly.add_monomial(
@@ -211,10 +210,10 @@ class LinearRegion:
     and the corresponding affine function.
     """
 
-    activation_pattern: Tuple[bool, ...]  # True = ReLU active
+    activation_pattern: tuple[bool, ...]  # True = ReLU active
     weights: np.ndarray  # Affine weights in this region
     bias: float  # Affine bias in this region
-    vertices: Optional[List[np.ndarray]] = None  # Vertices of the polytope
+    vertices: list[np.ndarray] | None = None  # Vertices of the polytope
 
 
 class TropicalNNAnalyzer:
@@ -236,7 +235,7 @@ class TropicalNNAnalyzer:
         self.model = model
         self.layers = self._extract_layers()
 
-    def _extract_layers(self) -> List[Tuple[np.ndarray, np.ndarray]]:
+    def _extract_layers(self) -> list[tuple[np.ndarray, np.ndarray]]:
         """Extract weight matrices and biases from the model."""
         layers = []
         for module in self.model.modules():
@@ -248,7 +247,7 @@ class TropicalNNAnalyzer:
 
     def compute_linear_regions(
         self,
-        input_bounds: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+        input_bounds: tuple[np.ndarray, np.ndarray] | None = None,
         sampling_method: str = "random",
         n_samples: int = 10000,
     ) -> int:
@@ -280,7 +279,7 @@ class TropicalNNAnalyzer:
             samples = np.random.uniform(lower, upper, (n_samples, input_dim))
         else:  # grid
             n_per_dim = int(n_samples ** (1 / input_dim))
-            grids = [np.linspace(l, u, n_per_dim) for l, u in zip(lower, upper)]
+            grids = [np.linspace(l, u, n_per_dim) for l, u in zip(lower, upper, strict=False)]
             samples = np.array(np.meshgrid(*grids)).reshape(input_dim, -1).T
 
         # Compute activation patterns
@@ -291,7 +290,7 @@ class TropicalNNAnalyzer:
 
         return len(patterns)
 
-    def _get_activation_pattern(self, x: np.ndarray) -> Tuple[Tuple[bool, ...], ...]:
+    def _get_activation_pattern(self, x: np.ndarray) -> tuple[tuple[bool, ...], ...]:
         """Get the activation pattern for input x."""
         patterns = []
         h = x
@@ -358,15 +357,15 @@ class TropicalNNAnalyzer:
 
         return poly
 
-    def _int_to_pattern(self, n: int, length: int) -> Tuple[bool, ...]:
+    def _int_to_pattern(self, n: int, length: int) -> tuple[bool, ...]:
         """Convert integer to binary pattern."""
         return tuple((n >> i) & 1 == 1 for i in range(length))
 
     def _compute_affine_for_pattern(
         self,
-        pattern: Tuple[bool, ...],
+        pattern: tuple[bool, ...],
         output_idx: int,
-    ) -> Optional[Tuple[np.ndarray, float]]:
+    ) -> tuple[np.ndarray, float] | None:
         """Compute effective affine function for an activation pattern.
 
         Returns None if the pattern is infeasible.
@@ -376,7 +375,7 @@ class TropicalNNAnalyzer:
         b_eff = np.zeros(self.layers[0][0].shape[1])
 
         pattern_idx = 0
-        for layer_idx, (W, b) in enumerate(self.layers[:-1]):
+        for _layer_idx, (W, b) in enumerate(self.layers[:-1]):
             n_units = W.shape[0]
             layer_pattern = pattern[pattern_idx : pattern_idx + n_units]
             pattern_idx += n_units
@@ -398,7 +397,7 @@ class TropicalNNAnalyzer:
 
         return W_eff[output_idx], b_eff[output_idx]
 
-    def analyze_expressivity(self) -> Dict[str, float]:
+    def analyze_expressivity(self) -> dict[str, float]:
         """Analyze network expressivity through tropical lens.
 
         Returns metrics about the network's complexity:
@@ -448,7 +447,7 @@ class TropicalPhylogeneticTree:
 
     n_taxa: int
     edge_lengths: np.ndarray  # Length 2n-2 for n taxa
-    topology: Optional[Tuple[Tuple[int, int], ...]] = None
+    topology: tuple[tuple[int, int], ...] | None = None
 
     def to_tropical_coordinates(self) -> np.ndarray:
         """Convert to tropical projective coordinates."""
@@ -511,7 +510,7 @@ class TropicalPhylogeneticDistance:
 
     def distance_matrix(
         self,
-        trees: List[TropicalPhylogeneticTree],
+        trees: list[TropicalPhylogeneticTree],
     ) -> np.ndarray:
         """Compute pairwise distance matrix."""
         n = len(trees)
@@ -527,8 +526,8 @@ class TropicalPhylogeneticDistance:
 
     def frechet_mean(
         self,
-        trees: List[TropicalPhylogeneticTree],
-        weights: Optional[np.ndarray] = None,
+        trees: list[TropicalPhylogeneticTree],
+        weights: np.ndarray | None = None,
     ) -> np.ndarray:
         """Compute Frechet mean in tropical space.
 
@@ -557,7 +556,7 @@ class TropicalPhylogeneticDistance:
         tree1: TropicalPhylogeneticTree,
         tree2: TropicalPhylogeneticTree,
         n_points: int = 10,
-    ) -> List[np.ndarray]:
+    ) -> list[np.ndarray]:
         """Compute geodesic path between two trees.
 
         In tropical geometry, geodesics are piecewise linear paths.

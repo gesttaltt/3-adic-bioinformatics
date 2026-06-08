@@ -63,10 +63,8 @@ References:
 from __future__ import annotations
 
 import warnings
-from typing import Optional, Tuple
 
 import torch
-import torch.nn.functional as F
 
 # Emit deprecation warning on import
 warnings.warn(
@@ -79,12 +77,11 @@ warnings.warn(
 )
 
 from src.config.constants import (
-    EPSILON,
-    EPSILON_NORM,
     DEFAULT_CURVATURE,
     DEFAULT_MAX_RADIUS,
+    EPSILON,
+    EPSILON_NORM,
 )
-
 
 # ============================================================================
 # Core Mathematical Operations
@@ -202,7 +199,7 @@ def mobius_scalar_mul(
     Returns:
         r (*) x in the Poincare ball
     """
-    sqrt_c = c ** 0.5
+    sqrt_c = c**0.5
     x_norm = torch.norm(x, dim=-1, keepdim=True).clamp(min=eps)
 
     # arctanh(sqrt(c) * |x|)
@@ -271,7 +268,7 @@ def exp_map_zero(
     Returns:
         Point(s) on the Poincare ball
     """
-    sqrt_c = c ** 0.5
+    sqrt_c = c**0.5
     v_norm = torch.norm(v, dim=-1, keepdim=True).clamp(min=eps)
 
     # tanh(sqrt(c) * |v|) * v / (sqrt(c) * |v|)
@@ -296,7 +293,7 @@ def log_map_zero(
     Returns:
         Tangent vector(s) at origin
     """
-    sqrt_c = c ** 0.5
+    sqrt_c = c**0.5
     x_norm = torch.norm(x, dim=-1, keepdim=True).clamp(min=eps)
 
     # Clamp to avoid arctanh of values >= 1
@@ -325,7 +322,7 @@ def exp_map(
     """
     v_norm = torch.norm(v, dim=-1, keepdim=True).clamp(min=eps)
     lam = lambda_x(x, c)
-    sqrt_c = c ** 0.5
+    sqrt_c = c**0.5
 
     second_term = torch.tanh(sqrt_c * lam * v_norm / 2) * v / (sqrt_c * v_norm)
 
@@ -355,7 +352,7 @@ def log_map(
 
     diff_norm = torch.norm(diff, dim=-1, keepdim=True).clamp(min=eps)
     lam = lambda_x(x, c)
-    sqrt_c = c ** 0.5
+    sqrt_c = c**0.5
 
     # Clamp arctanh argument
     sqrt_c_diff_norm = (sqrt_c * diff_norm).clamp(max=1 - eps)
@@ -387,7 +384,7 @@ def poincare_distance(
     Returns:
         Geodesic distance(s)
     """
-    sqrt_c = c ** 0.5
+    sqrt_c = c**0.5
 
     # Compute Mobius addition: (-x) (+) y
     neg_x = -x
@@ -462,7 +459,7 @@ def project_to_poincare(
         Points inside Poincare ball
     """
     # The ball has radius 1/sqrt(c)
-    ball_radius = 1.0 / (c ** 0.5) if c > 0 else float("inf")
+    ball_radius = 1.0 / (c**0.5) if c > 0 else float("inf")
     effective_max = min(max_norm, ball_radius - eps)
 
     return project_to_ball(z, effective_max, eps)
@@ -471,7 +468,7 @@ def project_to_poincare(
 def project_polar(
     x: torch.Tensor,
     max_norm: float = DEFAULT_MAX_RADIUS,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Project to polar coordinates (radius, direction).
 
     Args:
@@ -640,7 +637,7 @@ def hyperbolic_midpoint(
 
 def hyperbolic_mean(
     points: torch.Tensor,
-    weights: Optional[torch.Tensor] = None,
+    weights: torch.Tensor | None = None,
     c: float = DEFAULT_CURVATURE,
     max_iter: int = 10,
     eps: float = EPSILON,
@@ -669,10 +666,9 @@ def hyperbolic_mean(
 
     for _ in range(max_iter):
         # Compute weighted tangent vectors
-        tangents = torch.stack([
-            w * log_map(mean, p.unsqueeze(0), c, eps).squeeze(0)
-            for w, p in zip(weights, points)
-        ])
+        tangents = torch.stack(
+            [w * log_map(mean, p.unsqueeze(0), c, eps).squeeze(0) for w, p in zip(weights, points, strict=False)]
+        )
 
         # Update mean
         update = tangents.sum(dim=0, keepdim=True)

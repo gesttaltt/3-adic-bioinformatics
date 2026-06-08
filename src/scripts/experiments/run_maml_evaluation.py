@@ -17,20 +17,17 @@ import copy
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from sklearn.model_selection import train_test_split
 
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "src"))
 
-from models.maml_vae import MAMLConfig, MAMLVAE, compute_task_loss
+from models.maml_vae import MAMLVAE, MAMLConfig, compute_task_loss
 
 
 @dataclass
@@ -42,11 +39,11 @@ class EvalConfig:
     inner_lr: float = 0.01
     outer_lr: float = 0.001
     inner_steps: int = 5
-    support_sizes: List[int] = field(default_factory=lambda: [5, 10, 20, 50, 100])
+    support_sizes: list[int] = field(default_factory=lambda: [5, 10, 20, 50, 100])
     n_eval_runs: int = 5  # Average over multiple runs
 
 
-def load_drug_data(drug_class: str, drug: str) -> Tuple[np.ndarray, np.ndarray]:
+def load_drug_data(drug_class: str, drug: str) -> tuple[np.ndarray, np.ndarray]:
     """Load data for a specific drug."""
     data_dir = project_root / "data" / "research"
 
@@ -68,8 +65,8 @@ def load_drug_data(drug_class: str, drug: str) -> Tuple[np.ndarray, np.ndarray]:
     else:
         prefix = "IN"
 
-    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix):].isdigit()]
-    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix):]))
+    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix) :].isdigit()]
+    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix) :]))
 
     # Filter valid rows
     df_valid = df[df[drug].notna() & (df[drug] > 0)].copy()
@@ -107,7 +104,7 @@ class MetaTrainer:
         self.device = torch.device(eval_cfg.device)
         self.model = MAMLVAE(cfg).to(self.device)
 
-    def meta_train(self, task_data: Dict[str, Tuple[np.ndarray, np.ndarray]], epochs: int = 100):
+    def meta_train(self, task_data: dict[str, tuple[np.ndarray, np.ndarray]], epochs: int = 100):
         """Meta-train on multiple tasks (drugs)."""
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.eval_cfg.outer_lr)
 
@@ -125,8 +122,8 @@ class MetaTrainer:
                 # Sample support and query sets
                 n = len(X)
                 idx = np.random.permutation(n)
-                support_idx = idx[:n // 2]
-                query_idx = idx[n // 2:]
+                support_idx = idx[: n // 2]
+                query_idx = idx[n // 2 :]
 
                 support_x = torch.tensor(X[support_idx]).to(self.device)
                 support_y = torch.tensor(y[support_idx]).to(self.device)
@@ -161,7 +158,7 @@ class MetaTrainer:
             grads = torch.autograd.grad(loss, adapted_model.parameters(), create_graph=not self.cfg.first_order)
 
             # Update parameters
-            for param, grad in zip(adapted_model.parameters(), grads):
+            for param, grad in zip(adapted_model.parameters(), grads, strict=False):
                 param.data = param.data - self.eval_cfg.inner_lr * grad
 
         return adapted_model
@@ -172,7 +169,7 @@ class MetaTrainer:
         y: np.ndarray,
         support_size: int,
         n_runs: int = 5,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """Evaluate few-shot adaptation performance."""
         correlations = []
 
@@ -212,7 +209,7 @@ class FineTuningBaseline:
         self.eval_cfg = eval_cfg
         self.device = torch.device(eval_cfg.device)
 
-    def pretrain(self, task_data: Dict[str, Tuple[np.ndarray, np.ndarray]], epochs: int = 100):
+    def pretrain(self, task_data: dict[str, tuple[np.ndarray, np.ndarray]], epochs: int = 100):
         """Pretrain on all tasks (standard multi-task learning)."""
         self.model = MAMLVAE(self.cfg).to(self.device)
         optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
@@ -220,7 +217,7 @@ class FineTuningBaseline:
         # Combine all data
         all_X = []
         all_y = []
-        for task, (X, y) in task_data.items():
+        for _task, (X, y) in task_data.items():
             all_X.append(X)
             all_y.append(y)
 
@@ -250,7 +247,7 @@ class FineTuningBaseline:
         support_size: int,
         n_runs: int = 5,
         fine_tune_epochs: int = 20,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """Evaluate fine-tuning performance."""
         correlations = []
 
@@ -355,16 +352,18 @@ def run_pi_evaluation(eval_cfg: EvalConfig):
 
                 print(f"  n={n_support}: MAML={maml_corr:+.3f}±{maml_std:.3f}, FT={ft_corr:+.3f}±{ft_std:.3f}")
 
-                results.append({
-                    "drug_class": "pi",
-                    "drug": drug,
-                    "n_support": n_support,
-                    "maml_corr": maml_corr,
-                    "maml_std": maml_std,
-                    "ft_corr": ft_corr,
-                    "ft_std": ft_std,
-                    "improvement": maml_corr - ft_corr,
-                })
+                results.append(
+                    {
+                        "drug_class": "pi",
+                        "drug": drug,
+                        "n_support": n_support,
+                        "maml_corr": maml_corr,
+                        "maml_std": maml_std,
+                        "ft_corr": ft_corr,
+                        "ft_std": ft_std,
+                        "improvement": maml_corr - ft_corr,
+                    }
+                )
 
         except Exception as e:
             print(f"  Error: {e}")
@@ -400,7 +399,7 @@ def run_ini_evaluation(eval_cfg: EvalConfig):
     # Leave-one-out evaluation
     results = []
 
-    for target_drug in all_data.keys():
+    for target_drug in all_data:
         print(f"\n--- Target: {target_drug} ---")
 
         # Source = all other drugs
@@ -432,16 +431,18 @@ def run_ini_evaluation(eval_cfg: EvalConfig):
 
             print(f"  n={n_support}: MAML={maml_corr:+.3f}±{maml_std:.3f}, FT={ft_corr:+.3f}±{ft_std:.3f}")
 
-            results.append({
-                "drug_class": "ini",
-                "drug": target_drug,
-                "n_support": n_support,
-                "maml_corr": maml_corr,
-                "maml_std": maml_std,
-                "ft_corr": ft_corr,
-                "ft_std": ft_std,
-                "improvement": maml_corr - ft_corr,
-            })
+            results.append(
+                {
+                    "drug_class": "ini",
+                    "drug": target_drug,
+                    "n_support": n_support,
+                    "maml_corr": maml_corr,
+                    "maml_std": maml_std,
+                    "ft_corr": ft_corr,
+                    "ft_std": ft_std,
+                    "improvement": maml_corr - ft_corr,
+                }
+            )
 
     return results
 
@@ -485,7 +486,9 @@ def main():
         for r in all_results:
             delta = r["improvement"]
             delta_str = f"{delta:+.3f}" if delta > 0 else f"{delta:.3f}"
-            print(f"{r['drug']:<8} {r['n_support']:<6} {r['maml_corr']:+.3f}±{r['maml_std']:.2f}  {r['ft_corr']:+.3f}±{r['ft_std']:.2f}  {delta_str}")
+            print(
+                f"{r['drug']:<8} {r['n_support']:<6} {r['maml_corr']:+.3f}±{r['maml_std']:.2f}  {r['ft_corr']:+.3f}±{r['ft_std']:.2f}  {delta_str}"
+            )
 
         # Save
         results_df = pd.DataFrame(all_results)

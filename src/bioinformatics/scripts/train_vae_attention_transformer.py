@@ -25,31 +25,31 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from scipy.stats import spearmanr, pearsonr
+from scipy.stats import pearsonr, spearmanr
 from torch.utils.data import DataLoader, TensorDataset
 
 # Add project root to path
 project_root = Path(__file__).parents[3]
 sys.path.insert(0, str(project_root))
 
-from src.bioinformatics.data.s669_loader import S669Loader
-from src.bioinformatics.data.protherm_loader import ProThermLoader
 from src.bioinformatics.data.preprocessing import compute_features
+from src.bioinformatics.data.protherm_loader import ProThermLoader
+from src.bioinformatics.data.s669_loader import S669Loader
 
 
 @dataclass
 class AttentionConfig:
     """Configuration for attention transformer."""
+
     # VAE architecture (must match trained models)
     vae_hidden_dim: int = 128
     vae_latent_dim: int = 32
-    refiner_hidden_dims: List[int] = None
+    refiner_hidden_dims: list[int] = None
 
     # Transformer
     d_model: int = 64
@@ -65,7 +65,7 @@ class AttentionConfig:
     patience: int = 30
 
     # Checkpoints (will be set dynamically)
-    vae_suite_dir: Optional[str] = None
+    vae_suite_dir: str | None = None
 
     def __post_init__(self):
         if self.refiner_hidden_dims is None:
@@ -98,11 +98,11 @@ class DDGVAE(nn.Module):
             nn.Linear(hidden_dim, 1),
         )
 
-    def encode(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def encode(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         h = self.encoder(x)
         return self.fc_mu(h), self.fc_logvar(h).clamp(-10, 2)
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         mu, logvar = self.encode(x)
         pred = self.decoder(mu).squeeze(-1)
         return {"mu": mu, "logvar": logvar, "pred": pred}
@@ -111,7 +111,7 @@ class DDGVAE(nn.Module):
 class MLPRefiner(nn.Module):
     """MLP that refines VAE predictions."""
 
-    def __init__(self, latent_dim: int, hidden_dims: List[int] = None, dropout: float = 0.1):
+    def __init__(self, latent_dim: int, hidden_dims: list[int] = None, dropout: float = 0.1):
         super().__init__()
         if hidden_dims is None:
             hidden_dims = [64, 64, 32]
@@ -119,19 +119,21 @@ class MLPRefiner(nn.Module):
         layers = []
         in_dim = latent_dim
         for h_dim in hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, h_dim),
-                nn.SiLU(),
-                nn.LayerNorm(h_dim),
-                nn.Dropout(dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, h_dim),
+                    nn.SiLU(),
+                    nn.LayerNorm(h_dim),
+                    nn.Dropout(dropout),
+                ]
+            )
             in_dim = h_dim
 
         self.mlp = nn.Sequential(*layers)
         self.head = nn.Linear(in_dim, 1)
         self.residual_weight = nn.Parameter(torch.tensor(0.5))
 
-    def forward(self, mu: torch.Tensor, vae_pred: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, mu: torch.Tensor, vae_pred: torch.Tensor) -> dict[str, torch.Tensor]:
         h = self.mlp(mu)
         delta = self.head(h).squeeze(-1)
         w = torch.sigmoid(self.residual_weight)
@@ -144,8 +146,8 @@ class VAEAttentionTransformer(nn.Module):
 
     def __init__(
         self,
-        vaes: Dict[str, DDGVAE],
-        refiners: Dict[str, MLPRefiner],
+        vaes: dict[str, DDGVAE],
+        refiners: dict[str, MLPRefiner],
         config: AttentionConfig,
     ):
         super().__init__()
@@ -168,16 +170,14 @@ class VAEAttentionTransformer(nn.Module):
         self.embed_per_specialist = config.vae_latent_dim + config.refiner_hidden_dims[-1] + 2
 
         # Project each specialist's features to d_model
-        self.specialist_projections = nn.ModuleDict({
-            name: nn.Linear(self.embed_per_specialist, config.d_model)
-            for name in vaes.keys()
-        })
+        self.specialist_projections = nn.ModuleDict(
+            {name: nn.Linear(self.embed_per_specialist, config.d_model) for name in vaes}
+        )
 
         # Learnable specialist embeddings (like positional encoding for modalities)
-        self.specialist_embeddings = nn.ParameterDict({
-            name: nn.Parameter(torch.randn(1, 1, config.d_model) * 0.02)
-            for name in vaes.keys()
-        })
+        self.specialist_embeddings = nn.ParameterDict(
+            {name: nn.Parameter(torch.randn(1, 1, config.d_model) * 0.02) for name in vaes}
+        )
 
         # CLS token for final prediction
         self.cls_token = nn.Parameter(torch.randn(1, 1, config.d_model) * 0.02)
@@ -188,7 +188,7 @@ class VAEAttentionTransformer(nn.Module):
             nhead=config.nhead,
             dim_feedforward=config.d_model * 4,
             dropout=config.dropout,
-            activation='gelu',
+            activation="gelu",
             batch_first=True,
             norm_first=True,
         )
@@ -205,12 +205,12 @@ class VAEAttentionTransformer(nn.Module):
         # Also compute weighted average of specialist predictions for comparison
         self.specialist_weights = nn.Parameter(torch.ones(self.n_specialists) / self.n_specialists)
 
-    def get_specialist_features(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def get_specialist_features(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Get features from all specialists."""
         features = {}
 
         with torch.no_grad():
-            for name in self.vaes.keys():
+            for name in self.vaes:
                 vae = self.vaes[name]
                 refiner = self.refiners[name]
 
@@ -223,16 +223,19 @@ class VAEAttentionTransformer(nn.Module):
                 refined_pred = refiner_out["pred"]
 
                 # Concatenate all features: mu, hidden, vae_pred, refined_pred
-                features[name] = torch.cat([
-                    mu,
-                    h,
-                    vae_pred.unsqueeze(-1),
-                    refined_pred.unsqueeze(-1),
-                ], dim=-1)
+                features[name] = torch.cat(
+                    [
+                        mu,
+                        h,
+                        vae_pred.unsqueeze(-1),
+                        refined_pred.unsqueeze(-1),
+                    ],
+                    dim=-1,
+                )
 
         return features
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         batch_size = x.size(0)
 
         # Get features from all specialists
@@ -242,7 +245,7 @@ class VAEAttentionTransformer(nn.Module):
         projected = []
         specialist_preds = []
 
-        for name in self.vaes.keys():
+        for name in self.vaes:
             feat = specialist_features[name]
             proj = self.specialist_projections[name](feat)
             emb = self.specialist_embeddings[name].expand(batch_size, -1, -1)
@@ -313,7 +316,7 @@ def load_specialists(suite_dir: Path, config: AttentionConfig, input_dim: int, d
     vaes = {}
     refiners = {}
 
-    for name in ['s669', 'protherm']:
+    for name in ["s669", "protherm"]:
         model_dir = suite_dir / name
 
         if not model_dir.exists():
@@ -339,8 +342,10 @@ def load_specialists(suite_dir: Path, config: AttentionConfig, input_dim: int, d
         refiner.load_state_dict(refiner_ckpt["model_state_dict"])
         refiners[name] = refiner
 
-        print(f"  Loaded {name}: VAE Spearman={vae_ckpt.get('vae_spearman', 'N/A'):.4f}, "
-              f"Refiner Spearman={refiner_ckpt.get('refiner_spearman', 'N/A'):.4f}")
+        print(
+            f"  Loaded {name}: VAE Spearman={vae_ckpt.get('vae_spearman', 'N/A'):.4f}, "
+            f"Refiner Spearman={refiner_ckpt.get('refiner_spearman', 'N/A'):.4f}"
+        )
 
     # Check for Wide (optional)
     wide_dir = suite_dir / "wide"
@@ -372,10 +377,12 @@ def load_specialists(suite_dir: Path, config: AttentionConfig, input_dim: int, d
 
 def train_attention_transformer(
     model: VAEAttentionTransformer,
-    X_train: np.ndarray, y_train: np.ndarray,
-    X_val: np.ndarray, y_val: np.ndarray,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
     config: AttentionConfig,
-) -> Tuple[VAEAttentionTransformer, Dict]:
+) -> tuple[VAEAttentionTransformer, dict]:
     """Train the attention transformer."""
     device = next(model.parameters()).device
 
@@ -389,9 +396,7 @@ def train_attention_transformer(
 
     # Only train transformer parameters
     optimizer = torch.optim.AdamW(
-        [p for p in model.parameters() if p.requires_grad],
-        lr=config.learning_rate,
-        weight_decay=config.weight_decay
+        [p for p in model.parameters() if p.requires_grad], lr=config.learning_rate, weight_decay=config.weight_decay
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.epochs)
 
@@ -413,8 +418,8 @@ def train_attention_transformer(
 
             # Ranking loss for correlation
             if len(batch_y) > 1:
-                idx1 = torch.randperm(len(batch_y))[:min(32, len(batch_y))]
-                idx2 = torch.randperm(len(batch_y))[:min(32, len(batch_y))]
+                idx1 = torch.randperm(len(batch_y))[: min(32, len(batch_y))]
+                idx2 = torch.randperm(len(batch_y))[: min(32, len(batch_y))]
                 diff_pred = out["pred"][idx1] - out["pred"][idx2]
                 diff_true = batch_y[idx1] - batch_y[idx2]
                 ranking_loss = F.relu(0.1 - diff_pred * torch.sign(diff_true)).mean()
@@ -452,8 +457,7 @@ def train_attention_transformer(
 
         if (epoch + 1) % 20 == 0:
             weights = val_out["weights"].cpu().numpy()
-            print(f"    Epoch {epoch+1}: val_corr={val_corr:.4f}, weighted={weighted_corr:.4f}, "
-                  f"weights={weights}")
+            print(f"    Epoch {epoch + 1}: val_corr={val_corr:.4f}, weighted={weighted_corr:.4f}, weights={weights}")
 
     if best_state:
         model.load_state_dict(best_state)
@@ -461,7 +465,7 @@ def train_attention_transformer(
     return model, {"best_val_corr": best_val_corr, "history": history}
 
 
-def evaluate(model: VAEAttentionTransformer, X: np.ndarray, y: np.ndarray) -> Dict:
+def evaluate(model: VAEAttentionTransformer, X: np.ndarray, y: np.ndarray) -> dict:
     """Evaluate model."""
     device = next(model.parameters()).device
     X_t = torch.tensor(X, dtype=torch.float32, device=device)
@@ -472,7 +476,7 @@ def evaluate(model: VAEAttentionTransformer, X: np.ndarray, y: np.ndarray) -> Di
 
     preds = out["pred"].cpu().numpy()
     weighted = out["weighted_avg"].cpu().numpy()
-    specialist_preds = out["specialist_preds"].cpu().numpy()
+    out["specialist_preds"].cpu().numpy()
     weights = out["weights"].cpu().numpy()
 
     return {
@@ -565,11 +569,11 @@ def main():
 
     # On each dataset separately
     s669_idx = np.random.permutation(len(X_s669))
-    s669_val_idx = s669_idx[int(0.8 * len(s669_idx)):]
+    s669_val_idx = s669_idx[int(0.8 * len(s669_idx)) :]
     s669_result = evaluate(model, X_s669[s669_val_idx], y_s669[s669_val_idx])
 
     protherm_idx = np.random.permutation(len(X_protherm))
-    protherm_val_idx = protherm_idx[int(0.8 * len(protherm_idx)):]
+    protherm_val_idx = protherm_idx[int(0.8 * len(protherm_idx)) :]
     protherm_result = evaluate(model, X_protherm[protherm_val_idx], y_protherm[protherm_val_idx])
 
     print(f"\nS669 Validation (n={s669_result['n']}):")
@@ -599,11 +603,11 @@ def main():
     print("=" * 70)
     print(f"""
 VAE Attention Transformer Results:
-  Combined: {combined_result['spearman']:.4f} Spearman
-  S669:     {s669_result['spearman']:.4f} Spearman
-  ProTherm: {protherm_result['spearman']:.4f} Spearman
+  Combined: {combined_result["spearman"]:.4f} Spearman
+  S669:     {s669_result["spearman"]:.4f} Spearman
+  ProTherm: {protherm_result["spearman"]:.4f} Spearman
 
-Specialist Weights: {combined_result['specialist_weights']}
+Specialist Weights: {combined_result["specialist_weights"]}
 """)
 
     return model, results

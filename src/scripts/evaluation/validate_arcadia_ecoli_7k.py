@@ -42,27 +42,27 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import torch
-from scipy.stats import spearmanr, pearsonr
-from sklearn.metrics import roc_auc_score, mean_squared_error
-from sklearn.model_selection import train_test_split, cross_val_score
+from scipy.stats import pearsonr, spearmanr
+from sklearn.metrics import mean_squared_error, roc_auc_score
+from sklearn.model_selection import train_test_split
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+import contextlib
+
 from src.diseases.ecoli_betalactam_analyzer import (
-    EcoliBetaLactamAnalyzer,
-    EcoliBetaLactamConfig,
     BetaLactam,
+    EcoliBetaLactamAnalyzer,
     create_ecoli_synthetic_dataset,
 )
 from src.models.simple_vae import SimpleVAE
@@ -96,13 +96,13 @@ class ArcadiaDataLoader:
         "ertapenem": "ETP",
     }
 
-    def __init__(self, data_dir: Optional[Path] = None):
+    def __init__(self, data_dir: Path | None = None):
         self.data_dir = data_dir or ARCADIA_DATA_DIR
         self.processed_dir = ARCADIA_PROCESSED_DIR
-        self.phenotype_df: Optional[pd.DataFrame] = None
-        self.sequence_data: Dict[str, str] = {}
+        self.phenotype_df: pd.DataFrame | None = None
+        self.sequence_data: dict[str, str] = {}
 
-    def load_phenotypes(self) -> Optional[pd.DataFrame]:
+    def load_phenotypes(self) -> pd.DataFrame | None:
         """Load phenotype (MIC) data.
 
         Returns:
@@ -123,7 +123,7 @@ class ArcadiaDataLoader:
         logger.info(f"Loaded {len(self.phenotype_df)} samples")
         return self.phenotype_df
 
-    def load_sequences(self) -> Dict[str, str]:
+    def load_sequences(self) -> dict[str, str]:
         """Load TEM beta-lactamase sequences.
 
         Returns:
@@ -146,7 +146,7 @@ class ArcadiaDataLoader:
         self.sequence_data = sequences
         return sequences
 
-    def _parse_fasta(self, filepath: Path) -> Dict[str, str]:
+    def _parse_fasta(self, filepath: Path) -> dict[str, str]:
         """Parse FASTA file.
 
         Args:
@@ -159,7 +159,7 @@ class ArcadiaDataLoader:
         current_header = None
         current_seq = []
 
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             for line in f:
                 line = line.strip()
                 if line.startswith(">"):
@@ -180,7 +180,7 @@ class ArcadiaDataLoader:
         self,
         drug: str = "ampicillin",
         min_sequence_length: int = 200,
-    ) -> Tuple[np.ndarray, np.ndarray, List[str]]:
+    ) -> tuple[np.ndarray, np.ndarray, list[str]]:
         """Prepare dataset for training/validation.
 
         Args:
@@ -220,7 +220,7 @@ class ArcadiaDataLoader:
             logger.warning(f"Drug {drug} not found in phenotype data")
             return create_ecoli_synthetic_dataset()
 
-        for idx, row in self.phenotype_df.iterrows():
+        for _idx, row in self.phenotype_df.iterrows():
             strain_id = str(row.iloc[0])  # First column is strain ID
 
             # Find matching sequence
@@ -266,19 +266,19 @@ class ArcadiaValidator:
 
     def __init__(
         self,
-        data_loader: Optional[ArcadiaDataLoader] = None,
+        data_loader: ArcadiaDataLoader | None = None,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
         self.data_loader = data_loader or ArcadiaDataLoader()
         self.device = device
-        self.results: Dict[str, Any] = {}
+        self.results: dict[str, Any] = {}
 
     def validate_drug(
         self,
         drug: str = "ampicillin",
         test_size: float = 0.2,
         n_epochs: int = 50,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Validate resistance prediction for a single drug.
 
         Args:
@@ -296,9 +296,7 @@ class ArcadiaValidator:
         logger.info(f"Dataset: {len(X)} samples")
 
         # Split data
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=42
-        )
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
 
         # Create and train VAE
         input_dim = X.shape[1]
@@ -349,7 +347,7 @@ class ArcadiaValidator:
 
         # Binary classification metrics (threshold at 0.5)
         y_binary = (y_test > 0.5).astype(int)
-        y_pred_binary = (y_pred > 0.5).astype(int)
+        (y_pred > 0.5).astype(int)
 
         try:
             auc = roc_auc_score(y_binary, y_pred)
@@ -373,8 +371,8 @@ class ArcadiaValidator:
 
     def validate_all_drugs(
         self,
-        drugs: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        drugs: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Validate across all beta-lactam drugs.
 
         Args:
@@ -424,7 +422,7 @@ class ArcadiaValidator:
 
         return self.results
 
-    def save_results(self, output_dir: Optional[Path] = None):
+    def save_results(self, output_dir: Path | None = None):
         """Save validation results.
 
         Args:
@@ -452,8 +450,7 @@ class ArcadiaValidator:
             print(f"Drugs ≥0.6 Spearman: {self.results['summary']['drugs_above_0.6']}")
             print("\nPer-drug results:")
             for drug_result in self.results["per_drug_results"]:
-                print(f"  {drug_result['drug']}: ρ={drug_result['spearman_rho']:.3f}, "
-                      f"AUC={drug_result['auc_roc']:.3f}")
+                print(f"  {drug_result['drug']}: ρ={drug_result['spearman_rho']:.3f}, AUC={drug_result['auc_roc']:.3f}")
 
 
 def run_quick_validation():
@@ -489,14 +486,11 @@ def compare_models():
     logger.info("Comparing model architectures...")
 
     from src.models.epsilon_vae import EpsilonVAE
-    from src.models.optimal_vae import OptimalVAE
 
     data_loader = ArcadiaDataLoader()
     X, y, ids = data_loader.prepare_dataset(drug="ampicillin")
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     models = {
         "SimpleVAE": SimpleVAE(
@@ -507,14 +501,12 @@ def compare_models():
     }
 
     # Add other models if available
-    try:
+    with contextlib.suppress(Exception):
         models["EpsilonVAE"] = EpsilonVAE(
             input_dim=X.shape[1],
             latent_dim=32,
             hidden_dims=[256, 128],
         )
-    except Exception:
-        pass
 
     results = {}
     for name, model in models.items():

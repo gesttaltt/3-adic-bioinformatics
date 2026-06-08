@@ -32,10 +32,10 @@ Example:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Optional
 
 import torch
 import torch.nn as nn
@@ -429,6 +429,7 @@ class SelfSupervisedModel(nn.Module):
         for p_online, p_target in zip(
             self.encoder.parameters(),
             self.target_encoder.parameters(),
+            strict=False,
         ):
             p_target.data.copy_(p_online.data)
             p_target.requires_grad = False
@@ -436,6 +437,7 @@ class SelfSupervisedModel(nn.Module):
         for p_online, p_target in zip(
             self.contrastive_head.parameters(),
             self.target_contrastive.parameters(),
+            strict=False,
         ):
             p_target.data.copy_(p_online.data)
             p_target.requires_grad = False
@@ -448,12 +450,14 @@ class SelfSupervisedModel(nn.Module):
         for p_online, p_target in zip(
             self.encoder.parameters(),
             self.target_encoder.parameters(),
+            strict=False,
         ):
             p_target.data = m * p_target.data + (1 - m) * p_online.data
 
         for p_online, p_target in zip(
             self.contrastive_head.parameters(),
             self.target_contrastive.parameters(),
+            strict=False,
         ):
             p_target.data = m * p_target.data + (1 - m) * p_online.data
 
@@ -510,7 +514,7 @@ class SelfSupervisedModel(nn.Module):
     def compute_losses(
         self,
         x: torch.Tensor,
-        outputs: Optional[dict[str, torch.Tensor]] = None,
+        outputs: dict[str, torch.Tensor] | None = None,
     ) -> dict[str, torch.Tensor]:
         """Compute all pre-training losses.
 
@@ -536,29 +540,31 @@ class SelfSupervisedModel(nn.Module):
             losses["recon"] = F.mse_loss(recon_flat, x_flat) * weights.get("vae_recon", 1.0)
 
             # KL divergence
-            kl = -0.5 * torch.mean(
-                1 + outputs["logvar"] - outputs["mu"].pow(2) - outputs["logvar"].exp()
-            )
+            kl = -0.5 * torch.mean(1 + outputs["logvar"] - outputs["mu"].pow(2) - outputs["logvar"].exp())
             losses["kl"] = kl * weights.get("vae_kl", 0.001)
 
         # Contrastive loss (BYOL)
         if "pred_online" in outputs:
             # Loss 1: predict target from online
-            loss1 = 1 - F.cosine_similarity(
-                outputs["pred_online"],
-                outputs["proj_target"].detach(),
-                dim=-1,
-            ).mean()
+            loss1 = (
+                1
+                - F.cosine_similarity(
+                    outputs["pred_online"],
+                    outputs["proj_target"].detach(),
+                    dim=-1,
+                ).mean()
+            )
 
             # Loss 2: predict target from augmented online
-            pred_aug, _ = self.contrastive_head(
-                self.encoder(self.augmenter(x), return_sequence=False)["z"]
+            pred_aug, _ = self.contrastive_head(self.encoder(self.augmenter(x), return_sequence=False)["z"])
+            loss2 = (
+                1
+                - F.cosine_similarity(
+                    pred_aug,
+                    outputs["proj_target_aug"].detach(),
+                    dim=-1,
+                ).mean()
             )
-            loss2 = 1 - F.cosine_similarity(
-                pred_aug,
-                outputs["proj_target_aug"].detach(),
-                dim=-1,
-            ).mean()
 
             losses["contrastive"] = (loss1 + loss2) / 2 * weights.get("contrastive", 0.5)
 
@@ -593,14 +599,14 @@ class SelfSupervisedPretrainer:
         """
         self.config = config
         self.device = torch.device(config.device)
-        self.model: Optional[SelfSupervisedModel] = None
+        self.model: SelfSupervisedModel | None = None
         self.checkpoint_dir = Path(config.checkpoint_dir)
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     def pretrain(
         self,
         dataset: Dataset,
-        callback: Optional[Callable] = None,
+        callback: Callable | None = None,
     ) -> SequenceEncoder:
         """Pre-train on unlabeled sequence data.
 
@@ -716,7 +722,7 @@ class SelfSupervisedPretrainer:
 
     def create_downstream_model(
         self,
-        encoder: Optional[SequenceEncoder] = None,
+        encoder: SequenceEncoder | None = None,
         n_outputs: int = 1,
         freeze_encoder: bool = True,
     ) -> nn.Module:
@@ -818,8 +824,8 @@ class SelfSupervisedPretrainer:
     ) -> dict[str, float]:
         """Linear probe evaluation."""
         from sklearn.linear_model import LogisticRegression
-        from sklearn.model_selection import train_test_split
         from sklearn.metrics import accuracy_score
+        from sklearn.model_selection import train_test_split
 
         X = embeddings.numpy()
         y = labels.numpy()
@@ -856,9 +862,9 @@ class SelfSupervisedPretrainer:
         k: int = 5,
     ) -> dict[str, float]:
         """K-NN evaluation."""
-        from sklearn.neighbors import KNeighborsClassifier
-        from sklearn.model_selection import train_test_split
         from sklearn.metrics import accuracy_score
+        from sklearn.model_selection import train_test_split
+        from sklearn.neighbors import KNeighborsClassifier
 
         X = embeddings.numpy()
         y = labels.numpy()

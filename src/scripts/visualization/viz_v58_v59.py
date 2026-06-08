@@ -10,6 +10,7 @@
 Usage:
     python src/scripts/visualization/viz_v58_v59.py --ckpt-v58 path/to/v58.pt --ckpt-v59 path/to/v59.pt
 """
+
 import argparse
 import sys
 from pathlib import Path
@@ -204,7 +205,7 @@ def generate_comparison(ckpt_v58, ckpt_v59, output_path):
     ax.set_ylabel("Value (%)")
     ax.set_title("Peak Performance Comparison")
     ax.legend()
-    for bar, val in zip(bars1, v58_vals):
+    for bar, val in zip(bars1, v58_vals, strict=False):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height() + 0.5,
@@ -212,7 +213,7 @@ def generate_comparison(ckpt_v58, ckpt_v59, output_path):
             ha="center",
             fontsize=8,
         )
-    for bar, val in zip(bars2, v59_vals):
+    for bar, val in zip(bars2, v59_vals, strict=False):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height() + 0.5,
@@ -297,7 +298,7 @@ captures the ultrametric structure of ternary operations.
     plt.tight_layout()
     plt.savefig(output_path / "v58_v59_comparison.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print(f'Saved: {output_path / "v58_v59_comparison.png"}')
+    print(f"Saved: {output_path / 'v58_v59_comparison.png'}")
 
 
 if __name__ == "__main__":

@@ -44,7 +44,7 @@ def print_gpu_info():
     print_header("GPU Information")
 
     if torch.cuda.is_available():
-        print(f"  CUDA Available: Yes")
+        print("  CUDA Available: Yes")
         print(f"  Device Count: {torch.cuda.device_count()}")
         print(f"  Current Device: {torch.cuda.current_device()}")
         print(f"  Device Name: {torch.cuda.get_device_name(0)}")
@@ -210,9 +210,11 @@ def run_quick_training(args):
             valuations = TERNARY.valuation(indices).cpu().numpy()
             radial_corr = spearmanr(valuations, radii)[0]
 
-        print(f"  Epoch {epoch+1}/{args.epochs}: loss={avg_loss:.4f}, "
-              f"coverage={coverage*100:.1f}%, radial_corr={radial_corr:.3f}, "
-              f"time={epoch_time:.2f}s")
+        print(
+            f"  Epoch {epoch + 1}/{args.epochs}: loss={avg_loss:.4f}, "
+            f"coverage={coverage * 100:.1f}%, radial_corr={radial_corr:.3f}, "
+            f"time={epoch_time:.2f}s"
+        )
 
     total_time = time.time() - training_start
 
@@ -244,7 +246,7 @@ def run_quick_training(args):
         mean_radius = radii_A.mean()
         radius_range = radii_A.max() - radii_A.min()
 
-    print(f"  Coverage: {coverage*100:.1f}%")
+    print(f"  Coverage: {coverage * 100:.1f}%")
     print(f"  Radial Hierarchy A: {radial_corr_A:.4f}")
     print(f"  Radial Hierarchy B: {radial_corr_B:.4f}")
     print(f"  Mean Radius: {mean_radius:.4f}")
@@ -257,16 +259,19 @@ def run_quick_training(args):
         save_dir.mkdir(parents=True, exist_ok=True)
 
         checkpoint_path = save_dir / f"quick_train_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pt"
-        torch.save({
-            "epoch": args.epochs,
-            "model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-            "metrics": {
-                "coverage": coverage,
-                "radial_corr_A": radial_corr_A,
-                "radial_corr_B": radial_corr_B,
+        torch.save(
+            {
+                "epoch": args.epochs,
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "metrics": {
+                    "coverage": coverage,
+                    "radial_corr_A": radial_corr_A,
+                    "radial_corr_B": radial_corr_B,
+                },
             },
-        }, checkpoint_path)
+            checkpoint_path,
+        )
         print(f"  Saved to: {checkpoint_path}")
 
     # Summary
@@ -298,37 +303,14 @@ def run_quick_training(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Quick training smoke test for GPU verification"
-    )
-    parser.add_argument(
-        "--epochs", type=int, default=5,
-        help="Number of training epochs (default: 5)"
-    )
-    parser.add_argument(
-        "--batch_size", type=int, default=512,
-        help="Batch size (default: 512)"
-    )
-    parser.add_argument(
-        "--lr", type=float, default=1e-3,
-        help="Learning rate (default: 1e-3)"
-    )
-    parser.add_argument(
-        "--device", type=str, default="cuda",
-        help="Device to use (default: cuda)"
-    )
-    parser.add_argument(
-        "--full", action="store_true",
-        help="Enable all features (controller, dual projection)"
-    )
-    parser.add_argument(
-        "--save", action="store_true",
-        help="Save checkpoint after training"
-    )
-    parser.add_argument(
-        "--save_dir", type=str, default="outputs/quick_train",
-        help="Directory to save checkpoints"
-    )
+    parser = argparse.ArgumentParser(description="Quick training smoke test for GPU verification")
+    parser.add_argument("--epochs", type=int, default=5, help="Number of training epochs (default: 5)")
+    parser.add_argument("--batch_size", type=int, default=512, help="Batch size (default: 512)")
+    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate (default: 1e-3)")
+    parser.add_argument("--device", type=str, default="cuda", help="Device to use (default: cuda)")
+    parser.add_argument("--full", action="store_true", help="Enable all features (controller, dual projection)")
+    parser.add_argument("--save", action="store_true", help="Save checkpoint after training")
+    parser.add_argument("--save_dir", type=str, default="outputs/quick_train", help="Directory to save checkpoints")
 
     args = parser.parse_args()
 
@@ -349,6 +331,7 @@ def main():
     except Exception as e:
         print(f"\n  [ERROR] Training failed: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

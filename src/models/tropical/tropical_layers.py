@@ -21,8 +21,6 @@ Mathematical Properties:
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -104,9 +102,7 @@ class TropicalLinear(nn.Module):
         if self.soft_tropical:
             # Soft tropical: logsumexp approximation to max
             # logsumexp(x/T) * T ≈ max(x) as T → 0
-            y = self.temperature * torch.logsumexp(
-                tropical_prod / self.temperature, dim=-1
-            )
+            y = self.temperature * torch.logsumexp(tropical_prod / self.temperature, dim=-1)
         else:
             # Hard tropical: exact max
             y = tropical_prod.max(dim=-1)[0]
@@ -159,9 +155,7 @@ class TropicalConv1d(nn.Module):
         self.soft_tropical = soft_tropical
 
         # Weight: (out_channels, in_channels, kernel_size)
-        self.weight = nn.Parameter(
-            torch.empty(out_channels, in_channels, kernel_size)
-        )
+        self.weight = nn.Parameter(torch.empty(out_channels, in_channels, kernel_size))
         self.bias = nn.Parameter(torch.empty(out_channels))
 
         self._init_parameters()
@@ -429,7 +423,7 @@ class TropicalAttention(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
+        mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Apply tropical attention.
 

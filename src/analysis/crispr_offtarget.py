@@ -17,18 +17,18 @@ Example:
 """
 
 from src.analysis.crispr import (
-    CRISPROfftargetAnalyzer,
-    GuideSafetyProfile,
-    GuideDesignOptimizer,
-    HyperbolicOfftargetEmbedder,
     IDX_TO_NUCLEOTIDE,
-    MismatchType,
     NUCLEOTIDE_TO_IDX,
+    PAM_SEQUENCES,
+    POSITION_WEIGHTS,
+    CRISPROfftargetAnalyzer,
+    GuideDesignOptimizer,
+    GuideSafetyProfile,
+    HyperbolicOfftargetEmbedder,
+    MismatchType,
     OfftargetActivityPredictor,
     OffTargetSite,
     PAdicSequenceDistance,
-    PAM_SEQUENCES,
-    POSITION_WEIGHTS,
     encode_sequence,
     sequence_to_onehot,
 )

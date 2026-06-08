@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -39,12 +39,14 @@ def load_datasets_for_vaccine_analysis() -> dict:
 
     try:
         from src.data.hiv import load_lanl_ctl
+
         datasets["ctl"] = load_lanl_ctl()
     except FileNotFoundError:
         pass
 
     try:
-        from src.data.hiv import load_catnap, calculate_antibody_breadth
+        from src.data.hiv import calculate_antibody_breadth, load_catnap
+
         datasets["catnap"] = load_catnap()
         datasets["bnab_breadth"] = calculate_antibody_breadth(datasets["catnap"])
     except FileNotFoundError:
@@ -52,6 +54,7 @@ def load_datasets_for_vaccine_analysis() -> dict:
 
     try:
         from src.data.hiv import load_stanford_hivdb
+
         datasets["stanford"] = load_stanford_hivdb("all")
     except FileNotFoundError:
         pass
@@ -92,15 +95,17 @@ def compute_epitope_conservation(ctl_df: pd.DataFrame) -> pd.DataFrame:
         else:
             conservation = 0.5
 
-        results.append({
-            "Epitope": epitope,
-            "Protein": row.get("Protein", ""),
-            "HXB2_start": row.get("HXB2_start", ""),
-            "HXB2_end": row.get("HXB2_end", ""),
-            "HLA": row.get("HLA", ""),
-            "conservation_score": conservation,
-            "sequence_length": len(epitope),
-        })
+        results.append(
+            {
+                "Epitope": epitope,
+                "Protein": row.get("Protein", ""),
+                "HXB2_start": row.get("HXB2_start", ""),
+                "HXB2_end": row.get("HXB2_end", ""),
+                "HLA": row.get("HLA", ""),
+                "conservation_score": conservation,
+                "sequence_length": len(epitope),
+            }
+        )
 
     return pd.DataFrame(results)
 
@@ -140,12 +145,14 @@ def compute_hla_coverage(ctl_df: pd.DataFrame) -> pd.DataFrame:
         # Cap at 1.0
         coverage = min(coverage, 1.0)
 
-        results.append({
-            "Epitope": row.get("Epitope", ""),
-            "HLA": hla_string,
-            "matched_hlas": ",".join(set(matched_hlas)),
-            "hla_coverage": coverage,
-        })
+        results.append(
+            {
+                "Epitope": row.get("Epitope", ""),
+                "HLA": hla_string,
+                "matched_hlas": ",".join(set(matched_hlas)),
+                "hla_coverage": coverage,
+            }
+        )
 
     return pd.DataFrame(results)
 
@@ -179,20 +186,20 @@ def compute_escape_resistance(ctl_df: pd.DataFrame, stanford_df: pd.DataFrame) -
         if pd.isna(start) or pd.isna(end):
             continue
 
-        total_mutations = sum(
-            mutation_density[pos] for pos in range(int(start), int(end) + 1)
-        )
+        total_mutations = sum(mutation_density[pos] for pos in range(int(start), int(end) + 1))
 
         # Low mutation density = high escape resistance
         escape_resistance = 1.0 / (1.0 + total_mutations * 0.1)
 
-        results.append({
-            "Epitope": row.get("Epitope", ""),
-            "HXB2_start": start,
-            "HXB2_end": end,
-            "mutation_count": total_mutations,
-            "escape_resistance": escape_resistance,
-        })
+        results.append(
+            {
+                "Epitope": row.get("Epitope", ""),
+                "HXB2_start": start,
+                "HXB2_end": end,
+                "mutation_count": total_mutations,
+                "escape_resistance": escape_resistance,
+            }
+        )
 
     return pd.DataFrame(results)
 
@@ -234,9 +241,9 @@ def rank_vaccine_targets(
 
     # Compute composite score
     merged["vaccine_score"] = (
-        weights["conservation"] * merged["conservation_score"] +
-        weights["hla_coverage"] * merged["hla_coverage"] +
-        weights["escape_resistance"] * merged["escape_resistance"]
+        weights["conservation"] * merged["conservation_score"]
+        + weights["hla_coverage"] * merged["hla_coverage"]
+        + weights["escape_resistance"] * merged["escape_resistance"]
     )
 
     # Rank
@@ -320,8 +327,7 @@ def main():
 
     # Apply filters
     filtered = ranked[
-        (ranked["conservation_score"] >= args.min_conservation) &
-        (ranked["hla_coverage"] >= args.min_coverage)
+        (ranked["conservation_score"] >= args.min_conservation) & (ranked["hla_coverage"] >= args.min_coverage)
     ].copy()
 
     print(f"  Total candidates: {len(filtered)}")
@@ -331,12 +337,14 @@ def main():
     print("-" * 80)
 
     for _, row in filtered.head(args.top_n).iterrows():
-        print(f"  #{row['rank']:3d} | {row['Epitope'][:15]:15s} | "
-              f"{row['Protein']:6s} | "
-              f"cons={row['conservation_score']:.3f} | "
-              f"HLA={row['hla_coverage']:.2f} | "
-              f"escape={row['escape_resistance']:.3f} | "
-              f"score={row['vaccine_score']:.3f}")
+        print(
+            f"  #{row['rank']:3d} | {row['Epitope'][:15]:15s} | "
+            f"{row['Protein']:6s} | "
+            f"cons={row['conservation_score']:.3f} | "
+            f"HLA={row['hla_coverage']:.2f} | "
+            f"escape={row['escape_resistance']:.3f} | "
+            f"score={row['vaccine_score']:.3f}"
+        )
 
     # Save results
     print(f"\nSaving results to {args.output}...")

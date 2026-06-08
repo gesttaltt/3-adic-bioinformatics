@@ -15,7 +15,7 @@ References:
 
 from __future__ import annotations
 
-from typing import Callable, List, Optional, Tuple, Union
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn
@@ -53,9 +53,7 @@ class EnsemblePredictor(nn.Module):
         self.aggregation = aggregation
 
         # Create ensemble members
-        self.members = nn.ModuleList([
-            model_fn() for _ in range(n_members)
-        ])
+        self.members = nn.ModuleList([model_fn() for _ in range(n_members)])
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Standard forward pass with aggregated prediction.
@@ -66,9 +64,7 @@ class EnsemblePredictor(nn.Module):
         Returns:
             Aggregated prediction
         """
-        predictions = torch.stack([
-            member(x) for member in self.members
-        ], dim=0)
+        predictions = torch.stack([member(x) for member in self.members], dim=0)
 
         if self.aggregation == "mean":
             return predictions.mean(dim=0)
@@ -91,15 +87,10 @@ class EnsemblePredictor(nn.Module):
         """
         # Collect predictions from all members
         with torch.no_grad():
-            predictions = torch.stack([
-                member(x) for member in self.members
-            ], dim=0)  # (n_members, batch, ...)
+            predictions = torch.stack([member(x) for member in self.members], dim=0)  # (n_members, batch, ...)
 
         # Aggregate prediction
-        if self.aggregation == "mean":
-            mean_prediction = predictions.mean(dim=0)
-        else:
-            mean_prediction = predictions.median(dim=0).values
+        mean_prediction = predictions.mean(dim=0) if self.aggregation == "mean" else predictions.median(dim=0).values
 
         # Epistemic uncertainty: variance across ensemble
         epistemic = predictions.var(dim=0)
@@ -129,9 +120,7 @@ class EnsemblePredictor(nn.Module):
             (n_members, batch, ...) predictions
         """
         with torch.no_grad():
-            return torch.stack([
-                member(x) for member in self.members
-            ], dim=0)
+            return torch.stack([member(x) for member in self.members], dim=0)
 
 
 class DeepEnsemble(nn.Module):
@@ -146,7 +135,7 @@ class DeepEnsemble(nn.Module):
         self,
         input_dim: int,
         output_dim: int = 1,
-        hidden_dims: List[int] = [256, 128],
+        hidden_dims: list[int] = None,
         n_members: int = 5,
     ):
         """Initialize deep ensemble.
@@ -157,21 +146,22 @@ class DeepEnsemble(nn.Module):
             hidden_dims: Hidden layer dimensions
             n_members: Number of ensemble members
         """
+        if hidden_dims is None:
+            hidden_dims = [256, 128]
         super().__init__()
         self.n_members = n_members
         self.output_dim = output_dim
 
         # Create ensemble members
-        self.members = nn.ModuleList([
-            self._create_member(input_dim, output_dim, hidden_dims)
-            for _ in range(n_members)
-        ])
+        self.members = nn.ModuleList(
+            [self._create_member(input_dim, output_dim, hidden_dims) for _ in range(n_members)]
+        )
 
     def _create_member(
         self,
         input_dim: int,
         output_dim: int,
-        hidden_dims: List[int],
+        hidden_dims: list[int],
     ) -> nn.Module:
         """Create a single ensemble member.
 
@@ -187,24 +177,28 @@ class DeepEnsemble(nn.Module):
         prev_dim = input_dim
 
         for hidden_dim in hidden_dims:
-            layers.extend([
-                nn.Linear(prev_dim, hidden_dim),
-                nn.LayerNorm(hidden_dim),
-                nn.SiLU(),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(prev_dim, hidden_dim),
+                    nn.LayerNorm(hidden_dim),
+                    nn.SiLU(),
+                ]
+            )
             prev_dim = hidden_dim
 
-        return nn.ModuleDict({
-            "backbone": nn.Sequential(*layers),
-            "mean_head": nn.Linear(prev_dim, output_dim),
-            "log_var_head": nn.Linear(prev_dim, output_dim),
-        })
+        return nn.ModuleDict(
+            {
+                "backbone": nn.Sequential(*layers),
+                "mean_head": nn.Linear(prev_dim, output_dim),
+                "log_var_head": nn.Linear(prev_dim, output_dim),
+            }
+        )
 
     def forward(
         self,
         x: torch.Tensor,
-        member_idx: Optional[int] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        member_idx: int | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass.
 
         Args:
@@ -239,7 +233,7 @@ class DeepEnsemble(nn.Module):
 
             # Mixture of Gaussians combination
             mixture_mean = means.mean(dim=0)
-            mixture_var = (variances + means ** 2).mean(dim=0) - mixture_mean ** 2
+            mixture_var = (variances + means**2).mean(dim=0) - mixture_mean**2
 
             return mixture_mean, mixture_var
 
@@ -298,7 +292,7 @@ class DeepEnsemble(nn.Module):
         self,
         x: torch.Tensor,
         y: torch.Tensor,
-        member_idx: Optional[int] = None,
+        member_idx: int | None = None,
     ) -> torch.Tensor:
         """Compute negative log-likelihood loss.
 
@@ -349,7 +343,7 @@ class SnapshotEnsemble(nn.Module):
         super().__init__()
         self.model = model
         self.n_snapshots = n_snapshots
-        self.snapshots: List[dict] = []
+        self.snapshots: list[dict] = []
 
     def add_snapshot(self):
         """Add current model state as a snapshot."""
@@ -452,7 +446,7 @@ class BatchEnsemble(nn.Module):
         self,
         input_dim: int,
         output_dim: int,
-        hidden_dims: List[int] = [256, 128],
+        hidden_dims: list[int] = None,
         n_members: int = 4,
     ):
         """Initialize batch ensemble.
@@ -463,6 +457,8 @@ class BatchEnsemble(nn.Module):
             hidden_dims: Hidden layer dimensions
             n_members: Number of ensemble members
         """
+        if hidden_dims is None:
+            hidden_dims = [256, 128]
         super().__init__()
         self.n_members = n_members
 
@@ -485,7 +481,7 @@ class BatchEnsemble(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        member_idx: Optional[int] = None,
+        member_idx: int | None = None,
     ) -> torch.Tensor:
         """Forward pass.
 
@@ -499,10 +495,7 @@ class BatchEnsemble(nn.Module):
         h = x
 
         for layer in self.backbone:
-            if isinstance(layer, BatchEnsembleLinear):
-                h = layer(h, member_idx)
-            else:
-                h = layer(h)
+            h = layer(h, member_idx) if isinstance(layer, BatchEnsembleLinear) else layer(h)
 
         return self.output_head(h, member_idx)
 
@@ -519,9 +512,7 @@ class BatchEnsemble(nn.Module):
             Dictionary with predictions and uncertainties
         """
         with torch.no_grad():
-            predictions = torch.stack([
-                self.forward(x, i) for i in range(self.n_members)
-            ], dim=0)
+            predictions = torch.stack([self.forward(x, i) for i in range(self.n_members)], dim=0)
 
         mean_prediction = predictions.mean(dim=0)
         epistemic = predictions.var(dim=0)
@@ -572,7 +563,7 @@ class BatchEnsembleLinear(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        member_idx: Optional[int] = None,
+        member_idx: int | None = None,
     ) -> torch.Tensor:
         """Forward pass.
 

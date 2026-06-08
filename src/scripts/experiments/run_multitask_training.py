@@ -15,7 +15,6 @@ import argparse
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -36,7 +35,7 @@ class MultiTaskConfig:
 
     input_dim: int = 99
     latent_dim: int = 32
-    hidden_dims: List[int] = field(default_factory=lambda: [256, 128, 64])
+    hidden_dims: list[int] = field(default_factory=lambda: [256, 128, 64])
     n_tasks: int = 8  # Number of drugs
     batch_size: int = 64
     epochs: int = 200
@@ -56,7 +55,7 @@ class MultiTaskConfig:
 class MultiTaskDataset(Dataset):
     """Dataset for multi-task learning."""
 
-    def __init__(self, task_data: Dict[str, Tuple[np.ndarray, np.ndarray]]):
+    def __init__(self, task_data: dict[str, tuple[np.ndarray, np.ndarray]]):
         """
         Args:
             task_data: Dict mapping task_name -> (X, y)
@@ -101,12 +100,14 @@ class MultiTaskVAE(nn.Module):
         layers = []
         in_dim = cfg.input_dim
         for h in cfg.hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, h),
-                nn.GELU(),
-                nn.LayerNorm(h),
-                nn.Dropout(0.1),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, h),
+                    nn.GELU(),
+                    nn.LayerNorm(h),
+                    nn.Dropout(0.1),
+                ]
+            )
             in_dim = h
 
         self.encoder = nn.Sequential(*layers)
@@ -117,31 +118,33 @@ class MultiTaskVAE(nn.Module):
         decoder_layers = []
         in_dim = cfg.latent_dim
         for h in reversed(cfg.hidden_dims):
-            decoder_layers.extend([
-                nn.Linear(in_dim, h),
-                nn.GELU(),
-                nn.LayerNorm(h),
-            ])
+            decoder_layers.extend(
+                [
+                    nn.Linear(in_dim, h),
+                    nn.GELU(),
+                    nn.LayerNorm(h),
+                ]
+            )
             in_dim = h
         decoder_layers.append(nn.Linear(in_dim, cfg.input_dim))
         self.decoder = nn.Sequential(*decoder_layers)
 
         # Task-specific prediction heads
-        self.task_heads = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(cfg.latent_dim, 32),
-                nn.GELU(),
-                nn.Linear(32, 1),
-            )
-            for _ in range(cfg.n_tasks)
-        ])
+        self.task_heads = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Linear(cfg.latent_dim, 32),
+                    nn.GELU(),
+                    nn.Linear(32, 1),
+                )
+                for _ in range(cfg.n_tasks)
+            ]
+        )
 
         # Task embeddings (optional - for conditioning)
         self.task_embedding = nn.Embedding(cfg.n_tasks, 16)
 
-    def forward(
-        self, x: torch.Tensor, task_ids: torch.Tensor
-    ) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, task_ids: torch.Tensor) -> dict[str, torch.Tensor]:
         # Encode
         h = self.encoder(x)
         mu = self.fc_mu(h)
@@ -169,7 +172,7 @@ class MultiTaskVAE(nn.Module):
             "prediction": predictions,
         }
 
-    def predict_all_tasks(self, x: torch.Tensor) -> Dict[int, torch.Tensor]:
+    def predict_all_tasks(self, x: torch.Tensor) -> dict[int, torch.Tensor]:
         """Get predictions for all tasks."""
         h = self.encoder(x)
         mu = self.fc_mu(h)
@@ -201,8 +204,8 @@ class GradNorm:
 
     def update_weights(
         self,
-        task_losses: List[torch.Tensor],
-        shared_params: List[nn.Parameter],
+        task_losses: list[torch.Tensor],
+        shared_params: list[nn.Parameter],
     ):
         """Update task weights based on gradient magnitudes."""
         if self.initial_losses is None:
@@ -210,34 +213,29 @@ class GradNorm:
 
         # Compute gradient norms for each task
         grad_norms = []
-        for i, loss in enumerate(task_losses):
+        for _i, loss in enumerate(task_losses):
             # Get gradients w.r.t. shared parameters
-            grads = torch.autograd.grad(
-                loss, shared_params, retain_graph=True, allow_unused=True
-            )
+            grads = torch.autograd.grad(loss, shared_params, retain_graph=True, allow_unused=True)
             total_norm = 0
             for g in grads:
                 if g is not None:
                     total_norm += g.norm().item() ** 2
-            grad_norms.append(total_norm ** 0.5)
+            grad_norms.append(total_norm**0.5)
 
         grad_norms = torch.tensor(grad_norms)
         mean_norm = grad_norms.mean()
 
         # Compute inverse training rates
-        loss_ratios = torch.tensor([
-            l.item() / (self.initial_losses[i] + 1e-8)
-            for i, l in enumerate(task_losses)
-        ])
+        loss_ratios = torch.tensor([l.item() / (self.initial_losses[i] + 1e-8) for i, l in enumerate(task_losses)])
         mean_ratio = loss_ratios.mean()
         relative_rates = loss_ratios / (mean_ratio + 1e-8)
 
         # Target gradient norms
-        target_norms = mean_norm * (relative_rates ** self.alpha)
+        target_norms = mean_norm * (relative_rates**self.alpha)
 
         # Update weights
         with torch.no_grad():
-            grad_loss = torch.abs(grad_norms - target_norms).sum()
+            torch.abs(grad_norms - target_norms).sum()
             # Simple gradient step on weights
             weight_grads = 2 * (grad_norms - target_norms)
             self.weights.data = self.weights.data - self.lr * weight_grads
@@ -249,7 +247,7 @@ class GradNorm:
         return self.weights.clone()
 
 
-def load_drug_class_data(drug_class: str) -> Tuple[Dict[str, Tuple[np.ndarray, np.ndarray]], int, List[str]]:
+def load_drug_class_data(drug_class: str) -> tuple[dict[str, tuple[np.ndarray, np.ndarray]], int, list[str]]:
     """Load all drugs for a class."""
     data_dir = project_root / "data" / "research"
 
@@ -278,8 +276,8 @@ def load_drug_class_data(drug_class: str) -> Tuple[Dict[str, Tuple[np.ndarray, n
     else:
         prefix = "IN"
 
-    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix):].isdigit()]
-    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix):]))
+    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix) :].isdigit()]
+    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix) :]))
 
     # Encoding params
     aa_alphabet = "ACDEFGHIKLMNPQRSTVWY*-"
@@ -322,10 +320,10 @@ def load_drug_class_data(drug_class: str) -> Tuple[Dict[str, Tuple[np.ndarray, n
 
 def train_multitask(
     cfg: MultiTaskConfig,
-    train_data: Dict[str, Tuple[np.ndarray, np.ndarray]],
-    test_data: Dict[str, Tuple[np.ndarray, np.ndarray]],
-    task_names: List[str],
-) -> Dict[str, float]:
+    train_data: dict[str, tuple[np.ndarray, np.ndarray]],
+    test_data: dict[str, tuple[np.ndarray, np.ndarray]],
+    task_names: list[str],
+) -> dict[str, float]:
     """Train multi-task model."""
     device = torch.device(cfg.device)
 
@@ -364,9 +362,7 @@ def train_multitask(
                     recon_loss = F.mse_loss(out["x_recon"][mask], x[mask])
 
                     # KL
-                    kl = -0.5 * torch.mean(
-                        1 + out["logvar"][mask] - out["mu"][mask].pow(2) - out["logvar"][mask].exp()
-                    )
+                    kl = -0.5 * torch.mean(1 + out["logvar"][mask] - out["mu"][mask].pow(2) - out["logvar"][mask].exp())
 
                     # Prediction
                     pred_loss = F.mse_loss(out["prediction"][mask], y[mask])
@@ -522,10 +518,7 @@ def main():
     print(f"{'AVERAGE':<8} {avg_corr:+.4f}")
 
     # Save
-    results_df = pd.DataFrame([
-        {"drug_class": args.drug_class, "drug": d, "test_corr": c}
-        for d, c in results.items()
-    ])
+    results_df = pd.DataFrame([{"drug_class": args.drug_class, "drug": d, "test_corr": c} for d, c in results.items()])
     results_path = project_root / "results" / f"multitask_{args.drug_class}_results.csv"
     results_df.to_csv(results_path, index=False)
     print(f"\nResults saved to: {results_path}")

@@ -20,7 +20,6 @@ Options:
 import argparse
 import sys
 from pathlib import Path
-from typing import List
 
 # Copyright header to add
 COPYRIGHT_HEADER = """# Copyright 2024-2025 AI Whisperers (https://github.com/Ai-Whisperers)
@@ -45,7 +44,7 @@ SOURCE_DIRS = ["src", "research", "scripts"]
 def has_copyright_header(file_path: Path) -> bool:
     """Check if file already has a copyright header."""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             first_lines = "".join(f.readlines()[:10])
             return "Copyright" in first_lines and "AI Whisperers" in first_lines
     except Exception as e:
@@ -62,7 +61,7 @@ def is_third_party(file_path: Path, repo_root: Path) -> bool:
 def add_copyright_header(file_path: Path, dry_run: bool = False) -> bool:
     """Add copyright header to file. Returns True if modified."""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
 
         # Check if it starts with shebang
@@ -85,7 +84,7 @@ def add_copyright_header(file_path: Path, dry_run: bool = False) -> bool:
         return False
 
 
-def find_python_files(repo_root: Path) -> List[Path]:
+def find_python_files(repo_root: Path) -> list[Path]:
     """Find all Python files in source directories."""
     python_files = []
     for source_dir in SOURCE_DIRS:
@@ -137,11 +136,10 @@ def main():
         missing_header.append(rel_path)
 
         # Add header
-        if not args.check:
-            if add_copyright_header(file_path, dry_run=args.dry_run):
-                modified.append(rel_path)
-                action = "Would add" if args.dry_run else "Added"
-                print(f"{action} header: {rel_path}")
+        if not args.check and add_copyright_header(file_path, dry_run=args.dry_run):
+            modified.append(rel_path)
+            action = "Would add" if args.dry_run else "Added"
+            print(f"{action} header: {rel_path}")
 
     # Print summary
     print("\n" + "=" * 70)

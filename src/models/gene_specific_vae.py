@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -26,7 +25,7 @@ class GeneConfig:
     gene: str  # "PR", "RT", "IN"
     input_dim: int
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=list)
+    hidden_dims: list[int] = field(default_factory=list)
     use_attention: bool = False
     attention_heads: int = 4
     dropout: float = 0.1
@@ -35,7 +34,7 @@ class GeneConfig:
     n_positions: int = 99  # Number of amino acid positions
 
     @classmethod
-    def for_protease(cls) -> "GeneConfig":
+    def for_protease(cls) -> GeneConfig:
         """Optimized config for Protease (99 AA)."""
         return cls(
             gene="PR",
@@ -48,7 +47,7 @@ class GeneConfig:
         )
 
     @classmethod
-    def for_reverse_transcriptase(cls) -> "GeneConfig":
+    def for_reverse_transcriptase(cls) -> GeneConfig:
         """Optimized config for Reverse Transcriptase (560 AA)."""
         return cls(
             gene="RT",
@@ -64,7 +63,7 @@ class GeneConfig:
         )
 
     @classmethod
-    def for_integrase(cls) -> "GeneConfig":
+    def for_integrase(cls) -> GeneConfig:
         """Optimized config for Integrase (288 AA)."""
         return cls(
             gene="IN",
@@ -108,7 +107,7 @@ class PositionAttention(nn.Module):
         self.norm = nn.LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         # x: (batch, seq_len, d_model)
         attn_out, attn_weights = self.attention(x, x, x)
         x = self.norm(x + self.dropout(attn_out))
@@ -184,7 +183,7 @@ class GeneSpecificEncoder(nn.Module):
         self.fc_mu = nn.Linear(self.final_dim, cfg.latent_dim)
         self.fc_logvar = nn.Linear(self.final_dim, cfg.latent_dim)
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         batch_size = x.size(0)
         attn_weights = None
 
@@ -252,7 +251,7 @@ class GeneSpecificVAE(nn.Module):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         enc_out = self.encoder(x)
         z = self.reparameterize(enc_out["mu"], enc_out["logvar"])
         x_recon = self.decoder(z)
@@ -308,7 +307,7 @@ class ConvolutionalEncoder(nn.Module):
         self.fc_mu = nn.Linear(cfg.hidden_dims[-1], cfg.latent_dim)
         self.fc_logvar = nn.Linear(cfg.hidden_dims[-1], cfg.latent_dim)
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         batch_size = x.size(0)
 
         # Reshape: (batch, n_positions * n_aa) -> (batch, n_aa, n_positions)
@@ -348,7 +347,7 @@ class GeneSpecificCNNVAE(nn.Module):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         enc_out = self.encoder(x)
         z = self.reparameterize(enc_out["mu"], enc_out["logvar"])
         x_recon = self.decoder(z)

@@ -23,7 +23,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -204,7 +203,7 @@ class HybridCodonEncoder(nn.Module):
     - Use mixed precision training
     """
 
-    def __init__(self, config: Optional[HybridEncoderConfig] = None, **kwargs):
+    def __init__(self, config: HybridEncoderConfig | None = None, **kwargs):
         """Initialize HybridCodonEncoder.
 
         Args:
@@ -332,7 +331,7 @@ class HybridCodonEncoder(nn.Module):
 
     def get_plm_embeddings(
         self,
-        amino_acid_sequences: List[str],
+        amino_acid_sequences: list[str],
     ) -> torch.Tensor:
         """Get embeddings from protein language model.
 
@@ -383,8 +382,8 @@ class HybridCodonEncoder(nn.Module):
     def forward(
         self,
         codon_indices: torch.Tensor,
-        amino_acid_sequences: Optional[List[str]] = None,
-        plm_embeddings: Optional[torch.Tensor] = None,
+        amino_acid_sequences: list[str] | None = None,
+        plm_embeddings: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Forward pass producing hybrid embeddings.
 

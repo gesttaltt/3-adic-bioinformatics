@@ -23,7 +23,6 @@ Note: Uses geoopt backend when available for numerical stability.
 """
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -106,7 +105,7 @@ class ComprehensiveMetrics:
     Q_A: float
     Q_B: float
 
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> dict[str, float]:
         """Convert to dictionary for checkpoint storage."""
         return {
             "coverage": self.coverage,
@@ -137,7 +136,7 @@ class ComprehensiveMetrics:
 
 def compute_comprehensive_metrics(
     model: torch.nn.Module,
-    device: Union[str, torch.device],
+    device: str | torch.device,
     batch_size: int = 4096,
     dist_corr_samples: int = 1000,
     curvature: float = 1.0,
@@ -307,7 +306,7 @@ def compute_ranking_correlation_hyperbolic(
     max_norm: float = 0.95,
     curvature: float = 1.0,
     n_triplets: int = 1000,
-) -> Tuple[float, float, float, float, float, float]:
+) -> tuple[float, float, float, float, float, float]:
     """Compute 3-adic TRIPLET ranking correlation using Poincare distance.
 
     NOTE: This is a triplet concordance metric, NOT the same as Spearman hierarchy.

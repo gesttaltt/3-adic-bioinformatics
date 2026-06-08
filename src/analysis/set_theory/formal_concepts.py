@@ -27,9 +27,7 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
-
-from src.analysis.set_theory.mutation_sets import Mutation, MutationSet
+from typing import Any
 
 
 @dataclass
@@ -50,16 +48,16 @@ class FormalContext:
         {"rpoB_S450L", "RIF_R"}
     """
 
-    objects: Set[str] = field(default_factory=set)
-    attributes: Set[str] = field(default_factory=set)
-    relation: Dict[str, Set[str]] = field(default_factory=dict)
+    objects: set[str] = field(default_factory=set)
+    attributes: set[str] = field(default_factory=set)
+    relation: dict[str, set[str]] = field(default_factory=dict)
 
     @classmethod
     def from_mutation_data(
         cls,
-        samples: Dict[str, List[str]],
-        resistance: Optional[Dict[str, List[str]]] = None,
-    ) -> "FormalContext":
+        samples: dict[str, list[str]],
+        resistance: dict[str, list[str]] | None = None,
+    ) -> FormalContext:
         """Create context from mutation and resistance data.
 
         Args:
@@ -72,7 +70,7 @@ class FormalContext:
         ctx = cls()
 
         for sample_id, mutations in samples.items():
-            attrs: Set[str] = set(mutations)
+            attrs: set[str] = set(mutations)
 
             # Add resistance phenotypes
             if resistance and sample_id in resistance:
@@ -86,10 +84,10 @@ class FormalContext:
     @classmethod
     def from_cross_table(
         cls,
-        table: List[List[bool]],
-        object_names: List[str],
-        attribute_names: List[str],
-    ) -> "FormalContext":
+        table: list[list[bool]],
+        object_names: list[str],
+        attribute_names: list[str],
+    ) -> FormalContext:
         """Create context from cross table (incidence matrix).
 
         Args:
@@ -103,16 +101,12 @@ class FormalContext:
         ctx = cls()
 
         for i, obj in enumerate(object_names):
-            attrs = {
-                attribute_names[j]
-                for j, has_attr in enumerate(table[i])
-                if has_attr
-            }
+            attrs = {attribute_names[j] for j, has_attr in enumerate(table[i]) if has_attr}
             ctx.add_object(obj, attrs)
 
         return ctx
 
-    def add_object(self, obj: str, attributes: Set[str]) -> None:
+    def add_object(self, obj: str, attributes: set[str]) -> None:
         """Add object with its attributes.
 
         Args:
@@ -123,7 +117,7 @@ class FormalContext:
         self.attributes.update(attributes)
         self.relation[obj] = attributes.copy()
 
-    def add_attribute(self, attr: str, objects: Set[str]) -> None:
+    def add_attribute(self, attr: str, objects: set[str]) -> None:
         """Add attribute with objects that have it.
 
         Args:
@@ -149,7 +143,7 @@ class FormalContext:
         """
         return attr in self.relation.get(obj, set())
 
-    def object_intent(self, objects: Set[str]) -> FrozenSet[str]:
+    def object_intent(self, objects: set[str]) -> frozenset[str]:
         """Derivation operator for objects: A' = {m ∈ M | ∀g ∈ A: (g,m) ∈ I}
 
         Get all attributes shared by all objects in A.
@@ -173,7 +167,7 @@ class FormalContext:
 
         return frozenset(result) if result else frozenset()
 
-    def attribute_extent(self, attributes: Set[str]) -> FrozenSet[str]:
+    def attribute_extent(self, attributes: set[str]) -> frozenset[str]:
         """Derivation operator for attributes: B' = {g ∈ G | ∀m ∈ B: (g,m) ∈ I}
 
         Get all objects that have all attributes in B.
@@ -195,7 +189,7 @@ class FormalContext:
 
         return frozenset(result)
 
-    def closure(self, objects: Set[str]) -> FrozenSet[str]:
+    def closure(self, objects: set[str]) -> frozenset[str]:
         """Closure operator: A'' = (A')'
 
         Args:
@@ -207,7 +201,7 @@ class FormalContext:
         intent = self.object_intent(objects)
         return self.attribute_extent(set(intent))
 
-    def attribute_closure(self, attributes: Set[str]) -> FrozenSet[str]:
+    def attribute_closure(self, attributes: set[str]) -> frozenset[str]:
         """Attribute closure: B'' = (B')'
 
         Args:
@@ -219,7 +213,7 @@ class FormalContext:
         extent = self.attribute_extent(attributes)
         return self.object_intent(set(extent))
 
-    def is_closed(self, objects: Set[str]) -> bool:
+    def is_closed(self, objects: set[str]) -> bool:
         """Check if object set is closed (A'' = A).
 
         Args:
@@ -230,7 +224,7 @@ class FormalContext:
         """
         return self.closure(objects) == frozenset(objects)
 
-    def to_cross_table(self) -> Tuple[List[List[bool]], List[str], List[str]]:
+    def to_cross_table(self) -> tuple[list[list[bool]], list[str], list[str]]:
         """Convert to cross table representation.
 
         Returns:
@@ -239,18 +233,15 @@ class FormalContext:
         obj_list = sorted(self.objects)
         attr_list = sorted(self.attributes)
 
-        table = [
-            [self.has_attribute(obj, attr) for attr in attr_list]
-            for obj in obj_list
-        ]
+        table = [[self.has_attribute(obj, attr) for attr in attr_list] for obj in obj_list]
 
         return table, obj_list, attr_list
 
     def subcontext(
         self,
-        objects: Optional[Set[str]] = None,
-        attributes: Optional[Set[str]] = None,
-    ) -> "FormalContext":
+        objects: set[str] | None = None,
+        attributes: set[str] | None = None,
+    ) -> FormalContext:
         """Extract subcontext.
 
         Args:
@@ -286,8 +277,8 @@ class FormalConcept:
     - Subconcept: (A1, B1) ≤ (A2, B2) iff A1 ⊆ A2 (iff B2 ⊆ B1)
     """
 
-    extent: FrozenSet[str]
-    intent: FrozenSet[str]
+    extent: frozenset[str]
+    intent: frozenset[str]
 
     def __repr__(self) -> str:
         ext_str = ", ".join(sorted(self.extent)[:3])
@@ -300,7 +291,7 @@ class FormalConcept:
 
         return f"Concept(extent={{{ext_str}}}, intent={{{int_str}}})"
 
-    def is_subconcept_of(self, other: "FormalConcept") -> bool:
+    def is_subconcept_of(self, other: FormalConcept) -> bool:
         """Check if this is a subconcept of other.
 
         Args:
@@ -311,7 +302,7 @@ class FormalConcept:
         """
         return self.extent.issubset(other.extent)
 
-    def meet(self, other: "FormalConcept", context: "FormalContext") -> "FormalConcept":
+    def meet(self, other: FormalConcept, context: FormalContext) -> FormalConcept:
         """Meet (infimum): (A1, B1) ∧ (A2, B2)
 
         Args:
@@ -325,7 +316,7 @@ class FormalConcept:
         new_intent = context.object_intent(set(new_extent))
         return FormalConcept(new_extent, new_intent)
 
-    def join(self, other: "FormalConcept", context: "FormalContext") -> "FormalConcept":
+    def join(self, other: FormalConcept, context: FormalContext) -> FormalConcept:
         """Join (supremum): (A1, B1) ∨ (A2, B2)
 
         Args:
@@ -364,7 +355,7 @@ class ConceptLattice:
             context: Formal context to analyze
         """
         self.context = context
-        self.concepts: List[FormalConcept] = []
+        self.concepts: list[FormalConcept] = []
         self._build_lattice()
 
     def _build_lattice(self) -> None:
@@ -374,11 +365,11 @@ class ConceptLattice:
 
         # Map objects to indices for lexicographic ordering
         obj_list = sorted(self.context.objects)
-        obj_to_idx = {obj: i for i, obj in enumerate(obj_list)}
+        {obj: i for i, obj in enumerate(obj_list)}
 
-        seen_extents: Set[FrozenSet[str]] = set()
+        seen_extents: set[frozenset[str]] = set()
 
-        def next_closure(current: FrozenSet[str]) -> Optional[FrozenSet[str]]:
+        def next_closure(current: frozenset[str]) -> frozenset[str] | None:
             """Find lexicographically next closed set."""
             for i in range(n - 1, -1, -1):
                 obj = obj_list[i]
@@ -407,7 +398,7 @@ class ConceptLattice:
             return None
 
         # Start with empty set closure (supremum)
-        current: FrozenSet[str] = self.context.closure(set())
+        current: frozenset[str] = self.context.closure(set())
 
         while current is not None:
             if current not in seen_extents:
@@ -422,20 +413,20 @@ class ConceptLattice:
         self.concepts.sort(key=lambda c: len(c.extent))
 
     @property
-    def supremum(self) -> Optional[FormalConcept]:
+    def supremum(self) -> FormalConcept | None:
         """Top concept (all objects, common attributes)."""
         if not self.concepts:
             return None
         return max(self.concepts, key=lambda c: len(c.extent))
 
     @property
-    def infimum(self) -> Optional[FormalConcept]:
+    def infimum(self) -> FormalConcept | None:
         """Bottom concept (objects with all attributes, all attributes)."""
         if not self.concepts:
             return None
         return min(self.concepts, key=lambda c: len(c.extent))
 
-    def get_subconcepts(self, concept: FormalConcept) -> List[FormalConcept]:
+    def get_subconcepts(self, concept: FormalConcept) -> list[FormalConcept]:
         """Get immediate subconcepts.
 
         Args:
@@ -444,10 +435,7 @@ class ConceptLattice:
         Returns:
             List of subconcepts
         """
-        subconcepts = [
-            c for c in self.concepts
-            if c.extent < concept.extent
-        ]
+        subconcepts = [c for c in self.concepts if c.extent < concept.extent]
 
         # Keep only immediate (maximal) subconcepts
         immediate = []
@@ -462,7 +450,7 @@ class ConceptLattice:
 
         return immediate
 
-    def get_superconcepts(self, concept: FormalConcept) -> List[FormalConcept]:
+    def get_superconcepts(self, concept: FormalConcept) -> list[FormalConcept]:
         """Get immediate superconcepts.
 
         Args:
@@ -471,10 +459,7 @@ class ConceptLattice:
         Returns:
             List of superconcepts
         """
-        superconcepts = [
-            c for c in self.concepts
-            if concept.extent < c.extent
-        ]
+        superconcepts = [c for c in self.concepts if concept.extent < c.extent]
 
         # Keep only immediate (minimal) superconcepts
         immediate = []
@@ -489,7 +474,7 @@ class ConceptLattice:
 
         return immediate
 
-    def attribute_concepts(self, attribute: str) -> List[FormalConcept]:
+    def attribute_concepts(self, attribute: str) -> list[FormalConcept]:
         """Get concepts containing an attribute in intent.
 
         Args:
@@ -500,7 +485,7 @@ class ConceptLattice:
         """
         return [c for c in self.concepts if attribute in c.intent]
 
-    def object_concepts(self, obj: str) -> List[FormalConcept]:
+    def object_concepts(self, obj: str) -> list[FormalConcept]:
         """Get concepts containing an object in extent.
 
         Args:
@@ -511,7 +496,7 @@ class ConceptLattice:
         """
         return [c for c in self.concepts if obj in c.extent]
 
-    def introducing_concept(self, attribute: str) -> Optional[FormalConcept]:
+    def introducing_concept(self, attribute: str) -> FormalConcept | None:
         """Get concept introducing an attribute.
 
         The introducing concept is the smallest concept
@@ -528,7 +513,7 @@ class ConceptLattice:
             return None
         return min(candidates, key=lambda c: len(c.extent))
 
-    def generating_concept(self, obj: str) -> Optional[FormalConcept]:
+    def generating_concept(self, obj: str) -> FormalConcept | None:
         """Get concept generating an object.
 
         The generating concept is the largest concept
@@ -549,7 +534,7 @@ class ConceptLattice:
         self,
         min_support: float = 0.1,
         min_confidence: float = 0.8,
-    ) -> List[Tuple[Set[str], Set[str], float, float]]:
+    ) -> list[tuple[set[str], set[str], float, float]]:
         """Find attribute associations (simple association rules).
 
         Args:
@@ -573,7 +558,7 @@ class ConceptLattice:
             # Try each attribute as consequent
             intent_list = list(concept.intent)
             for i, consequent_attr in enumerate(intent_list):
-                antecedent = set(intent_list[:i] + intent_list[i + 1:])
+                antecedent = set(intent_list[:i] + intent_list[i + 1 :])
 
                 if not antecedent:
                     continue
@@ -586,16 +571,18 @@ class ConceptLattice:
                 confidence = len(concept.extent) / len(antecedent_extent)
 
                 if confidence >= min_confidence:
-                    associations.append((
-                        antecedent,
-                        {consequent_attr},
-                        support,
-                        confidence,
-                    ))
+                    associations.append(
+                        (
+                            antecedent,
+                            {consequent_attr},
+                            support,
+                            confidence,
+                        )
+                    )
 
         return associations
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation.
 
         Returns:
@@ -627,8 +614,8 @@ class ImplicationRule:
     - Genotype-phenotype implications
     """
 
-    antecedent: FrozenSet[str]
-    consequent: FrozenSet[str]
+    antecedent: frozenset[str]
+    consequent: frozenset[str]
     support: float = 0.0
     confidence: float = 1.0
 
@@ -637,7 +624,7 @@ class ImplicationRule:
         cons = ", ".join(sorted(self.consequent))
         return f"{{{ant}}} → {{{cons}}} (conf={self.confidence:.2f})"
 
-    def applies_to(self, attributes: Set[str]) -> bool:
+    def applies_to(self, attributes: set[str]) -> bool:
         """Check if rule applies to attribute set.
 
         Args:
@@ -648,7 +635,7 @@ class ImplicationRule:
         """
         return self.antecedent.issubset(attributes)
 
-    def is_satisfied_by(self, attributes: Set[str]) -> bool:
+    def is_satisfied_by(self, attributes: set[str]) -> bool:
         """Check if rule is satisfied by attribute set.
 
         Args:
@@ -680,7 +667,7 @@ class ImplicationMiner:
     def compute_implications(
         self,
         min_support: float = 0.0,
-    ) -> List[ImplicationRule]:
+    ) -> list[ImplicationRule]:
         """Compute implication base.
 
         Args:
@@ -689,7 +676,7 @@ class ImplicationMiner:
         Returns:
             List of implication rules
         """
-        implications: List[ImplicationRule] = []
+        implications: list[ImplicationRule] = []
         n_objects = len(self.context.objects)
 
         # For each attribute, find implications
@@ -735,8 +722,7 @@ class ImplicationMiner:
                     # Check not redundant with existing rules
                     is_new = True
                     for existing in implications:
-                        if (existing.antecedent.issubset(antecedent) and
-                                attr in existing.consequent):
+                        if existing.antecedent.issubset(antecedent) and attr in existing.consequent:
                             is_new = False
                             break
 
@@ -755,7 +741,7 @@ class ImplicationMiner:
         self,
         min_support: float = 0.1,
         min_confidence: float = 0.8,
-    ) -> List[ImplicationRule]:
+    ) -> list[ImplicationRule]:
         """Find approximate implication rules.
 
         Unlike exact implications, these may have confidence < 1.
@@ -767,7 +753,7 @@ class ImplicationMiner:
         Returns:
             List of approximate rules
         """
-        rules: List[ImplicationRule] = []
+        rules: list[ImplicationRule] = []
         n_objects = len(self.context.objects)
 
         for concept in ConceptLattice(self.context).concepts:
@@ -808,8 +794,8 @@ class GenotypePhenotypeAnalyzer:
 
     def __init__(
         self,
-        samples: Dict[str, List[str]],
-        resistance: Dict[str, List[str]],
+        samples: dict[str, list[str]],
+        resistance: dict[str, list[str]],
     ):
         """Initialize analyzer.
 
@@ -825,7 +811,7 @@ class GenotypePhenotypeAnalyzer:
         self,
         drug: str,
         min_support: float = 0.1,
-    ) -> List[Tuple[Set[str], float]]:
+    ) -> list[tuple[set[str], float]]:
         """Find mutations associated with resistance to a drug.
 
         Args:
@@ -838,10 +824,7 @@ class GenotypePhenotypeAnalyzer:
         resistance_attr = f"{drug}_R"
 
         # Find concepts with resistance phenotype
-        resistant_concepts = [
-            c for c in self.lattice.concepts
-            if resistance_attr in c.intent
-        ]
+        resistant_concepts = [c for c in self.lattice.concepts if resistance_attr in c.intent]
 
         results = []
         n_objects = len(self.context.objects)
@@ -852,10 +835,7 @@ class GenotypePhenotypeAnalyzer:
                 continue
 
             # Get mutations (exclude resistance phenotypes)
-            mutations = {
-                attr for attr in concept.intent
-                if not attr.endswith("_R")
-            }
+            mutations = {attr for attr in concept.intent if not attr.endswith("_R")}
 
             if mutations:
                 results.append((mutations, support))
@@ -867,7 +847,7 @@ class GenotypePhenotypeAnalyzer:
     def find_cross_resistance_rules(
         self,
         min_confidence: float = 0.8,
-    ) -> List[ImplicationRule]:
+    ) -> list[ImplicationRule]:
         """Find rules linking resistance to different drugs.
 
         Args:
@@ -893,7 +873,7 @@ class GenotypePhenotypeAnalyzer:
         self,
         mutation: str,
         min_support: float = 0.05,
-    ) -> List[Tuple[str, float]]:
+    ) -> list[tuple[str, float]]:
         """Find mutations that co-occur with given mutation.
 
         Args:
@@ -908,7 +888,7 @@ class GenotypePhenotypeAnalyzer:
         if not extent:
             return []
 
-        n_with_mutation = len(extent)
+        len(extent)
         n_objects = len(self.context.objects)
 
         # Common attributes
@@ -929,7 +909,7 @@ class GenotypePhenotypeAnalyzer:
         results.sort(key=lambda x: -x[1])
         return results
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         """Generate summary of analysis.
 
         Returns:

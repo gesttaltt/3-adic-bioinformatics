@@ -12,12 +12,10 @@ Can use e3nn backend when available, otherwise uses portable implementation.
 from __future__ import annotations
 
 import math
-from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 
 # Check for e3nn availability
 try:
@@ -133,7 +131,7 @@ class InvariantReadout(nn.Module):
     def forward(
         self,
         node_features: torch.Tensor,
-        batch: Optional[torch.Tensor] = None,
+        batch: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Pool node features to graph-level representation.
 

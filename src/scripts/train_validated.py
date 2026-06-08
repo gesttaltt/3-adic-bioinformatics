@@ -25,24 +25,18 @@ Root Cause Fix: Prevents null checkpoint issues causing 0% coverage
 import argparse
 import sys
 from pathlib import Path
-import yaml
+from typing import Any
+
 import torch
-import warnings
-from typing import Dict, Any, Optional
+import yaml
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.utils.checkpoint_validator import (
-    CheckpointValidator,
-    validate_training_config,
-    CheckpointCompatibilityError
-)
-from src.models import TernaryVAEV5_11, TernaryVAEV5_11_PartialFreeze
 from src.core import TERNARY
-from src.utils.metrics import evaluate_coverage
-from src.geometry import poincare_distance
+from src.models import TernaryVAEV5_11, TernaryVAEV5_11_PartialFreeze
+from src.utils.checkpoint_validator import CheckpointCompatibilityError, CheckpointValidator, validate_training_config
 
 
 class ValidatedTrainer:
@@ -54,7 +48,7 @@ class ValidatedTrainer:
         self.auto_fix = auto_fix
         self.config = self._load_and_validate_config()
 
-    def _load_and_validate_config(self) -> Dict[str, Any]:
+    def _load_and_validate_config(self) -> dict[str, Any]:
         """Load and validate configuration."""
         print(f"📋 Loading configuration from: {self.config_path}")
 
@@ -73,7 +67,7 @@ class ValidatedTrainer:
 
             if self.auto_fix:
                 print("\n🔧 Attempting auto-fix...")
-                model_name = config.get('model', {}).get('name')
+                model_name = config.get("model", {}).get("name")
                 config = CheckpointValidator.fix_null_checkpoint_config(config, model_name)
 
                 # Re-validate
@@ -95,10 +89,10 @@ class ValidatedTrainer:
 
     def validate_checkpoint_loading(self, model: torch.nn.Module) -> bool:
         """Validate that checkpoint can be loaded successfully."""
-        frozen_cfg = self.config.get('frozen_checkpoint', {})
-        checkpoint_path = frozen_cfg.get('path')
+        frozen_cfg = self.config.get("frozen_checkpoint", {})
+        checkpoint_path = frozen_cfg.get("path")
 
-        if checkpoint_path and checkpoint_path != 'null':
+        if checkpoint_path and checkpoint_path != "null":
             print(f"🔍 Validating checkpoint dimensions: {checkpoint_path}")
 
             # Check if checkpoint exists
@@ -108,9 +102,7 @@ class ValidatedTrainer:
                 return False
 
             # Check dimensional compatibility
-            is_compatible, errors = CheckpointValidator.validate_checkpoint_dimensions(
-                checkpoint_path, model
-            )
+            is_compatible, errors = CheckpointValidator.validate_checkpoint_dimensions(checkpoint_path, model)
 
             if not is_compatible:
                 print("❌ Checkpoint dimension validation failed:")
@@ -138,11 +130,11 @@ class ValidatedTrainer:
             n_batches = 0
 
             for i in range(0, len(ops), batch_size):
-                batch = ops[i:i+batch_size]
+                batch = ops[i : i + batch_size]
                 outputs = model(batch, compute_control=False)
 
                 # Check reconstruction via VAE-A (coverage encoder)
-                mu_A = outputs.get('mu_A', outputs.get('z_A_euc'))
+                mu_A = outputs.get("mu_A", outputs.get("z_A_euc"))
                 if mu_A is not None:
                     # Get reconstruction logits
                     logits = model.decoder_A(mu_A)
@@ -177,20 +169,20 @@ class ValidatedTrainer:
         print("🚀 Starting validated training...")
 
         # Set device
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"🎯 Using device: {device}")
 
         # Create model
-        model_name = self.config.get('model', {}).get('name')
+        model_name = self.config.get("model", {}).get("name")
         print(f"🏗️  Creating model: {model_name}")
 
         try:
-            model_config = self.config.get('model', {})
+            model_config = self.config.get("model", {})
 
             # Create model based on name
-            if model_name == 'TernaryVAEV5_11':
+            if model_name == "TernaryVAEV5_11":
                 model = TernaryVAEV5_11(**model_config)
-            elif model_name == 'TernaryVAEV5_11_PartialFreeze':
+            elif model_name == "TernaryVAEV5_11_PartialFreeze":
                 model = TernaryVAEV5_11_PartialFreeze(**model_config)
             else:
                 raise ValueError(f"Unknown model: {model_name}")
@@ -209,18 +201,18 @@ class ValidatedTrainer:
             raise CheckpointCompatibilityError("Checkpoint validation failed")
 
         # Load checkpoint if specified
-        frozen_cfg = self.config.get('frozen_checkpoint', {})
-        checkpoint_path = frozen_cfg.get('path')
+        frozen_cfg = self.config.get("frozen_checkpoint", {})
+        checkpoint_path = frozen_cfg.get("path")
 
-        if checkpoint_path and checkpoint_path != 'null':
+        if checkpoint_path and checkpoint_path != "null":
             try:
                 print(f"📥 Loading checkpoint: {checkpoint_path}")
                 checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
-                if 'model_state_dict' in checkpoint:
-                    state_dict = checkpoint['model_state_dict']
-                elif 'model' in checkpoint:
-                    state_dict = checkpoint['model']
+                if "model_state_dict" in checkpoint:
+                    state_dict = checkpoint["model_state_dict"]
+                elif "model" in checkpoint:
+                    state_dict = checkpoint["model"]
                 else:
                     state_dict = checkpoint
 
@@ -247,7 +239,7 @@ class ValidatedTrainer:
             print("   Training may appear to work but will produce useless embeddings.")
 
             response = input("Continue anyway? (y/N): ")
-            if response.lower() != 'y':
+            if response.lower() != "y":
                 print("🛑 Training aborted by user")
                 return
 
@@ -258,7 +250,7 @@ class ValidatedTrainer:
 
             # Temporarily modify sys.argv to pass config
             original_argv = sys.argv.copy()
-            sys.argv = ['train_v5_12.py', '--config', str(self.config_path)]
+            sys.argv = ["train_v5_12.py", "--config", str(self.config_path)]
 
             train_main()
 
@@ -276,10 +268,10 @@ class ValidatedTrainer:
 def main():
     """Main entry point with argument parsing."""
     parser = argparse.ArgumentParser(description="Validated TernaryVAE Training")
-    parser.add_argument('--config', type=str, required=True, help='Configuration file path')
-    parser.add_argument('--validate-only', action='store_true', help='Only validate config, do not train')
-    parser.add_argument('--auto-fix', action='store_true', help='Automatically fix configuration issues')
-    parser.add_argument('--no-checkpoint-check', action='store_true', help='Skip checkpoint validation')
+    parser.add_argument("--config", type=str, required=True, help="Configuration file path")
+    parser.add_argument("--validate-only", action="store_true", help="Only validate config, do not train")
+    parser.add_argument("--auto-fix", action="store_true", help="Automatically fix configuration issues")
+    parser.add_argument("--no-checkpoint-check", action="store_true", help="Skip checkpoint validation")
 
     args = parser.parse_args()
 

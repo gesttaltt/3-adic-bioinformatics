@@ -19,7 +19,7 @@ Validates:
 import argparse
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import torch
@@ -27,16 +27,14 @@ import torch
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.analysis.geometry import (compute_delta_hyperbolicity,
-                                   compute_ultrametricity_score)
+from src.analysis.geometry import compute_delta_hyperbolicity, compute_ultrametricity_score
 from src.data.generation import generate_all_ternary_operations
 from src.geometry import poincare_distance
 from src.models import TernaryVAEV5_11
 
 # Import the existing specific zero analysis logic
 try:
-    from scripts.analysis.analyze_zero_structure import \
-        analyze_checkpoint as analyze_zeros_internal
+    from scripts.analysis.analyze_zero_structure import analyze_checkpoint as analyze_zeros_internal
 except ImportError:
     # If import fails (path issues), we'll reimplement the light version here
     analyze_zeros_internal = None
@@ -44,12 +42,12 @@ except ImportError:
 
 def verify_proofs(
     checkpoint_path: str = None,
-    model_config: Dict[str, Any] = None,
+    model_config: dict[str, Any] = None,
     device: str = "cuda",
 ):
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("MATHEMATICAL PROOFS VERIFICATION")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     device = torch.device(device if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -171,9 +169,9 @@ def verify_proofs(
 
 def run_grid_stress_test(device: str = "cuda"):
     """Runs the 40+ scenario grid defined in documentation."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("RUNNING MATHEMATICAL STRESS TEST GRID (Targeting Goldilocks Zone)")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # Grid definitions matching DOCUMENTATION/01_PROJECT_KNOWLEDGE_BASE/02_THEORY_AND_FOUNDATIONS/validation_suite/02_MATHEMATICAL_STRESS_TESTS.md
     scenarios = [
@@ -229,9 +227,9 @@ def run_grid_stress_test(device: str = "cuda"):
             print(f"CRASH: {e}")
             results.append({"id": s["id"], "status": "CRASH"})
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("GRID RESULTS SUMMARY")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"{'ID':<6} {'Delta':<10} {'Ultra':<10} {'Status'}")
     print("-" * 40)
     for r in results:

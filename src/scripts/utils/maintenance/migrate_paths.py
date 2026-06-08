@@ -25,7 +25,6 @@ import argparse
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 # Path patterns to detect and their replacements
 PATH_PATTERNS = [
@@ -142,7 +141,7 @@ def scan_file(file_path: Path) -> list[PathMatch]:
 
 def scan_directory(
     directory: Path,
-    exclude_patterns: Optional[list[str]] = None,
+    exclude_patterns: list[str] | None = None,
 ) -> MigrationStats:
     """Scan a directory for hardcoded paths.
 
@@ -190,9 +189,7 @@ def scan_directory(
 
             for match in matches:
                 pattern_key = match.pattern[:30] + "..."
-                stats.matches_by_pattern[pattern_key] = (
-                    stats.matches_by_pattern.get(pattern_key, 0) + 1
-                )
+                stats.matches_by_pattern[pattern_key] = stats.matches_by_pattern.get(pattern_key, 0) + 1
 
     return stats
 
@@ -307,16 +304,12 @@ def print_stats(stats: MigrationStats) -> None:
 
     if stats.matches_by_pattern:
         print("\nMatches by pattern:")
-        for pattern, count in sorted(
-            stats.matches_by_pattern.items(), key=lambda x: -x[1]
-        ):
+        for pattern, count in sorted(stats.matches_by_pattern.items(), key=lambda x: -x[1]):
             print(f"  {count:4d}  {pattern}")
 
     if stats.matches_by_file:
         print("\nFiles with most matches:")
-        sorted_files = sorted(
-            stats.matches_by_file.items(), key=lambda x: -len(x[1])
-        )[:20]
+        sorted_files = sorted(stats.matches_by_file.items(), key=lambda x: -len(x[1]))[:20]
         for file_path, matches in sorted_files:
             # Shorten path for display
             short_path = Path(file_path).name
@@ -325,9 +318,7 @@ def print_stats(stats: MigrationStats) -> None:
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Migrate hardcoded paths to centralized configuration"
-    )
+    parser = argparse.ArgumentParser(description="Migrate hardcoded paths to centralized configuration")
     parser.add_argument(
         "directory",
         nargs="?",

@@ -47,7 +47,6 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -62,8 +61,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 # Import new SOTA components
 try:
-    from src.losses import CodonUsageLoss, CodonUsageConfig, CodonOptimalityScore, Organism
     from src.evaluation import ProteinGymEvaluator, evaluate_generated_sequences
+    from src.losses import CodonOptimalityScore, CodonUsageConfig, CodonUsageLoss, Organism
 
     ENHANCED_AVAILABLE = True
 except ImportError:
@@ -147,7 +146,7 @@ class NoiseScheduler:
         self.alphas = 1 - self.betas
         self.alpha_bar = torch.cumprod(self.alphas, dim=0)
 
-    def to(self, device: torch.device) -> "NoiseScheduler":
+    def to(self, device: torch.device) -> NoiseScheduler:
         """Move scheduler tensors to device."""
         self.betas = self.betas.to(device)
         self.alphas = self.alphas.to(device)
@@ -255,7 +254,7 @@ class TransformerDenoiser(nn.Module):
         self,
         x: torch.Tensor,  # (batch, seq_len) - noisy tokens
         t: torch.Tensor,  # (batch,) - timesteps
-        mask: Optional[torch.Tensor] = None,
+        mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Predict clean tokens from noisy input."""
         batch_size, seq_len = x.shape
@@ -326,8 +325,8 @@ class StructureConditionedDenoiser(nn.Module):
         self,
         x: torch.Tensor,
         t: torch.Tensor,
-        structure: Optional[torch.Tensor] = None,
-        mask: Optional[torch.Tensor] = None,
+        structure: torch.Tensor | None = None,
+        mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Predict clean tokens with optional structure conditioning."""
         if structure is None:
@@ -398,7 +397,7 @@ class CodonDiffusion(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        structure: Optional[torch.Tensor] = None,
+        structure: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Training forward: add noise and predict."""
         device = x.device
@@ -440,7 +439,7 @@ class CodonDiffusion(nn.Module):
         self,
         n_samples: int,
         seq_length: int,
-        structure: Optional[torch.Tensor] = None,
+        structure: torch.Tensor | None = None,
         temperature: float = 1.0,
         device: torch.device = torch.device("cpu"),
     ) -> torch.Tensor:
@@ -525,7 +524,7 @@ class CodonSequenceDataset(Dataset):
         sequences = []
         current_seq = ""
 
-        with open(path, "r") as f:
+        with open(path) as f:
             for line in f:
                 line = line.strip()
                 if line.startswith(">"):
@@ -699,10 +698,7 @@ def main():
     print(f"Using device: {device}")
 
     # Diseases to train
-    if args.disease == "all":
-        diseases = ["hiv", "ra", "neuro", "cancer"]
-    else:
-        diseases = [args.disease]
+    diseases = ["hiv", "ra", "neuro", "cancer"] if args.disease == "all" else [args.disease]
 
     for disease in diseases:
         print(f"\n{'#' * 70}")

@@ -50,10 +50,9 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 
 class DeviceType(Enum):
@@ -65,6 +64,7 @@ class DeviceType(Enum):
 @dataclass
 class TrainingComponent:
     """A trainable component in the pipeline."""
+
     name: str
     script: str
     description: str
@@ -93,7 +93,6 @@ COMPONENTS = {
         dependencies=[],
         args=["--yes"],  # Just runs phase 1 internally
     ),
-
     # Phase 2: Main Model
     "v5.11.11-homeostatic": TrainingComponent(
         name="v5.11.11-homeostatic",
@@ -105,7 +104,6 @@ COMPONENTS = {
         dependencies=["v5.5-base"],
         args=["--yes"],
     ),
-
     # Phase 2 (parallel): Preprocessing
     "extract-embeddings": TrainingComponent(
         name="extract-embeddings",
@@ -117,7 +115,6 @@ COMPONENTS = {
         dependencies=["v5.5-base"],
         optional=True,
     ),
-
     # Phase 3: Downstream models
     "epsilon-vae-hybrid": TrainingComponent(
         name="epsilon-vae-hybrid",
@@ -129,7 +126,6 @@ COMPONENTS = {
         dependencies=["v5.11.11-homeostatic", "extract-embeddings"],
         optional=True,
     ),
-
     "codon-encoder": TrainingComponent(
         name="codon-encoder",
         script="research/bioinformatics/genetic_code/scripts/09_train_codon_encoder_3adic.py",
@@ -140,7 +136,6 @@ COMPONENTS = {
         dependencies=["v5.11.11-homeostatic"],
         optional=True,
     ),
-
     "spectral-analysis": TrainingComponent(
         name="spectral-analysis",
         script="research/bioinformatics/spectral_analysis_over_models/scripts/04_padic_spectral_analysis.py",
@@ -205,10 +200,7 @@ def print_plan(components: list[TrainingComponent], quick: bool = False):
 
 def check_dependencies(component: TrainingComponent, completed: set[str]) -> bool:
     """Check if all dependencies are satisfied."""
-    for dep in component.dependencies:
-        if dep not in completed:
-            return False
-    return True
+    return all(dep in completed for dep in component.dependencies)
 
 
 def run_component(
@@ -247,18 +239,18 @@ def run_component(
     start_time = time.time()
 
     try:
-        result = subprocess.run(
+        subprocess.run(
             cmd,
             cwd=str(project_root),
             check=True,
         )
         elapsed = time.time() - start_time
-        print(f"\n  [OK] {component.name} completed in {elapsed/3600:.2f}h")
+        print(f"\n  [OK] {component.name} completed in {elapsed / 3600:.2f}h")
         return True
 
     except subprocess.CalledProcessError as e:
         elapsed = time.time() - start_time
-        print(f"\n  [ERROR] {component.name} failed after {elapsed/3600:.2f}h")
+        print(f"\n  [ERROR] {component.name} failed after {elapsed / 3600:.2f}h")
         print(f"  Exit code: {e.returncode}")
         return False
 
@@ -306,7 +298,7 @@ Examples:
     python src/scripts/training/train_all.py --start-phase 2  # Skip phase 1
     python src/scripts/training/train_all.py --only v5.11.11-homeostatic  # Single component
     python src/scripts/training/train_all.py --skip epsilon-vae-hybrid codon-encoder
-        """
+        """,
     )
     parser.add_argument("--quick", action="store_true", help="Quick test mode (reduced epochs)")
     parser.add_argument("--dry-run", action="store_true", help="Show plan without executing")
@@ -326,7 +318,8 @@ Examples:
         components = [COMPONENTS[name] for name in args.only if name in COMPONENTS]
     else:
         components = [
-            comp for name, comp in COMPONENTS.items()
+            comp
+            for name, comp in COMPONENTS.items()
             if name not in args.skip
             and comp.phase >= args.start_phase
             and (args.include_optional or not comp.optional or comp.phase <= 2)

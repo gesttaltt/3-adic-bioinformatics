@@ -13,7 +13,6 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Dict
 
 import numpy as np
 import torch
@@ -38,7 +37,7 @@ def compute_padic_distance(i: int, j: int) -> float:
     return 3.0 ** (-k)
 
 
-def evaluate_embeddings(z: torch.Tensor, indices: torch.Tensor) -> Dict[str, float]:
+def evaluate_embeddings(z: torch.Tensor, indices: torch.Tensor) -> dict[str, float]:
     """Evaluate latent space structure."""
     from sklearn.cluster import KMeans
     from sklearn.metrics import silhouette_score
@@ -55,7 +54,7 @@ def evaluate_embeddings(z: torch.Tensor, indices: torch.Tensor) -> Dict[str, flo
     mask = i_idx != j_idx
     i_idx, j_idx = i_idx[mask], j_idx[mask]
 
-    padic_dists = [compute_padic_distance(indices_np[i], indices_np[j]) for i, j in zip(i_idx, j_idx)]
+    padic_dists = [compute_padic_distance(indices_np[i], indices_np[j]) for i, j in zip(i_idx, j_idx, strict=False)]
     latent_dists = np.linalg.norm(z_np[i_idx] - z_np[j_idx], axis=1)
 
     corr, _ = spearmanr(padic_dists, latent_dists)
@@ -221,11 +220,13 @@ def main():
     start = time.time()
     metrics = train_and_evaluate(model, ops, indices, config)
     elapsed = time.time() - start
-    results.append({
-        "name": "TropicalHyperbolicVAE (full)",
-        **metrics,
-        "time": elapsed,
-    })
+    results.append(
+        {
+            "name": "TropicalHyperbolicVAE (full)",
+            **metrics,
+            "time": elapsed,
+        }
+    )
     print(f"  Accuracy: {metrics['accuracy']:.1%}")
     print(f"  Spearman (euc): {metrics['spearman_euc']:+.4f}")
     print(f"  Spearman (hyp): {metrics['spearman_hyp']:+.4f}")
@@ -239,11 +240,13 @@ def main():
     start = time.time()
     metrics = train_and_evaluate(model, ops, indices, config)
     elapsed = time.time() - start
-    results.append({
-        "name": "TropicalHyperbolicVAELight",
-        **metrics,
-        "time": elapsed,
-    })
+    results.append(
+        {
+            "name": "TropicalHyperbolicVAELight",
+            **metrics,
+            "time": elapsed,
+        }
+    )
     print(f"  Accuracy: {metrics['accuracy']:.1%}")
     print(f"  Spearman (euc): {metrics['spearman_euc']:+.4f}")
     print(f"  Spearman (hyp): {metrics['spearman_hyp']:+.4f}")
@@ -259,11 +262,13 @@ def main():
     start = time.time()
     metrics = train_and_evaluate(model, ops, indices, config)
     elapsed = time.time() - start
-    results.append({
-        "name": "SimpleVAEWithHyperbolic (baseline)",
-        **metrics,
-        "time": elapsed,
-    })
+    results.append(
+        {
+            "name": "SimpleVAEWithHyperbolic (baseline)",
+            **metrics,
+            "time": elapsed,
+        }
+    )
     print(f"  Accuracy: {metrics['accuracy']:.1%}")
     print(f"  Spearman (euc): {metrics['spearman_euc']:+.4f}")
     print(f"  Spearman (hyp): {metrics['spearman_hyp']:+.4f}")
@@ -275,11 +280,13 @@ def main():
     start = time.time()
     metrics = train_and_evaluate(model, ops, indices, config)
     elapsed = time.time() - start
-    results.append({
-        "name": "TropicalHyperbolicVAE (temp=0.05)",
-        **metrics,
-        "time": elapsed,
-    })
+    results.append(
+        {
+            "name": "TropicalHyperbolicVAE (temp=0.05)",
+            **metrics,
+            "time": elapsed,
+        }
+    )
     print(f"  Accuracy: {metrics['accuracy']:.1%}")
     print(f"  Spearman (euc): {metrics['spearman_euc']:+.4f}")
     print(f"  Spearman (hyp): {metrics['spearman_hyp']:+.4f}")
@@ -294,10 +301,12 @@ def main():
     print("-" * 100)
 
     for r in results:
-        print(f"{r['name']:<40} {r['accuracy']:>9.1%} {r['spearman_euc']:>+14.4f} {r['spearman_hyp']:>+14.4f} {r['time']:>7.1f}s")
+        print(
+            f"{r['name']:<40} {r['accuracy']:>9.1%} {r['spearman_euc']:>+14.4f} {r['spearman_hyp']:>+14.4f} {r['time']:>7.1f}s"
+        )
 
     # Best model
-    best = max(results, key=lambda r: 0.4 * r['accuracy'] + 0.4 * r['spearman_euc'] + 0.2 * r.get('silhouette', 0))
+    best = max(results, key=lambda r: 0.4 * r["accuracy"] + 0.4 * r["spearman_euc"] + 0.2 * r.get("silhouette", 0))
     print(f"\nBest model: {best['name']}")
     print(f"  Accuracy: {best['accuracy']:.1%}, Spearman: {best['spearman_euc']:+.4f}")
 
@@ -305,7 +314,7 @@ def main():
     output_path = PROJECT_ROOT / "outputs" / "hybrid_vae_results.json"
     with open(output_path, "w") as f:
         # Remove non-serializable history
-        save_results = [{k: v for k, v in r.items() if k != 'history'} for r in results]
+        save_results = [{k: v for k, v in r.items() if k != "history"} for r in results]
         json.dump(save_results, f, indent=2)
     print(f"\nResults saved to: {output_path}")
 

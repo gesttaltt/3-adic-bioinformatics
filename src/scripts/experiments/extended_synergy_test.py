@@ -7,7 +7,6 @@ with longer training (200+ epochs).
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List
 
 import numpy as np
 import torch
@@ -23,7 +22,7 @@ sys.path.insert(0, str(project_root))
 class Config:
     input_dim: int = 9
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [64, 32])
+    hidden_dims: list[int] = field(default_factory=lambda: [64, 32])
     batch_size: int = 32
     epochs: int = 200
     lr: float = 0.001
@@ -176,10 +175,7 @@ def train(cfg, train_x, train_y, checkpoints=None):
                 out = model(train_x.to(device))
                 z = out["z"][:, 0].cpu().numpy()
                 f = train_y.numpy()
-                if np.std(z) > 1e-8:
-                    corr = np.corrcoef(z, f)[0, 1]
-                else:
-                    corr = 0.0
+                corr = np.corrcoef(z, f)[0, 1] if np.std(z) > 1e-08 else 0.0
 
                 err = F.mse_loss(out["x_recon"], train_x.to(device), reduction="none").mean(dim=-1)
                 acc = (err < 0.1).float().mean().item()
@@ -216,7 +212,10 @@ def main():
         ("triplet_rank_contrast", {"use_triplet": True, "use_rank": True, "use_contrast": True}),
         ("hyper_triplet_rank", {"use_hyper": True, "use_triplet": True, "use_rank": True}),
         ("hyper_trop_triplet_rank", {"use_hyper": True, "use_trop": True, "use_triplet": True, "use_rank": True}),
-        ("all_modules", {"use_hyper": True, "use_trop": True, "use_triplet": True, "use_rank": True, "use_contrast": True}),
+        (
+            "all_modules",
+            {"use_hyper": True, "use_trop": True, "use_triplet": True, "use_rank": True, "use_contrast": True},
+        ),
     ]
 
     results = {}

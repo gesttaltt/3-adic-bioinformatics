@@ -15,7 +15,7 @@ Single responsibility: Coverage stall detection and exploration boost.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Tuple
+from typing import Any
 
 
 @dataclass
@@ -41,7 +41,7 @@ class ExplorationBoostConfig:
     ranking_reduction_min: float = 0.05
 
     @classmethod
-    def from_dict(cls, config: Dict[str, Any]) -> ExplorationBoostConfig:
+    def from_dict(cls, config: dict[str, Any]) -> ExplorationBoostConfig:
         """Create config from dictionary.
 
         Args:
@@ -87,7 +87,7 @@ class ExplorationBoostController:
     ranking_multiplier: float = field(default=1.0)
 
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> ExplorationBoostController:
+    def from_dict(cls, config_dict: dict[str, Any]) -> ExplorationBoostController:
         """Create controller from configuration dictionary.
 
         Args:
@@ -137,7 +137,7 @@ class ExplorationBoostController:
 
         return False
 
-    def get_multipliers(self) -> Tuple[float, float]:
+    def get_multipliers(self) -> tuple[float, float]:
         """Get current exploration boost multipliers.
 
         Returns:
@@ -152,7 +152,7 @@ class ExplorationBoostController:
         self.temp_multiplier = 1.0
         self.ranking_multiplier = 1.0
 
-    def get_state(self) -> Dict[str, Any]:
+    def get_state(self) -> dict[str, Any]:
         """Get current controller state for checkpointing.
 
         Returns:
@@ -165,7 +165,7 @@ class ExplorationBoostController:
             "ranking_multiplier": self.ranking_multiplier,
         }
 
-    def restore_state(self, state: Dict[str, Any]) -> None:
+    def restore_state(self, state: dict[str, Any]) -> None:
         """Restore controller state from checkpoint.
 
         Args:

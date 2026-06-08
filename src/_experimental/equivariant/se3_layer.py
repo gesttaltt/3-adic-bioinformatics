@@ -20,8 +20,6 @@ References:
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
-
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -72,7 +70,7 @@ class SE3Linear(nn.Module):
         else:
             self.w_vv = None
 
-    def forward(self, scalars: Tensor, vectors: Optional[Tensor] = None) -> Tuple[Tensor, Optional[Tensor]]:
+    def forward(self, scalars: Tensor, vectors: Tensor | None = None) -> tuple[Tensor, Tensor | None]:
         """Apply SE(3)-equivariant linear transformation.
 
         Args:
@@ -159,7 +157,7 @@ class SE3MessagePassing(nn.Module):
         h: Tensor,
         pos: Tensor,
         edge_index: Tensor,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor]:
         """Perform SE(3)-equivariant message passing.
 
         Args:
@@ -263,7 +261,7 @@ class SE3Layer(nn.Module):
         h: Tensor,
         pos: Tensor,
         edge_index: Tensor,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor]:
         """Apply SE(3)-equivariant layer.
 
         Args:
@@ -339,8 +337,8 @@ class SE3Transformer(nn.Module):
         x: Tensor,
         pos: Tensor,
         edge_index: Tensor,
-        batch: Optional[Tensor] = None,
-    ) -> Tuple[Tensor, Tensor]:
+        batch: Tensor | None = None,
+    ) -> tuple[Tensor, Tensor]:
         """Forward pass.
 
         Args:
@@ -413,8 +411,8 @@ class EGNN(nn.Module):
         x: Tensor,
         pos: Tensor,
         edge_index: Tensor,
-        batch: Optional[Tensor] = None,
-    ) -> Tuple[Tensor, Tensor]:
+        batch: Tensor | None = None,
+    ) -> tuple[Tensor, Tensor]:
         """Forward pass.
 
         Args:
@@ -482,7 +480,7 @@ class EGNNLayer(nn.Module):
         h: Tensor,
         pos: Tensor,
         edge_index: Tensor,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor]:
         """Forward pass."""
         src, dst = edge_index
 

@@ -35,6 +35,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config.paths import CHECKPOINTS_DIR, VIZ_DIR
 from src.data.generation import generate_all_ternary_operations
+
 # V5.11 is the canonical model - imports V5.6/V5.10 aliases for backwards compatibility
 from src.models import TernaryVAE as DualNeuralVAEV5
 from src.models import TernaryVAE as DualNeuralVAEV5_10
@@ -86,9 +87,9 @@ def load_checkpoint(checkpoint_path: Path, device: str = "cpu", model_version: s
     cov_A = checkpoint.get("coverage_A_history", [])
     cov_B = checkpoint.get("coverage_B_history", [])
     if cov_A:
-        print(f"  Coverage A: {cov_A[-1]} ({cov_A[-1]/19683*100:.2f}%)")
+        print(f"  Coverage A: {cov_A[-1]} ({cov_A[-1] / 19683 * 100:.2f}%)")
     if cov_B:
-        print(f"  Coverage B: {cov_B[-1]} ({cov_B[-1]/19683*100:.2f}%)")
+        print(f"  Coverage B: {cov_B[-1]} ({cov_B[-1] / 19683 * 100:.2f}%)")
 
     return model
 
@@ -213,8 +214,8 @@ def plot_loss_landscape(data: dict, output_path: Path, vae_name: str = "A"):
     z_2d = pca.fit_transform(z)
 
     print(f"PCA explained variance: {pca.explained_variance_ratio_}")
-    print(f"  PC1: {pca.explained_variance_ratio_[0]*100:.1f}%")
-    print(f"  PC2: {pca.explained_variance_ratio_[1]*100:.1f}%")
+    print(f"  PC1: {pca.explained_variance_ratio_[0] * 100:.1f}%")
+    print(f"  PC2: {pca.explained_variance_ratio_[1] * 100:.1f}%")
 
     # Create dense grid
     grid_res = 100
@@ -296,10 +297,10 @@ def plot_real_manifold(data: dict, pca: PCA, output_path: Path, vae_name: str = 
     z_3d = pca_3d.fit_transform(z)
 
     print("\n3D PCA explained variance:")
-    print(f"  PC1: {pca_3d.explained_variance_ratio_[0]*100:.1f}%")
-    print(f"  PC2: {pca_3d.explained_variance_ratio_[1]*100:.1f}%")
-    print(f"  PC3: {pca_3d.explained_variance_ratio_[2]*100:.1f}%")
-    print(f"  Total: {sum(pca_3d.explained_variance_ratio_)*100:.1f}%")
+    print(f"  PC1: {pca_3d.explained_variance_ratio_[0] * 100:.1f}%")
+    print(f"  PC2: {pca_3d.explained_variance_ratio_[1] * 100:.1f}%")
+    print(f"  PC3: {pca_3d.explained_variance_ratio_[2] * 100:.1f}%")
+    print(f"  Total: {sum(pca_3d.explained_variance_ratio_) * 100:.1f}%")
 
     # Create figure with multiple views
     fig = plt.figure(figsize=(16, 12))
@@ -682,7 +683,7 @@ def plot_operation_clustering(data: dict, props: dict, output_path: Path, vae_na
         fig.colorbar(scatter, ax=ax, shrink=0.5, label=prop_key)
 
     plt.suptitle(
-        f"VAE-{vae_name} Manifold Colored by Operation Properties\n" f"(Semantic Structure of the Ternary Space)",
+        f"VAE-{vae_name} Manifold Colored by Operation Properties\n(Semantic Structure of the Ternary Space)",
         fontsize=14,
         y=1.02,
     )
@@ -695,9 +696,9 @@ def plot_operation_clustering(data: dict, props: dict, output_path: Path, vae_na
     plt.close()
 
     print(f"Saved: {output_path / f'operation_clustering_vae_{vae_name.lower()}.png'}")
-    print(f"  Symmetric ops: {int(props['symmetry'].sum())} ({props['symmetry'].mean()*100:.1f}%)")
-    print(f"  Zero-preserving: {int(props['zero_preserving'].sum())} ({props['zero_preserving'].mean()*100:.1f}%)")
-    print(f"  Idempotent: {int(props['idempotent'].sum())} ({props['idempotent'].mean()*100:.1f}%)")
+    print(f"  Symmetric ops: {int(props['symmetry'].sum())} ({props['symmetry'].mean() * 100:.1f}%)")
+    print(f"  Zero-preserving: {int(props['zero_preserving'].sum())} ({props['zero_preserving'].mean() * 100:.1f}%)")
+    print(f"  Idempotent: {int(props['idempotent'].sum())} ({props['idempotent'].mean() * 100:.1f}%)")
 
 
 def plot_semantic_surface(data: dict, props: dict, output_path: Path, vae_name: str = "A"):
@@ -933,10 +934,7 @@ def main():
     # Setup paths - support both relative checkpoint names and full paths
     checkpoint_path = Path(args.checkpoint)
     if not checkpoint_path.is_absolute():
-        if args.model_version == "v5.10":
-            checkpoint_dir = CHECKPOINTS_DIR / "v5_10"
-        else:
-            checkpoint_dir = CHECKPOINTS_DIR / "v5_5"
+        checkpoint_dir = CHECKPOINTS_DIR / "v5_10" if args.model_version == "v5.10" else CHECKPOINTS_DIR / "v5_5"
         checkpoint_path = checkpoint_dir / args.checkpoint
 
     output_path = PROJECT_ROOT / args.output
@@ -968,7 +966,7 @@ def main():
         print("=" * 60)
         data_A = encode_all_operations(model, args.device, use_vae="A")
         print(f"Encoded {len(data_A['z'])} operations")
-        print(f"Mean accuracy: {data_A['accuracy'].mean()*100:.2f}%")
+        print(f"Mean accuracy: {data_A['accuracy'].mean() * 100:.2f}%")
         print(f"Mean loss: {data_A['losses'].mean():.4f}")
         print(f"Mean KL: {data_A['kl_divergence'].mean():.4f}")
 
@@ -989,7 +987,7 @@ def main():
         print("=" * 60)
         data_B = encode_all_operations(model, args.device, use_vae="B")
         print(f"Encoded {len(data_B['z'])} operations")
-        print(f"Mean accuracy: {data_B['accuracy'].mean()*100:.2f}%")
+        print(f"Mean accuracy: {data_B['accuracy'].mean() * 100:.2f}%")
         print(f"Mean loss: {data_B['losses'].mean():.4f}")
         print(f"Mean KL: {data_B['kl_divergence'].mean():.4f}")
 

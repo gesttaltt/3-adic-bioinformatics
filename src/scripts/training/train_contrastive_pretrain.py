@@ -42,7 +42,6 @@ import copy
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -53,10 +52,15 @@ from torch.utils.tensorboard import SummaryWriter
 # Import new SOTA components
 try:
     from src.contrastive import CodonPositiveSampler, CodonSamplerConfig
-    from src.encoders import HybridCodonEncoder, HybridEncoderConfig, PLMBackend
-    from src.encoders import MultiScaleNucleotideEncoder, MultiScaleConfig
+    from src.encoders import (
+        HybridCodonEncoder,
+        HybridEncoderConfig,
+        MultiScaleConfig,
+        MultiScaleNucleotideEncoder,
+        PLMBackend,
+    )
     from src.evaluation import ProteinGymEvaluator, evaluate_generated_sequences
-    from src.losses import CodonUsageLoss, CodonUsageConfig
+    from src.losses import CodonUsageConfig, CodonUsageLoss
 
     ENHANCED_AVAILABLE = True
 except ImportError:
@@ -91,58 +95,90 @@ class CodonAugmentation:
         # Standard genetic code - codons encoding same amino acid
         self.synonymous = {
             # Phe (F)
-            0: [0, 1], 1: [0, 1],
+            0: [0, 1],
+            1: [0, 1],
             # Leu (L)
-            2: [2, 3, 16, 17, 18, 19], 3: [2, 3, 16, 17, 18, 19],
-            16: [2, 3, 16, 17, 18, 19], 17: [2, 3, 16, 17, 18, 19],
-            18: [2, 3, 16, 17, 18, 19], 19: [2, 3, 16, 17, 18, 19],
+            2: [2, 3, 16, 17, 18, 19],
+            3: [2, 3, 16, 17, 18, 19],
+            16: [2, 3, 16, 17, 18, 19],
+            17: [2, 3, 16, 17, 18, 19],
+            18: [2, 3, 16, 17, 18, 19],
+            19: [2, 3, 16, 17, 18, 19],
             # Ile (I)
-            4: [4, 5, 6], 5: [4, 5, 6], 6: [4, 5, 6],
+            4: [4, 5, 6],
+            5: [4, 5, 6],
+            6: [4, 5, 6],
             # Met (M) - start
             7: [7],
             # Val (V)
-            20: [20, 21, 22, 23], 21: [20, 21, 22, 23],
-            22: [20, 21, 22, 23], 23: [20, 21, 22, 23],
+            20: [20, 21, 22, 23],
+            21: [20, 21, 22, 23],
+            22: [20, 21, 22, 23],
+            23: [20, 21, 22, 23],
             # Ser (S)
-            8: [8, 9, 10, 11, 40, 41], 9: [8, 9, 10, 11, 40, 41],
-            10: [8, 9, 10, 11, 40, 41], 11: [8, 9, 10, 11, 40, 41],
-            40: [8, 9, 10, 11, 40, 41], 41: [8, 9, 10, 11, 40, 41],
+            8: [8, 9, 10, 11, 40, 41],
+            9: [8, 9, 10, 11, 40, 41],
+            10: [8, 9, 10, 11, 40, 41],
+            11: [8, 9, 10, 11, 40, 41],
+            40: [8, 9, 10, 11, 40, 41],
+            41: [8, 9, 10, 11, 40, 41],
             # Pro (P)
-            12: [12, 13, 14, 15], 13: [12, 13, 14, 15],
-            14: [12, 13, 14, 15], 15: [12, 13, 14, 15],
+            12: [12, 13, 14, 15],
+            13: [12, 13, 14, 15],
+            14: [12, 13, 14, 15],
+            15: [12, 13, 14, 15],
             # Thr (T)
-            24: [24, 25, 26, 27], 25: [24, 25, 26, 27],
-            26: [24, 25, 26, 27], 27: [24, 25, 26, 27],
+            24: [24, 25, 26, 27],
+            25: [24, 25, 26, 27],
+            26: [24, 25, 26, 27],
+            27: [24, 25, 26, 27],
             # Ala (A)
-            28: [28, 29, 30, 31], 29: [28, 29, 30, 31],
-            30: [28, 29, 30, 31], 31: [28, 29, 30, 31],
+            28: [28, 29, 30, 31],
+            29: [28, 29, 30, 31],
+            30: [28, 29, 30, 31],
+            31: [28, 29, 30, 31],
             # Tyr (Y)
-            32: [32, 33], 33: [32, 33],
+            32: [32, 33],
+            33: [32, 33],
             # Stop
-            34: [34, 35, 42], 35: [34, 35, 42], 42: [34, 35, 42],
+            34: [34, 35, 42],
+            35: [34, 35, 42],
+            42: [34, 35, 42],
             # His (H)
-            36: [36, 37], 37: [36, 37],
+            36: [36, 37],
+            37: [36, 37],
             # Gln (Q)
-            38: [38, 39], 39: [38, 39],
+            38: [38, 39],
+            39: [38, 39],
             # Asn (N)
-            44: [44, 45], 45: [44, 45],
+            44: [44, 45],
+            45: [44, 45],
             # Lys (K)
-            46: [46, 47], 47: [46, 47],
+            46: [46, 47],
+            47: [46, 47],
             # Asp (D)
-            48: [48, 49], 49: [48, 49],
+            48: [48, 49],
+            49: [48, 49],
             # Glu (E)
-            50: [50, 51], 51: [50, 51],
+            50: [50, 51],
+            51: [50, 51],
             # Cys (C)
-            52: [52, 53], 53: [52, 53],
+            52: [52, 53],
+            53: [52, 53],
             # Trp (W)
             54: [54],
             # Arg (R)
-            43: [43, 55, 56, 57, 58, 59], 55: [43, 55, 56, 57, 58, 59],
-            56: [43, 55, 56, 57, 58, 59], 57: [43, 55, 56, 57, 58, 59],
-            58: [43, 55, 56, 57, 58, 59], 59: [43, 55, 56, 57, 58, 59],
+            43: [43, 55, 56, 57, 58, 59],
+            55: [43, 55, 56, 57, 58, 59],
+            56: [43, 55, 56, 57, 58, 59],
+            57: [43, 55, 56, 57, 58, 59],
+            58: [43, 55, 56, 57, 58, 59],
+            59: [43, 55, 56, 57, 58, 59],
             # Gly (G)
-            60: [60, 61, 62, 63], 61: [60, 61, 62, 63],
-            62: [60, 61, 62, 63], 63: [60, 61, 62, 63],
+            60: [60, 61, 62, 63],
+            61: [60, 61, 62, 63],
+            62: [60, 61, 62, 63],
+            63: [60, 61, 62, 63],
         }
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
@@ -294,14 +330,10 @@ class BYOL(nn.Module):
     @torch.no_grad()
     def update_target(self):
         """Update target network with momentum."""
-        for online, target in zip(
-            self.online_encoder.parameters(), self.target_encoder.parameters()
-        ):
+        for online, target in zip(self.online_encoder.parameters(), self.target_encoder.parameters(), strict=False):
             target.data = self.momentum * target.data + (1 - self.momentum) * online.data
 
-    def forward(
-        self, x1: torch.Tensor, x2: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Forward pass with two augmented views.
 
         Args:
@@ -325,8 +357,10 @@ class BYOL(nn.Module):
 
         # BYOL loss (cosine similarity)
         loss = (
-            2 - 2 * F.cosine_similarity(p1, z2_target.detach(), dim=-1).mean()
-            + 2 - 2 * F.cosine_similarity(p2, z1_target.detach(), dim=-1).mean()
+            2
+            - 2 * F.cosine_similarity(p1, z2_target.detach(), dim=-1).mean()
+            + 2
+            - 2 * F.cosine_similarity(p2, z1_target.detach(), dim=-1).mean()
         ) / 2
 
         return loss, z1_online
@@ -375,7 +409,7 @@ class EnhancedContrastiveDataset(Dataset):
         self,
         sequences: torch.Tensor,
         augmentation: CodonAugmentation,
-        codon_sampler: Optional["CodonPositiveSampler"] = None,
+        codon_sampler: CodonPositiveSampler | None = None,
         mutation_rate: float = 0.2,
     ):
         """Initialize enhanced dataset.
@@ -428,7 +462,7 @@ def train_byol(
     epochs: int = 100,
     lr: float = 3e-4,
     device: str = "cuda",
-    log_dir: Optional[Path] = None,
+    log_dir: Path | None = None,
 ) -> BYOL:
     """Train BYOL model.
 
@@ -545,7 +579,7 @@ def main():
         print("Quick test mode: 10 epochs")
 
     # Check if enhanced features are available
-    use_enhanced = (args.use_codon_sampler or args.use_hybrid_encoder or args.evaluate)
+    use_enhanced = args.use_codon_sampler or args.use_hybrid_encoder or args.evaluate
     if use_enhanced and not ENHANCED_AVAILABLE:
         print("\nWarning: Enhanced components not available. Using standard training.")
         args.use_codon_sampler = False
@@ -602,9 +636,7 @@ def main():
     # Create dataset (enhanced or standard)
     if codon_sampler is not None:
         print("  Using EnhancedContrastiveDataset with biology-aware sampling")
-        dataset = EnhancedContrastiveDataset(
-            sequences, augmentation, codon_sampler=codon_sampler, mutation_rate=0.2
-        )
+        dataset = EnhancedContrastiveDataset(sequences, augmentation, codon_sampler=codon_sampler, mutation_rate=0.2)
     else:
         dataset = ContrastiveDataset(sequences, augmentation)
 
@@ -645,7 +677,7 @@ def main():
         model.eval()
         with torch.no_grad():
             sample_seqs = sequences[:1000]
-            embeddings = model.online_encoder(sample_seqs.to(device))
+            model.online_encoder(sample_seqs.to(device))
 
         # Create evaluator and run
         evaluator = ProteinGymEvaluator(training_sequences=sequences[:500])

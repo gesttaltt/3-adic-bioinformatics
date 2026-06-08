@@ -17,15 +17,15 @@ Key components:
 """
 
 from src.models.fusion.cross_modal import (
-    CrossModalFusion,
-    CrossModalAttention,
-    GatedFusion,
     ConcatFusion,
+    CrossModalAttention,
+    CrossModalFusion,
     FusionConfig,
+    GatedFusion,
 )
 from src.models.fusion.multimodal import (
-    MultimodalEncoder,
     MultimodalConfig,
+    MultimodalEncoder,
 )
 
 __all__ = [

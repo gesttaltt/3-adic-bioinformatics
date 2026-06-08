@@ -34,11 +34,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
-import pandas as pd
 import torch
 
 from .base import DiseaseAnalyzer, DiseaseConfig, DiseaseType, TaskType
@@ -78,7 +76,7 @@ class TBDrugCategory(Enum):
     NEWER_AGENTS = "newer_agents"
 
     @classmethod
-    def get_category(cls, drug: TBDrug) -> "TBDrugCategory":
+    def get_category(cls, drug: TBDrug) -> TBDrugCategory:
         """Get category for a drug."""
         first_line = {TBDrug.RIFAMPICIN, TBDrug.ISONIAZID, TBDrug.ETHAMBUTOL, TBDrug.PYRAZINAMIDE}
         fqs = {TBDrug.LEVOFLOXACIN, TBDrug.MOXIFLOXACIN}
@@ -157,17 +155,21 @@ class TuberculosisConfig(DiseaseConfig):
     name: str = "tuberculosis"
     display_name: str = "Tuberculosis (M. tuberculosis)"
     disease_type: DiseaseType = DiseaseType.BACTERIAL
-    tasks: list[TaskType] = field(default_factory=lambda: [
-        TaskType.RESISTANCE,
-    ])
+    tasks: list[TaskType] = field(
+        default_factory=lambda: [
+            TaskType.RESISTANCE,
+        ]
+    )
 
     # Data sources
-    data_sources: dict[str, str] = field(default_factory=lambda: {
-        "who_catalogue": "https://www.who.int/publications/i/item/9789240028173",
-        "cryptic": "https://www.crypticproject.org/",
-        "tbportals": "https://tbportals.niaid.nih.gov/",
-        "patric": "https://www.bv-brc.org/",
-    })
+    data_sources: dict[str, str] = field(
+        default_factory=lambda: {
+            "who_catalogue": "https://www.who.int/publications/i/item/9789240028173",
+            "cryptic": "https://www.crypticproject.org/",
+            "tbportals": "https://tbportals.niaid.nih.gov/",
+            "patric": "https://www.bv-brc.org/",
+        }
+    )
 
 
 # WHO TB Mutation Catalogue - Key mutations by gene
@@ -310,7 +312,7 @@ class TuberculosisAnalyzer(DiseaseAnalyzer):
     - Mutation cataloguing
     """
 
-    def __init__(self, config: Optional[TuberculosisConfig] = None):
+    def __init__(self, config: TuberculosisConfig | None = None):
         """Initialize analyzer.
 
         Args:
@@ -326,7 +328,7 @@ class TuberculosisAnalyzer(DiseaseAnalyzer):
     def analyze(
         self,
         sequences: dict[TBGene, list[str]],
-        embeddings: Optional[torch.Tensor] = None,
+        embeddings: torch.Tensor | None = None,
         **kwargs,
     ) -> dict[str, Any]:
         """Analyze TB gene sequences for drug resistance.
@@ -353,9 +355,7 @@ class TuberculosisAnalyzer(DiseaseAnalyzer):
             results["drug_resistance"][drug.value] = drug_results
 
         # Classify MDR/XDR
-        results["mdr_classification"] = self._classify_mdr_xdr(
-            results["drug_resistance"]
-        )
+        results["mdr_classification"] = self._classify_mdr_xdr(results["drug_resistance"])
 
         return results
 
@@ -417,14 +417,16 @@ class TuberculosisAnalyzer(DiseaseAnalyzer):
                         effect = info[ref_aa]["effect"]
                         effect_scores = {"high": 1.0, "moderate": 0.6, "low": 0.3}
                         isolate_score += effect_scores.get(effect, 0.5)
-                        isolate_mutations.append({
-                            "gene": gene.value,
-                            "position": pos,
-                            "ref": ref_aa,
-                            "alt": seq_aa,
-                            "effect": effect,
-                            "notation": f"{gene.value}_{ref_aa}{pos}{seq_aa}",
-                        })
+                        isolate_mutations.append(
+                            {
+                                "gene": gene.value,
+                                "position": pos,
+                                "ref": ref_aa,
+                                "alt": seq_aa,
+                                "effect": effect,
+                                "notation": f"{gene.value}_{ref_aa}{pos}{seq_aa}",
+                            }
+                        )
 
             # Normalize score
             max_score = 5.0
@@ -445,9 +447,7 @@ class TuberculosisAnalyzer(DiseaseAnalyzer):
 
         return results
 
-    def _classify_mdr_xdr(
-        self, drug_resistance: dict[str, dict]
-    ) -> list[dict[str, Any]]:
+    def _classify_mdr_xdr(self, drug_resistance: dict[str, dict]) -> list[dict[str, Any]]:
         """Classify isolates as MDR, pre-XDR, or XDR.
 
         Definitions (WHO 2021):
@@ -460,12 +460,36 @@ class TuberculosisAnalyzer(DiseaseAnalyzer):
         n_isolates = len(drug_resistance.get("RIF", {}).get("scores", []))
 
         for i in range(n_isolates):
-            rif_score = drug_resistance.get("RIF", {}).get("scores", [0])[i] if i < len(drug_resistance.get("RIF", {}).get("scores", [])) else 0
-            inh_score = drug_resistance.get("INH", {}).get("scores", [0])[i] if i < len(drug_resistance.get("INH", {}).get("scores", [])) else 0
-            lfx_score = drug_resistance.get("LFX", {}).get("scores", [0])[i] if i < len(drug_resistance.get("LFX", {}).get("scores", [])) else 0
-            mfx_score = drug_resistance.get("MFX", {}).get("scores", [0])[i] if i < len(drug_resistance.get("MFX", {}).get("scores", [])) else 0
-            bdq_score = drug_resistance.get("BDQ", {}).get("scores", [0])[i] if i < len(drug_resistance.get("BDQ", {}).get("scores", [])) else 0
-            lzd_score = drug_resistance.get("LZD", {}).get("scores", [0])[i] if i < len(drug_resistance.get("LZD", {}).get("scores", [])) else 0
+            rif_score = (
+                drug_resistance.get("RIF", {}).get("scores", [0])[i]
+                if i < len(drug_resistance.get("RIF", {}).get("scores", []))
+                else 0
+            )
+            inh_score = (
+                drug_resistance.get("INH", {}).get("scores", [0])[i]
+                if i < len(drug_resistance.get("INH", {}).get("scores", []))
+                else 0
+            )
+            lfx_score = (
+                drug_resistance.get("LFX", {}).get("scores", [0])[i]
+                if i < len(drug_resistance.get("LFX", {}).get("scores", []))
+                else 0
+            )
+            mfx_score = (
+                drug_resistance.get("MFX", {}).get("scores", [0])[i]
+                if i < len(drug_resistance.get("MFX", {}).get("scores", []))
+                else 0
+            )
+            bdq_score = (
+                drug_resistance.get("BDQ", {}).get("scores", [0])[i]
+                if i < len(drug_resistance.get("BDQ", {}).get("scores", []))
+                else 0
+            )
+            lzd_score = (
+                drug_resistance.get("LZD", {}).get("scores", [0])[i]
+                if i < len(drug_resistance.get("LZD", {}).get("scores", []))
+                else 0
+            )
 
             # Thresholds
             R_THRESHOLD = 0.3
@@ -486,14 +510,16 @@ class TuberculosisAnalyzer(DiseaseAnalyzer):
             else:
                 classification = "DS-TB"  # Drug-susceptible
 
-            classifications.append({
-                "isolate": i,
-                "classification": classification,
-                "rif_resistant": rif_r,
-                "inh_resistant": inh_r,
-                "fq_resistant": fq_r,
-                "group_a_resistant": group_a_r,
-            })
+            classifications.append(
+                {
+                    "isolate": i,
+                    "classification": classification,
+                    "rif_resistant": rif_r,
+                    "inh_resistant": inh_r,
+                    "fq_resistant": fq_r,
+                    "group_a_resistant": group_a_r,
+                }
+            )
 
         return classifications
 
@@ -521,7 +547,7 @@ class TuberculosisAnalyzer(DiseaseAnalyzer):
     def encode_gene_sequence(
         self,
         sequence: str,
-        max_length: Optional[int] = None,
+        max_length: int | None = None,
     ) -> np.ndarray:
         """One-hot encode a gene sequence."""
         if max_length is None:
@@ -566,38 +592,30 @@ def create_tb_synthetic_dataset(
         # Create reference sequence long enough for rpoB RRDR (positions 426-452)
         reference = "M" + "A" * (max_pos - 1)  # 500 AA sequence
         mutation_db = RPOB_MUTATIONS
-        gene = TBGene.RPOB
     elif drug == TBDrug.ISONIAZID:
         # katG mutations go up to position 463
         reference = "M" + "A" * (max_pos - 1)
         mutation_db = KATG_MUTATIONS
-        gene = TBGene.KATG
     elif drug == TBDrug.ETHAMBUTOL:
         reference = "M" + "A" * (max_pos - 1)
         mutation_db = EMBB_MUTATIONS
-        gene = TBGene.EMBB
     elif drug in [TBDrug.LEVOFLOXACIN, TBDrug.MOXIFLOXACIN]:
         reference = "M" + "A" * (max_pos - 1)
         mutation_db = {**GYRA_MUTATIONS, **GYRB_MUTATIONS}
-        gene = TBGene.GYRA
     elif drug == TBDrug.PYRAZINAMIDE:
         reference = "M" + "A" * (max_pos - 1)
         mutation_db = PNCA_MUTATIONS
-        gene = TBGene.PNCA
     elif drug in [TBDrug.AMIKACIN, TBDrug.KANAMYCIN, TBDrug.CAPREOMYCIN]:
         # rrs mutations at positions 1401-1484 (16S rRNA)
         # For protein-level, use reasonable length
         reference = "M" + "A" * (max_pos - 1)
         mutation_db = RRS_MUTATIONS
-        gene = TBGene.RRS
     elif drug == TBDrug.BEDAQUILINE:
         reference = "M" + "A" * (max_pos - 1)
         mutation_db = {**ATPE_MUTATIONS, **RV0678_MUTATIONS}
-        gene = TBGene.ATPE
     else:
         reference = "M" + "A" * (max_pos - 1)
         mutation_db = RPOB_MUTATIONS
-        gene = TBGene.RPOB
 
     analyzer = TuberculosisAnalyzer()
 

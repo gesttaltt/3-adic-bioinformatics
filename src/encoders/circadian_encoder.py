@@ -37,7 +37,6 @@ References:
 from __future__ import annotations
 
 import math
-from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -228,8 +227,8 @@ class CircadianCycleEncoder(nn.Module):
     def forward(
         self,
         time_hours: torch.Tensor,
-        phospho_state: Optional[torch.Tensor] = None,
-        phospho_continuous: Optional[torch.Tensor] = None,
+        phospho_state: torch.Tensor | None = None,
+        phospho_continuous: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Encode circadian state.
 
@@ -284,8 +283,8 @@ class CircadianCycleEncoder(nn.Module):
     def get_phase_trajectory(
         self,
         n_timepoints: int = 48,
-        phospho_sequence: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        phospho_sequence: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Generate embeddings for a full circadian cycle.
 
         Args:
@@ -369,10 +368,10 @@ class KaiCClockEncoder(CircadianCycleEncoder):
     def forward(
         self,
         time_hours: torch.Tensor,
-        phospho_state: Optional[torch.Tensor] = None,
-        phospho_continuous: Optional[torch.Tensor] = None,
-        kaia_level: Optional[torch.Tensor] = None,
-        kaib_level: Optional[torch.Tensor] = None,
+        phospho_state: torch.Tensor | None = None,
+        phospho_continuous: torch.Tensor | None = None,
+        kaia_level: torch.Tensor | None = None,
+        kaib_level: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Encode KaiC state with optional KaiA/KaiB modulation.
 

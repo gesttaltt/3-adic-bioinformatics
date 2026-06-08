@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import json
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -45,7 +44,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 try:
-    from scipy.stats import spearmanr, pearsonr
+    from scipy.stats import pearsonr, spearmanr
+
     HAS_SCIPY = True
 except ImportError:
     HAS_SCIPY = False
@@ -55,6 +55,7 @@ try:
     from sklearn.linear_model import Ridge
     from sklearn.model_selection import LeaveOneOut, cross_val_predict
     from sklearn.preprocessing import StandardScaler
+
     HAS_SKLEARN = True
 except ImportError:
     HAS_SKLEARN = False
@@ -62,33 +63,35 @@ except ImportError:
 
 # Import PeptideVAE components
 from scripts.peptide_vae.prediction_attempt_02 import (
+    AA_PROPERTIES,
+    AA_TO_IDX,
+    AA_VOCAB,
+    PAD_IDX,
     PeptideVAE,
     PeptideVAEConfig,
-    AA_VOCAB,
-    AA_TO_IDX,
-    PAD_IDX,
     poincare_distance,
-    AA_PROPERTIES,
 )
 
 
 def load_s669_data(filepath: Path) -> list[dict]:
     """Load S669 DDG benchmark dataset."""
     mutations = []
-    with open(filepath, 'r') as f:
+    with open(filepath) as f:
         lines = f.readlines()
 
     for line in lines[1:]:  # Skip header
-        parts = line.strip().split(',')
+        parts = line.strip().split(",")
         if len(parts) >= 6:
             try:
-                mutations.append({
-                    'pdb_id': parts[0],
-                    'position': int(parts[2]),
-                    'wild_type': parts[3].upper(),
-                    'mutant': parts[4].upper(),
-                    'ddg_experimental': float(parts[5]),
-                })
+                mutations.append(
+                    {
+                        "pdb_id": parts[0],
+                        "position": int(parts[2]),
+                        "wild_type": parts[3].upper(),
+                        "mutant": parts[4].upper(),
+                        "ddg_experimental": float(parts[5]),
+                    }
+                )
             except (ValueError, IndexError):
                 continue
 
@@ -141,8 +144,8 @@ def extract_ddg_features(
     ddg_values = []
 
     for mut in mutations:
-        wt_aa = mut['wild_type']
-        mut_aa = mut['mutant']
+        wt_aa = mut["wild_type"]
+        mut_aa = mut["mutant"]
 
         if wt_aa not in AA_VOCAB or mut_aa not in AA_VOCAB:
             continue
@@ -151,9 +154,7 @@ def extract_ddg_features(
         z_mut = aa_embeddings[mut_aa]
 
         # Geometric features (hyperbolic space)
-        hyp_dist = poincare_distance(
-            z_wt.unsqueeze(0), z_mut.unsqueeze(0), model.curvature
-        ).item()
+        hyp_dist = poincare_distance(z_wt.unsqueeze(0), z_mut.unsqueeze(0), model.curvature).item()
 
         origin = torch.zeros_like(z_wt)
         radius_wt = poincare_distance(z_wt.unsqueeze(0), origin.unsqueeze(0), model.curvature).item()
@@ -167,26 +168,26 @@ def extract_ddg_features(
         cos_sim = torch.cosine_similarity(z_wt.unsqueeze(0), z_mut.unsqueeze(0)).item()
 
         # Physicochemical features (from Colbes)
-        wt_props = AA_PROPERTIES.get(wt_aa, {'hydro': 0, 'charge': 0, 'size': 0})
-        mut_props = AA_PROPERTIES.get(mut_aa, {'hydro': 0, 'charge': 0, 'size': 0})
+        wt_props = AA_PROPERTIES.get(wt_aa, {"hydro": 0, "charge": 0, "size": 0})
+        mut_props = AA_PROPERTIES.get(mut_aa, {"hydro": 0, "charge": 0, "size": 0})
 
-        delta_hydro = mut_props['hydro'] - wt_props['hydro']
-        delta_charge = abs(mut_props['charge'] - wt_props['charge'])
-        delta_size = mut_props['size'] - wt_props['size']
+        delta_hydro = mut_props["hydro"] - wt_props["hydro"]
+        delta_charge = abs(mut_props["charge"] - wt_props["charge"])
+        delta_size = mut_props["size"] - wt_props["size"]
 
         # Combine features
         feature_vec = [
-            hyp_dist,       # Hyperbolic distance (from trained VAE)
-            delta_radius,   # Radial change
-            euc_dist,       # Euclidean distance
-            1 - cos_sim,    # Angular distance
-            delta_hydro,    # Physicochemical
+            hyp_dist,  # Hyperbolic distance (from trained VAE)
+            delta_radius,  # Radial change
+            euc_dist,  # Euclidean distance
+            1 - cos_sim,  # Angular distance
+            delta_hydro,  # Physicochemical
             delta_charge,
             delta_size,
         ]
 
         features.append(feature_vec)
-        ddg_values.append(mut['ddg_experimental'])
+        ddg_values.append(mut["ddg_experimental"])
 
     return np.array(features), np.array(ddg_values)
 
@@ -200,7 +201,7 @@ def train_and_evaluate_ddg(
     This matches the Colbes benchmark methodology.
     """
     if not HAS_SKLEARN or not HAS_SCIPY:
-        return {'error': 'Missing scipy or sklearn'}
+        return {"error": "Missing scipy or sklearn"}
 
     # Standardize features
     scaler = StandardScaler()
@@ -222,19 +223,26 @@ def train_and_evaluate_ddg(
 
     # Feature importance (fit on full data)
     model.fit(X_scaled, y)
-    feature_names = ['hyp_dist', 'delta_radius', 'euc_dist', 'angular_dist',
-                     'delta_hydro', 'delta_charge', 'delta_size']
-    importance = dict(zip(feature_names, model.coef_))
+    feature_names = [
+        "hyp_dist",
+        "delta_radius",
+        "euc_dist",
+        "angular_dist",
+        "delta_hydro",
+        "delta_charge",
+        "delta_size",
+    ]
+    importance = dict(zip(feature_names, model.coef_, strict=False))
 
     return {
-        'spearman_r': spearman_r,
-        'spearman_p': spearman_p,
-        'pearson_r': pearson_r,
-        'pearson_p': pearson_p,
-        'mae': mae,
-        'rmse': rmse,
-        'n_samples': len(y),
-        'feature_importance': importance,
+        "spearman_r": spearman_r,
+        "spearman_p": spearman_p,
+        "pearson_r": pearson_r,
+        "pearson_p": pearson_p,
+        "mae": mae,
+        "rmse": rmse,
+        "n_samples": len(y),
+        "feature_importance": importance,
     }
 
 
@@ -244,7 +252,7 @@ def main():
     print("Success criterion: Spearman ρ ≥ 0.585 (Colbes benchmark)")
     print("=" * 70)
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"\nDevice: {device}")
 
     # Load trained model
@@ -260,7 +268,7 @@ def main():
 
     config = PeptideVAEConfig()
     model = PeptideVAE(config).to(device)
-    model.load_state_dict(checkpoint['model_state_dict'])
+    model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
 
     print(f"Loaded model from epoch {checkpoint['epoch']}")
@@ -298,8 +306,7 @@ def main():
     print(f"  N samples:  {results['n_samples']}")
 
     print("\n  Feature Importance:")
-    for feat, coef in sorted(results['feature_importance'].items(),
-                             key=lambda x: abs(x[1]), reverse=True):
+    for feat, coef in sorted(results["feature_importance"].items(), key=lambda x: abs(x[1]), reverse=True):
         print(f"    {feat}: {coef:.4f}")
 
     # Comparison with literature
@@ -308,12 +315,12 @@ def main():
     print("=" * 70)
 
     literature = {
-        'Rosetta ddg_monomer (structure)': 0.69,
-        'Our Target (Colbes validated)': 0.585,
-        'Mutate Everything (sequence)': 0.56,
-        'ESM-1v (sequence)': 0.51,
-        'ELASPIC-2 (sequence)': 0.50,
-        'FoldX (structure)': 0.48,
+        "Rosetta ddg_monomer (structure)": 0.69,
+        "Our Target (Colbes validated)": 0.585,
+        "Mutate Everything (sequence)": 0.56,
+        "ESM-1v (sequence)": 0.51,
+        "ELASPIC-2 (sequence)": 0.50,
+        "FoldX (structure)": 0.48,
     }
 
     print("\n| Method | Spearman ρ |")
@@ -328,11 +335,11 @@ def main():
     print("PHASE 4 VERDICT")
     print("=" * 70)
 
-    if results['spearman_r'] >= 0.585:
+    if results["spearman_r"] >= 0.585:
         print(f"\n✓ PHASE 4 PASSED: ρ = {results['spearman_r']:.3f} ≥ 0.585")
         print("  PeptideVAE embeddings capture stability information!")
         print("  Ready for production deployment.")
-    elif results['spearman_r'] >= 0.50:
+    elif results["spearman_r"] >= 0.50:
         print(f"\n~ PHASE 4 PARTIAL: ρ = {results['spearman_r']:.3f}")
         print("  Matches ESM-1v/ELASPIC-2 level but below target.")
         print("  Consider Phase 2 (radial hierarchy) training.")
@@ -347,24 +354,24 @@ def main():
 
     # Convert numpy types for JSON
     results_json = {
-        'spearman_r': float(results['spearman_r']),
-        'spearman_p': float(results['spearman_p']),
-        'pearson_r': float(results['pearson_r']),
-        'pearson_p': float(results['pearson_p']),
-        'mae': float(results['mae']),
-        'rmse': float(results['rmse']),
-        'n_samples': results['n_samples'],
-        'feature_importance': {k: float(v) for k, v in results['feature_importance'].items()},
-        'passed': bool(results['spearman_r'] >= 0.585),
-        'target': 0.585,
+        "spearman_r": float(results["spearman_r"]),
+        "spearman_p": float(results["spearman_p"]),
+        "pearson_r": float(results["pearson_r"]),
+        "pearson_p": float(results["pearson_p"]),
+        "mae": float(results["mae"]),
+        "rmse": float(results["rmse"]),
+        "n_samples": results["n_samples"],
+        "feature_importance": {k: float(v) for k, v in results["feature_importance"].items()},
+        "passed": bool(results["spearman_r"] >= 0.585),
+        "target": 0.585,
     }
 
-    with open(results_path, 'w') as f:
+    with open(results_path, "w") as f:
         json.dump(results_json, f, indent=2)
 
     print(f"\nResults saved to: {results_path}")
 
-    return 0 if results['spearman_r'] >= 0.585 else 1
+    return 0 if results["spearman_r"] >= 0.585 else 1
 
 
 if __name__ == "__main__":

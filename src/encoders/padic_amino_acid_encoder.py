@@ -25,18 +25,12 @@ References:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from enum import IntEnum
-from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch import Tensor
-
-from src.core.padic_math import padic_valuation
-
 
 # =============================================================================
 # Amino Acid Classifications
@@ -62,7 +56,7 @@ class AminoAcidGroup(IntEnum):
 
 
 # Amino acid to group mapping
-AA_TO_GROUP: Dict[str, AminoAcidGroup] = {
+AA_TO_GROUP: dict[str, AminoAcidGroup] = {
     "A": AminoAcidGroup.HYDROPHOBIC,
     "V": AminoAcidGroup.HYDROPHOBIC,
     "L": AminoAcidGroup.HYDROPHOBIC,
@@ -88,7 +82,7 @@ AA_TO_GROUP: Dict[str, AminoAcidGroup] = {
 }
 
 # Amino acid index mapping (0-20)
-AA_TO_INDEX: Dict[str, int] = {
+AA_TO_INDEX: dict[str, int] = {
     "A": 0,
     "R": 1,
     "N": 2,
@@ -113,12 +107,12 @@ AA_TO_INDEX: Dict[str, int] = {
     "X": 21,
 }
 
-INDEX_TO_AA: Dict[int, str] = {v: k for k, v in AA_TO_INDEX.items()}
+INDEX_TO_AA: dict[int, str] = {v: k for k, v in AA_TO_INDEX.items()}
 
 
 # Physicochemical properties
 # (hydrophobicity, molecular_weight, isoelectric_point, flexibility)
-AA_PROPERTIES: Dict[str, Tuple[float, float, float, float]] = {
+AA_PROPERTIES: dict[str, tuple[float, float, float, float]] = {
     "A": (1.8, 89, 6.01, 0.36),
     "R": (-4.5, 174, 10.76, 0.53),
     "N": (-3.5, 132, 5.41, 0.46),
@@ -284,12 +278,14 @@ class FiveAdicAminoAcidEncoder(nn.Module):
             if idx < self.n_amino_acids:
                 p = AA_PROPERTIES.get(aa, (0, 100, 7, 0.5))
                 # Normalize
-                props[idx] = torch.tensor([
-                    p[0] / 10,  # hydrophobicity
-                    p[1] / 250,  # molecular weight
-                    p[2] / 14,  # isoelectric point
-                    p[3],  # flexibility
-                ])
+                props[idx] = torch.tensor(
+                    [
+                        p[0] / 10,  # hydrophobicity
+                        p[1] / 250,  # molecular weight
+                        p[2] / 14,  # isoelectric point
+                        p[3],  # flexibility
+                    ]
+                )
         self.register_buffer("aa_properties", props)
 
         # Register group mapping
@@ -332,7 +328,7 @@ class FiveAdicAminoAcidEncoder(nn.Module):
         self,
         indices: Tensor,
         return_components: bool = False,
-    ) -> Union[Tensor, Tuple[Tensor, Dict[str, Tensor]]]:
+    ) -> Tensor | tuple[Tensor, dict[str, Tensor]]:
         """Encode amino acid indices.
 
         Args:
@@ -758,7 +754,7 @@ class MutationTypeEmbedding(nn.Module):
     def forward(
         self,
         mutation_types: Tensor,
-        features: Optional[Tensor] = None,
+        features: Tensor | None = None,
     ) -> Tensor:
         """Encode mutations.
 
@@ -776,7 +772,8 @@ class MutationTypeEmbedding(nn.Module):
         else:
             # Default features
             feat_embed = torch.zeros(
-                *mutation_types.shape, self.embedding_dim // 2,
+                *mutation_types.shape,
+                self.embedding_dim // 2,
                 device=mutation_types.device,
             )
 
@@ -790,8 +787,8 @@ class MutationTypeEmbedding(nn.Module):
         self,
         from_aa: str,
         to_aa: str,
-        position: Optional[int] = None,
-        seq_length: Optional[int] = None,
+        position: int | None = None,
+        seq_length: int | None = None,
     ) -> Tensor:
         """Encode a single mutation.
 
@@ -825,8 +822,6 @@ class MutationTypeEmbedding(nn.Module):
             c_term_dist = (seq_length - position) / seq_length
             features.extend([rel_pos, n_term_dist, c_term_dist])
 
-        feature_tensor = torch.tensor(
-            [features], device=self.type_embedding.weight.device
-        ).float()
+        feature_tensor = torch.tensor([features], device=self.type_embedding.weight.device).float()
 
         return self.forward(mut_type_tensor, feature_tensor)

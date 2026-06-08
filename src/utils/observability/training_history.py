@@ -14,7 +14,7 @@ Single responsibility: Training state and history management only.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 from src.config.constants import (
     DEFAULT_PLATEAU_MIN_DELTA,
@@ -69,13 +69,13 @@ class TrainingHistory:
     global_step: int = 0
 
     # Histories
-    coverage_A_history: List[int] = field(default_factory=list)
-    coverage_B_history: List[int] = field(default_factory=list)
-    H_A_history: List[float] = field(default_factory=list)
-    H_B_history: List[float] = field(default_factory=list)
-    correlation_hyp_history: List[float] = field(default_factory=list)
-    correlation_euc_history: List[float] = field(default_factory=list)
-    loss_history: List[float] = field(default_factory=list)
+    coverage_A_history: list[int] = field(default_factory=list)
+    coverage_B_history: list[int] = field(default_factory=list)
+    H_A_history: list[float] = field(default_factory=list)
+    H_B_history: list[float] = field(default_factory=list)
+    correlation_hyp_history: list[float] = field(default_factory=list)
+    correlation_euc_history: list[float] = field(default_factory=list)
+    loss_history: list[float] = field(default_factory=list)
 
     def update_entropies(self, H_A: float, H_B: float) -> None:
         """Update entropy histories.
@@ -177,7 +177,7 @@ class TrainingHistory:
         # Use max of A and B as coverage metric
         recent_A = self.coverage_A_history[-patience:]
         recent_B = self.coverage_B_history[-patience:]
-        recent_max = [max(a, b) for a, b in zip(recent_A, recent_B)]
+        recent_max = [max(a, b) for a, b in zip(recent_A, recent_B, strict=False)]
 
         # Compute improvement as fraction of total operations
         improvement = (recent_max[-1] - recent_max[0]) / N_TERNARY_OPERATIONS
@@ -220,7 +220,7 @@ class TrainingHistory:
         self.best_corr_euc = state.best_corr_euc
         self.patience_counter = state.patience_counter
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization.
 
         Returns:
@@ -243,7 +243,7 @@ class TrainingHistory:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> TrainingHistory:
+    def from_dict(cls, data: dict[str, Any]) -> TrainingHistory:
         """Create from dictionary.
 
         Args:
@@ -268,7 +268,7 @@ class TrainingHistory:
         history.loss_history = data.get("loss_history", [])
         return history
 
-    def get_summary_stats(self) -> Dict[str, float]:
+    def get_summary_stats(self) -> dict[str, float]:
         """Get summary statistics for logging.
 
         Returns:
@@ -285,12 +285,8 @@ class TrainingHistory:
         if self.coverage_A_history:
             stats["final_coverage_A"] = self.coverage_A_history[-1]
             stats["final_coverage_B"] = self.coverage_B_history[-1]
-            stats["final_coverage_A_pct"] = (
-                self.coverage_A_history[-1] / N_TERNARY_OPERATIONS * 100
-            )
-            stats["final_coverage_B_pct"] = (
-                self.coverage_B_history[-1] / N_TERNARY_OPERATIONS * 100
-            )
+            stats["final_coverage_A_pct"] = self.coverage_A_history[-1] / N_TERNARY_OPERATIONS * 100
+            stats["final_coverage_B_pct"] = self.coverage_B_history[-1] / N_TERNARY_OPERATIONS * 100
 
         return stats
 

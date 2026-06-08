@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -63,22 +63,22 @@ class SequenceRecord:
     sequence_type: SequenceType
 
     # Optional metadata
-    gene: Optional[str] = None
-    protein: Optional[str] = None
-    subtype: Optional[str] = None
-    country: Optional[str] = None
-    year: Optional[int] = None
-    host: Optional[str] = None
+    gene: str | None = None
+    protein: str | None = None
+    subtype: str | None = None
+    country: str | None = None
+    year: int | None = None
+    host: str | None = None
 
     # Phenotype labels (for validation)
-    drug_resistance: Optional[Dict[str, float]] = None
-    immune_escape: Optional[Dict[str, float]] = None
-    tropism: Optional[str] = None
-    fitness: Optional[float] = None
+    drug_resistance: dict[str, float] | None = None
+    immune_escape: dict[str, float] | None = None
+    tropism: str | None = None
+    fitness: float | None = None
 
     # Additional annotations
-    mutations: Optional[List[str]] = None
-    annotations: Dict[str, Any] = field(default_factory=dict)
+    mutations: list[str] | None = None
+    annotations: dict[str, Any] = field(default_factory=dict)
 
     def to_tensor(self, encoding: str = "onehot") -> torch.Tensor:
         """Convert sequence to tensor representation."""
@@ -137,8 +137,8 @@ class OrganismLoader(ABC):
     def __init__(
         self,
         organism: OrganismType,
-        cache_dir: Optional[Path] = None,
-        max_sequences: Optional[int] = None,
+        cache_dir: Path | None = None,
+        max_sequences: int | None = None,
     ):
         self.organism = organism
         self.cache_dir = cache_dir or Path("data/cache")
@@ -146,20 +146,20 @@ class OrganismLoader(ABC):
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     @abstractmethod
-    def load_sequences(self) -> List[SequenceRecord]:
+    def load_sequences(self) -> list[SequenceRecord]:
         """Load sequences for this organism."""
         pass
 
     @abstractmethod
-    def get_validation_labels(self) -> Dict[str, Any]:
+    def get_validation_labels(self) -> dict[str, Any]:
         """Get phenotype labels for validation."""
         pass
 
     def load_encoded(
         self,
         encoding: str = "onehot",
-        max_length: Optional[int] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        max_length: int | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Load sequences as encoded tensors.
 
         Args:
@@ -207,7 +207,7 @@ class OrganismLoader(ABC):
         self,
         prime: int = 3,
         latent_dim: int = 16,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Load sequences with p-adic encoding.
 
         Uses the codon encoder to create p-adic embeddings.
@@ -262,7 +262,7 @@ class OrganismLoader(ABC):
 
     def compute_padic_distances(
         self,
-        records: List[SequenceRecord],
+        records: list[SequenceRecord],
         prime: int = 3,
     ) -> np.ndarray:
         """Compute pairwise p-adic distances between sequences.
@@ -303,7 +303,7 @@ class OrganismLoader(ABC):
 
         # Count differences by position
         differences = []
-        for i, (c1, c2) in enumerate(zip(seq1, seq2)):
+        for i, (c1, c2) in enumerate(zip(seq1, seq2, strict=False)):
             if c1 != c2:
                 differences.append(i)
 
@@ -323,7 +323,7 @@ class OrganismLoader(ABC):
 
         return prime ** (-valuation)
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get dataset statistics."""
         records = self.load_sequences()
 
@@ -358,7 +358,7 @@ class MockOrganismLoader(OrganismLoader):
         self.n_sequences = n_sequences
         self.seq_length = seq_length
 
-    def load_sequences(self) -> List[SequenceRecord]:
+    def load_sequences(self) -> list[SequenceRecord]:
         """Generate mock sequences."""
         np.random.seed(42)
 
@@ -379,7 +379,7 @@ class MockOrganismLoader(OrganismLoader):
 
         return records
 
-    def get_validation_labels(self) -> Dict[str, Any]:
+    def get_validation_labels(self) -> dict[str, Any]:
         """Return mock labels."""
         return {
             "drug_resistance": {f"mock_{i}": np.random.random() for i in range(self.n_sequences)},

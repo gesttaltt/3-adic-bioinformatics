@@ -14,27 +14,27 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from scipy.stats import spearmanr, pearsonr
+from scipy.stats import pearsonr, spearmanr
 from torch.utils.data import DataLoader, TensorDataset
 
 # Add project root to path
 project_root = Path(__file__).parents[3]
 sys.path.insert(0, str(project_root))
 
-from src.bioinformatics.data.s669_loader import S669Loader
-from src.bioinformatics.data.protherm_loader import ProThermLoader
 from src.bioinformatics.data.preprocessing import compute_features
+from src.bioinformatics.data.protherm_loader import ProThermLoader
+from src.bioinformatics.data.s669_loader import S669Loader
 
 
 @dataclass
 class EnsembleConfig:
     """Configuration for ensemble training."""
+
     # Specialist architecture
     d_model: int = 64
     nhead: int = 4
@@ -53,16 +53,20 @@ class EnsembleConfig:
 class DDGTransformer(nn.Module):
     """Transformer for DDG prediction."""
 
-    def __init__(self, input_dim: int, d_model: int = 64, nhead: int = 4,
-                 num_layers: int = 3, dropout: float = 0.1):
+    def __init__(self, input_dim: int, d_model: int = 64, nhead: int = 4, num_layers: int = 3, dropout: float = 0.1):
         super().__init__()
         self.input_proj = nn.Linear(1, d_model)
         self.pos_enc = nn.Parameter(torch.randn(1, input_dim + 1, d_model) * 0.02)
         self.cls_token = nn.Parameter(torch.randn(1, 1, d_model) * 0.02)
 
         encoder_layer = nn.TransformerEncoderLayer(
-            d_model=d_model, nhead=nhead, dim_feedforward=d_model * 4,
-            dropout=dropout, activation='gelu', batch_first=True, norm_first=True,
+            d_model=d_model,
+            nhead=nhead,
+            dim_feedforward=d_model * 4,
+            dropout=dropout,
+            activation="gelu",
+            batch_first=True,
+            norm_first=True,
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         self.head = nn.Sequential(
@@ -72,7 +76,7 @@ class DDGTransformer(nn.Module):
             nn.Linear(d_model // 2, 1),
         )
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         batch_size = x.size(0)
         x = x.unsqueeze(-1)
         x = self.input_proj(x)
@@ -88,7 +92,7 @@ class DDGTransformer(nn.Module):
 class LearnedEnsemble(nn.Module):
     """Ensemble with learned weights based on input features."""
 
-    def __init__(self, specialists: List[nn.Module], input_dim: int, hidden_dim: int = 32):
+    def __init__(self, specialists: list[nn.Module], input_dim: int, hidden_dim: int = 32):
         super().__init__()
         self.specialists = nn.ModuleList(specialists)
         self.n_specialists = len(specialists)
@@ -107,16 +111,18 @@ class LearnedEnsemble(nn.Module):
         )
 
         # Bias predictions (learned correction for each specialist)
-        self.bias_nets = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(input_dim, hidden_dim // 2),
-                nn.SiLU(),
-                nn.Linear(hidden_dim // 2, 1),
-            )
-            for _ in range(self.n_specialists)
-        ])
+        self.bias_nets = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Linear(input_dim, hidden_dim // 2),
+                    nn.SiLU(),
+                    nn.Linear(hidden_dim // 2, 1),
+                )
+                for _ in range(self.n_specialists)
+            ]
+        )
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         # Get specialist predictions
         specialist_preds = []
         with torch.no_grad():
@@ -180,10 +186,13 @@ def load_data():
 
 
 def train_specialist(
-    X_train: np.ndarray, y_train: np.ndarray,
-    X_val: np.ndarray, y_val: np.ndarray,
-    name: str, config: EnsembleConfig,
-) -> Tuple[DDGTransformer, float]:
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+    name: str,
+    config: EnsembleConfig,
+) -> tuple[DDGTransformer, float]:
     """Train a specialist transformer."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -236,7 +245,7 @@ def train_specialist(
                 break
 
         if (epoch + 1) % 25 == 0:
-            print(f"    {name} epoch {epoch+1}: val_spearman={val_corr:.4f}")
+            print(f"    {name} epoch {epoch + 1}: val_spearman={val_corr:.4f}")
 
     if best_state:
         model.load_state_dict(best_state)
@@ -246,10 +255,12 @@ def train_specialist(
 
 def train_ensemble(
     ensemble: LearnedEnsemble,
-    X_train: np.ndarray, y_train: np.ndarray,
-    X_val: np.ndarray, y_val: np.ndarray,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
     config: EnsembleConfig,
-) -> Tuple[LearnedEnsemble, Dict]:
+) -> tuple[LearnedEnsemble, dict]:
     """Train the ensemble layer."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ensemble = ensemble.to(device)
@@ -264,9 +275,7 @@ def train_ensemble(
 
     # Only train ensemble parameters
     optimizer = torch.optim.AdamW(
-        [p for p in ensemble.parameters() if p.requires_grad],
-        lr=config.learning_rate,
-        weight_decay=config.weight_decay
+        [p for p in ensemble.parameters() if p.requires_grad], lr=config.learning_rate, weight_decay=config.weight_decay
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.ensemble_epochs)
 
@@ -288,8 +297,8 @@ def train_ensemble(
 
             # Ranking loss
             if len(batch_y) > 1:
-                idx1 = torch.randperm(len(batch_y))[:min(32, len(batch_y))]
-                idx2 = torch.randperm(len(batch_y))[:min(32, len(batch_y))]
+                idx1 = torch.randperm(len(batch_y))[: min(32, len(batch_y))]
+                idx2 = torch.randperm(len(batch_y))[: min(32, len(batch_y))]
                 diff_pred = out["ensemble_pred"][idx1] - out["ensemble_pred"][idx2]
                 diff_true = batch_y[idx1] - batch_y[idx2]
                 ranking_loss = F.relu(0.1 - diff_pred * torch.sign(diff_true)).mean()
@@ -323,7 +332,7 @@ def train_ensemble(
                 break
 
         if (epoch + 1) % 20 == 0:
-            print(f"    Ensemble epoch {epoch+1}: val_corr={val_corr:.4f}, weights={avg_weights}")
+            print(f"    Ensemble epoch {epoch + 1}: val_corr={val_corr:.4f}, weights={avg_weights}")
 
     if best_state:
         ensemble.load_state_dict(best_state)
@@ -331,7 +340,7 @@ def train_ensemble(
     return ensemble, {"best_val_corr": best_val_corr, "history": history}
 
 
-def evaluate(model: nn.Module, X: np.ndarray, y: np.ndarray, is_ensemble: bool = False) -> Dict:
+def evaluate(model: nn.Module, X: np.ndarray, y: np.ndarray, is_ensemble: bool = False) -> dict:
     """Evaluate model."""
     device = next(model.parameters()).device
     X_t = torch.tensor(X, dtype=torch.float32, device=device)
@@ -404,16 +413,22 @@ def main():
 
     print("\n  Training ProTherm Specialist...")
     specialist_protherm, protherm_corr = train_specialist(
-        X_protherm_train, y_protherm_train,
-        X_protherm_val, y_protherm_val,
-        "ProTherm", config,
+        X_protherm_train,
+        y_protherm_train,
+        X_protherm_val,
+        y_protherm_val,
+        "ProTherm",
+        config,
     )
 
     print("\n  Training S669 Specialist...")
     specialist_s669, s669_corr = train_specialist(
-        X_s669_train, y_s669_train,
-        X_s669_val, y_s669_val,
-        "S669", config,
+        X_s669_train,
+        y_s669_train,
+        X_s669_val,
+        y_s669_val,
+        "S669",
+        config,
     )
 
     # Evaluate specialists individually
@@ -444,8 +459,10 @@ def main():
     print(f"  Training on {len(X_combined_train)} combined samples...")
     ensemble, ensemble_history = train_ensemble(
         ensemble,
-        X_combined_train, y_combined_train,
-        X_combined_val, y_combined_val,
+        X_combined_train,
+        y_combined_train,
+        X_combined_val,
+        y_combined_val,
         config,
     )
 
@@ -461,14 +478,14 @@ def main():
     print(f"""
 | Model                 | ProTherm | S669   | Combined |
 |-----------------------|----------|--------|----------|
-| ProTherm Specialist   | {protherm_on_protherm['spearman']:.4f}   | {protherm_on_s669['spearman']:.4f} | -        |
-| S669 Specialist       | {s669_on_protherm['spearman']:.4f}   | {s669_on_s669['spearman']:.4f} | -        |
-| Simple Average        | {ensemble_protherm['simple_avg_spearman']:.4f}   | {ensemble_s669['simple_avg_spearman']:.4f} | {ensemble_combined['simple_avg_spearman']:.4f}   |
-| Learned Ensemble      | {ensemble_protherm['spearman']:.4f}   | {ensemble_s669['spearman']:.4f} | {ensemble_combined['spearman']:.4f}   |
+| ProTherm Specialist   | {protherm_on_protherm["spearman"]:.4f}   | {protherm_on_s669["spearman"]:.4f} | -        |
+| S669 Specialist       | {s669_on_protherm["spearman"]:.4f}   | {s669_on_s669["spearman"]:.4f} | -        |
+| Simple Average        | {ensemble_protherm["simple_avg_spearman"]:.4f}   | {ensemble_s669["simple_avg_spearman"]:.4f} | {ensemble_combined["simple_avg_spearman"]:.4f}   |
+| Learned Ensemble      | {ensemble_protherm["spearman"]:.4f}   | {ensemble_s669["spearman"]:.4f} | {ensemble_combined["spearman"]:.4f}   |
 
-Learned Weights (avg): {ensemble_combined['weights']}
-  - ProTherm specialist: {ensemble_combined['weights'][0]:.2f}
-  - S669 specialist: {ensemble_combined['weights'][1]:.2f}
+Learned Weights (avg): {ensemble_combined["weights"]}
+  - ProTherm specialist: {ensemble_combined["weights"][0]:.2f}
+  - S669 specialist: {ensemble_combined["weights"][1]:.2f}
 """)
 
     # Save results

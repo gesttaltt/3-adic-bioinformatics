@@ -14,8 +14,8 @@ For new code, prefer importing directly from src.data:
 
 # Re-export from canonical location (src/data)
 from src.data import (
-    TernaryDataset,
     StratifiedBatchSampler,
+    TernaryDataset,
     create_stratified_batches,
 )
 

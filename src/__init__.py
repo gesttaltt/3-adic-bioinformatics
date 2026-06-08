@@ -37,7 +37,24 @@ __author__ = "AI Whisperers"
 __license__ = "PolyForm-Noncommercial-1.0.0"
 
 # Configuration (new centralized system)
+# Advanced Modules (experimental - lazy imports to avoid heavy dependencies at startup)
+# These are imported on demand when accessed
+from ._experimental import (
+    categorical,
+    contrastive,
+    diffusion,
+    equivariant,
+    graphs,
+    information,
+    meta,
+    physics,
+    topology,
+    tropical,
+)
 from .config import TrainingConfig, load_config, save_config
+
+# Metrics
+from .core.metrics import compute_ranking_correlation_hyperbolic
 
 # Data
 from .dataio import TernaryOperationDataset, generate_all_ternary_operations
@@ -49,9 +66,6 @@ from .losses import (
     create_registry_from_training_config,
 )
 
-# Metrics
-from .core.metrics import compute_ranking_correlation_hyperbolic
-
 # Canonical model (V5.11)
 from .models.ternary_vae import (
     TernaryVAEV5_11,
@@ -61,24 +75,11 @@ from .models.ternary_vae import (
 
 # Training
 from .training import HyperbolicVAETrainer, TernaryVAETrainer, TrainingMonitor
-from .training.callbacks import CallbackList, EarlyStoppingCallback, CheckpointCallback
+from .training.callbacks import CallbackList, CheckpointCallback, EarlyStoppingCallback
 
 # Observability
-from .utils.observability import setup_logging, MetricsBuffer
+from .utils.observability import MetricsBuffer, setup_logging
 from .utils.observability.logging import get_logger
-
-# Advanced Modules (experimental - lazy imports to avoid heavy dependencies at startup)
-# These are imported on demand when accessed
-from ._experimental import graphs
-from ._experimental import topology
-from ._experimental import information
-from ._experimental import contrastive
-from ._experimental import physics
-from ._experimental import tropical
-from ._experimental import categorical
-from ._experimental import meta
-from ._experimental import equivariant
-from ._experimental import diffusion
 
 # Canonical aliases (after imports)
 TernaryVAE = TernaryVAEV5_11

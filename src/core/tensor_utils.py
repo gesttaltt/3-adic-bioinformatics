@@ -39,13 +39,10 @@ References:
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, Union
-
 import torch
 import torch.nn.functional as F
 
 from src.config.constants import EPSILON, EPSILON_NORM
-
 
 # ============================================================================
 # Pairwise Operations
@@ -54,8 +51,8 @@ from src.config.constants import EPSILON, EPSILON_NORM
 
 def pairwise_broadcast(
     indices: torch.Tensor,
-    expand_size: Optional[int] = None,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+    expand_size: int | None = None,
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Create pairwise broadcasted index tensors.
 
     Creates expanded index tensors for computing all pairwise operations
@@ -125,7 +122,7 @@ def batch_index_select(
     matrix: torch.Tensor,
     row_indices: torch.Tensor,
     col_indices: torch.Tensor,
-    output_shape: Optional[Tuple[int, ...]] = None,
+    output_shape: tuple[int, ...] | None = None,
 ) -> torch.Tensor:
     """Efficiently select elements from 2D matrix using batch indices.
 
@@ -277,7 +274,7 @@ def soft_clamp(
 
 def create_causal_mask(
     size: int,
-    device: Optional[torch.device] = None,
+    device: torch.device | None = None,
     dtype: torch.dtype = torch.bool,
 ) -> torch.Tensor:
     """Create causal (lower triangular) attention mask.
@@ -296,7 +293,7 @@ def create_causal_mask(
 
 def create_padding_mask(
     lengths: torch.Tensor,
-    max_length: Optional[int] = None,
+    max_length: int | None = None,
 ) -> torch.Tensor:
     """Create padding mask from sequence lengths.
 
@@ -459,7 +456,7 @@ def flatten_batch(
     tensor: torch.Tensor,
     start_dim: int = 0,
     end_dim: int = 1,
-) -> Tuple[torch.Tensor, Tuple[int, ...]]:
+) -> tuple[torch.Tensor, tuple[int, ...]]:
     """Flatten batch dimensions, returning original shape for restoration.
 
     Args:
@@ -478,7 +475,7 @@ def flatten_batch(
 def unflatten_batch(
     tensor: torch.Tensor,
     dim: int,
-    original_shape: Tuple[int, ...],
+    original_shape: tuple[int, ...],
 ) -> torch.Tensor:
     """Restore original batch dimensions.
 

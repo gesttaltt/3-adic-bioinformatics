@@ -36,9 +36,10 @@ from scipy.spatial import KDTree
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from src.models.ternary_vae_v5_6 import DualNeuralVAEV5
+
 from src.config.paths import CHECKPOINTS_DIR, VIZ_DIR
 from src.data.generation import generate_all_ternary_operations
-from src.models.ternary_vae_v5_6 import DualNeuralVAEV5
 
 
 def load_embeddings(checkpoint_path, device="cuda"):
@@ -296,10 +297,7 @@ def create_tube_mesh(path, radius=0.02, n_sides=8):
         tangent = tangent / (np.linalg.norm(tangent) + 1e-8)
 
         # Compute perpendicular vectors
-        if abs(tangent[0]) < 0.9:
-            perp1 = np.cross(tangent, [1, 0, 0])
-        else:
-            perp1 = np.cross(tangent, [0, 1, 0])
+        perp1 = np.cross(tangent, [1, 0, 0]) if abs(tangent[0]) < 0.9 else np.cross(tangent, [0, 1, 0])
         perp1 = perp1 / (np.linalg.norm(perp1) + 1e-8)
         perp2 = np.cross(tangent, perp1)
 
@@ -350,7 +348,7 @@ def render_fibration_matplotlib(points, fibers, helices, output_path):
     ax.scatter(points[:, 0], points[:, 1], points[:, 2], c="gray", s=0.5, alpha=0.1)
 
     colors = plt.cm.hsv(np.linspace(0, 1, len(fibers)))
-    for fiber, color in zip(fibers[:30], colors):
+    for fiber, color in zip(fibers[:30], colors, strict=False):
         smooth_path = smooth_fiber_spline(points, fiber)
         ax.plot(
             smooth_path[:, 0],
@@ -367,7 +365,7 @@ def render_fibration_matplotlib(points, fibers, helices, output_path):
     # 2. Tube rendering (like ribbon diagram)
     ax = fig.add_subplot(2, 3, 2, projection="3d")
 
-    for fiber, color in zip(fibers[:15], colors):
+    for fiber, color in zip(fibers[:15], colors, strict=False):
         smooth_path = smooth_fiber_spline(points, fiber, n_samples=30)
         verts, faces = create_tube_mesh(smooth_path, radius=0.015, n_sides=6)
         if verts is not None:
@@ -385,7 +383,7 @@ def render_fibration_matplotlib(points, fibers, helices, output_path):
     ax.scatter(points[:, 0], points[:, 1], points[:, 2], c="gray", s=0.5, alpha=0.05)
 
     helix_colors = plt.cm.plasma(np.linspace(0, 1, len(helices)))
-    for helix, color in zip(helices[:25], helix_colors):
+    for helix, color in zip(helices[:25], helix_colors, strict=False):
         smooth_path = smooth_fiber_spline(points, helix)
         ax.plot(
             smooth_path[:, 0],
@@ -460,7 +458,7 @@ def render_fibration_matplotlib(points, fibers, helices, output_path):
     )
 
     # Overlay key fibers
-    for fiber, color in zip(fibers[:10], colors):
+    for fiber, color in zip(fibers[:10], colors, strict=False):
         smooth_path = smooth_fiber_spline(points, fiber)
         ax.plot(
             smooth_path[:, 0],
@@ -472,7 +470,7 @@ def render_fibration_matplotlib(points, fibers, helices, output_path):
         )
 
     # Overlay helices with different style
-    for helix, color in zip(helices[:5], helix_colors):
+    for helix, color in zip(helices[:5], helix_colors, strict=False):
         smooth_path = smooth_fiber_spline(points, helix)
         ax.plot(
             smooth_path[:, 0],
@@ -495,7 +493,7 @@ def render_fibration_matplotlib(points, fibers, helices, output_path):
     plt.tight_layout()
     plt.savefig(output_path / "fibration_structure.png", dpi=150, bbox_inches="tight")
     plt.close()
-    print(f'Saved: {output_path / "fibration_structure.png"}')
+    print(f"Saved: {output_path / 'fibration_structure.png'}")
 
 
 def export_fibration_data(points, fibers, helices, ao, output_path):
@@ -533,7 +531,7 @@ def export_fibration_data(points, fibers, helices, ao, output_path):
 
     with open(output_path / "fibration_data.json", "w") as f:
         json.dump(data, f)
-    print(f'Saved: {output_path / "fibration_data.json"}')
+    print(f"Saved: {output_path / 'fibration_data.json'}")
 
     return data
 

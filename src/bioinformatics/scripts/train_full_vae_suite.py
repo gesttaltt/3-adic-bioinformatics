@@ -15,34 +15,34 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from scipy.stats import spearmanr, pearsonr
+from scipy.stats import spearmanr
 from torch.utils.data import DataLoader, TensorDataset
 
 # Add project root to path
 project_root = Path(__file__).parents[3]
 sys.path.insert(0, str(project_root))
 
-from src.bioinformatics.data.s669_loader import S669Loader
-from src.bioinformatics.data.protherm_loader import ProThermLoader
 from src.bioinformatics.data.preprocessing import compute_features
+from src.bioinformatics.data.protherm_loader import ProThermLoader
+from src.bioinformatics.data.s669_loader import S669Loader
 
 
 @dataclass
 class SuiteConfig:
     """Configuration for full VAE suite training."""
+
     # VAE architecture
     vae_hidden_dim: int = 128
     vae_latent_dim: int = 32
     vae_dropout: float = 0.1
 
     # MLP Refiner architecture
-    refiner_hidden_dims: List[int] = None
+    refiner_hidden_dims: list[int] = None
 
     # Training
     vae_epochs: int = 200
@@ -86,7 +86,7 @@ class DDGVAE(nn.Module):
             nn.Linear(hidden_dim, 1),
         )
 
-    def encode(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def encode(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         h = self.encoder(x)
         return self.fc_mu(h), self.fc_logvar(h).clamp(-10, 2)
 
@@ -97,7 +97,7 @@ class DDGVAE(nn.Module):
             return mu + eps * std
         return mu
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
         pred = self.decoder(z).squeeze(-1)
@@ -107,7 +107,7 @@ class DDGVAE(nn.Module):
 class MLPRefiner(nn.Module):
     """MLP that refines VAE predictions using latent embeddings."""
 
-    def __init__(self, latent_dim: int, hidden_dims: List[int] = None, dropout: float = 0.1):
+    def __init__(self, latent_dim: int, hidden_dims: list[int] = None, dropout: float = 0.1):
         super().__init__()
         if hidden_dims is None:
             hidden_dims = [64, 64, 32]
@@ -115,19 +115,21 @@ class MLPRefiner(nn.Module):
         layers = []
         in_dim = latent_dim
         for h_dim in hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, h_dim),
-                nn.SiLU(),
-                nn.LayerNorm(h_dim),
-                nn.Dropout(dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, h_dim),
+                    nn.SiLU(),
+                    nn.LayerNorm(h_dim),
+                    nn.Dropout(dropout),
+                ]
+            )
             in_dim = h_dim
 
         self.mlp = nn.Sequential(*layers)
         self.head = nn.Linear(in_dim, 1)
         self.residual_weight = nn.Parameter(torch.tensor(0.5))
 
-    def forward(self, mu: torch.Tensor, vae_pred: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, mu: torch.Tensor, vae_pred: torch.Tensor) -> dict[str, torch.Tensor]:
         h = self.mlp(mu)
         delta = self.head(h).squeeze(-1)
         w = torch.sigmoid(self.residual_weight)
@@ -135,7 +137,7 @@ class MLPRefiner(nn.Module):
         return {"pred": refined, "delta": delta, "weight": w}
 
 
-def load_s669_full() -> Tuple[np.ndarray, np.ndarray]:
+def load_s669_full() -> tuple[np.ndarray, np.ndarray]:
     """Load FULL S669 dataset (669 mutations)."""
     loader = S669Loader()
     records = loader.load_from_csv()  # Uses s669_full.csv
@@ -150,7 +152,7 @@ def load_s669_full() -> Tuple[np.ndarray, np.ndarray]:
     return np.array(X, dtype=np.float32), np.array(y, dtype=np.float32)
 
 
-def load_protherm_full() -> Tuple[np.ndarray, np.ndarray]:
+def load_protherm_full() -> tuple[np.ndarray, np.ndarray]:
     """Load FULL ProTherm dataset (177 mutations)."""
     loader = ProThermLoader()
     db = loader.load_curated()
@@ -165,10 +167,11 @@ def load_protherm_full() -> Tuple[np.ndarray, np.ndarray]:
     return np.array(X, dtype=np.float32), np.array(y, dtype=np.float32)
 
 
-def load_proteingym(max_samples: int = 100000) -> Tuple[np.ndarray, np.ndarray]:
+def load_proteingym(max_samples: int = 100000) -> tuple[np.ndarray, np.ndarray]:
     """Load ProteinGym dataset."""
     try:
         from src.bioinformatics.data.proteingym_loader import ProteinGymLoader
+
         loader = ProteinGymLoader(
             data_dir=project_root / "data" / "bioinformatics" / "ddg" / "proteingym" / "DMS_ProteinGym_substitutions"
         )
@@ -182,10 +185,13 @@ def load_proteingym(max_samples: int = 100000) -> Tuple[np.ndarray, np.ndarray]:
 
 
 def train_vae(
-    X_train: np.ndarray, y_train: np.ndarray,
-    X_val: np.ndarray, y_val: np.ndarray,
-    name: str, config: SuiteConfig,
-) -> Tuple[DDGVAE, Dict]:
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+    name: str,
+    config: SuiteConfig,
+) -> tuple[DDGVAE, dict]:
     """Train a VAE on dataset."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -253,7 +259,7 @@ def train_vae(
                 break
 
         if (epoch + 1) % 25 == 0:
-            print(f"    {name} epoch {epoch+1}: val_spearman={val_corr:.4f}")
+            print(f"    {name} epoch {epoch + 1}: val_spearman={val_corr:.4f}")
 
     if best_state:
         model.load_state_dict(best_state)
@@ -264,10 +270,13 @@ def train_vae(
 
 def train_refiner(
     vae: DDGVAE,
-    X_train: np.ndarray, y_train: np.ndarray,
-    X_val: np.ndarray, y_val: np.ndarray,
-    name: str, config: SuiteConfig,
-) -> Tuple[MLPRefiner, Dict]:
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+    name: str,
+    config: SuiteConfig,
+) -> tuple[MLPRefiner, dict]:
     """Train MLP refiner for a VAE."""
     device = next(vae.parameters()).device
     vae.eval()
@@ -339,7 +348,7 @@ def train_refiner(
                 break
 
         if (epoch + 1) % 25 == 0:
-            print(f"    {name} Refiner epoch {epoch+1}: val_spearman={val_corr:.4f}")
+            print(f"    {name} Refiner epoch {epoch + 1}: val_spearman={val_corr:.4f}")
 
     if best_state:
         refiner.load_state_dict(best_state)
@@ -386,7 +395,9 @@ def main():
     vae_s669, vae_s669_hist = train_vae(X_s669_train, y_s669_train, X_s669_val, y_s669_val, "VAE-S669", config)
 
     print("\n  Training MLP Refiner for S669...")
-    refiner_s669, refiner_s669_hist = train_refiner(vae_s669, X_s669_train, y_s669_train, X_s669_val, y_s669_val, "S669", config)
+    refiner_s669, refiner_s669_hist = train_refiner(
+        vae_s669, X_s669_train, y_s669_train, X_s669_val, y_s669_val, "S669", config
+    )
 
     results["s669"] = {
         "n_samples": len(X_s669),
@@ -409,15 +420,25 @@ def main():
     X_protherm, y_protherm = load_protherm_full()
     protherm_idx = np.random.permutation(len(X_protherm))
     protherm_split = int(0.8 * len(protherm_idx))
-    X_protherm_train, y_protherm_train = X_protherm[protherm_idx[:protherm_split]], y_protherm[protherm_idx[:protherm_split]]
-    X_protherm_val, y_protherm_val = X_protherm[protherm_idx[protherm_split:]], y_protherm[protherm_idx[protherm_split:]]
+    X_protherm_train, y_protherm_train = (
+        X_protherm[protherm_idx[:protherm_split]],
+        y_protherm[protherm_idx[:protherm_split]],
+    )
+    X_protherm_val, y_protherm_val = (
+        X_protherm[protherm_idx[protherm_split:]],
+        y_protherm[protherm_idx[protherm_split:]],
+    )
     print(f"  Train: {len(X_protherm_train)}, Val: {len(X_protherm_val)}")
 
     print("\n  Training VAE-ProTherm...")
-    vae_protherm, vae_protherm_hist = train_vae(X_protherm_train, y_protherm_train, X_protherm_val, y_protherm_val, "VAE-ProTherm", config)
+    vae_protherm, vae_protherm_hist = train_vae(
+        X_protherm_train, y_protherm_train, X_protherm_val, y_protherm_val, "VAE-ProTherm", config
+    )
 
     print("\n  Training MLP Refiner for ProTherm...")
-    refiner_protherm, refiner_protherm_hist = train_refiner(vae_protherm, X_protherm_train, y_protherm_train, X_protherm_val, y_protherm_val, "ProTherm", config)
+    refiner_protherm, refiner_protherm_hist = train_refiner(
+        vae_protherm, X_protherm_train, y_protherm_train, X_protherm_val, y_protherm_val, "ProTherm", config
+    )
 
     results["protherm"] = {
         "n_samples": len(X_protherm),
@@ -427,8 +448,13 @@ def main():
 
     # Save ProTherm models
     (output_dir / "protherm").mkdir(exist_ok=True)
-    torch.save({"model_state_dict": vae_protherm.state_dict(), **results["protherm"]}, output_dir / "protherm" / "vae.pt")
-    torch.save({"model_state_dict": refiner_protherm.state_dict(), **results["protherm"]}, output_dir / "protherm" / "refiner.pt")
+    torch.save(
+        {"model_state_dict": vae_protherm.state_dict(), **results["protherm"]}, output_dir / "protherm" / "vae.pt"
+    )
+    torch.save(
+        {"model_state_dict": refiner_protherm.state_dict(), **results["protherm"]},
+        output_dir / "protherm" / "refiner.pt",
+    )
 
     # ========================================
     # 3. ProteinGym (Wide)
@@ -450,7 +476,9 @@ def main():
         vae_wide, vae_wide_hist = train_vae(X_wide_train, y_wide_train, X_wide_val, y_wide_val, "VAE-Wide", config)
 
         print("\n  Training MLP Refiner for Wide...")
-        refiner_wide, refiner_wide_hist = train_refiner(vae_wide, X_wide_train, y_wide_train, X_wide_val, y_wide_val, "Wide", config)
+        refiner_wide, refiner_wide_hist = train_refiner(
+            vae_wide, X_wide_train, y_wide_train, X_wide_val, y_wide_val, "Wide", config
+        )
 
         results["wide"] = {
             "n_samples": len(X_wide),
@@ -461,7 +489,9 @@ def main():
         # Save Wide models
         (output_dir / "wide").mkdir(exist_ok=True)
         torch.save({"model_state_dict": vae_wide.state_dict(), **results["wide"]}, output_dir / "wide" / "vae.pt")
-        torch.save({"model_state_dict": refiner_wide.state_dict(), **results["wide"]}, output_dir / "wide" / "refiner.pt")
+        torch.save(
+            {"model_state_dict": refiner_wide.state_dict(), **results["wide"]}, output_dir / "wide" / "refiner.pt"
+        )
     else:
         results["wide"] = {"status": "skipped"}
 
@@ -475,9 +505,9 @@ def main():
     print(f"""
 | Dataset   | Samples | VAE Spearman | Refiner Spearman |
 |-----------|--------:|:------------:|:----------------:|
-| S669      | {results['s669']['n_samples']:>6} | {results['s669']['vae_spearman']:.4f}       | {results['s669']['refiner_spearman']:.4f}           |
-| ProTherm  | {results['protherm']['n_samples']:>6} | {results['protherm']['vae_spearman']:.4f}       | {results['protherm']['refiner_spearman']:.4f}           |
-| Wide      | {results.get('wide', {}).get('n_samples', 'N/A'):>6} | {results.get('wide', {}).get('vae_spearman', 'N/A')}       | {results.get('wide', {}).get('refiner_spearman', 'N/A')}           |
+| S669      | {results["s669"]["n_samples"]:>6} | {results["s669"]["vae_spearman"]:.4f}       | {results["s669"]["refiner_spearman"]:.4f}           |
+| ProTherm  | {results["protherm"]["n_samples"]:>6} | {results["protherm"]["vae_spearman"]:.4f}       | {results["protherm"]["refiner_spearman"]:.4f}           |
+| Wide      | {results.get("wide", {}).get("n_samples", "N/A"):>6} | {results.get("wide", {}).get("vae_spearman", "N/A")}       | {results.get("wide", {}).get("refiner_spearman", "N/A")}           |
 """)
 
     # Save results

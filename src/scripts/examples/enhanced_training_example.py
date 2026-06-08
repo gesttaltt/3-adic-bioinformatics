@@ -23,26 +23,20 @@ Usage:
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
-from typing import Dict, Optional
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
 # New enhanced components
 from src.contrastive import CodonPositiveSampler, CodonSamplerConfig
 from src.diseases import MetaLearningEscapeHead, VariantEscapeHead
 from src.encoders import (
-    CodonEncoder,
     HybridCodonEncoder,
     HybridEncoderConfig,
-    HybridEncoderFactory,
     MultiScaleConfig,
     MultiScaleNucleotideEncoder,
     PLMBackend,
 )
-from src.evaluation import GenerationMetrics, ProteinGymEvaluator, evaluate_generated_sequences
+from src.evaluation import ProteinGymEvaluator
 from src.losses import CodonOptimalityScore, CodonUsageConfig, CodonUsageLoss, Organism
 
 
@@ -343,7 +337,7 @@ def run_all_demos():
 def main():
     parser = argparse.ArgumentParser(description="Enhanced Training Demo")
     parser.add_argument("--quick", action="store_true", help="Quick demo mode")
-    args = parser.parse_args()
+    parser.parse_args()
 
     run_all_demos()
 

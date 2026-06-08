@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -42,7 +41,7 @@ class EnergyState:
     configuration: torch.Tensor
     energy: float
     temperature: float
-    metadata: Dict = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
 
 
 class SpinGlassLandscape(nn.Module):
@@ -295,7 +294,7 @@ class ReplicaExchange:
         landscape: SpinGlassLandscape,
         configuration: torch.Tensor,
         temperature: float,
-    ) -> Tuple[torch.Tensor, int]:
+    ) -> tuple[torch.Tensor, int]:
         """Perform one Metropolis sweep.
 
         Args:
@@ -336,7 +335,7 @@ class ReplicaExchange:
     def _attempt_exchange(
         self,
         landscape: SpinGlassLandscape,
-        configs: List[torch.Tensor],
+        configs: list[torch.Tensor],
         i: int,
         j: int,
     ) -> bool:
@@ -367,8 +366,8 @@ class ReplicaExchange:
         self,
         landscape: SpinGlassLandscape,
         n_samples: int = 1000,
-        initial_configs: Optional[List[torch.Tensor]] = None,
-    ) -> Dict[str, torch.Tensor]:
+        initial_configs: list[torch.Tensor] | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Run replica exchange sampling.
 
         Args:
@@ -456,7 +455,7 @@ class UltrametricTreeExtractor:
         self.prime = prime
         self.threshold = threshold
 
-    def check_ultrametricity(self, distance_matrix: torch.Tensor) -> Tuple[bool, float]:
+    def check_ultrametricity(self, distance_matrix: torch.Tensor) -> tuple[bool, float]:
         """Check if distance matrix is ultrametric.
 
         Args:
@@ -471,7 +470,7 @@ class UltrametricTreeExtractor:
         for i in range(n):
             for j in range(n):
                 for k in range(n):
-                    if i == j or j == k or i == k:
+                    if i in (j, k) or j == k:
                         continue
 
                     dij = distance_matrix[i, j].item()
@@ -539,8 +538,8 @@ class UltrametricTreeExtractor:
     def _cluster_distance(
         self,
         D: torch.Tensor,
-        members_i: List[int],
-        members_j: List[int],
+        members_i: list[int],
+        members_j: list[int],
     ) -> float:
         """Compute distance between clusters based on linkage."""
         distances = []
@@ -557,7 +556,7 @@ class UltrametricTreeExtractor:
         else:
             raise ValueError(f"Unknown linkage: {self.linkage}")
 
-    def extract_tree(self, distance_matrix: torch.Tensor) -> Dict[str, Union[torch.Tensor, List]]:
+    def extract_tree(self, distance_matrix: torch.Tensor) -> dict[str, torch.Tensor | list]:
         """Extract ultrametric tree from distance matrix.
 
         Args:
@@ -569,10 +568,7 @@ class UltrametricTreeExtractor:
         # Make ultrametric if needed
         is_ultra, violation = self.check_ultrametricity(distance_matrix)
 
-        if not is_ultra:
-            ultrametric_D = self.make_ultrametric(distance_matrix)
-        else:
-            ultrametric_D = distance_matrix.clone()
+        ultrametric_D = self.make_ultrametric(distance_matrix) if not is_ultra else distance_matrix.clone()
 
         # Extract tree structure
         n = distance_matrix.shape[0]
@@ -680,7 +676,7 @@ class ParisiOverlapAnalyzer:
             matches = (config1 == config2).float().mean().item()
             return (matches - 1 / q) / (1 - 1 / q)
 
-    def overlap_distribution(self, samples: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def overlap_distribution(self, samples: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute overlap distribution from samples.
 
         Args:
@@ -708,7 +704,7 @@ class ParisiOverlapAnalyzer:
 
         return bin_centers, hist
 
-    def analyze_phase(self, samples: torch.Tensor) -> Dict[str, Union[float, str, torch.Tensor]]:
+    def analyze_phase(self, samples: torch.Tensor) -> dict[str, float | str | torch.Tensor]:
         """Analyze the phase from overlap distribution.
 
         Args:
@@ -731,10 +727,7 @@ class ParisiOverlapAnalyzer:
 
         # Classify phase
         if len(peaks) == 1:
-            if abs(peaks[0][0]) < 0.1:
-                phase = "paramagnetic"
-            else:
-                phase = "ferromagnetic"
+            phase = "paramagnetic" if abs(peaks[0][0]) < 0.1 else "ferromagnetic"
         elif len(peaks) == 2 and abs(peaks[0][0] + peaks[1][0]) < 0.1:
             phase = "ferromagnetic (symmetric)"
         else:
@@ -820,7 +813,7 @@ class BoltzmannMachine(nn.Module):
         """
         return -(v @ self.a) - (h @ self.b) - (v @ self.W @ h.T).diag()
 
-    def sample_hidden(self, v: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def sample_hidden(self, v: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Sample hidden units given visible.
 
         Args:
@@ -834,7 +827,7 @@ class BoltzmannMachine(nn.Module):
         h = torch.bernoulli(p_h)
         return p_h, h
 
-    def sample_visible(self, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def sample_visible(self, h: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Sample visible units given hidden.
 
         Args:
@@ -862,7 +855,7 @@ class BoltzmannMachine(nn.Module):
         hidden_term = F.softplus(hidden_term).sum(dim=-1)
         return -vbias_term - hidden_term
 
-    def contrastive_divergence(self, v: torch.Tensor, k: int = 1) -> Dict[str, torch.Tensor]:
+    def contrastive_divergence(self, v: torch.Tensor, k: int = 1) -> dict[str, torch.Tensor]:
         """Compute contrastive divergence gradients.
 
         Args:

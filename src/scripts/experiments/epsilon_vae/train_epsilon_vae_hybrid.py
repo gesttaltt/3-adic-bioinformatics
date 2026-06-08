@@ -335,21 +335,23 @@ def validate(model, dataloader, device, embed_weight, metric_weight, beta):
 
 def main():
     parser = argparse.ArgumentParser(description="Train Hybrid Epsilon-VAE")
-    parser.add_argument("--data_dir", type=str, default=str(OUTPUT_DIR / "epsilon_vae_hybrid"),
-                       help="Directory with extracted embeddings")
-    parser.add_argument("--save_dir", type=str, default=str(OUTPUT_DIR / "epsilon_vae_hybrid_models"),
-                       help="Directory to save models")
+    parser.add_argument(
+        "--data_dir",
+        type=str,
+        default=str(OUTPUT_DIR / "epsilon_vae_hybrid"),
+        help="Directory with extracted embeddings",
+    )
+    parser.add_argument(
+        "--save_dir", type=str, default=str(OUTPUT_DIR / "epsilon_vae_hybrid_models"), help="Directory to save models"
+    )
     parser.add_argument("--epochs", type=int, default=200)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--latent_dim", type=int, default=64)
     parser.add_argument("--hidden_dim", type=int, default=512)
-    parser.add_argument("--embed_weight", type=float, default=1.0,
-                       help="Weight for embedding reconstruction loss")
-    parser.add_argument("--metric_weight", type=float, default=0.1,
-                       help="Weight for metric prediction loss")
-    parser.add_argument("--beta", type=float, default=0.001,
-                       help="Weight for KL divergence")
+    parser.add_argument("--embed_weight", type=float, default=1.0, help="Weight for embedding reconstruction loss")
+    parser.add_argument("--metric_weight", type=float, default=0.1, help="Weight for metric prediction loss")
+    parser.add_argument("--beta", type=float, default=0.001, help="Weight for KL divergence")
     parser.add_argument("--device", type=str, default="cuda")
     args = parser.parse_args()
 
@@ -364,9 +366,9 @@ def main():
     with open(data_dir / "config.json") as f:
         config = json.load(f)
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("DATA CONFIG")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     print(f"Weight dim: {config['weight_dim']}")
     print(f"Embed dim: {config['embed_dim']}")
     print(f"N anchors: {config['n_anchors']}")
@@ -374,9 +376,9 @@ def main():
     print(f"N val: {config['n_val']}")
 
     # Load datasets
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("LOADING DATASETS")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     train_dataset = HybridCheckpointDataset(data_dir, "train")
     val_dataset = HybridCheckpointDataset(data_dir, "val")
@@ -385,9 +387,9 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
 
     # Create model
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("CREATING HYBRID EPSILON-VAE")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     model = HybridEpsilonVAE(
         weight_dim=config["weight_dim"],
@@ -399,7 +401,7 @@ def main():
 
     n_params = sum(p.numel() for p in model.parameters())
     print(f"Parameters: {n_params:,}")
-    print(f"Architecture:")
+    print("Architecture:")
     print(f"  Weight encoder: {config['weight_dim']} -> {args.hidden_dim} -> {args.latent_dim}")
     print(f"  Embedding decoder: {args.latent_dim} -> {args.hidden_dim} -> {config['n_anchors'] * config['embed_dim']}")
     print(f"  Metric predictor: {args.latent_dim} -> 128 -> 3")
@@ -408,9 +410,9 @@ def main():
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
 
     # Training loop
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("TRAINING")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     print(f"Embed weight: {args.embed_weight}")
     print(f"Metric weight: {args.metric_weight}")
     print(f"Beta (KL): {args.beta}")
@@ -421,15 +423,11 @@ def main():
 
     for epoch in range(args.epochs):
         train_losses = train_epoch(
-            model, train_loader, optimizer, device,
-            args.embed_weight, args.metric_weight, args.beta
+            model, train_loader, optimizer, device, args.embed_weight, args.metric_weight, args.beta
         )
         scheduler.step()
 
-        val_metrics = validate(
-            model, val_loader, device,
-            args.embed_weight, args.metric_weight, args.beta
-        )
+        val_metrics = validate(model, val_loader, device, args.embed_weight, args.metric_weight, args.beta)
 
         log = (
             f"Epoch {epoch:3d} | "
@@ -442,65 +440,73 @@ def main():
         if epoch % 10 == 0 or epoch == args.epochs - 1:
             print(log)
 
-        history.append({
-            "epoch": epoch,
-            "train_total": train_losses["total"],
-            "train_embed": train_losses["embed_loss"],
-            "train_metric": train_losses["metric_loss"],
-            "val_total": val_metrics["total_loss"],
-            "val_embed": val_metrics["embed_loss"],
-            "val_cosine_sim": val_metrics["embed_cosine_sim"],
-            "val_coverage_mae": val_metrics["coverage_mae"],
-            "val_dist_corr_mae": val_metrics["dist_corr_mae"],
-            "val_rad_hier_mae": val_metrics["rad_hier_mae"],
-        })
+        history.append(
+            {
+                "epoch": epoch,
+                "train_total": train_losses["total"],
+                "train_embed": train_losses["embed_loss"],
+                "train_metric": train_losses["metric_loss"],
+                "val_total": val_metrics["total_loss"],
+                "val_embed": val_metrics["embed_loss"],
+                "val_cosine_sim": val_metrics["embed_cosine_sim"],
+                "val_coverage_mae": val_metrics["coverage_mae"],
+                "val_dist_corr_mae": val_metrics["dist_corr_mae"],
+                "val_rad_hier_mae": val_metrics["rad_hier_mae"],
+            }
+        )
 
         # Save best
         if val_metrics["total_loss"] < best_val_loss:
             best_val_loss = val_metrics["total_loss"]
-            torch.save({
-                "epoch": epoch,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "val_loss": best_val_loss,
-                "val_metrics": {k: v for k, v in val_metrics.items() if not isinstance(v, torch.Tensor)},
-                "config": {
-                    "weight_dim": config["weight_dim"],
-                    "n_anchors": config["n_anchors"],
-                    "embed_dim": config["embed_dim"],
-                    "latent_dim": args.latent_dim,
-                    "hidden_dim": args.hidden_dim,
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "val_loss": best_val_loss,
+                    "val_metrics": {k: v for k, v in val_metrics.items() if not isinstance(v, torch.Tensor)},
+                    "config": {
+                        "weight_dim": config["weight_dim"],
+                        "n_anchors": config["n_anchors"],
+                        "embed_dim": config["embed_dim"],
+                        "latent_dim": args.latent_dim,
+                        "hidden_dim": args.hidden_dim,
+                    },
+                    "args": vars(args),
                 },
-                "args": vars(args),
-            }, save_dir / "best.pt")
+                save_dir / "best.pt",
+            )
 
     # Save final
-    torch.save({
-        "epoch": args.epochs - 1,
-        "model_state_dict": model.state_dict(),
-        "history": history,
-        "config": {
-            "weight_dim": config["weight_dim"],
-            "n_anchors": config["n_anchors"],
-            "embed_dim": config["embed_dim"],
-            "latent_dim": args.latent_dim,
-            "hidden_dim": args.hidden_dim,
+    torch.save(
+        {
+            "epoch": args.epochs - 1,
+            "model_state_dict": model.state_dict(),
+            "history": history,
+            "config": {
+                "weight_dim": config["weight_dim"],
+                "n_anchors": config["n_anchors"],
+                "embed_dim": config["embed_dim"],
+                "latent_dim": args.latent_dim,
+                "hidden_dim": args.hidden_dim,
+            },
+            "args": vars(args),
         },
-        "args": vars(args),
-    }, save_dir / "final.pt")
+        save_dir / "final.pt",
+    )
 
     # Final validation
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("FINAL VALIDATION")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     val_metrics = validate(model, val_loader, device, args.embed_weight, args.metric_weight, args.beta)
 
-    print(f"\nEmbedding Reconstruction:")
+    print("\nEmbedding Reconstruction:")
     print(f"  MSE: {val_metrics['embed_loss']:.6f}")
     print(f"  Cosine Similarity: {val_metrics['embed_cosine_sim']:.4f}")
 
-    print(f"\nMetric Prediction (MAE):")
+    print("\nMetric Prediction (MAE):")
     print(f"  Coverage:  {val_metrics['coverage_mae']:.4f}")
     print(f"  Dist Corr: {val_metrics['dist_corr_mae']:.4f}")
     print(f"  Rad Hier:  {val_metrics['rad_hier_mae']:.4f}")
@@ -510,16 +516,20 @@ def main():
     print(f"Models saved to {save_dir}")
 
     # Show sample predictions
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("SAMPLE PREDICTIONS vs TARGETS")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     metric_preds = val_metrics["metric_preds"]
     metric_targets = val_metrics["metric_targets"]
 
     for i in range(min(10, len(metric_preds))):
-        print(f"\n[{i}] Predicted: cov={metric_preds[i,0]:.3f}, dist={metric_preds[i,1]:.3f}, rad={metric_preds[i,2]:.3f}")
-        print(f"    Actual:    cov={metric_targets[i,0]:.3f}, dist={metric_targets[i,1]:.3f}, rad={metric_targets[i,2]:.3f}")
+        print(
+            f"\n[{i}] Predicted: cov={metric_preds[i, 0]:.3f}, dist={metric_preds[i, 1]:.3f}, rad={metric_preds[i, 2]:.3f}"
+        )
+        print(
+            f"    Actual:    cov={metric_targets[i, 0]:.3f}, dist={metric_targets[i, 1]:.3f}, rad={metric_targets[i, 2]:.3f}"
+        )
         error = (metric_preds[i] - metric_targets[i]).abs()
         print(f"    Error:     cov={error[0]:.3f}, dist={error[1]:.3f}, rad={error[2]:.3f}")
 

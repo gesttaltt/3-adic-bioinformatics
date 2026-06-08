@@ -24,15 +24,13 @@ Research References:
     - COMPREHENSIVE_RESEARCH_REPORT.md Section 2.8
 """
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Dict, List, Optional, Tuple
 
-import math
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from src.geometry import poincare_distance
 
@@ -100,11 +98,11 @@ class MutationHotspot:
 class EscapePrediction:
     """Complete prediction result for a viral sequence."""
 
-    mutations: List[EscapeMutation]
-    hotspots: List[MutationHotspot]
+    mutations: list[EscapeMutation]
+    hotspots: list[MutationHotspot]
     overall_escape_risk: float
     trajectory_confidence: float
-    key_findings: List[str] = field(default_factory=list)
+    key_findings: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -204,7 +202,7 @@ class ViralEvolutionPredictor(nn.Module):
 
         return float(self.p ** (-v))
 
-    def compute_mutation_accessibility(self, codon_idx: int) -> Dict[int, float]:
+    def compute_mutation_accessibility(self, codon_idx: int) -> dict[int, float]:
         """Compute accessibility of all possible mutations from a codon.
 
         Args:
@@ -294,7 +292,7 @@ class ViralEvolutionPredictor(nn.Module):
     def compute_fitness_landscape(
         self,
         codon_indices: torch.Tensor,
-        aa_properties: Optional[torch.Tensor] = None,
+        aa_properties: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute fitness at each position for all possible mutations.
 
@@ -310,10 +308,7 @@ class ViralEvolutionPredictor(nn.Module):
 
         # Default AA properties if not provided
         if aa_properties is None:
-            aa_properties = torch.zeros(
-                codon_indices.shape[0], codon_indices.shape[1], 20,
-                device=codon_indices.device
-            )
+            aa_properties = torch.zeros(codon_indices.shape[0], codon_indices.shape[1], 20, device=codon_indices.device)
 
         combined = torch.cat([codon_emb, aa_properties], dim=-1)
 
@@ -322,8 +317,8 @@ class ViralEvolutionPredictor(nn.Module):
     def forward(
         self,
         codon_indices: torch.Tensor,
-        epitope_annotations: Optional[Dict[str, torch.Tensor]] = None,
-    ) -> Dict[str, torch.Tensor]:
+        epitope_annotations: dict[str, torch.Tensor] | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Full forward pass for evolution prediction.
 
         Args:
@@ -370,7 +365,7 @@ class ViralEvolutionPredictor(nn.Module):
         escape_scores: torch.Tensor,
         threshold: float = 0.5,
         min_length: int = 3,
-    ) -> List[MutationHotspot]:
+    ) -> list[MutationHotspot]:
         """Identify mutation hotspot regions from escape scores.
 
         Args:
@@ -426,7 +421,7 @@ class ViralEvolutionPredictor(nn.Module):
     def predict_escape_mutations(
         self,
         codon_indices: torch.Tensor,
-        epitope_annotations: Optional[Dict[str, torch.Tensor]] = None,
+        epitope_annotations: dict[str, torch.Tensor] | None = None,
         top_k: int = 10,
     ) -> EscapePrediction:
         """Generate complete escape mutation predictions.
@@ -455,7 +450,7 @@ class ViralEvolutionPredictor(nn.Module):
         mutations = []
         aa_list = list("ARNDCEQGHILKMFPSTWYV")
 
-        for idx, (score, pos) in enumerate(zip(top_positions.values, top_positions.indices)):
+        for _idx, (score, pos) in enumerate(zip(top_positions.values, top_positions.indices, strict=False)):
             pos = pos.item()
             original_codon = codon_indices[0, pos].item()
 
@@ -503,7 +498,7 @@ class ViralEvolutionPredictor(nn.Module):
         self,
         codon_indices: torch.Tensor,
         epitope_pressure: torch.Tensor,
-    ) -> List[EvolutionaryPressure]:
+    ) -> list[EvolutionaryPressure]:
         """Compute evolutionary pressure at each position.
 
         Args:
@@ -561,7 +556,7 @@ class TransmissibilityProfile:
     infectivity_peak: float = 1.0  # Relative peak infectivity
     immune_evasion: float = 0.0  # Fraction evading prior immunity
     acr_score: float = 0.0  # ACE2 binding affinity (for SARS-CoV-2)
-    embedding: Optional[torch.Tensor] = None
+    embedding: torch.Tensor | None = None
 
 
 @dataclass
@@ -666,9 +661,7 @@ class TransmissibilityRadiusMapper:
 
         # Apply exponential mapping
         # radius = min + (max - min) * (1 - exp(-alpha * inverted))
-        radius = self.min_radius + (self.max_radius - self.min_radius) * (
-            1.0 - math.exp(-self.alpha * inverted)
-        )
+        radius = self.min_radius + (self.max_radius - self.min_radius) * (1.0 - math.exp(-self.alpha * inverted))
 
         return radius
 
@@ -700,7 +693,7 @@ class TransmissibilityRadiusMapper:
     def map_to_embedding(
         self,
         profile: TransmissibilityProfile,
-        direction: Optional[torch.Tensor] = None,
+        direction: torch.Tensor | None = None,
         latent_dim: int = 16,
     ) -> RadiusMapping:
         """Map transmissibility profile to full Poincare ball embedding.
@@ -815,7 +808,7 @@ class EvolutionaryTrajectoryPredictor(nn.Module):
         embedding: torch.Tensor,
         n_steps: int = 10,
         dt: float = 0.1,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Predict evolutionary trajectory from current state.
 
         Args:
@@ -834,9 +827,9 @@ class EvolutionaryTrajectoryPredictor(nn.Module):
         origin = torch.zeros_like(embedding)
         init_radii = poincare_distance(embedding, origin, c=self.curvature)
         transmissibility = [
-            torch.tensor([self.mapper.radius_to_transmissibility(
-                init_radii[i].item()
-            ) for i in range(batch_size)], device=device)
+            torch.tensor(
+                [self.mapper.radius_to_transmissibility(init_radii[i].item()) for i in range(batch_size)], device=device
+            )
         ]
 
         current = embedding
@@ -878,7 +871,7 @@ class EvolutionaryTrajectoryPredictor(nn.Module):
         self,
         embedding: torch.Tensor,
         n_steps: int = 10,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Forward pass predicting trajectory.
 
         Args:

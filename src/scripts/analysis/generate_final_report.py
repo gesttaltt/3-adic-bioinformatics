@@ -18,7 +18,7 @@ def load_json(path):
     if not os.path.exists(path):
         return None
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         print(f"Error loading {path}: {e}")
@@ -78,7 +78,9 @@ def generate_report():
 
             complex_blocks.sort(key=lambda x: x["cc"], reverse=True)
 
-            f.write(f"**Cyclomatic Complexity (CC) Violations:** {len(complex_blocks)} functions/methods with CC > 10.\n\n")
+            f.write(
+                f"**Cyclomatic Complexity (CC) Violations:** {len(complex_blocks)} functions/methods with CC > 10.\n\n"
+            )
 
             if complex_blocks:
                 f.write("| Complexity | Rank | Location | Function |\n")

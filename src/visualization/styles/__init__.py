@@ -14,14 +14,38 @@ This package provides:
 """
 
 from .palettes import (  # Color palette objects; Categorical palettes; Colormap functions; Color utilities
-    NEUTRALS, PALETTE, SEMANTIC, STRUCTURE_COLORS, TABLEAU10, TOLMUTED,
-    TOLVIBRANT, VAE_COLORS, color_gradient, darken, get_categorical_cmap,
-    get_diverging_cmap, get_goldilocks_cmap, get_risk_cmap, get_safety_cmap,
-    get_sequential_cmap, lighten, register_colormaps, with_alpha)
+    NEUTRALS,
+    PALETTE,
+    SEMANTIC,
+    STRUCTURE_COLORS,
+    TABLEAU10,
+    TOLMUTED,
+    TOLVIBRANT,
+    VAE_COLORS,
+    color_gradient,
+    darken,
+    get_categorical_cmap,
+    get_diverging_cmap,
+    get_goldilocks_cmap,
+    get_risk_cmap,
+    get_safety_cmap,
+    get_sequential_cmap,
+    lighten,
+    register_colormaps,
+    with_alpha,
+)
 from .themes import (  # Theme application; Quick style functions; Preset functions
-    apply_theme, reset_theme, setup_poster_style, setup_publication_style,
-    setup_slide_style, theme_context, use_dark_style, use_notebook_style,
-    use_pitch_style, use_scientific_style)
+    apply_theme,
+    reset_theme,
+    setup_poster_style,
+    setup_publication_style,
+    setup_slide_style,
+    theme_context,
+    use_dark_style,
+    use_notebook_style,
+    use_pitch_style,
+    use_scientific_style,
+)
 
 __all__ = [
     # Palettes

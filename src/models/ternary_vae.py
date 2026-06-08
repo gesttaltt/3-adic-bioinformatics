@@ -78,7 +78,6 @@ Single responsibility: V5.11 model architecture.
 
 import logging
 from pathlib import Path
-from typing import Dict
 
 import numpy as np
 import torch
@@ -91,8 +90,8 @@ from src.utils.checkpoint import load_checkpoint_compat
 
 from .differentiable_controller import DifferentiableController
 from .frozen_components import FrozenDecoder, FrozenEncoder
-from .improved_components import ImprovedEncoder, ImprovedDecoder
 from .hyperbolic_projection import DualHyperbolicProjection, HyperbolicProjection
+from .improved_components import ImprovedDecoder, ImprovedEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -332,7 +331,7 @@ class TernaryVAEV5_11(nn.Module):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def forward(self, x: torch.Tensor, compute_control: bool = True) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, compute_control: bool = True) -> dict[str, torch.Tensor]:
         """Forward pass through the model.
 
         Args:
@@ -359,7 +358,7 @@ class TernaryVAEV5_11(nn.Module):
         # Compute control signals (if enabled)
         if compute_control and self.controller is not None:
             # V5.12.2: Use hyperbolic distance for consistent geometry
-            curvature = self.projection.get_curvature() if hasattr(self.projection, 'get_curvature') else 1.0
+            curvature = self.projection.get_curvature() if hasattr(self.projection, "get_curvature") else 1.0
             origin = torch.zeros_like(z_A_hyp)
             radius_A = poincare_distance(z_A_hyp, origin, c=curvature).mean()
             radius_B = poincare_distance(z_B_hyp, origin, c=curvature).mean()
@@ -396,16 +395,18 @@ class TernaryVAEV5_11(nn.Module):
                 hierarchy_A = 0.0
                 hierarchy_B = 0.0
 
-            batch_stats = torch.stack([
-                radius_A,
-                radius_B,
-                torch.tensor(hierarchy_A, device=x.device, dtype=torch.float32),  # Real H_A
-                torch.tensor(hierarchy_B, device=x.device, dtype=torch.float32),  # Real H_B
-                kl_A,
-                kl_B,
-                geo_loss_placeholder,
-                rad_loss_placeholder,
-            ])
+            batch_stats = torch.stack(
+                [
+                    radius_A,
+                    radius_B,
+                    torch.tensor(hierarchy_A, device=x.device, dtype=torch.float32),  # Real H_A
+                    torch.tensor(hierarchy_B, device=x.device, dtype=torch.float32),  # Real H_B
+                    kl_A,
+                    kl_B,
+                    geo_loss_placeholder,
+                    rad_loss_placeholder,
+                ]
+            )
 
             control = self.controller(batch_stats)
             control = {k: v.squeeze(0) for k, v in control.items()}
@@ -444,7 +445,7 @@ class TernaryVAEV5_11(nn.Module):
             params.extend(self.controller.parameters())
         return params
 
-    def count_parameters(self) -> Dict[str, int]:
+    def count_parameters(self) -> dict[str, int]:
         """Count parameters by component.
 
         Returns:

@@ -22,32 +22,34 @@ Usage:
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parents[3]))
 
 import argparse
 import json
-from datetime import datetime
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, Tuple
+from datetime import datetime
+from typing import Any
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader, random_split
+from scipy.stats import pearsonr, spearmanr
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from scipy.stats import spearmanr, pearsonr
-import numpy as np
+from torch.utils.data import DataLoader, Dataset, random_split
 
-from src.bioinformatics.models.ddg_vae import DDGVAE
-from src.bioinformatics.models.ddg_mlp_refiner import DDGMLPRefiner, RefinerConfig
 from src.bioinformatics.data.protherm_loader import ProThermLoader
+from src.bioinformatics.models.ddg_mlp_refiner import DDGMLPRefiner, RefinerConfig
+from src.bioinformatics.models.ddg_vae import DDGVAE
 from src.bioinformatics.training.deterministic import set_deterministic_mode
 
 
 @dataclass
 class StochasticTransformerConfig:
     """Configuration for Stochastic Transformer."""
+
     d_model: int = 64
     n_heads: int = 4
     n_layers: int = 4
@@ -88,9 +90,7 @@ class StochasticTransformer(nn.Module):
         self.input_proj = nn.Linear(1, config.d_model)
 
         # Positional encoding
-        self.pos_enc = nn.Parameter(
-            torch.randn(1, embedding_dim, config.d_model) * 0.02
-        )
+        self.pos_enc = nn.Parameter(torch.randn(1, embedding_dim, config.d_model) * 0.02)
 
         # CLS token
         self.cls_token = nn.Parameter(torch.randn(1, 1, config.d_model) * 0.02)
@@ -112,15 +112,17 @@ class StochasticTransformer(nn.Module):
 
         # Multi-head output
         if config.use_multi_head_output:
-            self.heads = nn.ModuleList([
-                nn.Sequential(
-                    nn.Linear(config.d_model, config.d_model // 2),
-                    nn.SiLU(),
-                    nn.Dropout(config.dropout),
-                    nn.Linear(config.d_model // 2, 1),
-                )
-                for _ in range(3)  # 3 prediction heads
-            ])
+            self.heads = nn.ModuleList(
+                [
+                    nn.Sequential(
+                        nn.Linear(config.d_model, config.d_model // 2),
+                        nn.SiLU(),
+                        nn.Dropout(config.dropout),
+                        nn.Linear(config.d_model // 2, 1),
+                    )
+                    for _ in range(3)  # 3 prediction heads
+                ]
+            )
             # Learned combination weights
             self.head_weights = nn.Parameter(torch.ones(3) / 3)
         else:
@@ -149,9 +151,9 @@ class StochasticTransformer(nn.Module):
     def forward(
         self,
         embedding: torch.Tensor,
-        refiner_pred: Optional[torch.Tensor] = None,
+        refiner_pred: torch.Tensor | None = None,
         return_uncertainty: bool = False,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Forward pass.
 
         Args:
@@ -219,9 +221,9 @@ class StochasticTransformer(nn.Module):
     def forward_stochastic(
         self,
         embedding: torch.Tensor,
-        refiner_pred: Optional[torch.Tensor] = None,
+        refiner_pred: torch.Tensor | None = None,
         n_samples: int = 10,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Monte Carlo forward pass for uncertainty estimation.
 
         Runs multiple forward passes with dropout enabled to estimate
@@ -257,9 +259,9 @@ class StochasticTransformer(nn.Module):
         self,
         embedding: torch.Tensor,
         y: torch.Tensor,
-        refiner_pred: Optional[torch.Tensor] = None,
+        refiner_pred: torch.Tensor | None = None,
         reduction: str = "mean",
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Compute loss with optional uncertainty calibration.
 
         Args:
@@ -373,7 +375,7 @@ def compute_qa_metrics(
     dataset: Dataset,
     device: str = "cuda",
     use_mc: bool = False,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Compute QA metrics with optional MC dropout."""
     model.eval() if not use_mc else model.train()
     model.to(device)
@@ -432,7 +434,7 @@ def compute_qa_metrics(
     return result
 
 
-def print_qa_report(name: str, metrics: Dict[str, float]):
+def print_qa_report(name: str, metrics: dict[str, float]):
     """Print formatted QA report."""
     print(f"\n{'=' * 60}")
     print(f"QA REPORT: {name}")
@@ -447,9 +449,15 @@ def print_qa_report(name: str, metrics: Dict[str, float]):
         print(f"  Uncertainty calibration: {metrics['uncertainty_calibration']:.4f}")
         print(f"  Mean uncertainty: {metrics['mean_uncertainty']:.4f}")
 
-    quality = "EXCELLENT" if metrics['spearman'] > 0.8 else \
-              "VERY GOOD" if metrics['spearman'] > 0.7 else \
-              "GOOD" if metrics['spearman'] > 0.5 else "MODERATE"
+    quality = (
+        "EXCELLENT"
+        if metrics["spearman"] > 0.8
+        else "VERY GOOD"
+        if metrics["spearman"] > 0.7
+        else "GOOD"
+        if metrics["spearman"] > 0.5
+        else "MODERATE"
+    )
     print(f"\n  Quality:        {quality}")
     print(f"{'=' * 60}")
 
@@ -458,14 +466,14 @@ def train_stochastic_transformer(
     train_dataset: RefinerEmbeddingDataset,
     val_dataset: Dataset,
     output_dir: Path,
-    config: Optional[StochasticTransformerConfig] = None,
+    config: StochasticTransformerConfig | None = None,
     epochs: int = 100,
     batch_size: int = 16,
     lr: float = 1e-4,
     patience: int = 30,
     device: str = "cuda",
     verbose: bool = True,
-) -> Tuple[StochasticTransformer, Dict[str, Any]]:
+) -> tuple[StochasticTransformer, dict[str, Any]]:
     """Train Stochastic Transformer on VAE+MLP Refiner embeddings."""
 
     if config is None:
@@ -555,22 +563,27 @@ def train_stochastic_transformer(
         history["val_pearson"].append(float(val_pearson))
 
         if verbose and epoch % 10 == 0:
-            res_weight = torch.sigmoid(model.residual_weight).item() if hasattr(model, 'residual_weight') else 0
-            print(f"  Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
-                  f"ρ={val_spearman:.4f} res_w={res_weight:.3f}")
+            res_weight = torch.sigmoid(model.residual_weight).item() if hasattr(model, "residual_weight") else 0
+            print(
+                f"  Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
+                f"ρ={val_spearman:.4f} res_w={res_weight:.3f}"
+            )
 
         # Early stopping
         if val_spearman > best_spearman:
             best_spearman = val_spearman
             best_epoch = epoch
             no_improve = 0
-            torch.save({
-                "model_state_dict": model.state_dict(),
-                "config": config,
-                "epoch": epoch,
-                "spearman": val_spearman,
-                "pearson": val_pearson,
-            }, output_dir / "best.pt")
+            torch.save(
+                {
+                    "model_state_dict": model.state_dict(),
+                    "config": config,
+                    "epoch": epoch,
+                    "spearman": val_spearman,
+                    "pearson": val_pearson,
+                },
+                output_dir / "best.pt",
+            )
         else:
             no_improve += 1
             if no_improve >= patience:
@@ -578,11 +591,14 @@ def train_stochastic_transformer(
                 break
 
     # Save final
-    torch.save({
-        "model_state_dict": model.state_dict(),
-        "config": config,
-        "history": history,
-    }, output_dir / "final.pt")
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "config": config,
+            "history": history,
+        },
+        output_dir / "final.pt",
+    )
 
     with open(output_dir / "training_history.json", "w") as f:
         json.dump(history, f, indent=2)
@@ -591,7 +607,7 @@ def train_stochastic_transformer(
     ckpt = torch.load(output_dir / "best.pt", map_location=device, weights_only=False)
     model.load_state_dict(ckpt["model_state_dict"])
 
-    print(f"\n  Training complete!")
+    print("\n  Training complete!")
     print(f"  Best epoch: {best_epoch}")
     print(f"  Best Spearman: {best_spearman:.4f}")
 
@@ -696,10 +712,7 @@ def main():
     n_val = int(len(embedding_dataset) * 0.2)
     n_train = len(embedding_dataset) - n_val
 
-    train_ds, val_ds = random_split(
-        embedding_dataset, [n_train, n_val],
-        generator=torch.Generator().manual_seed(42)
-    )
+    train_ds, val_ds = random_split(embedding_dataset, [n_train, n_val], generator=torch.Generator().manual_seed(42))
 
     # Wrap to preserve embedding_dim
     train_ds = SubsetWrapper(train_ds, embedding_dataset.embedding_dim)
@@ -723,7 +736,8 @@ def main():
     )
 
     model, history = train_stochastic_transformer(
-        train_ds, val_ds,
+        train_ds,
+        val_ds,
         output_dir=output_dir,
         config=config,
         epochs=epochs,
@@ -763,9 +777,9 @@ def main():
     print("=" * 70)
     print(f"  MLP Refiner baseline:    {baseline_spearman:.4f}")
     print(f"  Stochastic Transformer:  {qa_metrics['spearman']:.4f}")
-    print(f"  Improvement:             {(qa_metrics['spearman'] - baseline_spearman)*100:.1f}%")
+    print(f"  Improvement:             {(qa_metrics['spearman'] - baseline_spearman) * 100:.1f}%")
 
-    if qa_metrics['spearman'] > baseline_spearman:
+    if qa_metrics["spearman"] > baseline_spearman:
         print("\n  ✓ Transformer IMPROVED over MLP Refiner!")
     else:
         print("\n  × Transformer did not improve over MLP Refiner")

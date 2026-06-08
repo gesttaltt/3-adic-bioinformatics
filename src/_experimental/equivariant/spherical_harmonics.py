@@ -75,7 +75,7 @@ def associated_legendre(l: int, m: int, x: Tensor) -> Tensor:
     if abs_m > 0:
         somx2 = torch.sqrt((1 - x) * (1 + x))
         fact = 1.0
-        for i in range(1, abs_m + 1):
+        for _i in range(1, abs_m + 1):
             pmm = -pmm * fact * somx2
             fact += 2.0
 

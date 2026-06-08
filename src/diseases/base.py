@@ -8,10 +8,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 import torch
 from torch.utils.data import Dataset
@@ -97,7 +97,7 @@ class DiseaseDataset(Dataset, ABC):
         self,
         config: DiseaseConfig,
         split: str = "train",
-        transform: Optional[Callable] = None,
+        transform: Callable | None = None,
     ):
         """Initialize dataset.
 
@@ -134,7 +134,7 @@ class DiseaseDataset(Dataset, ABC):
         """
         pass
 
-    def get_sample_weights(self) -> Optional[torch.Tensor]:
+    def get_sample_weights(self) -> torch.Tensor | None:
         """Get per-sample weights for imbalanced datasets."""
         return None
 
@@ -154,9 +154,7 @@ class DiseasePredictor(torch.nn.Module, ABC):
         self.input_dim = input_dim
 
     @abstractmethod
-    def forward(
-        self, embeddings: torch.Tensor, **kwargs
-    ) -> dict[str, torch.Tensor]:
+    def forward(self, embeddings: torch.Tensor, **kwargs) -> dict[str, torch.Tensor]:
         """Forward pass.
 
         Args:
@@ -197,7 +195,7 @@ class DiseaseAnalyzer(ABC):
     def analyze(
         self,
         sequences: list[str],
-        embeddings: Optional[torch.Tensor] = None,
+        embeddings: torch.Tensor | None = None,
         **kwargs,
     ) -> dict[str, Any]:
         """Run disease-specific analysis.

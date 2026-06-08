@@ -37,11 +37,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
-import pandas as pd
 import torch
 
 from .base import DiseaseAnalyzer, DiseaseConfig, DiseaseType, TaskType
@@ -69,10 +67,10 @@ class InfluenzaGene(Enum):
     # Internal proteins
     PB2 = "PB2"  # Polymerase basic 2
     PB1 = "PB1"  # Polymerase basic 1
-    PA = "PA"   # Polymerase acidic - baloxavir target
-    NP = "NP"   # Nucleoprotein
-    M1 = "M1"   # Matrix protein 1
-    M2 = "M2"   # Matrix protein 2 (amantadine target)
+    PA = "PA"  # Polymerase acidic - baloxavir target
+    NP = "NP"  # Nucleoprotein
+    M1 = "M1"  # Matrix protein 1
+    M2 = "M2"  # Matrix protein 2 (amantadine target)
     NS1 = "NS1"  # Non-structural protein 1
     NS2 = "NS2"  # Nuclear export protein
 
@@ -81,13 +79,13 @@ class InfluenzaDrug(Enum):
     """Influenza antiviral drugs."""
 
     # Neuraminidase inhibitors (NAIs)
-    OSELTAMIVIR = "oseltamivir"    # Tamiflu
-    ZANAMIVIR = "zanamivir"        # Relenza
-    PERAMIVIR = "peramivir"        # Rapivab
-    LANINAMIVIR = "laninamivir"    # Inavir
+    OSELTAMIVIR = "oseltamivir"  # Tamiflu
+    ZANAMIVIR = "zanamivir"  # Relenza
+    PERAMIVIR = "peramivir"  # Rapivab
+    LANINAMIVIR = "laninamivir"  # Inavir
 
     # Cap-dependent endonuclease inhibitor
-    BALOXAVIR = "baloxavir"        # Xofluza
+    BALOXAVIR = "baloxavir"  # Xofluza
 
     # M2 inhibitors (largely resistant now)
     AMANTADINE = "amantadine"
@@ -101,19 +99,23 @@ class InfluenzaConfig(DiseaseConfig):
     name: str = "influenza"
     display_name: str = "Influenza Virus"
     disease_type: DiseaseType = DiseaseType.VIRAL
-    tasks: list[TaskType] = field(default_factory=lambda: [
-        TaskType.RESISTANCE,
-        TaskType.ESCAPE,
-        TaskType.FITNESS,
-    ])
+    tasks: list[TaskType] = field(
+        default_factory=lambda: [
+            TaskType.RESISTANCE,
+            TaskType.ESCAPE,
+            TaskType.FITNESS,
+        ]
+    )
 
     # Data sources
-    data_sources: dict[str, str] = field(default_factory=lambda: {
-        "gisaid": "https://gisaid.org/",
-        "fludb": "https://www.fludb.org/",
-        "ncbi_influenza": "https://www.ncbi.nlm.nih.gov/genomes/FLU/",
-        "who_cc": "https://www.cdc.gov/flu/about/professionals/who-ccs.htm",
-    })
+    data_sources: dict[str, str] = field(
+        default_factory=lambda: {
+            "gisaid": "https://gisaid.org/",
+            "fludb": "https://www.fludb.org/",
+            "ncbi_influenza": "https://www.ncbi.nlm.nih.gov/genomes/FLU/",
+            "who_cc": "https://www.cdc.gov/flu/about/professionals/who-ccs.htm",
+        }
+    )
 
 
 # Neuraminidase (NA) resistance mutations
@@ -124,11 +126,9 @@ NA_H1N1_MUTATIONS = {
     275: {"H": {"mutations": ["Y"], "drug": "oseltamivir", "effect": "high"}},
     295: {"N": {"mutations": ["S"], "drug": "oseltamivir", "effect": "moderate"}},
     136: {"I": {"mutations": ["V", "K", "T"], "drug": "oseltamivir", "effect": "moderate"}},
-
     # Zanamivir resistance
     119: {"E": {"mutations": ["V", "G", "D"], "drug": "zanamivir", "effect": "moderate"}},
     152: {"R": {"mutations": ["K"], "drug": "zanamivir", "effect": "moderate"}},
-
     # Cross-resistance
     274: {"H": {"mutations": ["Y"], "drug": "cross", "effect": "high"}},
     293: {"R": {"mutations": ["K"], "drug": "cross", "effect": "high"}},
@@ -174,10 +174,16 @@ def _merge_na_mutations():
                     if data["drug"] not in merged[pos][ref_aa]["drugs"]:
                         merged[pos][ref_aa]["drugs"].append(data["drug"])
                 else:
-                    merged[pos][ref_aa] = {"mutations": data["mutations"], "effect": data["effect"], "drugs": [data["drug"]]}
+                    merged[pos][ref_aa] = {
+                        "mutations": data["mutations"],
+                        "effect": data["effect"],
+                        "drugs": [data["drug"]],
+                    }
         else:
             for ref_aa, data in info.items():
-                merged[pos] = {ref_aa: {"mutations": data["mutations"], "effect": data["effect"], "drugs": [data["drug"]]}}
+                merged[pos] = {
+                    ref_aa: {"mutations": data["mutations"], "effect": data["effect"], "drugs": [data["drug"]]}
+                }
     for pos, info in NA_B_MUTATIONS.items():
         if pos in merged:
             for ref_aa, data in info.items():
@@ -185,10 +191,16 @@ def _merge_na_mutations():
                     if data["drug"] not in merged[pos][ref_aa]["drugs"]:
                         merged[pos][ref_aa]["drugs"].append(data["drug"])
                 else:
-                    merged[pos][ref_aa] = {"mutations": data["mutations"], "effect": data["effect"], "drugs": [data["drug"]]}
+                    merged[pos][ref_aa] = {
+                        "mutations": data["mutations"],
+                        "effect": data["effect"],
+                        "drugs": [data["drug"]],
+                    }
         else:
             for ref_aa, data in info.items():
-                merged[pos] = {ref_aa: {"mutations": data["mutations"], "effect": data["effect"], "drugs": [data["drug"]]}}
+                merged[pos] = {
+                    ref_aa: {"mutations": data["mutations"], "effect": data["effect"], "drugs": [data["drug"]]}
+                }
     return merged
 
 
@@ -221,7 +233,35 @@ HA_H3N2_ANTIGENIC_SITES = {
     "A": [122, 124, 126, 130, 131, 132, 133, 135, 137, 138, 140, 142, 143, 144, 145, 146],
     "B": [155, 156, 157, 158, 159, 160, 163, 164, 186, 188, 189, 190, 192, 193, 194, 196, 197, 198],
     "C": [44, 45, 46, 47, 48, 50, 51, 53, 54, 275, 276, 278, 279],
-    "D": [96, 102, 103, 117, 121, 167, 170, 171, 172, 173, 174, 175, 176, 177, 179, 182, 201, 203, 207, 208, 209, 212, 213, 214, 215, 216, 217],
+    "D": [
+        96,
+        102,
+        103,
+        117,
+        121,
+        167,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175,
+        176,
+        177,
+        179,
+        182,
+        201,
+        203,
+        207,
+        208,
+        209,
+        212,
+        213,
+        214,
+        215,
+        216,
+        217,
+    ],
     "E": [57, 59, 62, 63, 67, 75, 78, 81, 82, 83, 86, 87, 88, 91, 92, 94, 109, 260, 261, 262, 265],
 }
 
@@ -247,7 +287,7 @@ class InfluenzaAnalyzer(DiseaseAnalyzer):
     - Vaccine strain selection support
     """
 
-    def __init__(self, config: Optional[InfluenzaConfig] = None):
+    def __init__(self, config: InfluenzaConfig | None = None):
         """Initialize analyzer.
 
         Args:
@@ -264,7 +304,7 @@ class InfluenzaAnalyzer(DiseaseAnalyzer):
         self,
         sequences: dict[InfluenzaGene, list[str]],
         subtype: InfluenzaSubtype = InfluenzaSubtype.H3N2,
-        embeddings: Optional[torch.Tensor] = None,
+        embeddings: torch.Tensor | None = None,
         **kwargs,
     ) -> dict[str, Any]:
         """Analyze influenza sequences.
@@ -280,7 +320,7 @@ class InfluenzaAnalyzer(DiseaseAnalyzer):
         results = {
             "n_sequences": len(next(iter(sequences.values()))) if sequences else 0,
             "subtype": subtype.value,
-            "genes_analyzed": [g.value for g in sequences.keys()],
+            "genes_analyzed": [g.value for g in sequences],
             "drug_resistance": {},
             "antigenic_analysis": {},
         }
@@ -289,16 +329,12 @@ class InfluenzaAnalyzer(DiseaseAnalyzer):
         for drug in InfluenzaDrug:
             gene = DRUG_GENE_MAP.get(drug)
             if gene and gene in sequences:
-                drug_results = self.predict_drug_resistance(
-                    sequences[gene], drug, subtype
-                )
+                drug_results = self.predict_drug_resistance(sequences[gene], drug, subtype)
                 results["drug_resistance"][drug.value] = drug_results
 
         # Antigenic analysis (HA)
         if InfluenzaGene.HA in sequences:
-            results["antigenic_analysis"] = self._analyze_antigenic_drift(
-                sequences[InfluenzaGene.HA], subtype
-            )
+            results["antigenic_analysis"] = self._analyze_antigenic_drift(sequences[InfluenzaGene.HA], subtype)
 
         return results
 
@@ -326,8 +362,12 @@ class InfluenzaAnalyzer(DiseaseAnalyzer):
         }
 
         # Get appropriate mutation database
-        if drug in [InfluenzaDrug.OSELTAMIVIR, InfluenzaDrug.ZANAMIVIR,
-                    InfluenzaDrug.PERAMIVIR, InfluenzaDrug.LANINAMIVIR]:
+        if drug in [
+            InfluenzaDrug.OSELTAMIVIR,
+            InfluenzaDrug.ZANAMIVIR,
+            InfluenzaDrug.PERAMIVIR,
+            InfluenzaDrug.LANINAMIVIR,
+        ]:
             if "H1N1" in subtype.value:
                 mutation_db = NA_H1N1_MUTATIONS
             elif subtype == InfluenzaSubtype.H3N2:
@@ -357,20 +397,25 @@ class InfluenzaAnalyzer(DiseaseAnalyzer):
                 if seq_aa != ref_aa and seq_aa in info[ref_aa]["mutations"]:
                     # Check if this mutation affects our target drug
                     mut_drug = info[ref_aa]["drug"]
-                    if (mut_drug == drug.value or
-                        mut_drug == "cross" or
-                        (mut_drug == "m2_inhibitor" and drug in [InfluenzaDrug.AMANTADINE, InfluenzaDrug.RIMANTADINE])):
-
+                    if (
+                        mut_drug == drug.value
+                        or mut_drug == "cross"
+                        or (
+                            mut_drug == "m2_inhibitor" and drug in [InfluenzaDrug.AMANTADINE, InfluenzaDrug.RIMANTADINE]
+                        )
+                    ):
                         effect = info[ref_aa]["effect"]
                         effect_scores = {"high": 1.0, "moderate": 0.5, "low": 0.2}
                         score += effect_scores.get(effect, 0.3)
-                        mutations.append({
-                            "position": pos,
-                            "ref": ref_aa,
-                            "alt": seq_aa,
-                            "effect": effect,
-                            "notation": f"{ref_aa}{pos}{seq_aa}",
-                        })
+                        mutations.append(
+                            {
+                                "position": pos,
+                                "ref": ref_aa,
+                                "alt": seq_aa,
+                                "effect": effect,
+                                "notation": f"{ref_aa}{pos}{seq_aa}",
+                            }
+                        )
 
             # Normalize
             max_score = 3.0
@@ -430,11 +475,13 @@ class InfluenzaAnalyzer(DiseaseAnalyzer):
                 for pos in positions:
                     if pos <= len(seq) and pos <= len(reference):
                         if seq[pos - 1] != reference[pos - 1]:
-                            site_mutations[site_name].append({
-                                "position": pos,
-                                "ref": reference[pos - 1],
-                                "alt": seq[pos - 1],
-                            })
+                            site_mutations[site_name].append(
+                                {
+                                    "position": pos,
+                                    "ref": reference[pos - 1],
+                                    "alt": seq[pos - 1],
+                                }
+                            )
                             total_antigenic_changes += 1
 
             results["antigenic_site_mutations"].append(site_mutations)
@@ -536,12 +583,14 @@ class InfluenzaAnalyzer(DiseaseAnalyzer):
             avg_distance = np.mean(distances) if distances else float("inf")
             max_distance = np.max(distances) if distances else float("inf")
 
-            results["candidate_scores"].append({
-                "index": i,
-                "avg_distance": float(avg_distance),
-                "max_distance": float(max_distance),
-                "coverage": float(np.mean([d < 0.1 for d in distances])) if distances else 0.0,
-            })
+            results["candidate_scores"].append(
+                {
+                    "index": i,
+                    "avg_distance": float(avg_distance),
+                    "max_distance": float(max_distance),
+                    "coverage": float(np.mean([d < 0.1 for d in distances])) if distances else 0.0,
+                }
+            )
 
             if avg_distance < results["recommended_score"]:
                 results["recommended_score"] = float(avg_distance)
@@ -574,7 +623,7 @@ class InfluenzaAnalyzer(DiseaseAnalyzer):
     def encode_sequence(
         self,
         sequence: str,
-        max_length: Optional[int] = None,
+        max_length: int | None = None,
     ) -> np.ndarray:
         """One-hot encode a sequence."""
         if max_length is None:

@@ -52,12 +52,7 @@ def example_unconditional_generation():
     print(f"Sample sequence (codon indices): {sequences[0, :10].tolist()}...")
 
     # Decode to codons
-    CODONS = [
-        f"{b1}{b2}{b3}"
-        for b1 in "UCAG"
-        for b2 in "UCAG"
-        for b3 in "UCAG"
-    ]
+    CODONS = [f"{b1}{b2}{b3}" for b1 in "UCAG" for b2 in "UCAG" for b3 in "UCAG"]
     print("\nFirst sequence decoded:")
     decoded = [CODONS[idx] for idx in sequences[0, :10].tolist()]
     print(f"  {' '.join(decoded)}...")

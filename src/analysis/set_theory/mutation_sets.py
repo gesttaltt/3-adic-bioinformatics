@@ -17,20 +17,20 @@ Set operations on mutations are biologically meaningful:
 
 from __future__ import annotations
 
+import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, FrozenSet, Iterable, List, Optional, Set, Tuple, Union
-import re
 
 
 class MutationType(Enum):
     """Types of genetic mutations."""
 
-    SNP = "snp"                    # Single nucleotide polymorphism
-    INSERTION = "insertion"        # Insertion
-    DELETION = "deletion"          # Deletion
-    FRAMESHIFT = "frameshift"      # Frameshift
-    PROMOTER = "promoter"          # Promoter region
+    SNP = "snp"  # Single nucleotide polymorphism
+    INSERTION = "insertion"  # Insertion
+    DELETION = "deletion"  # Deletion
+    FRAMESHIFT = "frameshift"  # Frameshift
+    PROMOTER = "promoter"  # Promoter region
     UNKNOWN = "unknown"
 
 
@@ -69,7 +69,7 @@ class Mutation:
         return f"Mutation({str(self)})"
 
     @classmethod
-    def from_string(cls, notation: str) -> "Mutation":
+    def from_string(cls, notation: str) -> Mutation:
         """Parse mutation from standard notation.
 
         Supports formats:
@@ -92,10 +92,7 @@ class Mutation:
             position = int(pos)
 
             # Detect promoter mutations (negative positions)
-            if position < 0:
-                mut_type = MutationType.PROMOTER
-            else:
-                mut_type = MutationType.SNP
+            mut_type = MutationType.PROMOTER if position < 0 else MutationType.SNP
 
             return cls(
                 gene=gene,
@@ -134,7 +131,7 @@ class MutationSet:
 
     def __init__(
         self,
-        mutations: Optional[Iterable[Mutation]] = None,
+        mutations: Iterable[Mutation] | None = None,
         name: str = "",
     ):
         """Initialize mutation set.
@@ -143,7 +140,7 @@ class MutationSet:
             mutations: Iterable of Mutation objects
             name: Optional name for this set
         """
-        self._mutations: FrozenSet[Mutation] = frozenset(mutations or [])
+        self._mutations: frozenset[Mutation] = frozenset(mutations or [])
         self.name = name
 
     @classmethod
@@ -151,7 +148,7 @@ class MutationSet:
         cls,
         notations: Iterable[str],
         name: str = "",
-    ) -> "MutationSet":
+    ) -> MutationSet:
         """Create from string notations.
 
         Args:
@@ -165,7 +162,7 @@ class MutationSet:
         return cls(mutations, name)
 
     @classmethod
-    def empty(cls) -> "MutationSet":
+    def empty(cls) -> MutationSet:
         """Create empty set (∅)."""
         return cls([], "∅")
 
@@ -195,63 +192,63 @@ class MutationSet:
 
     # Set algebra operations
 
-    def __or__(self, other: "MutationSet") -> "MutationSet":
+    def __or__(self, other: MutationSet) -> MutationSet:
         """Union: A ∪ B"""
         return MutationSet(
             self._mutations | other._mutations,
             f"({self.name}∪{other.name})" if self.name and other.name else "",
         )
 
-    def __and__(self, other: "MutationSet") -> "MutationSet":
+    def __and__(self, other: MutationSet) -> MutationSet:
         """Intersection: A ∩ B"""
         return MutationSet(
             self._mutations & other._mutations,
             f"({self.name}∩{other.name})" if self.name and other.name else "",
         )
 
-    def __sub__(self, other: "MutationSet") -> "MutationSet":
+    def __sub__(self, other: MutationSet) -> MutationSet:
         """Difference: A \\ B"""
         return MutationSet(
             self._mutations - other._mutations,
             f"({self.name}\\{other.name})" if self.name and other.name else "",
         )
 
-    def __xor__(self, other: "MutationSet") -> "MutationSet":
+    def __xor__(self, other: MutationSet) -> MutationSet:
         """Symmetric difference: A △ B"""
         return MutationSet(
             self._mutations ^ other._mutations,
             f"({self.name}△{other.name})" if self.name and other.name else "",
         )
 
-    def issubset(self, other: "MutationSet") -> bool:
+    def issubset(self, other: MutationSet) -> bool:
         """Check if this is a subset: A ⊆ B"""
         return self._mutations.issubset(other._mutations)
 
-    def issuperset(self, other: "MutationSet") -> bool:
+    def issuperset(self, other: MutationSet) -> bool:
         """Check if this is a superset: A ⊇ B"""
         return self._mutations.issuperset(other._mutations)
 
-    def isdisjoint(self, other: "MutationSet") -> bool:
+    def isdisjoint(self, other: MutationSet) -> bool:
         """Check if sets are disjoint: A ∩ B = ∅"""
         return self._mutations.isdisjoint(other._mutations)
 
     # Derived operations
 
-    def union(self, *others: "MutationSet") -> "MutationSet":
+    def union(self, *others: MutationSet) -> MutationSet:
         """Union with multiple sets."""
         result = self._mutations
         for other in others:
             result = result | other._mutations
         return MutationSet(result)
 
-    def intersection(self, *others: "MutationSet") -> "MutationSet":
+    def intersection(self, *others: MutationSet) -> MutationSet:
         """Intersection with multiple sets."""
         result = self._mutations
         for other in others:
             result = result & other._mutations
         return MutationSet(result)
 
-    def power_set(self) -> List["MutationSet"]:
+    def power_set(self) -> list[MutationSet]:
         """Generate power set (all subsets).
 
         Warning: Exponential in size!
@@ -263,7 +260,7 @@ class MutationSet:
         n = len(mutations)
 
         subsets = []
-        for i in range(2 ** n):
+        for i in range(2**n):
             subset = [mutations[j] for j in range(n) if (i >> j) & 1]
             subsets.append(MutationSet(subset))
 
@@ -271,13 +268,13 @@ class MutationSet:
 
     # Analysis methods
 
-    def by_gene(self) -> Dict[str, "MutationSet"]:
+    def by_gene(self) -> dict[str, MutationSet]:
         """Group mutations by gene.
 
         Returns:
             Dictionary of gene -> MutationSet
         """
-        genes: Dict[str, List[Mutation]] = {}
+        genes: dict[str, list[Mutation]] = {}
         for mut in self._mutations:
             if mut.gene not in genes:
                 genes[mut.gene] = []
@@ -285,11 +282,11 @@ class MutationSet:
 
         return {gene: MutationSet(muts, gene) for gene, muts in genes.items()}
 
-    def genes(self) -> Set[str]:
+    def genes(self) -> set[str]:
         """Get all genes with mutations."""
         return {mut.gene for mut in self._mutations}
 
-    def jaccard_similarity(self, other: "MutationSet") -> float:
+    def jaccard_similarity(self, other: MutationSet) -> float:
         """Jaccard similarity: |A ∩ B| / |A ∪ B|
 
         Args:
@@ -305,7 +302,7 @@ class MutationSet:
             return 1.0  # Both empty
         return intersection / union
 
-    def dice_similarity(self, other: "MutationSet") -> float:
+    def dice_similarity(self, other: MutationSet) -> float:
         """Dice/Sørensen coefficient: 2|A ∩ B| / (|A| + |B|)
 
         Args:
@@ -321,11 +318,11 @@ class MutationSet:
             return 1.0
         return 2 * intersection / total
 
-    def to_list(self) -> List[str]:
+    def to_list(self) -> list[str]:
         """Convert to list of mutation strings."""
         return [str(m) for m in self._mutations]
 
-    def to_frozenset(self) -> FrozenSet[Mutation]:
+    def to_frozenset(self) -> frozenset[Mutation]:
         """Get underlying frozenset."""
         return self._mutations
 
@@ -344,13 +341,13 @@ class ResistanceProfile:
         >>> profile.is_mdr()  # True if INH and RIF resistant
     """
 
-    drug_mutations: Dict[str, MutationSet] = field(default_factory=dict)
+    drug_mutations: dict[str, MutationSet] = field(default_factory=dict)
     sample_id: str = ""
 
     def add_drug(
         self,
         drug: str,
-        mutations: Union[MutationSet, List[str]],
+        mutations: MutationSet | list[str],
     ):
         """Add mutations for a drug.
 
@@ -376,7 +373,7 @@ class ResistanceProfile:
             result = result | mutations
         return result
 
-    def shared_mutations(self, drugs: Optional[List[str]] = None) -> MutationSet:
+    def shared_mutations(self, drugs: list[str] | None = None) -> MutationSet:
         """Get mutations shared across drugs.
 
         Args:
@@ -414,14 +411,10 @@ class ResistanceProfile:
             return False
 
         fq_resistant = any(
-            self.is_resistant(drug)
-            for drug in ["FQ", "Fluoroquinolone", "Moxifloxacin", "Levofloxacin"]
+            self.is_resistant(drug) for drug in ["FQ", "Fluoroquinolone", "Moxifloxacin", "Levofloxacin"]
         )
 
-        injectable_resistant = any(
-            self.is_resistant(drug)
-            for drug in ["Amikacin", "Kanamycin", "Capreomycin"]
-        )
+        injectable_resistant = any(self.is_resistant(drug) for drug in ["Amikacin", "Kanamycin", "Capreomycin"])
 
         return fq_resistant and injectable_resistant
 
@@ -436,7 +429,7 @@ class ResistanceProfile:
         else:
             return "Susceptible"
 
-    def cross_resistance_matrix(self) -> Dict[Tuple[str, str], float]:
+    def cross_resistance_matrix(self) -> dict[tuple[str, str], float]:
         """Compute pairwise cross-resistance (Jaccard similarity).
 
         Returns:
@@ -447,9 +440,7 @@ class ResistanceProfile:
 
         for i, drug1 in enumerate(drugs):
             for drug2 in drugs[i:]:
-                sim = self.drug_mutations[drug1].jaccard_similarity(
-                    self.drug_mutations[drug2]
-                )
+                sim = self.drug_mutations[drug1].jaccard_similarity(self.drug_mutations[drug2])
                 matrix[(drug1, drug2)] = sim
                 matrix[(drug2, drug1)] = sim
 
@@ -468,9 +459,9 @@ class MutationSetAlgebra:
 
     @staticmethod
     def minimal_sets(
-        sets: List[MutationSet],
+        sets: list[MutationSet],
         predicate: callable,
-    ) -> List[MutationSet]:
+    ) -> list[MutationSet]:
         """Find minimal sets satisfying a predicate.
 
         A set is minimal if no proper subset also satisfies the predicate.
@@ -501,8 +492,8 @@ class MutationSetAlgebra:
     @staticmethod
     def set_cover(
         universe: MutationSet,
-        candidates: List[MutationSet],
-    ) -> List[MutationSet]:
+        candidates: list[MutationSet],
+    ) -> list[MutationSet]:
         """Find minimal set cover (greedy approximation).
 
         Find smallest collection of candidate sets that cover universe.
@@ -538,7 +529,7 @@ class MutationSetAlgebra:
     @staticmethod
     def closure(
         seed: MutationSet,
-        implications: List[Tuple[MutationSet, MutationSet]],
+        implications: list[tuple[MutationSet, MutationSet]],
     ) -> MutationSet:
         """Compute closure under implications.
 
@@ -590,8 +581,8 @@ class CrossResistanceAnalyzer:
     """
 
     def __init__(self):
-        self.profiles: List[ResistanceProfile] = []
-        self.drug_sets: Dict[str, List[MutationSet]] = {}
+        self.profiles: list[ResistanceProfile] = []
+        self.drug_sets: dict[str, list[MutationSet]] = {}
 
     def add_profile(self, profile: ResistanceProfile):
         """Add a resistance profile."""
@@ -653,7 +644,7 @@ class CrossResistanceAnalyzer:
         self,
         drug: str,
         all_known_mutations: MutationSet,
-    ) -> List[MutationSet]:
+    ) -> list[MutationSet]:
         """Find minimal mutation sets conferring resistance.
 
         Uses set cover to find smallest mutation combinations.
@@ -674,10 +665,7 @@ class CrossResistanceAnalyzer:
         # Find minimal sets that appear in resistant samples
         def is_resistance_marker(s: MutationSet) -> bool:
             # Check if this set appears in most resistant samples
-            count = sum(
-                1 for mutations in self.drug_sets[drug]
-                if s.issubset(mutations)
-            )
+            count = sum(1 for mutations in self.drug_sets[drug] if s.issubset(mutations))
             return count >= len(self.drug_sets[drug]) * 0.5
 
         # Only consider subsets up to size 3 for efficiency
@@ -685,12 +673,13 @@ class CrossResistanceAnalyzer:
         mutations = list(common._mutations)
         for size in range(1, min(4, len(mutations) + 1)):
             from itertools import combinations
+
             for combo in combinations(mutations, size):
                 candidates.append(MutationSet(combo))
 
         return MutationSetAlgebra.minimal_sets(candidates, is_resistance_marker)
 
-    def similarity_matrix(self) -> Dict[Tuple[str, str], float]:
+    def similarity_matrix(self) -> dict[tuple[str, str], float]:
         """Compute drug similarity based on mutation overlap.
 
         Returns:

@@ -24,10 +24,11 @@ import numpy as np
 import pandas as pd
 
 try:
-    import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
-    from matplotlib.colors import LinearSegmentedColormap
+    import matplotlib.pyplot as plt
     import seaborn as sns
+    from matplotlib.colors import LinearSegmentedColormap
+
     PLOTTING_AVAILABLE = True
 except ImportError:
     PLOTTING_AVAILABLE = False
@@ -40,21 +41,23 @@ def setup_publication_style():
     if not PLOTTING_AVAILABLE:
         return
 
-    plt.rcParams.update({
-        'font.family': 'sans-serif',
-        'font.sans-serif': ['Arial', 'DejaVu Sans'],
-        'font.size': 10,
-        'axes.labelsize': 11,
-        'axes.titlesize': 12,
-        'xtick.labelsize': 9,
-        'ytick.labelsize': 9,
-        'legend.fontsize': 9,
-        'figure.dpi': 300,
-        'savefig.dpi': 300,
-        'savefig.bbox': 'tight',
-        'axes.spines.top': False,
-        'axes.spines.right': False,
-    })
+    plt.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Arial", "DejaVu Sans"],
+            "font.size": 10,
+            "axes.labelsize": 11,
+            "axes.titlesize": 12,
+            "xtick.labelsize": 9,
+            "ytick.labelsize": 9,
+            "legend.fontsize": 9,
+            "figure.dpi": 300,
+            "savefig.dpi": 300,
+            "savefig.bbox": "tight",
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+        }
+    )
 
 
 def load_results():
@@ -108,9 +111,7 @@ def figure1_performance_comparison(data: dict, output_dir: Path):
     width = 0.8
 
     # Plot bars
-    bars = ax.bar(x, df["best"], width,
-                  color=[colors[c] for c in df["class"]],
-                  edgecolor="white", linewidth=0.5)
+    ax.bar(x, df["best"], width, color=[colors[c] for c in df["class"]], edgecolor="white", linewidth=0.5)
 
     # Add drug labels
     ax.set_xticks(x)
@@ -157,8 +158,9 @@ def figure2_architecture_comparison(data: dict, output_dir: Path):
     # Custom colormap
     cmap = sns.color_palette("RdYlGn", as_cmap=True)
 
-    sns.heatmap(pivot_data, annot=True, fmt=".3f", cmap=cmap,
-                vmin=0.6, vmax=1.0, ax=ax, cbar_kws={"label": "Correlation"})
+    sns.heatmap(
+        pivot_data, annot=True, fmt=".3f", cmap=cmap, vmin=0.6, vmax=1.0, ax=ax, cbar_kws={"label": "Correlation"}
+    )
 
     ax.set_title("Architecture Performance Comparison")
     ax.set_ylabel("Drug")
@@ -188,9 +190,13 @@ def figure3_temporal_validation(data: dict, output_dir: Path):
     for drug_class in ["pi", "nrti", "nnrti", "ini"]:
         class_data = df[df["drug_class"] == drug_class]
         x = np.arange(len(class_data))
-        ax.bar(x + list(colors.keys()).index(drug_class) * 0.2 - 0.3,
-               class_data["correlation"], 0.2,
-               color=colors[drug_class], label=drug_class.upper())
+        ax.bar(
+            x + list(colors.keys()).index(drug_class) * 0.2 - 0.3,
+            class_data["correlation"],
+            0.2,
+            color=colors[drug_class],
+            label=drug_class.upper(),
+        )
 
     ax.axhline(0.845, color="black", linestyle="--", linewidth=1, label="Overall avg")
     ax.set_ylabel("Temporal Validation Correlation")
@@ -200,9 +206,14 @@ def figure3_temporal_validation(data: dict, output_dir: Path):
 
     # Panel B: Train vs Test size
     ax = axes[1]
-    ax.scatter(df["n_train"], df["correlation"],
-               c=[colors[c] for c in df["drug_class"]],
-               s=df["n_test"] / 5, alpha=0.7, edgecolors="white")
+    ax.scatter(
+        df["n_train"],
+        df["correlation"],
+        c=[colors[c] for c in df["drug_class"]],
+        s=df["n_test"] / 5,
+        alpha=0.7,
+        edgecolors="white",
+    )
 
     ax.set_xlabel("Training Set Size")
     ax.set_ylabel("Temporal Validation Correlation")
@@ -230,32 +241,55 @@ def figure4_cross_resistance(data: dict, output_dir: Path):
 
     # Known cross-resistance matrix
     nrti_drugs = ["AZT", "D4T", "ABC", "TDF", "DDI", "3TC"]
-    cross_matrix = np.array([
-        [1.00, 0.85, 0.60, 0.45, 0.55, -0.15],  # AZT
-        [0.85, 1.00, 0.55, 0.40, 0.50, -0.10],  # D4T
-        [0.60, 0.55, 1.00, 0.65, 0.70, 0.30],   # ABC
-        [0.45, 0.40, 0.65, 1.00, 0.55, 0.40],   # TDF
-        [0.55, 0.50, 0.70, 0.55, 1.00, 0.25],   # DDI
-        [-0.15, -0.10, 0.30, 0.40, 0.25, 1.00], # 3TC
-    ])
+    cross_matrix = np.array(
+        [
+            [1.00, 0.85, 0.60, 0.45, 0.55, -0.15],  # AZT
+            [0.85, 1.00, 0.55, 0.40, 0.50, -0.10],  # D4T
+            [0.60, 0.55, 1.00, 0.65, 0.70, 0.30],  # ABC
+            [0.45, 0.40, 0.65, 1.00, 0.55, 0.40],  # TDF
+            [0.55, 0.50, 0.70, 0.55, 1.00, 0.25],  # DDI
+            [-0.15, -0.10, 0.30, 0.40, 0.25, 1.00],  # 3TC
+        ]
+    )
 
     fig, ax = plt.subplots(figsize=(8, 7))
 
     # Custom diverging colormap
     cmap = sns.diverging_palette(220, 20, as_cmap=True)
 
-    sns.heatmap(cross_matrix, annot=True, fmt=".2f", cmap=cmap,
-                vmin=-0.5, vmax=1.0, center=0,
-                xticklabels=nrti_drugs, yticklabels=nrti_drugs, ax=ax,
-                cbar_kws={"label": "Cross-Resistance Correlation"})
+    sns.heatmap(
+        cross_matrix,
+        annot=True,
+        fmt=".2f",
+        cmap=cmap,
+        vmin=-0.5,
+        vmax=1.0,
+        center=0,
+        xticklabels=nrti_drugs,
+        yticklabels=nrti_drugs,
+        ax=ax,
+        cbar_kws={"label": "Cross-Resistance Correlation"},
+    )
 
     ax.set_title("NRTI Cross-Resistance Matrix (Expected from Literature)")
 
     # Add annotations for key patterns
-    ax.text(0.5, -0.15, "TAM cross-resistance (AZT-D4T): High positive correlation",
-            transform=ax.transAxes, fontsize=8, ha="center")
-    ax.text(0.5, -0.22, "M184V resensitization (3TC-AZT): Negative correlation",
-            transform=ax.transAxes, fontsize=8, ha="center")
+    ax.text(
+        0.5,
+        -0.15,
+        "TAM cross-resistance (AZT-D4T): High positive correlation",
+        transform=ax.transAxes,
+        fontsize=8,
+        ha="center",
+    )
+    ax.text(
+        0.5,
+        -0.22,
+        "M184V resensitization (3TC-AZT): Negative correlation",
+        transform=ax.transAxes,
+        fontsize=8,
+        ha="center",
+    )
 
     plt.tight_layout()
     fig.savefig(output_dir / "figure4_cross_resistance.png")
@@ -274,11 +308,17 @@ def table1_main_results(data: dict, output_dir: Path):
     df = data["full"]
 
     # Group by class
-    summary = df.groupby("class").agg({
-        "drug": "count",
-        "best": ["mean", "std", "min", "max"],
-        "n_samples": "mean",
-    }).round(3)
+    summary = (
+        df.groupby("class")
+        .agg(
+            {
+                "drug": "count",
+                "best": ["mean", "std", "min", "max"],
+                "n_samples": "mean",
+            }
+        )
+        .round(3)
+    )
 
     # Flatten columns
     summary.columns = ["n_drugs", "mean_corr", "std_corr", "min_corr", "max_corr", "avg_samples"]

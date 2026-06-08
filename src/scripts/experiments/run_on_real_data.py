@@ -14,7 +14,6 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -32,7 +31,7 @@ sys.path.insert(0, str(project_root))
 class Config:
     input_dim: int = 99  # Will be set based on data
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [128, 64, 32])
+    hidden_dims: list[int] = field(default_factory=lambda: [128, 64, 32])
     batch_size: int = 32
     epochs: int = 100
     lr: float = 0.001
@@ -70,7 +69,7 @@ class VAE(nn.Module):
         layers.append(nn.Linear(in_dim, cfg.input_dim))
         self.decoder = nn.Sequential(*layers)
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         h = self.encoder(x)
         mu = self.fc_mu(h)
         logvar = self.fc_logvar(h)
@@ -82,7 +81,7 @@ class VAE(nn.Module):
         return {"x_recon": x_recon, "mu": mu, "logvar": logvar, "z": z}
 
 
-def compute_loss(cfg: Config, out: Dict, x: torch.Tensor, fitness: torch.Tensor) -> Dict[str, torch.Tensor]:
+def compute_loss(cfg: Config, out: dict, x: torch.Tensor, fitness: torch.Tensor) -> dict[str, torch.Tensor]:
     """Compute all losses."""
     losses = {}
 
@@ -116,7 +115,7 @@ def compute_loss(cfg: Config, out: Dict, x: torch.Tensor, fitness: torch.Tensor)
     return losses
 
 
-def load_stanford_data(drug_class: str = "pi") -> Tuple[pd.DataFrame, List[str], List[str]]:
+def load_stanford_data(drug_class: str = "pi") -> tuple[pd.DataFrame, list[str], list[str]]:
     """Load Stanford HIVDB data."""
     data_dir = project_root / "data" / "research"
 
@@ -144,13 +143,13 @@ def load_stanford_data(drug_class: str = "pi") -> Tuple[pd.DataFrame, List[str],
     # All Stanford HIVDB files use "P" prefix for position columns
     prefix = "P"
 
-    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix):].isdigit()]
-    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix):]))
+    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix) :].isdigit()]
+    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix) :]))
 
     return df, position_cols, drug_columns[drug_class]
 
 
-def encode_amino_acids(df: pd.DataFrame, position_cols: List[str]) -> np.ndarray:
+def encode_amino_acids(df: pd.DataFrame, position_cols: list[str]) -> np.ndarray:
     """One-hot encode amino acid sequences."""
     aa_alphabet = "ACDEFGHIKLMNPQRSTVWY*-"
     aa_to_idx = {aa: i for i, aa in enumerate(aa_alphabet)}
@@ -175,7 +174,7 @@ def encode_amino_acids(df: pd.DataFrame, position_cols: List[str]) -> np.ndarray
 
 def prepare_data(
     drug_class: str, target_drug: str, test_size: float = 0.2
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int]:
     """Prepare data for training."""
     df, position_cols, drugs = load_stanford_data(drug_class)
 
@@ -216,7 +215,7 @@ def train_and_evaluate(
     train_y: torch.Tensor,
     test_x: torch.Tensor,
     test_y: torch.Tensor,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Train model and evaluate."""
     device = torch.device(cfg.device)
     model = VAE(cfg).to(device)
@@ -288,15 +287,12 @@ def main():
         "ini": ["BIC", "CAB", "DTG", "EVG", "RAL"],
     }
 
-    if args.drug_class == "all":
-        classes_to_test = list(drug_classes.keys())
-    else:
-        classes_to_test = [args.drug_class]
+    classes_to_test = list(drug_classes.keys()) if args.drug_class == "all" else [args.drug_class]
 
     all_results = []
 
     for drug_class in classes_to_test:
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print(f"DRUG CLASS: {drug_class.upper()}")
         print("=" * 80)
 
@@ -317,23 +313,27 @@ def main():
                 # Train and evaluate
                 results = train_and_evaluate(cfg, train_x, train_y, test_x, test_y)
 
-                all_results.append({
-                    "drug_class": drug_class,
-                    "drug": drug,
-                    "n_train": len(train_x),
-                    "n_test": len(test_x),
-                    **results,
-                })
+                all_results.append(
+                    {
+                        "drug_class": drug_class,
+                        "drug": drug,
+                        "n_train": len(train_x),
+                        "n_test": len(test_x),
+                        **results,
+                    }
+                )
 
                 print(f"  Best test correlation: {results['best_test_corr']:+.4f}")
 
             except Exception as e:
                 print(f"  Error: {e}")
-                all_results.append({
-                    "drug_class": drug_class,
-                    "drug": drug,
-                    "error": str(e),
-                })
+                all_results.append(
+                    {
+                        "drug_class": drug_class,
+                        "drug": drug,
+                        "error": str(e),
+                    }
+                )
 
     # Summary
     print("\n" + "=" * 80)
@@ -345,7 +345,9 @@ def main():
 
     successful = [r for r in all_results if "best_test_corr" in r]
     for r in sorted(successful, key=lambda x: -x["best_test_corr"]):
-        print(f"{r['drug_class'].upper():<12} {r['drug']:<8} {r['n_train']:<10} {r['n_test']:<10} {r['best_test_corr']:+.4f}")
+        print(
+            f"{r['drug_class'].upper():<12} {r['drug']:<8} {r['n_train']:<10} {r['n_test']:<10} {r['best_test_corr']:+.4f}"
+        )
 
     if successful:
         avg_corr = np.mean([r["best_test_corr"] for r in successful])

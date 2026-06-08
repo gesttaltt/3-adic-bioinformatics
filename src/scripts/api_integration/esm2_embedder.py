@@ -21,14 +21,14 @@ Author: Claude Code
 Date: December 28, 2024
 """
 
-import torch
-import numpy as np
-from pathlib import Path
-from typing import Dict, List, Optional, Union
-from tqdm import tqdm
 import warnings
+from pathlib import Path
 
-warnings.filterwarnings('ignore')
+import numpy as np
+import torch
+from tqdm import tqdm
+
+warnings.filterwarnings("ignore")
 
 
 class ESM2Embedder:
@@ -46,32 +46,12 @@ class ESM2Embedder:
     """
 
     MODELS = {
-        "small": {
-            "name": "facebook/esm2_t6_8M_UR50D",
-            "dim": 320,
-            "params": "8M",
-            "memory": "~500MB"
-        },
-        "medium": {
-            "name": "facebook/esm2_t12_35M_UR50D",
-            "dim": 480,
-            "params": "35M",
-            "memory": "~1GB"
-        },
-        "large": {
-            "name": "facebook/esm2_t33_650M_UR50D",
-            "dim": 1280,
-            "params": "650M",
-            "memory": "~3GB"
-        },
+        "small": {"name": "facebook/esm2_t6_8M_UR50D", "dim": 320, "params": "8M", "memory": "~500MB"},
+        "medium": {"name": "facebook/esm2_t12_35M_UR50D", "dim": 480, "params": "35M", "memory": "~1GB"},
+        "large": {"name": "facebook/esm2_t33_650M_UR50D", "dim": 1280, "params": "650M", "memory": "~3GB"},
     }
 
-    def __init__(
-        self,
-        model_size: str = "small",
-        device: Optional[str] = None,
-        half_precision: bool = False
-    ):
+    def __init__(self, model_size: str = "small", device: str | None = None, half_precision: bool = False):
         """
         Initialize ESM-2 embedder.
 
@@ -80,7 +60,7 @@ class ESM2Embedder:
             device: Device to use ('cuda', 'cpu', or None for auto-detect)
             half_precision: Use FP16 for reduced memory (large model only)
         """
-        from transformers import AutoTokenizer, AutoModel
+        from transformers import AutoModel, AutoTokenizer
 
         if model_size not in self.MODELS:
             raise ValueError(f"Unknown model size: {model_size}. Choose from {list(self.MODELS.keys())}")
@@ -98,8 +78,8 @@ class ESM2Embedder:
         print(f"  Embedding dim: {self.model_info['dim']}")
         print(f"  Device: {self.device}")
 
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_info['name'])
-        self.model = AutoModel.from_pretrained(self.model_info['name'])
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_info["name"])
+        self.model = AutoModel.from_pretrained(self.model_info["name"])
 
         if half_precision and self.device == "cuda":
             self.model = self.model.half()
@@ -107,18 +87,14 @@ class ESM2Embedder:
         self.model = self.model.to(self.device)
         self.model.eval()
 
-        print(f"  Model loaded successfully!")
+        print("  Model loaded successfully!")
 
     @property
     def embedding_dim(self) -> int:
         """Return embedding dimension."""
-        return self.model_info['dim']
+        return self.model_info["dim"]
 
-    def embed(
-        self,
-        sequence: str,
-        pooling: str = "mean"
-    ) -> np.ndarray:
+    def embed(self, sequence: str, pooling: str = "mean") -> np.ndarray:
         """
         Get embedding for a single sequence.
 
@@ -134,11 +110,7 @@ class ESM2Embedder:
                 - 'mean'/'cls': (embedding_dim,)
                 - 'none': (seq_len, embedding_dim)
         """
-        inputs = self.tokenizer(
-            sequence,
-            return_tensors="pt",
-            add_special_tokens=True
-        ).to(self.device)
+        inputs = self.tokenizer(sequence, return_tensors="pt", add_special_tokens=True).to(self.device)
 
         with torch.no_grad():
             outputs = self.model(**inputs)
@@ -158,11 +130,7 @@ class ESM2Embedder:
             raise ValueError(f"Unknown pooling: {pooling}")
 
     def embed_batch(
-        self,
-        sequences: List[str],
-        pooling: str = "mean",
-        batch_size: int = 8,
-        show_progress: bool = True
+        self, sequences: list[str], pooling: str = "mean", batch_size: int = 8, show_progress: bool = True
     ) -> np.ndarray:
         """
         Get embeddings for multiple sequences.
@@ -183,15 +151,10 @@ class ESM2Embedder:
             iterator = tqdm(iterator, desc="Embedding sequences")
 
         for i in iterator:
-            batch = sequences[i:i + batch_size]
+            batch = sequences[i : i + batch_size]
 
             inputs = self.tokenizer(
-                batch,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=1024,
-                add_special_tokens=True
+                batch, return_tensors="pt", padding=True, truncation=True, max_length=1024, add_special_tokens=True
             ).to(self.device)
 
             with torch.no_grad():
@@ -201,7 +164,7 @@ class ESM2Embedder:
 
             if pooling == "mean":
                 # Mean pooling with attention mask
-                attention_mask = inputs['attention_mask'].unsqueeze(-1)
+                attention_mask = inputs["attention_mask"].unsqueeze(-1)
                 batch_embeddings = (batch_embeddings * attention_mask).sum(dim=1)
                 batch_embeddings = batch_embeddings / attention_mask.sum(dim=1)
             elif pooling == "cls":
@@ -211,11 +174,7 @@ class ESM2Embedder:
 
         return np.vstack(embeddings)
 
-    def embed_mutation(
-        self,
-        wt_sequence: str,
-        mutation: str
-    ) -> Dict[str, np.ndarray]:
+    def embed_mutation(self, wt_sequence: str, mutation: str) -> dict[str, np.ndarray]:
         """
         Get embeddings for wild-type and mutant sequences.
 
@@ -233,10 +192,10 @@ class ESM2Embedder:
 
         # Verify wild-type
         if wt_sequence[pos] != wt_aa:
-            raise ValueError(f"Position {pos+1} is {wt_sequence[pos]}, not {wt_aa}")
+            raise ValueError(f"Position {pos + 1} is {wt_sequence[pos]}, not {wt_aa}")
 
         # Create mutant sequence
-        mut_sequence = wt_sequence[:pos] + mut_aa + wt_sequence[pos+1:]
+        mut_sequence = wt_sequence[:pos] + mut_aa + wt_sequence[pos + 1 :]
 
         # Get embeddings
         wt_emb = self.embed(wt_sequence)
@@ -251,15 +210,10 @@ class ESM2Embedder:
             "mut": mut_emb,
             "diff": diff,
             "cosine_similarity": similarity,
-            "euclidean_distance": np.linalg.norm(diff)
+            "euclidean_distance": np.linalg.norm(diff),
         }
 
-    def precompute_dataset(
-        self,
-        sequences: Dict[str, str],
-        output_path: Union[str, Path],
-        pooling: str = "mean"
-    ):
+    def precompute_dataset(self, sequences: dict[str, str], output_path: str | Path, pooling: str = "mean"):
         """
         Pre-compute embeddings for entire dataset and save to disk.
 
@@ -279,11 +233,7 @@ class ESM2Embedder:
 
         # Save as numpy archive
         np.savez(
-            output_path,
-            ids=np.array(ids),
-            embeddings=embeddings,
-            model=self.model_info['name'],
-            dim=self.embedding_dim
+            output_path, ids=np.array(ids), embeddings=embeddings, model=self.model_info["name"], dim=self.embedding_dim
         )
 
         print(f"Saved embeddings to: {output_path}")
@@ -291,7 +241,7 @@ class ESM2Embedder:
         print(f"  Size: {output_path.stat().st_size / 1024 / 1024:.2f} MB")
 
     @staticmethod
-    def load_precomputed(path: Union[str, Path]) -> Dict[str, np.ndarray]:
+    def load_precomputed(path: str | Path) -> dict[str, np.ndarray]:
         """
         Load pre-computed embeddings from disk.
 
@@ -302,7 +252,7 @@ class ESM2Embedder:
             Dictionary of {sequence_id: embedding}
         """
         data = np.load(path, allow_pickle=True)
-        return dict(zip(data['ids'], data['embeddings']))
+        return dict(zip(data["ids"], data["embeddings"], strict=False))
 
 
 class ESM2VAEEncoder:
@@ -313,11 +263,7 @@ class ESM2VAEEncoder:
     for our existing VAE architecture.
     """
 
-    def __init__(
-        self,
-        embedder: ESM2Embedder,
-        latent_dim: int = 16
-    ):
+    def __init__(self, embedder: ESM2Embedder, latent_dim: int = 16):
         """
         Initialize ESM-2 VAE encoder.
 
@@ -379,10 +325,7 @@ def demo():
     print("=" * 60)
 
     # HIV-1 Protease sequence
-    hiv_protease = (
-        "PQVTLWQRPLVTIKIGGQLKEALLDTGADDTVLEEMSLPGRWKPKMIGGIGGFIKVRQYD"
-        "QILIEICGHKAIGTVLVGPTPVNIIGRNLLTQIGCTLNF"
-    )
+    hiv_protease = "PQVTLWQRPLVTIKIGGQLKEALLDTGADDTVLEEMSLPGRWKPKMIGGIGGFIKVRQYDQILIEICGHKAIGTVLVGPTPVNIIGRNLLTQIGCTLNF"
 
     # Initialize embedder
     embedder = ESM2Embedder(model_size="small")
@@ -403,8 +346,7 @@ def demo():
     for mut in mutations:
         try:
             result = embedder.embed_mutation(hiv_protease, mut)
-            print(f"   {mut}: cos_sim={result['cosine_similarity']:.6f}, "
-                  f"dist={result['euclidean_distance']:.4f}")
+            print(f"   {mut}: cos_sim={result['cosine_similarity']:.6f}, dist={result['euclidean_distance']:.4f}")
         except Exception as e:
             print(f"   {mut}: Error - {e}")
 

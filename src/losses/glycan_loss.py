@@ -28,22 +28,48 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 # N-linked glycosylation sequon patterns
 GLYCAN_SEQUONS = ["NXS", "NXT"]  # X is any amino acid except P
 
 # Common HIV Env glycan positions (HXB2 numbering)
 HIV_ENV_GLYCAN_SITES = [
-    88, 130, 133, 137, 156, 160, 197, 234, 241, 262,
-    276, 289, 295, 301, 332, 339, 355, 363, 386, 392,
-    397, 406, 411, 448, 460, 463, 611, 616, 625, 637,
+    88,
+    130,
+    133,
+    137,
+    156,
+    160,
+    197,
+    234,
+    241,
+    262,
+    276,
+    289,
+    295,
+    301,
+    332,
+    339,
+    355,
+    363,
+    386,
+    392,
+    397,
+    406,
+    411,
+    448,
+    460,
+    463,
+    611,
+    616,
+    625,
+    637,
 ]
 
 # Glycan types and their approximate sizes (Angstroms radius)
 GLYCAN_SIZES = {
     "high_mannose": 15.0,  # Man5-9GlcNAc2
-    "complex": 12.0,       # Bi/tri-antennary
-    "hybrid": 13.0,        # Mixed mannose/complex
+    "complex": 12.0,  # Bi/tri-antennary
+    "hybrid": 13.0,  # Mixed mannose/complex
 }
 
 # Amino acid one-letter codes
@@ -479,9 +505,8 @@ class SentinelGlycanLoss(nn.Module):
             # Spacing loss: penalize uneven glycan distribution
             if metrics.avg_glycan_spacing > 0:
                 spacing_variance = (
-                    (metrics.avg_glycan_spacing - metrics.min_glycan_spacing)
-                    / metrics.avg_glycan_spacing
-                )
+                    metrics.avg_glycan_spacing - metrics.min_glycan_spacing
+                ) / metrics.avg_glycan_spacing
             else:
                 spacing_variance = 0.0
 
@@ -502,15 +527,9 @@ class SentinelGlycanLoss(nn.Module):
 
         return {
             "loss": total_loss,
-            "coverage_loss": torch.tensor(
-                self.coverage_weight * sum(losses) / len(losses) if losses else 0.0
-            ),
-            "visibility_loss": torch.tensor(
-                self.visibility_weight * sum(losses) / len(losses) if losses else 0.0
-            ),
-            "spacing_loss": torch.tensor(
-                self.spacing_weight * sum(losses) / len(losses) if losses else 0.0
-            ),
+            "coverage_loss": torch.tensor(self.coverage_weight * sum(losses) / len(losses) if losses else 0.0),
+            "visibility_loss": torch.tensor(self.visibility_weight * sum(losses) / len(losses) if losses else 0.0),
+            "spacing_loss": torch.tensor(self.spacing_weight * sum(losses) / len(losses) if losses else 0.0),
             "supervision_loss": supervision_loss,
         }
 
@@ -599,18 +618,12 @@ class GlycanRemovalSimulator(nn.Module):
             if abs(gpos - epitope_center) > 50:
                 continue
 
-            before, after = self.simulate_removal(
-                glycan_positions, sequence_length, [i]
-            )
+            before, after = self.simulate_removal(glycan_positions, sequence_length, [i])
 
             # Compute visibility improvement at epitope center
-            before_vis = self.analyzer.compute_padic_visibility(
-                glycan_positions, epitope_center
-            )
+            before_vis = self.analyzer.compute_padic_visibility(glycan_positions, epitope_center)
             remaining = glycan_positions[torch.arange(len(glycan_positions)) != i]
-            after_vis = self.analyzer.compute_padic_visibility(
-                remaining, epitope_center
-            )
+            after_vis = self.analyzer.compute_padic_visibility(remaining, epitope_center)
 
             improvement = (after_vis - before_vis).item()
             results.append(([i], improvement))
@@ -640,13 +653,13 @@ class GlycanRemovalSimulator(nn.Module):
 
         epitope_analysis = []
         for epitope in target_epitopes:
-            optimal = self.find_optimal_removals(
-                glycan_positions, sequence_length, epitope
+            optimal = self.find_optimal_removals(glycan_positions, sequence_length, epitope)
+            epitope_analysis.append(
+                {
+                    "epitope": epitope,
+                    "recommended_removals": optimal,
+                }
             )
-            epitope_analysis.append({
-                "epitope": epitope,
-                "recommended_removals": optimal,
-            })
 
         return {
             "original_metrics": original_metrics,

@@ -24,7 +24,6 @@ References:
 from __future__ import annotations
 
 import math
-from typing import List, Optional
 
 import torch
 import torch.nn as nn
@@ -124,7 +123,7 @@ class PoincareOperations:
     def exp_map(
         self,
         v: torch.Tensor,
-        base: Optional[torch.Tensor] = None,
+        base: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Exponential map: tangent vector -> manifold point.
 
@@ -156,7 +155,7 @@ class PoincareOperations:
     def log_map(
         self,
         y: torch.Tensor,
-        base: Optional[torch.Tensor] = None,
+        base: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Logarithmic map: manifold point -> tangent vector.
 
@@ -535,7 +534,7 @@ class HyperbolicGraphConv(nn.Module):
         self,
         x: torch.Tensor,
         edge_index: torch.Tensor,
-        edge_attr: Optional[torch.Tensor] = None,
+        edge_attr: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Forward pass.
 
@@ -583,7 +582,7 @@ class HyperbolicGraphConv(nn.Module):
         msg = torch.zeros_like(x)
         count = torch.zeros(n_nodes, 1, device=device)
 
-        for i, (s, d) in enumerate(zip(src, dst)):
+        for i, (s, d) in enumerate(zip(src, dst, strict=False)):
             # Log map source to tangent space at destination
             v = self.poincare.log_map(x[s], x[d])
             msg[d] = msg[d] + att_weights[i] * v
@@ -762,7 +761,7 @@ class SpectralWavelet(nn.Module):
 
         # Adjacency
         adj = torch.zeros(n_nodes, n_nodes, device=device)
-        for s, d in zip(src, dst):
+        for s, d in zip(src, dst, strict=False):
             adj[s, d] = 1
             adj[d, s] = 1
 
@@ -778,7 +777,7 @@ class SpectralWavelet(nn.Module):
         self,
         x: torch.Tensor,
         edge_index: torch.Tensor,
-    ) -> List[torch.Tensor]:
+    ) -> list[torch.Tensor]:
         """Compute wavelet coefficients at multiple scales.
 
         Args:
@@ -917,7 +916,7 @@ class HyboWaveNet(nn.Module):
         self,
         x: torch.Tensor,
         edge_index: torch.Tensor,
-        edge_attr: Optional[torch.Tensor] = None,
+        edge_attr: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Forward pass.
 
@@ -937,7 +936,9 @@ class HyboWaveNet(nn.Module):
 
         # Process each scale
         scale_outputs = []
-        for i, (wavelet_x, encoder, gnns) in enumerate(zip(wavelet_features, self.scale_encoders, self.scale_gnns)):
+        for i, (wavelet_x, encoder, gnns) in enumerate(
+            zip(wavelet_features, self.scale_encoders, self.scale_gnns, strict=False)
+        ):
             # Encode
             h = encoder(wavelet_x)
             h = self.poincare.project(h)
@@ -986,7 +987,7 @@ class HyboWaveNet(nn.Module):
         self,
         x: torch.Tensor,
         edge_index: torch.Tensor,
-        batch: Optional[torch.Tensor] = None,
+        batch: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Encode entire graph to single embedding.
 

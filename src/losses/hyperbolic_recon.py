@@ -26,8 +26,6 @@ hyperbolic-weighted cross-entropy where the loss is modulated
 by the hyperbolic position of the latent code.
 """
 
-from typing import Dict, Optional, Tuple
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -110,7 +108,7 @@ class HyperbolicReconLoss(nn.Module):
         self,
         z_enc: torch.Tensor,
         z_dec: torch.Tensor,
-        z_enc_hyp: Optional[torch.Tensor] = None,
+        z_enc_hyp: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute geodesic reconstruction loss.
 
@@ -162,7 +160,11 @@ class HyperbolicReconLoss(nn.Module):
         target_classes = (targets + 1).long()  # {-1,0,1} -> {0,1,2}
 
         # Compute per-sample cross-entropy
-        ce_per_sample = F.cross_entropy(logits.view(-1, 3), target_classes.view(-1), reduction="none").view(batch_size, -1).sum(dim=1)
+        ce_per_sample = (
+            F.cross_entropy(logits.view(-1, 3), target_classes.view(-1), reduction="none")
+            .view(batch_size, -1)
+            .sum(dim=1)
+        )
 
         # Apply radius weighting if enabled
         if self.radius_weighting:
@@ -178,8 +180,8 @@ class HyperbolicReconLoss(nn.Module):
         logits: torch.Tensor,
         targets: torch.Tensor,
         z_enc: torch.Tensor,
-        z_dec: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, Dict[str, float]]:
+        z_dec: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, dict[str, float]]:
         """Compute hyperbolic reconstruction loss.
 
         Args:
@@ -377,7 +379,7 @@ class HyperbolicCentroidLoss(nn.Module):
         max_level: int = 4,
         curvature: float = 1.0,
         max_norm: float = 0.95,
-        level_weights: Optional[torch.Tensor] = None,
+        level_weights: torch.Tensor | None = None,
     ):
         """Initialize Hyperbolic Centroid Loss.
 
@@ -414,7 +416,7 @@ class HyperbolicCentroidLoss(nn.Module):
     def _compute_frechet_mean(
         self,
         points: torch.Tensor,
-        weights: Optional[torch.Tensor] = None,
+        weights: torch.Tensor | None = None,
         n_iter: int = 10,
         tol: float = 1e-6,
     ) -> torch.Tensor:
@@ -457,7 +459,7 @@ class HyperbolicCentroidLoss(nn.Module):
 
         return mean
 
-    def forward(self, z: torch.Tensor, batch_indices: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, float]]:
+    def forward(self, z: torch.Tensor, batch_indices: torch.Tensor) -> tuple[torch.Tensor, dict[str, float]]:
         """Compute hyperbolic centroid loss.
 
         Args:

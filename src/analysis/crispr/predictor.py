@@ -77,7 +77,7 @@ class OfftargetActivityPredictor(nn.Module):
         """
         features = torch.zeros(self.seq_len, 4)
 
-        for i, (t, o) in enumerate(zip(target.upper(), offtarget.upper())):
+        for i, (t, o) in enumerate(zip(target.upper(), offtarget.upper(), strict=False)):
             if t == o:
                 features[i, 0] = 1.0  # Match
             elif (t in "AG" and o in "AG") or (t in "CT" and o in "CT"):
@@ -104,15 +104,14 @@ class OfftargetActivityPredictor(nn.Module):
         batch_size = len(targets)
 
         # Compute mismatch features
-        mismatch_features = torch.stack([
-            self.compute_mismatch_features(t, o)
-            for t, o in zip(targets, offtargets)
-        ])
+        mismatch_features = torch.stack(
+            [self.compute_mismatch_features(t, o) for t, o in zip(targets, offtargets, strict=False)]
+        )
 
         # Compute similarity (1 - mismatch fraction)
         similarity = torch.zeros(batch_size, self.seq_len)
-        for i, (t, o) in enumerate(zip(targets, offtargets)):
-            for j, (nt1, nt2) in enumerate(zip(t.upper(), o.upper())):
+        for i, (t, o) in enumerate(zip(targets, offtargets, strict=False)):
+            for j, (nt1, nt2) in enumerate(zip(t.upper(), o.upper(), strict=False)):
                 similarity[i, j] = 1.0 if nt1 == nt2 else 0.0
 
         # Encode features

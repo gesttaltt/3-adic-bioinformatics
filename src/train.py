@@ -30,7 +30,6 @@ Usage:
 import argparse
 import sys
 from pathlib import Path
-from typing import Optional
 
 
 def list_modes():
@@ -74,9 +73,12 @@ def train_v5_11(args):
     cmd = [
         sys.executable,
         "src/scripts/train.py",
-        "--epochs", str(args.epochs),
-        "--device", args.device,
-        "--batch_size", str(args.batch_size),
+        "--epochs",
+        str(args.epochs),
+        "--device",
+        args.device,
+        "--batch_size",
+        str(args.batch_size),
     ]
 
     if args.config:
@@ -86,11 +88,13 @@ def train_v5_11(args):
         cmd.extend(["--save_dir", str(args.save_dir)])
 
     # Add standard options for best performance
-    cmd.extend([
-        "--option_c",
-        "--dual_projection",
-        "--riemannian",
-    ])
+    cmd.extend(
+        [
+            "--option_c",
+            "--dual_projection",
+            "--riemannian",
+        ]
+    )
 
     print(f"Running: {' '.join(cmd)}")
     return subprocess.run(cmd).returncode
@@ -107,9 +111,12 @@ def train_v5_11_11(args):
         cmd = [
             sys.executable,
             "src/scripts/train.py",
-            "--epochs", str(args.epochs),
-            "--device", args.device,
-            "--batch_size", str(args.batch_size),
+            "--epochs",
+            str(args.epochs),
+            "--device",
+            args.device,
+            "--batch_size",
+            str(args.batch_size),
             "--homeostasis",
             "--option_c",
             "--dual_projection",
@@ -166,7 +173,8 @@ def train_hiv(args):
     cmd = [
         sys.executable,
         str(script_path),
-        "--epochs", str(args.epochs),
+        "--epochs",
+        str(args.epochs),
     ]
 
     if args.dataset:
@@ -221,7 +229,7 @@ def train_swarm(args):
     for epoch in range(args.epochs):
         loss = trainer.train_step(x)
         if (epoch + 1) % 10 == 0:
-            print(f"Epoch {epoch+1}/{args.epochs}: loss={loss:.4f}")
+            print(f"Epoch {epoch + 1}/{args.epochs}: loss={loss:.4f}")
 
     # Save
     if args.save_dir:
@@ -269,10 +277,7 @@ def train_predictors(args):
     n_features = 10
 
     X = np.random.randn(n_samples, n_features)
-    if args.predictor == "tropism":
-        y = np.random.randint(0, 2, n_samples)
-    else:
-        y = np.random.randn(n_samples)
+    y = np.random.randint(0, 2, n_samples) if args.predictor == "tropism" else np.random.randn(n_samples)
 
     # Split
     split = int(0.8 * n_samples)
@@ -304,7 +309,8 @@ def main():
     )
 
     parser.add_argument(
-        "--mode", "-m",
+        "--mode",
+        "-m",
         type=str,
         choices=["v5.11", "v5.11.11", "epsilon", "hiv", "swarm", "predictors"],
         help="Training mode",
@@ -315,31 +321,36 @@ def main():
         help="List available training modes",
     )
     parser.add_argument(
-        "--config", "-c",
+        "--config",
+        "-c",
         type=Path,
         help="Path to YAML configuration file",
     )
     parser.add_argument(
-        "--epochs", "-e",
+        "--epochs",
+        "-e",
         type=int,
         default=100,
         help="Number of training epochs (default: 100)",
     )
     parser.add_argument(
-        "--batch-size", "-b",
+        "--batch-size",
+        "-b",
         dest="batch_size",
         type=int,
         default=512,
         help="Batch size (default: 512)",
     )
     parser.add_argument(
-        "--device", "-d",
+        "--device",
+        "-d",
         type=str,
         default="cuda",
         help="Device to use (default: cuda)",
     )
     parser.add_argument(
-        "--save-dir", "-o",
+        "--save-dir",
+        "-o",
         dest="save_dir",
         type=Path,
         help="Directory to save outputs",

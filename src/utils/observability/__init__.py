@@ -3,7 +3,7 @@
 
 from src.utils.observability.async_writer import AsyncTensorBoardWriter, NullWriter
 from src.utils.observability.coverage import CoverageEvaluator, CoverageStats
-from src.utils.observability.logging import setup_logging, get_logger
+from src.utils.observability.logging import get_logger, setup_logging
 from src.utils.observability.metrics_buffer import MetricsBuffer
 from src.utils.observability.training_history import TrainingHistory
 

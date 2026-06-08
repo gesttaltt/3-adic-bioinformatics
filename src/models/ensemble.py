@@ -14,8 +14,6 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -25,8 +23,9 @@ import torch.nn.functional as F
 @dataclass
 class EnsembleConfig:
     """Configuration for ensemble model."""
+
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [256, 128, 64])
+    hidden_dims: list[int] = field(default_factory=lambda: [256, 128, 64])
     dropout: float = 0.1
     n_heads: int = 4
     transformer_layers: int = 2
@@ -42,12 +41,14 @@ class StandardVAEModule(nn.Module):
         layers = []
         in_dim = input_dim
         for h in cfg.hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, h),
-                nn.GELU(),
-                nn.LayerNorm(h),
-                nn.Dropout(cfg.dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, h),
+                    nn.GELU(),
+                    nn.LayerNorm(h),
+                    nn.Dropout(cfg.dropout),
+                ]
+            )
             in_dim = h
         self.encoder = nn.Sequential(*layers)
 
@@ -97,12 +98,14 @@ class AttentionVAEModule(nn.Module):
         layers = []
         in_dim = 64 * n_positions
         for h in cfg.hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, h),
-                nn.GELU(),
-                nn.LayerNorm(h),
-                nn.Dropout(cfg.dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, h),
+                    nn.GELU(),
+                    nn.LayerNorm(h),
+                    nn.Dropout(cfg.dropout),
+                ]
+            )
             in_dim = h
         self.encoder = nn.Sequential(*layers)
 
@@ -255,10 +258,10 @@ class DrugClassEnsemble(nn.Module):
         "ini": 288,
     }
 
-    def __init__(self, cfg: Optional[EnsembleConfig] = None):
+    def __init__(self, cfg: EnsembleConfig | None = None):
         super().__init__()
         self.cfg = cfg or EnsembleConfig()
-        self.models: Dict[str, nn.Module] = {}
+        self.models: dict[str, nn.Module] = {}
 
     def get_model_for_class(self, drug_class: str, input_dim: int) -> nn.Module:
         """Get or create model for drug class."""
@@ -284,7 +287,7 @@ class DrugClassEnsemble(nn.Module):
                 return drug_class
         raise ValueError(f"Unknown drug: {drug}")
 
-    def forward(self, x: torch.Tensor, drug_class: str) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor, drug_class: str) -> dict[str, torch.Tensor]:
         """Forward pass for specific drug class."""
         model = self.get_model_for_class(drug_class, x.size(1))
         return model(x)
@@ -301,10 +304,10 @@ class DrugClassEnsemble(nn.Module):
 
 def compute_ensemble_loss(
     cfg: EnsembleConfig,
-    out: Dict[str, torch.Tensor],
+    out: dict[str, torch.Tensor],
     x: torch.Tensor,
     y: torch.Tensor,
-) -> Dict[str, torch.Tensor]:
+) -> dict[str, torch.Tensor]:
     """Compute loss for ensemble model."""
     losses = {}
 

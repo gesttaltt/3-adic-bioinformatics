@@ -34,8 +34,9 @@ from scipy.spatial import Voronoi, voronoi_plot_2d
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.config.paths import CHECKPOINTS_DIR
 from src.models.ternary_vae_v5_6 import DualNeuralVAEV5
+
+from src.config.paths import CHECKPOINTS_DIR
 
 
 def load_checkpoint(checkpoint_path: str, device: str = "cuda"):
@@ -43,13 +44,7 @@ def load_checkpoint(checkpoint_path: str, device: str = "cuda"):
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
     # Extract config
-    if "config" in checkpoint:
-        config = checkpoint["config"]
-    else:
-        config = {
-            "input_dim": 9,
-            "latent_dim": 16,
-        }
+    config = checkpoint.get("config", {"input_dim": 9, "latent_dim": 16})
 
     # Create model
     model = DualNeuralVAEV5(
@@ -261,7 +256,7 @@ def detect_latent_holes(latent_codes, grid_size=100, threshold_percentile=10):
 
     # Identify holes: low density but inside hull
     threshold = np.percentile(density_smooth[density_smooth > 0], threshold_percentile)
-    holes = (density_smooth.T < threshold) & inside_mask
+    holes = (threshold > density_smooth.T) & inside_mask
 
     return X, Y, density_smooth.T, holes, z_2d
 
@@ -415,7 +410,9 @@ def plot_all_analyses(model, operations, latent_codes, device="cuda"):
             polygon = vor.vertices[region]
             # Shoelace formula for area
             n = len(polygon)
-            area = 0.5 * abs(sum(polygon[i, 0] * polygon[(i + 1) % n, 1] - polygon[(i + 1) % n, 0] * polygon[i, 1] for i in range(n)))
+            area = 0.5 * abs(
+                sum(polygon[i, 0] * polygon[(i + 1) % n, 1] - polygon[(i + 1) % n, 0] * polygon[i, 1] for i in range(n))
+            )
             cell_areas.append(area)
 
     print(f"  Voronoi cells computed: {len(points)}")
@@ -646,10 +643,7 @@ def main():
 
     # Prefer 'best.pt' from v5_6
     best_v56 = CHECKPOINTS_DIR / "v5_6" / "best.pt"
-    if best_v56.exists():
-        checkpoint_path = best_v56
-    else:
-        checkpoint_path = max(checkpoints, key=lambda x: x.stat().st_mtime)
+    checkpoint_path = best_v56 if best_v56.exists() else max(checkpoints, key=lambda x: x.stat().st_mtime)
 
     print(f"Loading checkpoint: {checkpoint_path.name}")
 

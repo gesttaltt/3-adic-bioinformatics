@@ -20,15 +20,14 @@ This module contains all loss computation separated from model architecture:
 Single responsibility: Loss computation only.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from .hyperbolic_prior import HomeostaticHyperbolicPrior, HyperbolicPrior
-from .hyperbolic_recon import (HomeostaticReconLoss, HyperbolicCentroidLoss,
-                               HyperbolicReconLoss)
+from .hyperbolic_recon import HomeostaticReconLoss, HyperbolicCentroidLoss, HyperbolicReconLoss
 from .padic import (
     PAdicMetricLoss,
     PAdicNormLoss,
@@ -145,7 +144,7 @@ class RepulsionLoss(nn.Module):
         mask = ~torch.eye(z.size(0), dtype=torch.bool, device=z.device)
 
         # RBF kernel: penalize points that are too close
-        repulsion = torch.exp(-dists[mask] ** 2 / (self.sigma**2)).mean()
+        repulsion = torch.exp(-(dists[mask] ** 2) / (self.sigma**2)).mean()
 
         return repulsion
 
@@ -168,7 +167,7 @@ class DualVAELoss(nn.Module):
         self,
         free_bits: float = 0.0,
         repulsion_sigma: float = 0.5,
-        padic_config: Optional[Dict[str, Any]] = None,
+        padic_config: dict[str, Any] | None = None,
     ):
         """Initialize Dual VAE loss.
 
@@ -298,7 +297,7 @@ class DualVAELoss(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        outputs: Dict[str, torch.Tensor],
+        outputs: dict[str, torch.Tensor],
         lambda1: float,
         lambda2: float,
         lambda3: float,
@@ -308,9 +307,9 @@ class DualVAELoss(nn.Module):
         grad_norm_B_ema: torch.Tensor,
         gradient_balance: bool,
         training: bool,
-        batch_indices: Optional[torch.Tensor] = None,
-        ranking_weight_override: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        batch_indices: torch.Tensor | None = None,
+        ranking_weight_override: float | None = None,
+    ) -> dict[str, Any]:
         """Compute complete Dual VAE loss.
 
         Args:
@@ -439,7 +438,9 @@ class DualVAELoss(nn.Module):
             # v5.9: PAdicRankingLossHyperbolic (Poincare distance + radial hierarchy)
             if self.enable_ranking_loss_hyperbolic:
                 # Use override weight if provided (for continuous feedback)
-                hyp_weight = ranking_weight_override if ranking_weight_override is not None else self.ranking_hyperbolic_weight
+                hyp_weight = (
+                    ranking_weight_override if ranking_weight_override is not None else self.ranking_hyperbolic_weight
+                )
                 padic_hyp_A, metrics_hyp_A = self.padic_ranking_loss_hyperbolic(outputs["z_A"], batch_indices)
                 padic_hyp_B, metrics_hyp_B = self.padic_ranking_loss_hyperbolic(outputs["z_B"], batch_indices)
                 total_loss = total_loss + hyp_weight * (padic_hyp_A + padic_hyp_B)
@@ -528,8 +529,12 @@ class DualVAELoss(nn.Module):
             "padic_norm_A": (padic_norm_A.item() if torch.is_tensor(padic_norm_A) else padic_norm_A),
             "padic_norm_B": (padic_norm_B.item() if torch.is_tensor(padic_norm_B) else padic_norm_B),
             # v5.8: PAdicRankingLossV2 metrics
-            "padic_ranking_v2_A": (padic_ranking_v2_A.item() if torch.is_tensor(padic_ranking_v2_A) else padic_ranking_v2_A),
-            "padic_ranking_v2_B": (padic_ranking_v2_B.item() if torch.is_tensor(padic_ranking_v2_B) else padic_ranking_v2_B),
+            "padic_ranking_v2_A": (
+                padic_ranking_v2_A.item() if torch.is_tensor(padic_ranking_v2_A) else padic_ranking_v2_A
+            ),
+            "padic_ranking_v2_B": (
+                padic_ranking_v2_B.item() if torch.is_tensor(padic_ranking_v2_B) else padic_ranking_v2_B
+            ),
             "ranking_v2_hard_ratio": (metrics_v2_A.get("hard_ratio", 0) + metrics_v2_B.get("hard_ratio", 0)) / 2,
             "ranking_v2_violations": metrics_v2_A.get("violations", 0) + metrics_v2_B.get("violations", 0),
             # v5.9: Hyperbolic p-Adic metrics
@@ -538,7 +543,10 @@ class DualVAELoss(nn.Module):
             "hyp_ranking_weight": hyp_weight,
             "hyp_hard_ratio": (metrics_hyp_A.get("hard_ratio", 0) + metrics_hyp_B.get("hard_ratio", 0)) / 2,
             "hyp_violations": metrics_hyp_A.get("violations", 0) + metrics_hyp_B.get("violations", 0),
-            "hyp_poincare_dist_mean": (metrics_hyp_A.get("poincare_dist_mean", 0) + metrics_hyp_B.get("poincare_dist_mean", 0)) / 2,
+            "hyp_poincare_dist_mean": (
+                metrics_hyp_A.get("poincare_dist_mean", 0) + metrics_hyp_B.get("poincare_dist_mean", 0)
+            )
+            / 2,
             "hyp_radial_loss": (metrics_hyp_A.get("radial_loss", 0) + metrics_hyp_B.get("radial_loss", 0)) / 2,
             "hyp_ranking_loss": (metrics_hyp_A.get("ranking_loss", 0) + metrics_hyp_B.get("ranking_loss", 0)) / 2,
             # v5.10: Pure Hyperbolic metrics

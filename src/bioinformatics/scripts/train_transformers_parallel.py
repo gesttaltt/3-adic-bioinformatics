@@ -20,33 +20,34 @@ Usage:
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parents[3]))
 
 import argparse
 import json
-from datetime import datetime
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, List, Tuple
+from datetime import datetime
+from typing import Any
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader, random_split, Subset
+from scipy.stats import pearsonr, spearmanr
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from scipy.stats import spearmanr, pearsonr
-import numpy as np
+from torch.utils.data import DataLoader, Dataset, random_split
 
-from src.bioinformatics.models.ddg_vae import DDGVAE
+from src.bioinformatics.data.proteingym_loader import ProteinGymLoader
 from src.bioinformatics.data.protherm_loader import ProThermLoader
 from src.bioinformatics.data.s669_loader import S669Loader
-from src.bioinformatics.data.proteingym_loader import ProteinGymLoader
 from src.bioinformatics.training.deterministic import set_deterministic_mode
 
 
 @dataclass
 class TransformerConfig:
     """Configuration for DDG Transformer."""
+
     d_model: int = 64
     n_heads: int = 4
     n_layers: int = 3
@@ -73,9 +74,7 @@ class DDGTransformer(nn.Module):
         self.input_proj = nn.Linear(1, config.d_model)
 
         # Positional encoding for feature dimensions
-        self.pos_enc = nn.Parameter(
-            torch.randn(1, input_dim, config.d_model) * 0.02
-        )
+        self.pos_enc = nn.Parameter(torch.randn(1, input_dim, config.d_model) * 0.02)
 
         # Transformer encoder
         encoder_layer = nn.TransformerEncoderLayer(
@@ -116,7 +115,7 @@ class DDGTransformer(nn.Module):
                 if module.bias is not None:
                     nn.init.zeros_(module.bias)
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward pass.
 
         Args:
@@ -159,7 +158,7 @@ class DDGTransformer(nn.Module):
         x: torch.Tensor,
         y: torch.Tensor,
         reduction: str = "mean",
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Compute MSE loss.
 
         Args:
@@ -189,7 +188,7 @@ def compute_qa_metrics(
     model: nn.Module,
     dataset: Dataset,
     device: str = "cuda",
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Compute comprehensive QA metrics for a trained model.
 
     Args:
@@ -256,7 +255,7 @@ def compute_qa_metrics(
     }
 
 
-def print_qa_report(name: str, metrics: Dict[str, float]):
+def print_qa_report(name: str, metrics: dict[str, float]):
     """Print formatted QA report."""
     print(f"\n{'=' * 60}")
     print(f"QA REPORT: {name}")
@@ -270,9 +269,15 @@ def print_qa_report(name: str, metrics: Dict[str, float]):
     print(f"  Residual std:   {metrics['residual_std']:.4f}")
 
     # Quality assessment
-    quality = "EXCELLENT" if metrics['spearman'] > 0.7 else \
-              "GOOD" if metrics['spearman'] > 0.5 else \
-              "MODERATE" if metrics['spearman'] > 0.3 else "NEEDS IMPROVEMENT"
+    quality = (
+        "EXCELLENT"
+        if metrics["spearman"] > 0.7
+        else "GOOD"
+        if metrics["spearman"] > 0.5
+        else "MODERATE"
+        if metrics["spearman"] > 0.3
+        else "NEEDS IMPROVEMENT"
+    )
     print(f"\n  Quality:        {quality}")
     print(f"{'=' * 60}")
 
@@ -283,14 +288,14 @@ def train_transformer(
     val_dataset: Dataset,
     input_dim: int,
     output_dir: Path,
-    config: Optional[TransformerConfig] = None,
+    config: TransformerConfig | None = None,
     epochs: int = 100,
     batch_size: int = 32,
     lr: float = 1e-4,
     patience: int = 20,
     device: str = "cuda",
     verbose: bool = True,
-) -> Tuple[DDGTransformer, Dict[str, Any]]:
+) -> tuple[DDGTransformer, dict[str, Any]]:
     """Train a DDG Transformer with early stopping and QA.
 
     Args:
@@ -403,21 +408,26 @@ def train_transformer(
         history["val_pearson"].append(float(val_pearson))
 
         if verbose and epoch % 10 == 0:
-            print(f"  Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
-                  f"ρ={val_spearman:.4f} r={val_pearson:.4f}")
+            print(
+                f"  Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
+                f"ρ={val_spearman:.4f} r={val_pearson:.4f}"
+            )
 
         # Early stopping
         if val_spearman > best_spearman:
             best_spearman = val_spearman
             best_epoch = epoch
             no_improve = 0
-            torch.save({
-                "model_state_dict": model.state_dict(),
-                "config": config,
-                "epoch": epoch,
-                "spearman": val_spearman,
-                "pearson": val_pearson,
-            }, output_dir / "best.pt")
+            torch.save(
+                {
+                    "model_state_dict": model.state_dict(),
+                    "config": config,
+                    "epoch": epoch,
+                    "spearman": val_spearman,
+                    "pearson": val_pearson,
+                },
+                output_dir / "best.pt",
+            )
         else:
             no_improve += 1
             if no_improve >= patience:
@@ -425,11 +435,14 @@ def train_transformer(
                 break
 
     # Save final
-    torch.save({
-        "model_state_dict": model.state_dict(),
-        "config": config,
-        "history": history,
-    }, output_dir / "final.pt")
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "config": config,
+            "history": history,
+        },
+        output_dir / "final.pt",
+    )
 
     with open(output_dir / "training_history.json", "w") as f:
         json.dump(history, f, indent=2)
@@ -438,7 +451,7 @@ def train_transformer(
     ckpt = torch.load(output_dir / "best.pt", map_location=device, weights_only=False)
     model.load_state_dict(ckpt["model_state_dict"])
 
-    print(f"\n  Training complete!")
+    print("\n  Training complete!")
     print(f"  Best epoch: {best_epoch}")
     print(f"  Best Spearman: {best_spearman:.4f}")
 
@@ -459,7 +472,7 @@ class FeatureDataset(Dataset):
         return self.features[idx], self.labels[idx]
 
 
-def load_s669_data(device: str = "cuda") -> Tuple[Dataset, Dataset, int]:
+def load_s669_data(device: str = "cuda") -> tuple[Dataset, Dataset, int]:
     """Load and prepare S669 dataset."""
     print("\n[Loading S669 dataset...]")
 
@@ -493,15 +506,12 @@ def load_s669_data(device: str = "cuda") -> Tuple[Dataset, Dataset, int]:
     n_val = int(len(dataset) * 0.2)
     n_train = len(dataset) - n_val
 
-    train_ds, val_ds = random_split(
-        dataset, [n_train, n_val],
-        generator=torch.Generator().manual_seed(42)
-    )
+    train_ds, val_ds = random_split(dataset, [n_train, n_val], generator=torch.Generator().manual_seed(42))
 
     return train_ds, val_ds, features.shape[1]
 
 
-def load_protherm_data(device: str = "cuda") -> Tuple[Dataset, Dataset, int]:
+def load_protherm_data(device: str = "cuda") -> tuple[Dataset, Dataset, int]:
     """Load and prepare ProTherm dataset."""
     print("\n[Loading ProTherm dataset...]")
 
@@ -528,10 +538,7 @@ def load_protherm_data(device: str = "cuda") -> Tuple[Dataset, Dataset, int]:
     n_val = int(len(dataset) * 0.2)
     n_train = len(dataset) - n_val
 
-    train_ds, val_ds = random_split(
-        dataset, [n_train, n_val],
-        generator=torch.Generator().manual_seed(42)
-    )
+    train_ds, val_ds = random_split(dataset, [n_train, n_val], generator=torch.Generator().manual_seed(42))
 
     return train_ds, val_ds, features.shape[1]
 
@@ -539,7 +546,7 @@ def load_protherm_data(device: str = "cuda") -> Tuple[Dataset, Dataset, int]:
 def load_proteingym_data(
     max_samples: int = 100000,
     device: str = "cuda",
-) -> Tuple[Dataset, Dataset, int]:
+) -> tuple[Dataset, Dataset, int]:
     """Load and prepare filtered ProteinGym dataset."""
     print("\n[Loading ProteinGym dataset (filtered)...]")
 
@@ -568,10 +575,7 @@ def load_proteingym_data(
     n_val = int(len(full_dataset) * 0.1)  # Smaller val split for large dataset
     n_train = len(full_dataset) - n_val
 
-    train_ds, val_ds = random_split(
-        full_dataset, [n_train, n_val],
-        generator=torch.Generator().manual_seed(42)
-    )
+    train_ds, val_ds = random_split(full_dataset, [n_train, n_val], generator=torch.Generator().manual_seed(42))
 
     return train_ds, val_ds, features.shape[1]
 

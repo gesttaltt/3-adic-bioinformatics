@@ -13,23 +13,23 @@ This module provides the trainer for individual specialist VAEs:
 
 from __future__ import annotations
 
+import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Callable
-import json
 
+import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset
+from scipy.stats import pearsonr, spearmanr
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, ReduceLROnPlateau
-from scipy.stats import spearmanr, pearsonr
-import numpy as np
+from torch.utils.data import Dataset
 
-from src.bioinformatics.models.ddg_vae import DDGVAE, DDGVAEConfig
+from src.bioinformatics.models.ddg_vae import DDGVAE
 from src.bioinformatics.training.deterministic import (
-    DeterministicTrainer,
     DeterministicConfig,
+    DeterministicTrainer,
 )
 
 
@@ -83,10 +83,10 @@ class DDGVAETrainer(DeterministicTrainer):
         self,
         model: DDGVAE,
         train_dataset: Dataset,
-        val_dataset: Optional[Dataset] = None,
-        config: Optional[TrainingConfig] = None,
+        val_dataset: Dataset | None = None,
+        config: TrainingConfig | None = None,
         device: str = "cuda",
-        output_dir: Optional[Path] = None,
+        output_dir: Path | None = None,
     ):
         """Initialize trainer.
 
@@ -130,14 +130,10 @@ class DDGVAETrainer(DeterministicTrainer):
         self.setup_determinism()
 
         # Create data loaders
-        self.train_loader = self.create_dataloader(
-            train_dataset, self.training_config.batch_size, shuffle=True
-        )
+        self.train_loader = self.create_dataloader(train_dataset, self.training_config.batch_size, shuffle=True)
         self.val_loader = None
         if val_dataset is not None:
-            self.val_loader = self.create_dataloader(
-                val_dataset, self.training_config.batch_size, shuffle=False
-            )
+            self.val_loader = self.create_dataloader(val_dataset, self.training_config.batch_size, shuffle=False)
 
         # Optimizer
         self.optimizer = AdamW(
@@ -149,7 +145,7 @@ class DDGVAETrainer(DeterministicTrainer):
         # Scheduler
         self.scheduler = self._create_scheduler()
 
-    def _create_scheduler(self) -> Optional[object]:
+    def _create_scheduler(self) -> object | None:
         """Create learning rate scheduler."""
         if self.training_config.scheduler == "cosine":
             return CosineAnnealingLR(
@@ -200,7 +196,7 @@ class DDGVAETrainer(DeterministicTrainer):
         original_beta = self.model.config.beta
         self.model.config.beta = self._get_beta(self.epoch)
 
-        for batch_idx, (x, y) in enumerate(self.train_loader):
+        for _batch_idx, (x, y) in enumerate(self.train_loader):
             x = x.to(self.device)
             y = y.to(self.device)
 
@@ -212,9 +208,7 @@ class DDGVAETrainer(DeterministicTrainer):
             loss.backward()
 
             if self.training_config.grad_clip > 0:
-                nn.utils.clip_grad_norm_(
-                    self.model.parameters(), self.training_config.grad_clip
-                )
+                nn.utils.clip_grad_norm_(self.model.parameters(), self.training_config.grad_clip)
 
             self.optimizer.step()
 
@@ -283,7 +277,7 @@ class DDGVAETrainer(DeterministicTrainer):
 
     def train(
         self,
-        callback: Optional[Callable[[int, dict], None]] = None,
+        callback: Callable[[int, dict], None] | None = None,
     ) -> dict:
         """Run full training loop.
 
@@ -404,10 +398,7 @@ class DDGVAETrainer(DeterministicTrainer):
         """Save final training state."""
         # Save history (convert numpy floats to Python floats for JSON)
         history_path = self.output_dir / "training_history.json"
-        serializable_history = {
-            k: [float(v) for v in vals]
-            for k, vals in self.history.items()
-        }
+        serializable_history = {k: [float(v) for v in vals] for k, vals in self.history.items()}
         with open(history_path, "w") as f:
             json.dump(serializable_history, f, indent=2)
 
@@ -425,7 +416,7 @@ class DDGVAETrainer(DeterministicTrainer):
 def train_vae_s669(
     dataset: Dataset,
     output_dir: Path,
-    config: Optional[TrainingConfig] = None,
+    config: TrainingConfig | None = None,
     use_hyperbolic: bool = True,
     device: str = "cuda",
 ) -> DDGVAE:
@@ -454,11 +445,11 @@ def train_vae_s669(
 
     # Split dataset
     from torch.utils.data import random_split
+
     n_val = int(len(dataset) * config.val_ratio)
     n_train = len(dataset) - n_val
     train_ds, val_ds = random_split(
-        dataset, [n_train, n_val],
-        generator=torch.Generator().manual_seed(config.deterministic.seed)
+        dataset, [n_train, n_val], generator=torch.Generator().manual_seed(config.deterministic.seed)
     )
 
     trainer = DDGVAETrainer(
@@ -477,7 +468,7 @@ def train_vae_s669(
 def train_vae_protherm(
     dataset: Dataset,
     output_dir: Path,
-    config: Optional[TrainingConfig] = None,
+    config: TrainingConfig | None = None,
     use_hyperbolic: bool = True,
     device: str = "cuda",
 ) -> DDGVAE:
@@ -493,11 +484,11 @@ def train_vae_protherm(
         )
 
     from torch.utils.data import random_split
+
     n_val = int(len(dataset) * config.val_ratio)
     n_train = len(dataset) - n_val
     train_ds, val_ds = random_split(
-        dataset, [n_train, n_val],
-        generator=torch.Generator().manual_seed(config.deterministic.seed)
+        dataset, [n_train, n_val], generator=torch.Generator().manual_seed(config.deterministic.seed)
     )
 
     trainer = DDGVAETrainer(
@@ -516,7 +507,7 @@ def train_vae_protherm(
 def train_vae_wide(
     dataset: Dataset,
     output_dir: Path,
-    config: Optional[TrainingConfig] = None,
+    config: TrainingConfig | None = None,
     use_hyperbolic: bool = True,
     device: str = "cuda",
 ) -> DDGVAE:
@@ -532,11 +523,11 @@ def train_vae_wide(
         )
 
     from torch.utils.data import random_split
+
     n_val = int(len(dataset) * config.val_ratio)
     n_train = len(dataset) - n_val
     train_ds, val_ds = random_split(
-        dataset, [n_train, n_val],
-        generator=torch.Generator().manual_seed(config.deterministic.seed)
+        dataset, [n_train, n_val], generator=torch.Generator().manual_seed(config.deterministic.seed)
     )
 
     trainer = DDGVAETrainer(

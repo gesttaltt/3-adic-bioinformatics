@@ -35,7 +35,6 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List
 
 import numpy as np
 import torch
@@ -49,7 +48,7 @@ class AminoAcidQuantumProperties:
     """
 
     # HOMO-LUMO gaps in eV (estimated from DFT calculations)
-    HOMO_LUMO_GAP: Dict[str, float] = {
+    HOMO_LUMO_GAP: dict[str, float] = {
         "A": 7.2,  # Alanine
         "R": 5.8,  # Arginine - large conjugated system
         "N": 6.5,  # Asparagine
@@ -73,7 +72,7 @@ class AminoAcidQuantumProperties:
     }
 
     # Dipole moments in Debye (estimated)
-    DIPOLE_MOMENT: Dict[str, float] = {
+    DIPOLE_MOMENT: dict[str, float] = {
         "A": 1.7,
         "R": 4.5,  # Charged guanidinium
         "N": 3.8,
@@ -97,7 +96,7 @@ class AminoAcidQuantumProperties:
     }
 
     # Polarizability in Å³ (estimated)
-    POLARIZABILITY: Dict[str, float] = {
+    POLARIZABILITY: dict[str, float] = {
         "A": 6.0,
         "R": 17.0,
         "N": 9.5,
@@ -121,7 +120,7 @@ class AminoAcidQuantumProperties:
     }
 
     # Ionization potential in eV (estimated)
-    IONIZATION_POTENTIAL: Dict[str, float] = {
+    IONIZATION_POTENTIAL: dict[str, float] = {
         "A": 9.8,
         "R": 8.2,
         "N": 9.0,
@@ -145,7 +144,7 @@ class AminoAcidQuantumProperties:
     }
 
     # Electron affinity in eV (estimated)
-    ELECTRON_AFFINITY: Dict[str, float] = {
+    ELECTRON_AFFINITY: dict[str, float] = {
         "A": 0.2,
         "R": 0.8,
         "N": 0.5,
@@ -183,8 +182,8 @@ class QuantumDescriptorResult:
     softness: float  # Chemical softness = 1 / hardness
     electronegativity: float  # Mulliken electronegativity = (IP + EA) / 2
     electrophilicity_index: float  # ω = χ² / (2η)
-    padic_signature: Dict[str, float] = field(default_factory=dict)
-    per_residue_homo_lumo: List[float] = field(default_factory=list)
+    padic_signature: dict[str, float] = field(default_factory=dict)
+    per_residue_homo_lumo: list[float] = field(default_factory=list)
 
 
 class QuantumBioDescriptor:
@@ -284,7 +283,7 @@ class QuantumBioDescriptor:
             per_residue_homo_lumo=homo_lumo_values,
         )
 
-    def _compute_padic_signature(self, values: List[float]) -> Dict[str, float]:
+    def _compute_padic_signature(self, values: list[float]) -> dict[str, float]:
         """Compute p-adic signature from a list of values.
 
         Args:
@@ -326,7 +325,7 @@ class QuantumBioDescriptor:
     def compute_binding_site_descriptors(
         self,
         sequence: str,
-        binding_residues: List[int],
+        binding_residues: list[int],
     ) -> QuantumDescriptorResult:
         """Compute descriptors specifically for binding site residues.
 
@@ -410,7 +409,7 @@ class QuantumBioDescriptor:
 
         return torch.tensor(features, dtype=torch.float32)
 
-    def batch_compute(self, sequences: List[str]) -> List[QuantumDescriptorResult]:
+    def batch_compute(self, sequences: list[str]) -> list[QuantumDescriptorResult]:
         """Compute descriptors for multiple sequences.
 
         Args:

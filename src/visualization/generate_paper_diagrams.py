@@ -1,12 +1,15 @@
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import matplotlib.path as mpath
-import numpy as np
 import os
 from pathlib import Path
 
+import matplotlib.patches as patches
+import matplotlib.path as mpath
+import matplotlib.pyplot as plt
+import numpy as np
+
 # Configuration — output alongside the other HIV paper images
-OUTPUT_DIR = str(Path(__file__).resolve().parents[2] / "research" / "diseases" / "hiv" / "public_medical_paper" / "images")
+OUTPUT_DIR = str(
+    Path(__file__).resolve().parents[2] / "research" / "diseases" / "hiv" / "public_medical_paper" / "images"
+)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Style
@@ -24,9 +27,7 @@ def save_plot(filename):
 
 
 def draw_text_box(ax, x, y, width, height, text, color="#E0E0E0", edge="black"):
-    rect = patches.Rectangle(
-        (x, y), width, height, linewidth=1, edgecolor=edge, facecolor=color
-    )
+    rect = patches.Rectangle((x, y), width, height, linewidth=1, edgecolor=edge, facecolor=color)
     ax.add_patch(rect)
     ax.text(
         x + width / 2,
@@ -88,9 +89,7 @@ def plot_03_primary_accessory():
 
     # Circles
     core = patches.Circle((0.5, 0.5), 0.2, color="#E1F5FE")
-    outer = patches.Circle(
-        (0.5, 0.5), 0.4, color="none", ec="#0277BD", lw=2, linestyle="--"
-    )
+    outer = patches.Circle((0.5, 0.5), 0.4, color="none", ec="#0277BD", lw=2, linestyle="--")
 
     ax.add_patch(core)
     ax.add_patch(outer)
@@ -210,9 +209,7 @@ def plot_09_elite_comparison():
     width = 0.35
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    ax.bar(
-        x - width / 2, vals_e, width, label="Elite Controller (B*57)", color="#2E7D32"
-    )
+    ax.bar(x - width / 2, vals_e, width, label="Elite Controller (B*57)", color="#2E7D32")
     ax.bar(x + width / 2, vals_p, width, label="Typical Progressor", color="#9E9E9E")
 
     ax.set_xticks(x)
@@ -263,9 +260,7 @@ def plot_11_escape_zone():
     ax.plot(x, y, color="#0277BD", lw=2)
 
     ax.axvspan(4.5, 6.5, color="#FFF9C4", alpha=0.5)
-    ax.text(
-        5.5, 0.9, "GOLDILOCKS\nZONE", ha="center", fontweight="bold", color="#Fbc02d"
-    )
+    ax.text(5.5, 0.9, "GOLDILOCKS\nZONE", ha="center", fontweight="bold", color="#Fbc02d")
 
     ax.text(2, 0.5, "Ineffective\nEscape", ha="center")
     ax.text(9, 0.5, "Fitness Cost\nProhibitive", ha="center")
@@ -284,16 +279,10 @@ def plot_12_pyramid():
     ax.axis("off")
 
     # Pyramid
-    patches.Polygon(
-        [[5, 9], [3, 5], [7, 5]], closed=True, color="#C8E6C9", ec="white"
-    )  # Tier 1
-    patches.Polygon(
-        [[3, 5], [1, 1], [9, 1], [7, 5]], closed=True, color="#FFCCBC", ec="white"
-    )  # Tier 2/3 background?
+    patches.Polygon([[5, 9], [3, 5], [7, 5]], closed=True, color="#C8E6C9", ec="white")  # Tier 1
+    patches.Polygon([[3, 5], [1, 1], [9, 1], [7, 5]], closed=True, color="#FFCCBC", ec="white")  # Tier 2/3 background?
     # Let's do stacked trapezoids
-    patches.Polygon(
-        [[3.5, 6], [6.5, 6], [7.5, 4], [2.5, 4]], color="#FFF9C4"
-    )  # Mid
+    patches.Polygon([[3.5, 6], [6.5, 6], [7.5, 4], [2.5, 4]], color="#FFF9C4")  # Mid
 
     # Actually just 3 triangles/trapezoids
     ax.fill([2, 8, 5], [1, 1, 9], "#FFCDD2")  # Base Red (Tier 3)
@@ -328,7 +317,7 @@ def plot_13_v3_loop():
         (mpath.Path.CURVE4, (7, 10)),
         (mpath.Path.CURVE4, (7, 2)),
     ]
-    codes, verts = zip(*path_data)
+    codes, verts = zip(*path_data, strict=False)
     path = mpath.Path(verts, codes)
     patch = patches.PathPatch(path, facecolor="none", lw=15, edgecolor="#E0E0E0")
     ax.add_patch(patch)

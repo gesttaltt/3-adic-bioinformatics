@@ -24,7 +24,7 @@ Usage:
             ...
 """
 
-from typing import Iterator, Tuple
+from collections.abc import Iterator
 
 import torch
 
@@ -102,7 +102,7 @@ class GPUResidentTernaryDataset:
         batch_size: int = 256,
         shuffle: bool = True,
         drop_last: bool = False,
-    ) -> Iterator[Tuple[torch.Tensor, torch.Tensor]]:
+    ) -> Iterator[tuple[torch.Tensor, torch.Tensor]]:
         """Iterate over batches.
 
         Args:
@@ -193,7 +193,7 @@ def create_gpu_resident_loaders(
     train_split: float = 0.8,
     val_split: float = 0.1,
     seed: int = 42,
-) -> Tuple["GPUBatchIterator", "GPUBatchIterator", "GPUBatchIterator"]:
+) -> tuple["GPUBatchIterator", "GPUBatchIterator", "GPUBatchIterator"]:
     """Create GPU-resident train/val/test loaders.
 
     Drop-in replacement for create_ternary_data_loaders().

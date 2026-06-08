@@ -19,7 +19,7 @@ tau = 1: Pure ranking learning (fine angular discrimination)
 Single responsibility: Manage curriculum state and loss modulation.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -71,7 +71,7 @@ class ContinuousCurriculumModule(nn.Module):
         # History tracking for analysis
         self.register_buffer("tau_ema", torch.tensor(initial_tau, dtype=torch.float32))
         self.tau_ema: torch.Tensor  # Type hint for mypy
-        self.tau_history: List[float] = []  # For logging/visualization
+        self.tau_history: list[float] = []  # For logging/visualization
 
     def update_tau(self, delta_curriculum: float) -> torch.Tensor:
         """Update tau based on StateNet's delta_curriculum output.
@@ -135,23 +135,23 @@ class ContinuousCurriculumModule(nn.Module):
         tau = self.tau
         return (1 - tau) * radial_loss + tau * ranking_loss
 
-    def get_loss_weights(self) -> Tuple[float, float]:
+    def get_loss_weights(self) -> tuple[float, float]:
         """Return current (radial_weight, ranking_weight) for logging."""
         tau = self.tau.item()
         return (1 - tau, tau)
 
-    def get_state_dict_extra(self) -> Dict[str, Any]:
+    def get_state_dict_extra(self) -> dict[str, Any]:
         """Return extra state for checkpointing."""
         return {
             "tau_history": self.tau_history[-1000:],  # Last 1000 values
         }
 
-    def load_state_dict_extra(self, state_dict: Dict[str, Any]):
+    def load_state_dict_extra(self, state_dict: dict[str, Any]):
         """Load extra state from checkpoint."""
         if "tau_history" in state_dict:
             self.tau_history = state_dict["tau_history"]
 
-    def reset(self, initial_tau: Optional[float] = None):
+    def reset(self, initial_tau: float | None = None):
         """Reset curriculum to initial state."""
         if initial_tau is not None:
             self.tau = torch.tensor(initial_tau, dtype=torch.float32, device=self.tau.device)
@@ -162,7 +162,7 @@ class ContinuousCurriculumModule(nn.Module):
         self.tau_history = []
 
     def extra_repr(self) -> str:
-        return f"tau={self.tau.item():.3f}, " f"tau_min={self.tau_min}, tau_max={self.tau_max}, " f"tau_scale={self.tau_scale}"
+        return f"tau={self.tau.item():.3f}, tau_min={self.tau_min}, tau_max={self.tau_max}, tau_scale={self.tau_scale}"
 
 
 class CurriculumScheduler:
@@ -174,9 +174,9 @@ class CurriculumScheduler:
 
     def __init__(self, curriculum: ContinuousCurriculumModule):
         self.curriculum = curriculum
-        self.delta_history: List[float] = []
-        self.radial_loss_history: List[float] = []
-        self.ranking_loss_history: List[float] = []
+        self.delta_history: list[float] = []
+        self.radial_loss_history: list[float] = []
+        self.ranking_loss_history: list[float] = []
 
     def record_step(self, delta_curriculum: float, radial_loss: float, ranking_loss: float):
         """Record a curriculum step for analysis."""
@@ -184,7 +184,7 @@ class CurriculumScheduler:
         self.radial_loss_history.append(radial_loss)
         self.ranking_loss_history.append(ranking_loss)
 
-    def get_stats(self) -> Dict[str, Union[float, str, int]]:
+    def get_stats(self) -> dict[str, float | str | int]:
         """Get curriculum statistics."""
         tau_history = self.curriculum.tau_history
 

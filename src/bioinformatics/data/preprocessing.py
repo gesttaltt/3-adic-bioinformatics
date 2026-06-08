@@ -12,46 +12,124 @@ including physicochemical properties and hyperbolic embeddings.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 import torch
 
-
 # Amino acid properties (canonical values from literature)
 AA_HYDROPHOBICITY = {
-    "A": 1.8, "R": -4.5, "N": -3.5, "D": -3.5, "C": 2.5,
-    "Q": -3.5, "E": -3.5, "G": -0.4, "H": -3.2, "I": 4.5,
-    "L": 3.8, "K": -3.9, "M": 1.9, "F": 2.8, "P": -1.6,
-    "S": -0.8, "T": -0.7, "W": -0.9, "Y": -1.3, "V": 4.2
+    "A": 1.8,
+    "R": -4.5,
+    "N": -3.5,
+    "D": -3.5,
+    "C": 2.5,
+    "Q": -3.5,
+    "E": -3.5,
+    "G": -0.4,
+    "H": -3.2,
+    "I": 4.5,
+    "L": 3.8,
+    "K": -3.9,
+    "M": 1.9,
+    "F": 2.8,
+    "P": -1.6,
+    "S": -0.8,
+    "T": -0.7,
+    "W": -0.9,
+    "Y": -1.3,
+    "V": 4.2,
 }
 
 AA_CHARGES = {
-    "A": 0, "R": 1, "N": 0, "D": -1, "C": 0,
-    "Q": 0, "E": -1, "G": 0, "H": 0.1, "I": 0,
-    "L": 0, "K": 1, "M": 0, "F": 0, "P": 0,
-    "S": 0, "T": 0, "W": 0, "Y": 0, "V": 0
+    "A": 0,
+    "R": 1,
+    "N": 0,
+    "D": -1,
+    "C": 0,
+    "Q": 0,
+    "E": -1,
+    "G": 0,
+    "H": 0.1,
+    "I": 0,
+    "L": 0,
+    "K": 1,
+    "M": 0,
+    "F": 0,
+    "P": 0,
+    "S": 0,
+    "T": 0,
+    "W": 0,
+    "Y": 0,
+    "V": 0,
 }
 
 AA_VOLUMES = {
-    "A": 88.6, "R": 173.4, "N": 114.1, "D": 111.1, "C": 108.5,
-    "Q": 143.8, "E": 138.4, "G": 60.1, "H": 153.2, "I": 166.7,
-    "L": 166.7, "K": 168.6, "M": 162.9, "F": 189.9, "P": 112.7,
-    "S": 89.0, "T": 116.1, "W": 227.8, "Y": 193.6, "V": 140.0
+    "A": 88.6,
+    "R": 173.4,
+    "N": 114.1,
+    "D": 111.1,
+    "C": 108.5,
+    "Q": 143.8,
+    "E": 138.4,
+    "G": 60.1,
+    "H": 153.2,
+    "I": 166.7,
+    "L": 166.7,
+    "K": 168.6,
+    "M": 162.9,
+    "F": 189.9,
+    "P": 112.7,
+    "S": 89.0,
+    "T": 116.1,
+    "W": 227.8,
+    "Y": 193.6,
+    "V": 140.0,
 }
 
 AA_FLEXIBILITY = {
-    "A": 0.36, "R": 0.53, "N": 0.46, "D": 0.51, "C": 0.35,
-    "Q": 0.49, "E": 0.50, "G": 0.54, "H": 0.32, "I": 0.46,
-    "L": 0.37, "K": 0.47, "M": 0.30, "F": 0.31, "P": 0.51,
-    "S": 0.51, "T": 0.44, "W": 0.31, "Y": 0.42, "V": 0.39
+    "A": 0.36,
+    "R": 0.53,
+    "N": 0.46,
+    "D": 0.51,
+    "C": 0.35,
+    "Q": 0.49,
+    "E": 0.50,
+    "G": 0.54,
+    "H": 0.32,
+    "I": 0.46,
+    "L": 0.37,
+    "K": 0.47,
+    "M": 0.30,
+    "F": 0.31,
+    "P": 0.51,
+    "S": 0.51,
+    "T": 0.44,
+    "W": 0.31,
+    "Y": 0.42,
+    "V": 0.39,
 }
 
 AA_MASS = {
-    "A": 89.1, "R": 174.2, "N": 132.1, "D": 133.1, "C": 121.2,
-    "Q": 146.2, "E": 147.1, "G": 75.1, "H": 155.2, "I": 131.2,
-    "L": 131.2, "K": 146.2, "M": 149.2, "F": 165.2, "P": 115.1,
-    "S": 105.1, "T": 119.1, "W": 204.2, "Y": 181.2, "V": 117.1
+    "A": 89.1,
+    "R": 174.2,
+    "N": 132.1,
+    "D": 133.1,
+    "C": 121.2,
+    "Q": 146.2,
+    "E": 147.1,
+    "G": 75.1,
+    "H": 155.2,
+    "I": 131.2,
+    "L": 131.2,
+    "K": 146.2,
+    "M": 149.2,
+    "F": 165.2,
+    "P": 115.1,
+    "S": 105.1,
+    "T": 119.1,
+    "W": 204.2,
+    "Y": 181.2,
+    "V": 117.1,
 }
 
 
@@ -78,14 +156,14 @@ class MutationFeatures:
     to_alanine: bool
 
     # Structural features (optional)
-    secondary_structure: Optional[str] = None
-    solvent_accessibility: Optional[float] = None
+    secondary_structure: str | None = None
+    solvent_accessibility: float | None = None
 
     # Hyperbolic features (optional)
-    hyperbolic_distance: Optional[float] = None
-    wt_radius: Optional[float] = None
-    mut_radius: Optional[float] = None
-    delta_radius: Optional[float] = None
+    hyperbolic_distance: float | None = None
+    wt_radius: float | None = None
+    mut_radius: float | None = None
+    delta_radius: float | None = None
 
     def to_array(self, include_hyperbolic: bool = True) -> np.ndarray:
         """Convert to numpy array for ML models."""
@@ -108,11 +186,13 @@ class MutationFeatures:
 
         # Add structural features if available
         if self.secondary_structure is not None:
-            features.extend([
-                1 if self.secondary_structure == "H" else 0,
-                1 if self.secondary_structure == "E" else 0,
-                1 if self.secondary_structure == "C" else 0,
-            ])
+            features.extend(
+                [
+                    1 if self.secondary_structure == "H" else 0,
+                    1 if self.secondary_structure == "E" else 0,
+                    1 if self.secondary_structure == "C" else 0,
+                ]
+            )
         if self.solvent_accessibility is not None:
             features.append(self.solvent_accessibility)
             features.append(1 if self.solvent_accessibility < 0.25 else 0)
@@ -120,12 +200,14 @@ class MutationFeatures:
 
         # Add hyperbolic features if available and requested
         if include_hyperbolic and self.hyperbolic_distance is not None:
-            features.extend([
-                self.hyperbolic_distance,
-                self.wt_radius or 0,
-                self.mut_radius or 0,
-                self.delta_radius or 0,
-            ])
+            features.extend(
+                [
+                    self.hyperbolic_distance,
+                    self.wt_radius or 0,
+                    self.mut_radius or 0,
+                    self.delta_radius or 0,
+                ]
+            )
 
         return np.array(features, dtype=np.float32)
 
@@ -162,8 +244,8 @@ class MutationFeatures:
 def compute_features(
     wild_type: str,
     mutant: str,
-    secondary_structure: Optional[str] = None,
-    solvent_accessibility: Optional[float] = None,
+    secondary_structure: str | None = None,
+    solvent_accessibility: float | None = None,
 ) -> MutationFeatures:
     """Compute physicochemical features for a mutation.
 
@@ -266,9 +348,7 @@ def add_hyperbolic_features(
     Returns:
         MutationFeatures with hyperbolic features added
     """
-    hyp_dist, wt_r, mut_r, delta_r = compute_hyperbolic_features(
-        wild_type, mutant, aa_embeddings, curvature
-    )
+    hyp_dist, wt_r, mut_r, delta_r = compute_hyperbolic_features(wild_type, mutant, aa_embeddings, curvature)
 
     features.hyperbolic_distance = hyp_dist
     features.wt_radius = wt_r

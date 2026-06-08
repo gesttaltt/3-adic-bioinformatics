@@ -9,26 +9,20 @@ This script shows how to:
 4. Recommend optimal usage for each type
 """
 
-import torch
-import numpy as np
-from pathlib import Path
-from scipy.stats import spearmanr
-import matplotlib.pyplot as plt
-import seaborn as sns
-
 # Add project root to path
 import sys
+from pathlib import Path
+
+import torch
+
 project_root = Path(__file__).parent.parent.parent
 sys.path.append(str(project_root))
 
+from src.evaluation.manifold_organization import ManifoldEvaluator, ManifoldType, detailed_manifold_analysis
+
 from src.core import TERNARY
-from src.models.ternary_vae import TernaryVAEV5_11_PartialFreeze
 from src.geometry import poincare_distance
-from src.evaluation.manifold_organization import (
-    ManifoldEvaluator,
-    ManifoldType,
-    detailed_manifold_analysis
-)
+from src.models.ternary_vae import TernaryVAEV5_11_PartialFreeze
 
 
 def load_checkpoint_examples():
@@ -39,11 +33,11 @@ def load_checkpoint_examples():
     try:
         ckpt_path = project_root / "checkpoints" / "homeostatic_rich" / "best.pt"
         if ckpt_path.exists():
-            checkpoints['valuation_optimal'] = {
-                'path': ckpt_path,
-                'name': 'homeostatic_rich',
-                'expected_hierarchy': -0.8321,
-                'description': 'Valuation-optimal: p-adic semantic hierarchy'
+            checkpoints["valuation_optimal"] = {
+                "path": ckpt_path,
+                "name": "homeostatic_rich",
+                "expected_hierarchy": -0.8321,
+                "description": "Valuation-optimal: p-adic semantic hierarchy",
             }
     except Exception as e:
         print(f"Could not load homeostatic_rich: {e}")
@@ -52,11 +46,11 @@ def load_checkpoint_examples():
     try:
         ckpt_path = project_root / "checkpoints" / "v5_11_progressive" / "best.pt"
         if ckpt_path.exists():
-            checkpoints['frequency_optimal'] = {
-                'path': ckpt_path,
-                'name': 'v5_11_progressive',
-                'expected_hierarchy': +0.78,
-                'description': 'Frequency-optimal: Shannon information efficiency'
+            checkpoints["frequency_optimal"] = {
+                "path": ckpt_path,
+                "name": "v5_11_progressive",
+                "expected_hierarchy": +0.78,
+                "description": "Frequency-optimal: Shannon information efficiency",
             }
     except Exception as e:
         print(f"Could not load v5_11_progressive: {e}")
@@ -67,16 +61,11 @@ def load_checkpoint_examples():
 def create_model():
     """Create model with standard configuration."""
     return TernaryVAEV5_11_PartialFreeze(
-        latent_dim=16,
-        hidden_dim=64,
-        max_radius=0.99,
-        curvature=1.0,
-        use_controller=True,
-        use_dual_projection=True
+        latent_dim=16, hidden_dim=64, max_radius=0.99, curvature=1.0, use_controller=True, use_dual_projection=True
     )
 
 
-def extract_embeddings_and_compute_radii(model, device='cpu'):
+def extract_embeddings_and_compute_radii(model, device="cpu"):
     """Extract embeddings and compute radii for all operations."""
     model.eval()
     model = model.to(device)
@@ -95,10 +84,10 @@ def extract_embeddings_and_compute_radii(model, device='cpu'):
     print("Extracting embeddings...")
     with torch.no_grad():
         for i in range(0, len(ops), batch_size):
-            batch_ops = ops[i:i+batch_size]
+            batch_ops = ops[i : i + batch_size]
             outputs = model(batch_ops, compute_control=False)
-            all_z_A.append(outputs['z_A_hyp'].cpu())
-            all_z_B.append(outputs['z_B_hyp'].cpu())
+            all_z_A.append(outputs["z_A_hyp"].cpu())
+            all_z_B.append(outputs["z_B_hyp"].cpu())
 
     z_A_hyp = torch.cat(all_z_A, dim=0)
     z_B_hyp = torch.cat(all_z_B, dim=0)
@@ -110,12 +99,12 @@ def extract_embeddings_and_compute_radii(model, device='cpu'):
     radii_B = poincare_distance(z_B_hyp, origin_B, c=1.0)
 
     return {
-        'z_A_hyp': z_A_hyp,
-        'z_B_hyp': z_B_hyp,
-        'radii_A': radii_A,
-        'radii_B': radii_B,
-        'valuations': valuations,
-        'indices': indices
+        "z_A_hyp": z_A_hyp,
+        "z_B_hyp": z_B_hyp,
+        "radii_A": radii_A,
+        "radii_B": radii_B,
+        "valuations": valuations,
+        "indices": indices,
     }
 
 
@@ -144,47 +133,49 @@ def demonstrate_type_aware_evaluation():
 
         try:
             # Load checkpoint
-            checkpoint = torch.load(ckpt_info['path'], map_location='cpu')
+            checkpoint = torch.load(ckpt_info["path"], map_location="cpu")
             model = create_model()
-            model.load_state_dict(checkpoint['model_state_dict'])
+            model.load_state_dict(checkpoint["model_state_dict"])
 
             # Extract embeddings
             embeddings_data = extract_embeddings_and_compute_radii(model)
 
             # Type-aware evaluation
-            intended_type = ManifoldType.VALUATION_OPTIMAL if manifold_type == 'valuation_optimal' else ManifoldType.FREQUENCY_OPTIMAL
+            intended_type = (
+                ManifoldType.VALUATION_OPTIMAL
+                if manifold_type == "valuation_optimal"
+                else ManifoldType.FREQUENCY_OPTIMAL
+            )
 
             # Quick evaluation
             print("\n1. QUICK EVALUATION:")
             summary = evaluator.evaluate_hierarchy(
-                embeddings_data['radii_B'],
-                embeddings_data['valuations'],
-                intended_type=intended_type
+                embeddings_data["radii_B"], embeddings_data["valuations"], intended_type=intended_type
             )
             print(summary)
 
             # Detailed analysis
             print("\n2. DETAILED ANALYSIS:")
             analysis = detailed_manifold_analysis(
-                embeddings_data['radii_B'],
-                embeddings_data['valuations'],
-                intended_type=intended_type
+                embeddings_data["radii_B"], embeddings_data["valuations"], intended_type=intended_type
             )
 
             print(f"   Hierarchy Score: {analysis['hierarchy_score']:.4f}")
-            print(f"   Detected Type: {analysis['type_alignment']['detected_type'] if 'detected_type' in analysis['type_alignment'] else analysis['manifold_type']}")
+            print(
+                f"   Detected Type: {analysis['type_alignment']['detected_type'] if 'detected_type' in analysis['type_alignment'] else analysis['manifold_type']}"
+            )
             print(f"   Organization Quality: {analysis['organization_quality']}")
             print(f"   Richness: {analysis['richness']:.6f}")
             print(f"   Level Separation: {analysis['separation']:.4f}")
 
             # Geometric efficiency
-            geo_eff = analysis['geometric_efficiency']
+            geo_eff = analysis["geometric_efficiency"]
             print(f"   Geometric Efficiency: {geo_eff['volume_efficiency']}")
             print(f"   Frequency-Volume Correlation: {geo_eff['frequency_volume_correlation']:.3f}")
 
             # Application recommendations
             print("\n3. APPLICATION RECOMMENDATIONS:")
-            if analysis['manifold_type'] == 'valuation_optimal':
+            if analysis["manifold_type"] == "valuation_optimal":
                 print("   ✓ OPTIMAL FOR:")
                 print("     - Semantic reasoning and compositional learning")
                 print("     - P-adic mathematical applications")

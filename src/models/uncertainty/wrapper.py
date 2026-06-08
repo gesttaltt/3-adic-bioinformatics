@@ -12,7 +12,7 @@ to any PyTorch model, with configurable uncertainty methods.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -46,7 +46,7 @@ class UncertaintyWrapper(nn.Module):
     def __init__(
         self,
         model: nn.Module,
-        method: Union[str, UncertaintyMethod] = "mc_dropout",
+        method: str | UncertaintyMethod = "mc_dropout",
         dropout_rate: float = 0.1,
         n_samples: int = 30,
         temperature: float = 1.0,
@@ -72,9 +72,7 @@ class UncertaintyWrapper(nn.Module):
             self._add_dropout_layers()
 
         # Temperature for calibration
-        self.calibration_temperature = nn.Parameter(
-            torch.ones(1), requires_grad=True
-        )
+        self.calibration_temperature = nn.Parameter(torch.ones(1), requires_grad=True)
 
     def _add_dropout_layers(self):
         """Insert dropout layers into the model."""
@@ -94,9 +92,9 @@ class UncertaintyWrapper(nn.Module):
     def predict_with_uncertainty(
         self,
         x: torch.Tensor,
-        n_samples: Optional[int] = None,
+        n_samples: int | None = None,
         return_samples: bool = False,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Predict with uncertainty estimation.
 
         Args:
@@ -122,7 +120,7 @@ class UncertaintyWrapper(nn.Module):
         x: torch.Tensor,
         n_samples: int,
         return_samples: bool = False,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """MC Dropout-based uncertainty estimation.
 
         Args:
@@ -180,7 +178,7 @@ class UncertaintyWrapper(nn.Module):
     def _temperature_scaled_predict(
         self,
         x: torch.Tensor,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Temperature-scaled prediction with calibrated confidence.
 
         Args:
@@ -281,8 +279,8 @@ class UncertaintyWrapper(nn.Module):
         self,
         x: torch.Tensor,
         confidence_level: float = 0.95,
-        n_samples: Optional[int] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        n_samples: int | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Get prediction with confidence interval.
 
         Args:
@@ -326,7 +324,7 @@ class UncertaintyWrapper(nn.Module):
         self,
         x: torch.Tensor,
         threshold: float = 0.5,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Determine which predictions should be rejected due to low confidence.
 
         Args:
@@ -501,8 +499,8 @@ class MultiOutputWrapper(nn.Module):
     def predict_with_uncertainty(
         self,
         x: torch.Tensor,
-        output_indices: Optional[List[int]] = None,
-    ) -> Dict[str, torch.Tensor]:
+        output_indices: list[int] | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Predict with per-output uncertainty.
 
         Args:

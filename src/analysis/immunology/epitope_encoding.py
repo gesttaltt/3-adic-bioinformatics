@@ -15,8 +15,6 @@ This module provides a single source of truth for:
 - Sequence encoding utilities
 """
 
-from typing import Optional
-
 import torch
 
 # Standard amino acid order (consistent with UniProt/BLOSUM conventions)
@@ -68,14 +66,12 @@ AMINO_ACID_PROPERTIES: dict[str, dict[str, float]] = {
 }
 
 # Charge-only dictionary (for compatibility with existing code)
-AMINO_ACID_CHARGE: dict[str, float] = {
-    aa: props["charge"] for aa, props in AMINO_ACID_PROPERTIES.items()
-}
+AMINO_ACID_CHARGE: dict[str, float] = {aa: props["charge"] for aa, props in AMINO_ACID_PROPERTIES.items()}
 
 
 def sequence_to_indices(
     sequence: str,
-    max_length: Optional[int] = None,
+    max_length: int | None = None,
     pad_value: int = 21,
 ) -> list[int]:
     """Convert amino acid sequence to index list.
@@ -119,8 +115,8 @@ def sequence_to_indices(
 
 def encode_amino_acid_sequence(
     sequence: str,
-    max_length: Optional[int] = None,
-    device: Optional[torch.device] = None,
+    max_length: int | None = None,
+    device: torch.device | None = None,
 ) -> torch.Tensor:
     """Encode amino acid sequence as tensor of indices.
 
@@ -163,10 +159,7 @@ def get_sequence_properties(sequence: str) -> dict[str, list[float]]:
     }
 
     for aa in sequence.upper():
-        if aa in AMINO_ACID_PROPERTIES:
-            props = AMINO_ACID_PROPERTIES[aa]
-        else:
-            props = AMINO_ACID_PROPERTIES["X"]
+        props = AMINO_ACID_PROPERTIES[aa] if aa in AMINO_ACID_PROPERTIES else AMINO_ACID_PROPERTIES["X"]
 
         for key in properties:
             properties[key].append(props[key])

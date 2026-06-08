@@ -8,6 +8,7 @@ with gradient-based features learned from the latent space structure.
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -16,21 +17,20 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from scipy.stats import spearmanr, pearsonr
-from sklearn.decomposition import PCA
+from scipy.stats import pearsonr, spearmanr
 from torch.utils.data import DataLoader, Dataset
 
-import sys
 sys.path.insert(0, str(Path(__file__).parents[3]))
 
-from src.bioinformatics.models.ddg_vae import DDGVAE
-from src.bioinformatics.data.protherm_loader import ProThermLoader
 from src.bioinformatics.data.preprocessing import compute_features
+from src.bioinformatics.data.protherm_loader import ProThermLoader
+from src.bioinformatics.models.ddg_vae import DDGVAE
 
 
 @dataclass
 class EnsembleConfig:
     """Configuration for ensemble training."""
+
     epochs: int = 200
     batch_size: int = 8
     learning_rate: float = 5e-5
@@ -120,7 +120,7 @@ class EnsembleDataset(Dataset):
         for record in records:
             feat = compute_features(record.wild_type, record.mutant)
             arr = feat.to_array(include_hyperbolic=False)
-            arr = np.pad(arr, (0, 6), mode='constant')
+            arr = np.pad(arr, (0, 6), mode="constant")
 
             self.features.append(arr)
             self.ddg_values.append(record.ddg)
@@ -198,9 +198,7 @@ def train_ensemble():
         weight_decay=config.weight_decay,
     )
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=config.epochs, eta_min=1e-7
-    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.epochs, eta_min=1e-7)
 
     # Training
     print("\n" + "=" * 70)
@@ -210,8 +208,12 @@ def train_ensemble():
     best_spearman = -1
     patience_counter = 0
     history = {
-        "train_loss": [], "val_loss": [], "val_spearman": [],
-        "val_pearson": [], "gradient_spearman": [], "weight": []
+        "train_loss": [],
+        "val_loss": [],
+        "val_spearman": [],
+        "val_pearson": [],
+        "gradient_spearman": [],
+        "weight": [],
     }
 
     for epoch in range(config.epochs):
@@ -274,9 +276,11 @@ def train_ensemble():
 
         # Logging
         if epoch % 10 == 0 or val_spearman > best_spearman:
-            print(f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
-                  f"spearman={val_spearman:.4f} pearson={val_pearson:.4f} "
-                  f"grad_spear={gradient_spearman:.4f} w={weight:.3f}")
+            print(
+                f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
+                f"spearman={val_spearman:.4f} pearson={val_pearson:.4f} "
+                f"grad_spear={gradient_spearman:.4f} w={weight:.3f}"
+            )
 
         # Best checkpoint
         if val_spearman > best_spearman:
@@ -288,15 +292,18 @@ def train_ensemble():
             # Extract learned gradient direction
             learned_gradient = model.gradient_learner.weight.data.cpu().numpy().flatten()
 
-            torch.save({
-                "model_state_dict": model.state_dict(),
-                "epoch": epoch,
-                "val_spearman": val_spearman,
-                "val_pearson": val_pearson,
-                "gradient_spearman": gradient_spearman,
-                "learned_gradient": learned_gradient.tolist(),
-                "config": config.__dict__,
-            }, output_dir / "best.pt")
+            torch.save(
+                {
+                    "model_state_dict": model.state_dict(),
+                    "epoch": epoch,
+                    "val_spearman": val_spearman,
+                    "val_pearson": val_pearson,
+                    "gradient_spearman": gradient_spearman,
+                    "learned_gradient": learned_gradient.tolist(),
+                    "config": config.__dict__,
+                },
+                output_dir / "best.pt",
+            )
         else:
             patience_counter += 1
             if patience_counter >= config.patience:
@@ -313,7 +320,7 @@ def train_ensemble():
     print("\n" + "=" * 70)
     print("ENSEMBLE TRAINING COMPLETE")
     print("=" * 70)
-    print(f"\nBest Results:")
+    print("\nBest Results:")
     print(f"  Spearman (ensemble):  {best_spearman:.4f}")
     print(f"  Pearson (ensemble):   {best_pearson:.4f}")
     print(f"  Spearman (gradient):  {best_gradient_spearman:.4f}")
@@ -322,8 +329,8 @@ def train_ensemble():
     print("\n" + "=" * 70)
     print("Results Comparison")
     print("=" * 70)
-    print(f"  VAE-ProTherm alone:   0.64")
-    print(f"  MLP Refiner:          0.78")
+    print("  VAE-ProTherm alone:   0.64")
+    print("  MLP Refiner:          0.78")
     print(f"  Ensemble:             {best_spearman:.2f}")
 
     improvement = (best_spearman - 0.64) / 0.64 * 100

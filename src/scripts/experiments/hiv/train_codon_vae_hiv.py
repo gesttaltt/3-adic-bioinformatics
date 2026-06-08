@@ -15,8 +15,6 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config.paths import OUTPUT_DIR
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -25,10 +23,10 @@ from torch.utils.data import DataLoader, Dataset
 
 # Genetic code mapping (imported from centralized biology module)
 from src.biology.codons import (
-    GENETIC_CODE,
-    BASE_TO_IDX,
     CODON_TO_INDEX,
+    GENETIC_CODE,
 )
+from src.config.paths import OUTPUT_DIR
 
 CODONS = list(GENETIC_CODE.keys())
 
@@ -39,7 +37,7 @@ def parse_fasta(filepath: Path) -> list[tuple[str, str]]:
     current_name = None
     current_seq = []
 
-    with open(filepath, "r") as f:
+    with open(filepath) as f:
         for line in f:
             line = line.strip()
             if line.startswith(">"):
@@ -60,7 +58,7 @@ def sequence_to_codons(seq: str) -> list[int]:
     """Convert DNA sequence to list of codon indices."""
     codons = []
     for i in range(0, len(seq) - 2, 3):
-        codon = seq[i:i+3]
+        codon = seq[i : i + 3]
         if codon in CODON_TO_INDEX:
             codons.append(CODON_TO_INDEX[codon])
     return codons
@@ -76,7 +74,7 @@ def compute_padic_distance(codon1: str, codon2: str, p: int = 3) -> float:
         return 0.0
 
     # Find first differing position
-    for i, (b1, b2) in enumerate(zip(codon1, codon2)):
+    for i, (b1, b2) in enumerate(zip(codon1, codon2, strict=False)):
         if b1 != b2:
             return p ** (-(i + 1))  # 1/p^k for difference at position k
 
@@ -105,7 +103,7 @@ class HIVCodonDataset(Dataset):
         for fasta_path in fasta_files:
             if fasta_path.exists():
                 seqs = parse_fasta(fasta_path)
-                for name, seq in seqs:
+                for _name, seq in seqs:
                     codons = sequence_to_codons(seq)
                     if len(codons) >= 10:  # Minimum length
                         self.sequences.append(codons[:max_len])
@@ -120,7 +118,7 @@ class HIVCodonDataset(Dataset):
         # Pad or truncate to max_len
         if len(codons) < self.max_len:
             codons = codons + [0] * (self.max_len - len(codons))
-        return torch.tensor(codons[:self.max_len], dtype=torch.long)
+        return torch.tensor(codons[: self.max_len], dtype=torch.long)
 
 
 class PAdicCodonEmbedding(nn.Module):
@@ -143,7 +141,7 @@ class PAdicCodonEmbedding(nn.Module):
         """Classical MDS to get embedding from distance matrix."""
         n = D.shape[0]
         H = np.eye(n) - np.ones((n, n)) / n
-        B = -0.5 * H @ (D ** 2) @ H
+        B = -0.5 * H @ (D**2) @ H
 
         # Eigendecomposition
         eigenvalues, eigenvectors = np.linalg.eigh(B)
@@ -160,10 +158,7 @@ class PAdicCodonEmbedding(nn.Module):
             # Pad with zeros if not enough dimensions
             pad = dim - len(eigenvalues)
             eigenvalues = np.concatenate([eigenvalues, np.zeros(pad)])
-            eigenvectors = np.concatenate([
-                eigenvectors,
-                np.zeros((n, pad))
-            ], axis=1)
+            eigenvectors = np.concatenate([eigenvectors, np.zeros((n, pad))], axis=1)
 
         return eigenvectors * np.sqrt(eigenvalues)
 
@@ -253,7 +248,7 @@ def poincare_distance(x: torch.Tensor, y: torch.Tensor, c: float = 1.0) -> torch
     """Compute Poincare ball distance."""
     norm_x_sq = torch.sum(x**2, dim=-1, keepdim=True)
     norm_y_sq = torch.sum(y**2, dim=-1, keepdim=True)
-    diff_sq = torch.sum((x - y)**2, dim=-1, keepdim=True)
+    diff_sq = torch.sum((x - y) ** 2, dim=-1, keepdim=True)
 
     denom = (1 - c * norm_x_sq) * (1 - c * norm_y_sq)
     denom = torch.clamp(denom, min=1e-10)
@@ -266,7 +261,7 @@ def poincare_distance(x: torch.Tensor, y: torch.Tensor, c: float = 1.0) -> torch
 
 def vae_loss(logits, targets, mu, logvar, z, beta=0.1, gamma=0.01):
     """VAE loss with p-adic regularization."""
-    batch_size = logits.size(0)
+    logits.size(0)
 
     # Reconstruction loss (cross-entropy)
     logits_flat = logits.view(-1, logits.size(-1))  # (batch*seq, n_codons)
@@ -293,7 +288,7 @@ def train_epoch(model, dataloader, optimizer, device, epoch):
     total_recon = 0
     total_kl = 0
 
-    for batch_idx, batch in enumerate(dataloader):
+    for _batch_idx, batch in enumerate(dataloader):
         batch = batch.to(device)
         optimizer.zero_grad()
 
@@ -358,9 +353,7 @@ def main():
     # Split into train/val
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
-    train_dataset, val_dataset = torch.utils.data.random_split(
-        dataset, [train_size, val_size]
-    )
+    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
 
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
@@ -382,9 +375,7 @@ def main():
 
     # Optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.5, patience=5
-    )
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5)
 
     # Training
     n_epochs = 50
@@ -394,9 +385,7 @@ def main():
     print("-" * 50)
 
     for epoch in range(1, n_epochs + 1):
-        train_loss, recon_loss, kl_loss = train_epoch(
-            model, train_loader, optimizer, device, epoch
-        )
+        train_loss, recon_loss, kl_loss = train_epoch(model, train_loader, optimizer, device, epoch)
         val_loss = evaluate(model, val_loader, device)
 
         scheduler.step(val_loss)
@@ -406,12 +395,15 @@ def main():
             # Save best model
             save_path = OUTPUT_DIR / "models" / "codon_vae_hiv.pt"
             save_path.parent.mkdir(parents=True, exist_ok=True)
-            torch.save({
-                "epoch": epoch,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "val_loss": val_loss,
-            }, save_path)
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "val_loss": val_loss,
+                },
+                save_path,
+            )
             marker = " *"
         else:
             marker = ""
@@ -458,10 +450,7 @@ def main():
     distances = []
     for i in range(n_samples):
         for j in range(i + 1, n_samples):
-            d = poincare_distance(
-                sample_z[i].unsqueeze(0),
-                sample_z[j].unsqueeze(0)
-            )
+            d = poincare_distance(sample_z[i].unsqueeze(0), sample_z[j].unsqueeze(0))
             distances.append(d.item())
 
     distances = np.array(distances)

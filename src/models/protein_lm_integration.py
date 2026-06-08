@@ -23,16 +23,15 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 @dataclass
 class PLMConfig:
     """Configuration for protein language model integration."""
+
     # PLM settings
     plm_name: str = "esm2_t6_8M_UR50D"  # Smallest ESM-2 for testing
     plm_dim: int = 320  # ESM-2 8M embedding dimension
@@ -45,7 +44,7 @@ class PLMConfig:
 
     # VAE settings
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [256, 128, 64])
+    hidden_dims: list[int] = field(default_factory=lambda: [256, 128, 64])
     dropout: float = 0.1
 
     # Training
@@ -92,22 +91,24 @@ class MockESM2(nn.Module):
         self.embed_tokens = nn.Embedding(33, embed_dim)  # 33 = ESM alphabet size
 
         # Mock transformer layers
-        self.layers = nn.ModuleList([
-            nn.TransformerEncoderLayer(
-                d_model=embed_dim,
-                nhead=4,
-                dim_feedforward=embed_dim * 4,
-                dropout=0.1,
-                batch_first=True,
-            )
-            for _ in range(num_layers)
-        ])
+        self.layers = nn.ModuleList(
+            [
+                nn.TransformerEncoderLayer(
+                    d_model=embed_dim,
+                    nhead=4,
+                    dim_feedforward=embed_dim * 4,
+                    dropout=0.1,
+                    batch_first=True,
+                )
+                for _ in range(num_layers)
+            ]
+        )
 
     def forward(
         self,
         tokens: torch.Tensor,
-        repr_layers: List[int] = None,
-    ) -> Dict[str, torch.Tensor]:
+        repr_layers: list[int] = None,
+    ) -> dict[str, torch.Tensor]:
         """Forward pass mimicking ESM-2 output format."""
         x = self.embed_tokens(tokens)
 
@@ -137,12 +138,14 @@ class PLMVAEEncoder(nn.Module):
         layers = []
         in_dim = cfg.adapter_dim
         for h in cfg.hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, h),
-                nn.GELU(),
-                nn.LayerNorm(h),
-                nn.Dropout(cfg.dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, h),
+                    nn.GELU(),
+                    nn.LayerNorm(h),
+                    nn.Dropout(cfg.dropout),
+                ]
+            )
             in_dim = h
         self.encoder = nn.Sequential(*layers)
 
@@ -150,7 +153,7 @@ class PLMVAEEncoder(nn.Module):
         self.fc_mu = nn.Linear(in_dim, cfg.latent_dim)
         self.fc_logvar = nn.Linear(in_dim, cfg.latent_dim)
 
-    def forward(self, plm_embeddings: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, plm_embeddings: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Encode PLM embeddings to latent space.
 
         Args:
@@ -222,7 +225,7 @@ class ProteinLMVAE(nn.Module):
         self,
         tokens: torch.Tensor = None,
         plm_embeddings: torch.Tensor = None,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Forward pass.
 
         Args:
@@ -321,15 +324,32 @@ def tokenize_sequence(sequence: str, max_len: int = 512) -> torch.Tensor:
     - 24-32: special tokens
     """
     aa_to_idx = {
-        "A": 4, "C": 5, "D": 6, "E": 7, "F": 8, "G": 9, "H": 10, "I": 11,
-        "K": 12, "L": 13, "M": 14, "N": 15, "P": 16, "Q": 17, "R": 18, "S": 19,
-        "T": 20, "V": 21, "W": 22, "Y": 23,
+        "A": 4,
+        "C": 5,
+        "D": 6,
+        "E": 7,
+        "F": 8,
+        "G": 9,
+        "H": 10,
+        "I": 11,
+        "K": 12,
+        "L": 13,
+        "M": 14,
+        "N": 15,
+        "P": 16,
+        "Q": 17,
+        "R": 18,
+        "S": 19,
+        "T": 20,
+        "V": 21,
+        "W": 22,
+        "Y": 23,
     }
 
     # Add CLS token
     tokens = [0]  # <cls>
 
-    for aa in sequence.upper()[:max_len - 2]:
+    for aa in sequence.upper()[: max_len - 2]:
         if aa in aa_to_idx:
             tokens.append(aa_to_idx[aa])
         else:
@@ -400,7 +420,7 @@ class HybridVAE(nn.Module):
         self,
         x_onehot: torch.Tensor,
         tokens: torch.Tensor = None,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Forward pass with both inputs."""
 
         # One-hot branch

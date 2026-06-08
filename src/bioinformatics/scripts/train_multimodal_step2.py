@@ -10,6 +10,7 @@ This tests whether a single VAE can learn from heterogeneous data sources.
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -18,24 +19,23 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from scipy.stats import spearmanr, pearsonr
-from torch.utils.data import DataLoader, Dataset, ConcatDataset, random_split
+from scipy.stats import pearsonr, spearmanr
+from torch.utils.data import DataLoader, Dataset, random_split
 
-import sys
 sys.path.insert(0, str(Path(__file__).parents[3]))
 
-from src.bioinformatics.models.ddg_vae import DDGVAE
-from src.bioinformatics.models.ddg_mlp_refiner import DDGMLPRefiner, RefinerConfig
+from src.bioinformatics.data.preprocessing import compute_features
+from src.bioinformatics.data.proteingym_loader import ProteinGymLoader
 from src.bioinformatics.data.protherm_loader import ProThermLoader
 from src.bioinformatics.data.s669_loader import S669Loader
-from src.bioinformatics.data.proteingym_loader import ProteinGymLoader
-from src.bioinformatics.data.preprocessing import compute_features
+from src.bioinformatics.models.ddg_mlp_refiner import DDGMLPRefiner, RefinerConfig
 from src.bioinformatics.training.deterministic import set_deterministic_mode
 
 
 @dataclass
 class CombinedVAEConfig:
     """Configuration for combined dataset VAE."""
+
     input_dim: int = 14
     hidden_dim: int = 128
     latent_dim: int = 32
@@ -95,11 +95,13 @@ class CombinedVAE(nn.Module):
         )
 
         # Source-specific heads (for multi-task learning)
-        self.source_heads = nn.ModuleDict({
-            "protherm": nn.Linear(config.hidden_dim, 1),
-            "s669": nn.Linear(config.hidden_dim, 1),
-            "proteingym": nn.Linear(config.hidden_dim, 1),
-        })
+        self.source_heads = nn.ModuleDict(
+            {
+                "protherm": nn.Linear(config.hidden_dim, 1),
+                "s669": nn.Linear(config.hidden_dim, 1),
+                "proteingym": nn.Linear(config.hidden_dim, 1),
+            }
+        )
 
     def encode(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         h = self.encoder(x)
@@ -117,10 +119,7 @@ class CombinedVAE(nn.Module):
         recon = self.recon_head(h)
 
         # Use source-specific head if available
-        if source is not None and source in self.source_heads:
-            ddg = self.source_heads[source](h)
-        else:
-            ddg = self.ddg_head(h)
+        ddg = self.source_heads[source](h) if source is not None and source in self.source_heads else self.ddg_head(h)
 
         return recon, ddg
 
@@ -249,13 +248,13 @@ def train_step2():
     # ProTherm
     protherm_loader = ProThermLoader()
     protherm_db = protherm_loader.load_curated()
-    protherm_records = protherm_db.records[:config.max_protherm]
+    protherm_records = protherm_db.records[: config.max_protherm]
     print(f"  ProTherm: {len(protherm_records)} mutations")
 
     # S669
     s669_loader = S669Loader()
     try:
-        s669_records = s669_loader.load_from_csv()[:config.max_s669]
+        s669_records = s669_loader.load_from_csv()[: config.max_s669]
     except Exception as e:
         print(f"  Warning: Could not load S669 full data: {e}")
         s669_records = []
@@ -265,7 +264,7 @@ def train_step2():
     proteingym_loader = ProteinGymLoader()
     proteingym_records = proteingym_loader.load_all(max_per_protein=500)
     np.random.shuffle(proteingym_records)
-    proteingym_records = proteingym_records[:config.max_proteingym]
+    proteingym_records = proteingym_records[: config.max_proteingym]
     print(f"  ProteinGym: {len(proteingym_records)} mutations")
 
     # Create combined dataset
@@ -275,7 +274,7 @@ def train_step2():
     # Split - keep ProTherm separate for evaluation
     protherm_subset = SourceSubset(combined_dataset, "protherm")
     n_protherm_val = int(len(protherm_subset) * 0.2)
-    n_protherm_train = len(protherm_subset) - n_protherm_val
+    len(protherm_subset) - n_protherm_val
 
     # For training, use all sources
     # For validation, only use ProTherm (our target task)
@@ -292,6 +291,7 @@ def train_step2():
             train_indices.append(i)
 
     from torch.utils.data import Subset
+
     train_ds = Subset(combined_dataset, train_indices)
     val_ds = Subset(combined_dataset, val_indices)
 
@@ -378,18 +378,20 @@ def train_step2():
         scheduler.step()
 
         if epoch % 10 == 0 or val_spearman > best_spearman:
-            print(f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
-                  f"spearman={val_spearman:.4f}")
+            print(f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} spearman={val_spearman:.4f}")
 
         if val_spearman > best_spearman:
             best_spearman = val_spearman
             patience_counter = 0
-            torch.save({
-                "model_state_dict": vae.state_dict(),
-                "epoch": epoch,
-                "val_spearman": val_spearman,
-                "config": config.__dict__,
-            }, output_dir / "combined_vae_best.pt")
+            torch.save(
+                {
+                    "model_state_dict": vae.state_dict(),
+                    "epoch": epoch,
+                    "val_spearman": val_spearman,
+                    "config": config.__dict__,
+                },
+                output_dir / "combined_vae_best.pt",
+            )
         else:
             patience_counter += 1
             if patience_counter >= config.patience:
@@ -426,7 +428,7 @@ def train_step2():
                     out = vae(x, source)
                     self.embeddings.append(out["mu"].cpu().squeeze(0))
                     self.vae_preds.append(out["ddg_pred"].cpu().item())
-                    self.labels.append(item["target"].item() if hasattr(item["target"], 'item') else item["target"])
+                    self.labels.append(item["target"].item() if hasattr(item["target"], "item") else item["target"])
 
             self.embeddings = torch.stack(self.embeddings)
             self.vae_preds = torch.tensor(self.vae_preds, dtype=torch.float32)
@@ -450,8 +452,9 @@ def train_step2():
     protherm_full = SourceSubset(combined_dataset, "protherm")
     n_val = int(len(protherm_full) * 0.2)
     n_train = len(protherm_full) - n_val
-    train_protherm, val_protherm = random_split(protherm_full, [n_train, n_val],
-                                                 generator=torch.Generator().manual_seed(42))
+    train_protherm, val_protherm = random_split(
+        protherm_full, [n_train, n_val], generator=torch.Generator().manual_seed(42)
+    )
 
     train_emb_ds = VAEEmbeddingDataset(train_protherm, vae, device)
     val_emb_ds = VAEEmbeddingDataset(val_protherm, vae, device)
@@ -526,23 +529,32 @@ def train_step2():
 
         if epoch % 20 == 0 or val_spearman > best_refiner_spearman:
             rw = torch.sigmoid(refiner.residual_weight).item()
-            print(f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
-                  f"spearman={val_spearman:.4f} res_w={rw:.3f}")
+            print(
+                f"Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} "
+                f"spearman={val_spearman:.4f} res_w={rw:.3f}"
+            )
 
         if val_spearman > best_refiner_spearman:
             best_refiner_spearman = val_spearman
-            torch.save({
-                "model_state_dict": refiner.state_dict(),
-                "epoch": epoch,
-                "val_spearman": val_spearman,
-            }, output_dir / "mlp_refiner_best.pt")
+            torch.save(
+                {
+                    "model_state_dict": refiner.state_dict(),
+                    "epoch": epoch,
+                    "val_spearman": val_spearman,
+                },
+                output_dir / "mlp_refiner_best.pt",
+            )
 
     # Save histories
     with open(output_dir / "training_history.json", "w") as f:
-        json.dump({
-            "combined_vae": history,
-            "mlp_refiner": refiner_history,
-        }, f, indent=2)
+        json.dump(
+            {
+                "combined_vae": history,
+                "mlp_refiner": refiner_history,
+            },
+            f,
+            indent=2,
+        )
 
     # ========================================
     # Cross-source correlation analysis
@@ -598,13 +610,13 @@ def train_step2():
     print("\n" + "=" * 70)
     print("STEP 2 COMPLETE")
     print("=" * 70)
-    print(f"\nResults:")
+    print("\nResults:")
     print(f"  Combined VAE Spearman (ProTherm): {best_spearman:.4f}")
     print(f"  + MLP Refiner Spearman:           {best_refiner_spearman:.4f}")
-    print(f"\nBaselines:")
-    print(f"  VAE-ProTherm alone:               0.64")
-    print(f"  VAE-ProTherm + MLP Refiner:       0.78")
-    print(f"  Step 1 Meta-VAE + Refiner:        0.63")
+    print("\nBaselines:")
+    print("  VAE-ProTherm alone:               0.64")
+    print("  VAE-ProTherm + MLP Refiner:       0.78")
+    print("  Step 1 Meta-VAE + Refiner:        0.63")
     print(f"\nCheckpoints: {output_dir}")
 
     return {

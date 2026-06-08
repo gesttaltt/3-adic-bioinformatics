@@ -41,7 +41,6 @@ Usage:
 """
 
 from pathlib import Path
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -89,9 +88,7 @@ class CheckpointEncoder(nn.Module):
         self.latent_dim = latent_dim
 
         self.block_embedder = WeightBlockEmbedder(embed_dim)
-        self.attention = nn.MultiheadAttention(
-            embed_dim=embed_dim, num_heads=n_heads, batch_first=True
-        )
+        self.attention = nn.MultiheadAttention(embed_dim=embed_dim, num_heads=n_heads, batch_first=True)
         self.to_latent = nn.Sequential(
             nn.Linear(embed_dim, embed_dim),
             nn.ReLU(),
@@ -161,7 +158,7 @@ class CheckpointDecoder(nn.Module):
     def __init__(
         self,
         latent_dim: int = 32,
-        block_sizes: Optional[list[int]] = None,
+        block_sizes: list[int] | None = None,
         hidden_dim: int = 256,
     ):
         super().__init__()
@@ -213,7 +210,7 @@ class EpsilonVAE(nn.Module):
         self,
         embed_dim: int = 64,
         latent_dim: int = 32,
-        block_sizes: Optional[list[int]] = None,
+        block_sizes: list[int] | None = None,
         n_heads: int = 4,
     ):
         super().__init__()
@@ -235,9 +232,7 @@ class EpsilonVAE(nn.Module):
         """Predict metrics from latent."""
         return self.metric_predictor(z)
 
-    def forward(
-        self, weight_blocks: list[Tensor]
-    ) -> tuple[Tensor, Tensor, Tensor, list[Tensor]]:
+    def forward(self, weight_blocks: list[Tensor]) -> tuple[Tensor, Tensor, Tensor, list[Tensor]]:
         """
         Full forward pass.
 
@@ -257,8 +252,8 @@ def epsilon_vae_loss(
     metrics_true: Tensor,
     mu: Tensor,
     logvar: Tensor,
-    weights_pred: Optional[list[Tensor]] = None,
-    weights_true: Optional[list[Tensor]] = None,
+    weights_pred: list[Tensor] | None = None,
+    weights_true: list[Tensor] | None = None,
     beta: float = 0.1,
     recon_weight: float = 0.1,
 ) -> dict[str, Tensor]:
@@ -292,16 +287,16 @@ def epsilon_vae_loss(
 
     # Optional weight reconstruction
     if weights_pred is not None and weights_true is not None:
-        recon_loss = sum(
-            F.mse_loss(wp, wt) for wp, wt in zip(weights_pred, weights_true)
-        ) / len(weights_pred)
+        recon_loss = sum(F.mse_loss(wp, wt) for wp, wt in zip(weights_pred, weights_true, strict=False)) / len(
+            weights_pred
+        )
         losses["recon_loss"] = recon_loss
         losses["total"] = total + recon_weight * recon_loss
 
     return losses
 
 
-def extract_key_weights(state_dict: dict, key_patterns: Optional[list[str]] = None) -> list[Tensor]:
+def extract_key_weights(state_dict: dict, key_patterns: list[str] | None = None) -> list[Tensor]:
     """
     Extract key weight matrices from state dict.
 
@@ -329,9 +324,7 @@ def extract_key_weights(state_dict: dict, key_patterns: Optional[list[str]] = No
     return weights
 
 
-def collect_checkpoint_dataset(
-    checkpoint_dir: str | Path, max_checkpoints: int = 500
-) -> list[dict]:
+def collect_checkpoint_dataset(checkpoint_dir: str | Path, max_checkpoints: int = 500) -> list[dict]:
     """
     Collect (weights, metrics) pairs from checkpoint directory.
 
@@ -408,9 +401,7 @@ def is_pareto_efficient(costs: Tensor) -> Tensor:
     return is_efficient
 
 
-def find_pareto_frontier(
-    epsilon_vae: EpsilonVAE, n_samples: int = 1000, device: str = "cpu"
-) -> tuple[Tensor, Tensor]:
+def find_pareto_frontier(epsilon_vae: EpsilonVAE, n_samples: int = 1000, device: str = "cpu") -> tuple[Tensor, Tensor]:
     """
     Sample latent space to find Pareto-optimal configurations.
 

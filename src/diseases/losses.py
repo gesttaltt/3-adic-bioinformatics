@@ -7,12 +7,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
-
 import torch
 import torch.nn as nn
 
-from src.diseases.base import DiseaseConfig
 from src.diseases.registry import DiseaseRegistry
 
 
@@ -66,6 +63,7 @@ class MultiDiseaseLoss(nn.Module):
         # Import here to avoid circular imports
         try:
             from src.losses.padic_geodesic import PAdicGeodesicLoss
+
             self.padic_geodesic = PAdicGeodesicLoss(
                 curvature=1.0,
                 max_target_distance=3.0,
@@ -76,6 +74,7 @@ class MultiDiseaseLoss(nn.Module):
 
         try:
             from src.losses.radial_stratification import RadialHierarchyLoss
+
             self.radial_hierarchy = RadialHierarchyLoss(
                 inner_radius=0.1,
                 outer_radius=0.85,
@@ -87,25 +86,28 @@ class MultiDiseaseLoss(nn.Module):
         """Initialize disease-specific losses."""
         self.disease_losses = {}
 
-        for disease_name, config in self.configs.items():
+        for disease_name, _config in self.configs.items():
             losses = {}
 
             # HIV-specific losses
             if disease_name == "hiv":
                 try:
                     from src.losses.glycan_loss import SentinelGlycanLoss
+
                     losses["glycan_shield"] = SentinelGlycanLoss()
                 except ImportError:
                     pass
 
                 try:
                     from src.losses.coevolution_loss import CoEvolutionLoss
+
                     losses["coevolution"] = CoEvolutionLoss()
                 except ImportError:
                     pass
 
                 try:
                     from src.losses.drug_interaction import DrugInteractionLoss
+
                     losses["drug_interaction"] = DrugInteractionLoss()
                 except ImportError:
                     pass
@@ -114,12 +116,14 @@ class MultiDiseaseLoss(nn.Module):
             elif disease_name == "ra":
                 try:
                     from src.losses.autoimmunity import AutoimmuneCodonRegularizer
+
                     losses["autoimmune"] = AutoimmuneCodonRegularizer()
                 except ImportError:
                     pass
 
                 try:
                     from src.losses.autoimmunity import CD4CD8AwareRegularizer
+
                     losses["cd4cd8"] = CD4CD8AwareRegularizer()
                 except ImportError:
                     pass
@@ -142,10 +146,10 @@ class MultiDiseaseLoss(nn.Module):
     def forward(
         self,
         embeddings: torch.Tensor,
-        indices: Optional[torch.Tensor] = None,
-        sequences: Optional[torch.Tensor] = None,
-        labels: Optional[dict[str, torch.Tensor]] = None,
-        disease: Optional[str] = None,
+        indices: torch.Tensor | None = None,
+        sequences: torch.Tensor | None = None,
+        labels: dict[str, torch.Tensor] | None = None,
+        disease: str | None = None,
         **kwargs,
     ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
         """Compute combined loss.
@@ -195,21 +199,18 @@ class MultiDiseaseLoss(nn.Module):
                             loss_value = loss_value.get("total", sum(loss_value.values()))
                         losses[f"{disease}_{loss_name}"] = loss_value
                         total_loss = total_loss + weight * loss_value
-                except Exception as e:
+                except Exception:
                     # Skip losses that fail (may need specific inputs)
                     pass
 
         losses["total"] = total_loss
         return total_loss, losses
 
-    def get_active_losses(self, disease: Optional[str] = None) -> list[str]:
+    def get_active_losses(self, disease: str | None = None) -> list[str]:
         """Get list of active loss names for a disease."""
         active = ["padic_geodesic", "radial_hierarchy"]
         if disease and disease in self.disease_losses:
-            active.extend([
-                f"{disease}_{name}"
-                for name in self.disease_losses[disease].keys()
-            ])
+            active.extend([f"{disease}_{name}" for name in self.disease_losses[disease]])
         return active
 
 
@@ -250,11 +251,13 @@ class UnifiedTrainingLoss(nn.Module):
         self.disease_loss = MultiDiseaseLoss(diseases)
 
         # Task losses
-        self.task_losses = nn.ModuleDict({
-            "classification": nn.CrossEntropyLoss(),
-            "regression": nn.MSELoss(),
-            "ranking": nn.MarginRankingLoss(margin=0.1),
-        })
+        self.task_losses = nn.ModuleDict(
+            {
+                "classification": nn.CrossEntropyLoss(),
+                "regression": nn.MSELoss(),
+                "ranking": nn.MarginRankingLoss(margin=0.1),
+            }
+        )
 
     def forward(
         self,

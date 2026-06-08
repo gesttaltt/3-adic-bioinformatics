@@ -193,7 +193,7 @@ class MolecularMimicryDetector(nn.Module):
         seq2 = seq2[:min_len]
 
         total_dist = 0.0
-        for i, (aa1, aa2) in enumerate(zip(seq1, seq2)):
+        for i, (aa1, aa2) in enumerate(zip(seq1, seq2, strict=False)):
             if aa1 != aa2:
                 # Position-weighted p-adic distance
                 position_weight = self.p ** (-i % 4)
@@ -217,7 +217,7 @@ class MolecularMimicryDetector(nn.Module):
             return 0.0
 
         similarity = 0.0
-        for aa1, aa2 in zip(seq1[:min_len], seq2[:min_len]):
+        for aa1, aa2 in zip(seq1[:min_len], seq2[:min_len], strict=False):
             props1 = AMINO_ACID_PROPERTIES.get(aa1.upper(), {})
             props2 = AMINO_ACID_PROPERTIES.get(aa2.upper(), {})
 
@@ -536,7 +536,7 @@ class MultipleSclerosisAnalyzer:
             risk_factors.append("Family history of MS")
 
         # Combined risk
-        overall_risk = (genetic_risk * 0.4 + mimicry_risk * 0.3 + env_risk * 0.3)
+        overall_risk = genetic_risk * 0.4 + mimicry_risk * 0.3 + env_risk * 0.3
 
         # Normalize to 0-1 scale
         overall_risk = min(1.0, overall_risk / 10.0)
@@ -669,7 +669,7 @@ class MultipleSclerosisAnalyzer:
         candidates = []
 
         for viral_name, viral_seq in viral_proteome.items():
-            for self_name, self_seq in self_proteome.items():
+            for _self_name, self_seq in self_proteome.items():
                 # Sliding window over viral sequence
                 for i in range(len(viral_seq) - window_size + 1):
                     viral_window = viral_seq[i : i + window_size]

@@ -20,21 +20,18 @@ is preserved in the hyperbolic embedding:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
-import geoopt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.geometry import poincare_distance
-from src.models.hyperbolic_projection import HyperbolicProjection
-from src.analysis.set_theory.mutation_sets import MutationSet
 from src.analysis.set_theory.lattice import (
     ResistanceLattice,
     ResistanceLevel,
-    LatticeNode,
 )
+from src.analysis.set_theory.mutation_sets import MutationSet
+from src.geometry import poincare_distance
+from src.models.hyperbolic_projection import HyperbolicProjection
 
 
 @dataclass
@@ -79,8 +76,8 @@ class LatticeAwareHyperbolicProjection(nn.Module):
 
     def __init__(
         self,
-        config: Optional[LatticeProjectionConfig] = None,
-        lattice: Optional[ResistanceLattice] = None,
+        config: LatticeProjectionConfig | None = None,
+        lattice: ResistanceLattice | None = None,
     ):
         """Initialize lattice-aware projection.
 
@@ -126,9 +123,9 @@ class LatticeAwareHyperbolicProjection(nn.Module):
     def forward(
         self,
         embeddings: torch.Tensor,
-        mutation_sets: Optional[List[MutationSet]] = None,
+        mutation_sets: list[MutationSet] | None = None,
         return_losses: bool = True,
-    ) -> Tuple[torch.Tensor, Optional[Dict[str, torch.Tensor]]]:
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor] | None]:
         """Project to hyperbolic space with lattice awareness.
 
         Args:
@@ -140,7 +137,6 @@ class LatticeAwareHyperbolicProjection(nn.Module):
             Tuple of (hyperbolic embeddings, loss dict or None)
         """
         batch_size = embeddings.size(0)
-        device = embeddings.device
 
         # Get base hyperbolic projection
         hyp_embeddings = self.projection(embeddings)
@@ -151,9 +147,7 @@ class LatticeAwareHyperbolicProjection(nn.Module):
 
             # Apply radius adjustment based on lattice levels
             if self.config.use_level_targets:
-                hyp_embeddings = self._adjust_radii(
-                    hyp_embeddings, embeddings, mutation_sets
-                )
+                hyp_embeddings = self._adjust_radii(hyp_embeddings, embeddings, mutation_sets)
 
         return hyp_embeddings, losses
 
@@ -161,7 +155,7 @@ class LatticeAwareHyperbolicProjection(nn.Module):
         self,
         hyp_embeddings: torch.Tensor,
         eucl_embeddings: torch.Tensor,
-        mutation_sets: List[MutationSet],
+        mutation_sets: list[MutationSet],
     ) -> torch.Tensor:
         """Adjust radii based on resistance levels.
 
@@ -214,8 +208,8 @@ class LatticeAwareHyperbolicProjection(nn.Module):
     def _compute_lattice_losses(
         self,
         hyp_embeddings: torch.Tensor,
-        mutation_sets: List[MutationSet],
-    ) -> Dict[str, torch.Tensor]:
+        mutation_sets: list[MutationSet],
+    ) -> dict[str, torch.Tensor]:
         """Compute lattice-based losses.
 
         Args:
@@ -225,8 +219,7 @@ class LatticeAwareHyperbolicProjection(nn.Module):
         Returns:
             Dictionary of losses
         """
-        device = hyp_embeddings.device
-        batch_size = len(mutation_sets)
+        len(mutation_sets)
 
         losses = {}
 
@@ -247,7 +240,7 @@ class LatticeAwareHyperbolicProjection(nn.Module):
     def _ordering_loss(
         self,
         hyp_embeddings: torch.Tensor,
-        mutation_sets: List[MutationSet],
+        mutation_sets: list[MutationSet],
     ) -> torch.Tensor:
         """Compute ordering loss for lattice constraints.
 
@@ -289,7 +282,7 @@ class LatticeAwareHyperbolicProjection(nn.Module):
     def _level_consistency_loss(
         self,
         hyp_embeddings: torch.Tensor,
-        mutation_sets: List[MutationSet],
+        mutation_sets: list[MutationSet],
     ) -> torch.Tensor:
         """Compute level consistency loss.
 
@@ -331,7 +324,7 @@ class LatticeAwareHyperbolicProjection(nn.Module):
     def _chain_loss(
         self,
         hyp_embeddings: torch.Tensor,
-        mutation_sets: List[MutationSet],
+        mutation_sets: list[MutationSet],
     ) -> torch.Tensor:
         """Compute chain consistency loss.
 
@@ -355,7 +348,7 @@ class LatticeAwareHyperbolicProjection(nn.Module):
         for i in range(len(mutation_sets)):
             for j in range(len(mutation_sets)):
                 for k in range(len(mutation_sets)):
-                    if i == j or j == k or i == k:
+                    if i in (j, k) or j == k:
                         continue
 
                     # Check if i < j < k in lattice
@@ -366,15 +359,9 @@ class LatticeAwareHyperbolicProjection(nn.Module):
                         # i < j < k forms a chain
                         # j should be on geodesic between i and k
                         # Approximate: d(i,j) + d(j,k) ≈ d(i,k)
-                        d_ij = self._hyperbolic_distance(
-                            hyp_embeddings[i], hyp_embeddings[j]
-                        )
-                        d_jk = self._hyperbolic_distance(
-                            hyp_embeddings[j], hyp_embeddings[k]
-                        )
-                        d_ik = self._hyperbolic_distance(
-                            hyp_embeddings[i], hyp_embeddings[k]
-                        )
+                        d_ij = self._hyperbolic_distance(hyp_embeddings[i], hyp_embeddings[j])
+                        d_jk = self._hyperbolic_distance(hyp_embeddings[j], hyp_embeddings[k])
+                        d_ik = self._hyperbolic_distance(hyp_embeddings[i], hyp_embeddings[k])
 
                         # Triangle inequality violation
                         chain_violation = F.relu(d_ij + d_jk - d_ik - 0.01)
@@ -401,7 +388,7 @@ class LatticeAwareHyperbolicProjection(nn.Module):
             Hyperbolic distance
         """
         c = self.config.curvature
-        sqrt_c = c ** 0.5
+        sqrt_c = c**0.5
 
         diff = x - y
         norm_x_sq = (x * x).sum()
@@ -482,7 +469,7 @@ class LatticeGuidedDecoder(nn.Module):
     def forward(
         self,
         hyp_embeddings: torch.Tensor,
-        target_level: Optional[ResistanceLevel] = None,
+        target_level: ResistanceLevel | None = None,
     ) -> torch.Tensor:
         """Decode with optional level conditioning.
 
@@ -506,10 +493,7 @@ class LatticeGuidedDecoder(nn.Module):
             diffs = (radii.unsqueeze(-1) - level_radii).abs()
             levels = diffs.argmin(dim=-1)
         else:
-            levels = torch.full(
-                (batch_size,), target_level.value,
-                dtype=torch.long, device=device
-            )
+            levels = torch.full((batch_size,), target_level.value, dtype=torch.long, device=device)
 
         # Add level conditioning
         level_cond = self.level_embeddings(levels)

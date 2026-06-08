@@ -898,7 +898,7 @@ def main():
         category_dir.mkdir(parents=True, exist_ok=True)
 
         # Create README for additional category
-        readme_content = f"""# {category.replace('_', ' ').title()}
+        readme_content = f"""# {category.replace("_", " ").title()}
 
 > **Additional HIV research papers on specialized topics.**
 

@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional, Union
 
 import torch
 import torch.nn as nn
@@ -38,9 +37,9 @@ class PLMEncoderBase(nn.Module, ABC):
     @abstractmethod
     def encode(
         self,
-        sequences: Union[str, list[str]],
+        sequences: str | list[str],
         return_attention: bool = False,
-    ) -> Union[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """Encode protein sequence(s) to embeddings.
 
         Args:
@@ -77,7 +76,7 @@ class PLMEncoderBase(nn.Module, ABC):
 
     def forward(
         self,
-        sequences: Union[str, list[str]],
+        sequences: str | list[str],
     ) -> torch.Tensor:
         """Forward pass - alias for encode."""
         return self.encode(sequences)
@@ -85,7 +84,7 @@ class PLMEncoderBase(nn.Module, ABC):
     @abstractmethod
     def get_layer_embeddings(
         self,
-        sequences: Union[str, list[str]],
+        sequences: str | list[str],
         layers: list[int],
     ) -> dict[int, torch.Tensor]:
         """Get embeddings from specific transformer layers.
@@ -102,7 +101,7 @@ class PLMEncoderBase(nn.Module, ABC):
     def pool_embeddings(
         self,
         embeddings: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
+        attention_mask: torch.Tensor | None = None,
         pooling: str = "mean",
     ) -> torch.Tensor:
         """Pool sequence embeddings to fixed-size representation.
@@ -123,9 +122,7 @@ class PLMEncoderBase(nn.Module, ABC):
 
         elif pooling == "max":
             if attention_mask is not None:
-                embeddings = embeddings.masked_fill(
-                    ~attention_mask.unsqueeze(-1), float("-inf")
-                )
+                embeddings = embeddings.masked_fill(~attention_mask.unsqueeze(-1), float("-inf"))
             return embeddings.max(dim=1).values
 
         elif pooling == "cls":

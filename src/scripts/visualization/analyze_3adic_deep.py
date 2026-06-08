@@ -32,6 +32,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.config.paths import CHECKPOINTS_DIR
 from src.data.generation import generate_all_ternary_operations
 from src.geometry import poincare_distance
+
 # V5.11 is the canonical model - alias for backwards compatibility
 from src.models import TernaryVAE as DualNeuralVAEV5
 
@@ -73,10 +74,7 @@ def decode_latent(model, z, vae="A", device="cpu"):
         z_tensor = z_tensor.unsqueeze(0)
 
     with torch.no_grad():
-        if vae == "A":
-            logits = model.decoder_A(z_tensor)
-        else:
-            logits = model.decoder_B(z_tensor)
+        logits = model.decoder_A(z_tensor) if vae == "A" else model.decoder_B(z_tensor)
         pred = logits.argmax(dim=-1) - 1
 
     return pred.cpu().numpy()
@@ -160,8 +158,12 @@ def analyze_interpolation_paths(model, data, output_path, device="cpu"):
             distances_from_end = [compute_3adic_distance(end_idx, idx) for idx in path_indices]
 
             # Check if path is "reasonable" - distance from start increases, from end decreases
-            start_monotonic = all(distances_from_start[i] <= distances_from_start[i + 1] for i in range(len(distances_from_start) - 1))
-            end_monotonic = all(distances_from_end[i] >= distances_from_end[i + 1] for i in range(len(distances_from_end) - 1))
+            start_monotonic = all(
+                distances_from_start[i] <= distances_from_start[i + 1] for i in range(len(distances_from_start) - 1)
+            )
+            end_monotonic = all(
+                distances_from_end[i] >= distances_from_end[i + 1] for i in range(len(distances_from_end) - 1)
+            )
 
             if start_monotonic or end_monotonic:
                 monotonic_paths += 1
@@ -170,7 +172,7 @@ def analyze_interpolation_paths(model, data, output_path, device="cpu"):
             # A geodesic would have d(start, mid) + d(mid, end) ≈ d(start, end)
             start_end_dist = compute_3adic_distance(start_idx, end_idx)
             geodesic_violations = 0
-            for k, idx in enumerate(path_indices[1:-1]):
+            for _k, idx in enumerate(path_indices[1:-1]):
                 d_start = compute_3adic_distance(start_idx, idx)
                 d_end = compute_3adic_distance(end_idx, idx)
                 if d_start + d_end > start_end_dist + 2:  # Allow some slack
@@ -188,8 +190,8 @@ def analyze_interpolation_paths(model, data, output_path, device="cpu"):
         }
 
         print(f"\nVAE-{vae_name} Interpolation Analysis ({n_tests} paths):")
-        print(f"  Geodesic-valid paths: {valid_paths}/{n_tests} ({100*valid_paths/n_tests:.1f}%)")
-        print(f"  Monotonic paths: {monotonic_paths}/{n_tests} ({100*monotonic_paths/n_tests:.1f}%)")
+        print(f"  Geodesic-valid paths: {valid_paths}/{n_tests} ({100 * valid_paths / n_tests:.1f}%)")
+        print(f"  Monotonic paths: {monotonic_paths}/{n_tests} ({100 * monotonic_paths / n_tests:.1f}%)")
         print(f"  Avg intermediate validity: {np.mean(avg_intermediate_validity):.3f}")
 
     # Visualization: Show example interpolations
@@ -246,7 +248,7 @@ def analyze_interpolation_paths(model, data, output_path, device="cpu"):
             s=30,
             zorder=4,
         )
-        ax.set_title(f"Path {plot_idx+1}: idx {i}→{j}\n3-adic dist: {compute_3adic_distance(i, j)}")
+        ax.set_title(f"Path {plot_idx + 1}: idx {i}→{j}\n3-adic dist: {compute_3adic_distance(i, j)}")
         if plot_idx == 0:
             ax.legend(loc="upper right")
 
@@ -256,7 +258,7 @@ def analyze_interpolation_paths(model, data, output_path, device="cpu"):
         ax.imshow(path_matrix.T, aspect="auto", cmap="RdBu", vmin=-1, vmax=1)
         ax.set_xlabel("Interpolation Step")
         ax.set_ylabel("Operation Dimension")
-        ax.set_title(f"Decoded Operations Along Path {plot_idx+1}")
+        ax.set_title(f"Decoded Operations Along Path {plot_idx + 1}")
 
     plt.suptitle(
         "VAE-A Latent Space Interpolation Paths\nColor = 3-adic distance from start",
@@ -307,7 +309,9 @@ def analyze_digit_dimensions(data, output_path):
     for dim in range(16):
         sorted_idx = np.argsort(np.abs(corr_A[dim]))[::-1]
         best, second = sorted_idx[0], sorted_idx[1]
-        print(f" {dim:2d} |     {best}      |   {corr_A[dim, best]:+.3f}    |    {second}     | {corr_A[dim, second]:+.3f}")
+        print(
+            f" {dim:2d} |     {best}      |   {corr_A[dim, best]:+.3f}    |    {second}     | {corr_A[dim, second]:+.3f}"
+        )
 
     print("\nVAE-B: Latent Dimension → Best Correlated Digit")
     print("Dim | Best Digit | Correlation | 2nd Best | Corr")
@@ -315,7 +319,9 @@ def analyze_digit_dimensions(data, output_path):
     for dim in range(16):
         sorted_idx = np.argsort(np.abs(corr_B[dim]))[::-1]
         best, second = sorted_idx[0], sorted_idx[1]
-        print(f" {dim:2d} |     {best}      |   {corr_B[dim, best]:+.3f}    |    {second}     | {corr_B[dim, second]:+.3f}")
+        print(
+            f" {dim:2d} |     {best}      |   {corr_B[dim, best]:+.3f}    |    {second}     | {corr_B[dim, second]:+.3f}"
+        )
 
     # Visualization
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
@@ -637,8 +643,8 @@ def analyze_latent_arithmetic(model, data, output_path, device="cpu"):
     for vae_name in ["A", "B"]:
         r = results[vae_name]
         print(f"VAE-{vae_name}:")
-        print(f"  Exact matches (NN = true sum): {r['exact']}/{n_tests} ({100*r['exact']/n_tests:.1f}%)")
-        print(f"  Close matches (in top 10 NN):  {r['close']}/{n_tests} ({100*r['close']/n_tests:.1f}%)")
+        print(f"  Exact matches (NN = true sum): {r['exact']}/{n_tests} ({100 * r['exact'] / n_tests:.1f}%)")
+        print(f"  Close matches (in top 10 NN):  {r['close']}/{n_tests} ({100 * r['close'] / n_tests:.1f}%)")
         print(f"  Mean distance to true sum:     {np.mean(r['dist']):.4f}")
 
     # Test other operations: subtraction, negation
@@ -666,8 +672,8 @@ def analyze_latent_arithmetic(model, data, output_path, device="cpu"):
             neg_exact_B += 1
 
     print("\nNegation test: 2*z_0 - z_a ≈ z_(-a)?")
-    print(f"  VAE-A: {neg_exact_A}/500 ({100*neg_exact_A/500:.1f}%)")
-    print(f"  VAE-B: {neg_exact_B}/500 ({100*neg_exact_B/500:.1f}%)")
+    print(f"  VAE-A: {neg_exact_A}/500 ({100 * neg_exact_A / 500:.1f}%)")
+    print(f"  VAE-B: {neg_exact_B}/500 ({100 * neg_exact_B / 500:.1f}%)")
 
     # Visualization
     fig, axes = plt.subplots(2, 2, figsize=(14, 12))
@@ -822,10 +828,10 @@ def main():
     print("\n" + "=" * 60)
     print("COMPLETE ANALYSIS SUMMARY")
     print("=" * 60)
-    print(f"\n1. INTERPOLATION: {interp_results['A']['avg_validity']*100:.1f}% path validity (VAE-A)")
+    print(f"\n1. INTERPOLATION: {interp_results['A']['avg_validity'] * 100:.1f}% path validity (VAE-A)")
     print("2. DIGIT MAPPING: Latent dims correlate with specific 3-adic digits")
     print("3. TRAJECTORY: 3-adic structure emerges during training")
-    print(f"4. ARITHMETIC: {arithmetic_results['A']['exact']/10:.1f}% exact addition matches (VAE-A)")
+    print(f"4. ARITHMETIC: {arithmetic_results['A']['exact'] / 10:.1f}% exact addition matches (VAE-A)")
 
     print("\nGenerated files:")
     for f in sorted(output_path.glob("*.png")):

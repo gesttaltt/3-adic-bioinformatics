@@ -13,13 +13,11 @@ to eliminate code duplication (D4 from DUPLICATION_REPORT).
 These projections map high-dimensional latent embeddings to 3D for visualization.
 """
 
-from typing import Union
-
 import numpy as np
 import torch
 
 
-def _to_numpy(z: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
+def _to_numpy(z: np.ndarray | torch.Tensor) -> np.ndarray:
     """Convert input to numpy array."""
     return z.numpy() if torch.is_tensor(z) else z
 
@@ -34,7 +32,7 @@ def _to_complex_coords(z_norm: np.ndarray, n_pairs: int) -> list:
     return [z_norm[:, 2 * i] + 1j * z_norm[:, 2 * i + 1] for i in range(n_pairs)]
 
 
-def quintic_fibration(z: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
+def quintic_fibration(z: np.ndarray | torch.Tensor) -> np.ndarray:
     """Calabi-Yau quintic threefold: z1^5 + z2^5 + z3^5 + z4^5 + z5^5 = 0
 
     Projects high-dimensional embeddings onto a 3D representation of the
@@ -66,7 +64,7 @@ def quintic_fibration(z: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
     return np.column_stack([x, y, z_coord])
 
 
-def hopf_fibration(z: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
+def hopf_fibration(z: np.ndarray | torch.Tensor) -> np.ndarray:
     """Hopf fibration S^(2n-1) -> CP^(n-1)
 
     Projects embeddings using the Hopf fibration structure, revealing
@@ -101,7 +99,7 @@ def hopf_fibration(z: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
     return np.column_stack([x, y, z_coord])
 
 
-def k3_surface(z: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
+def k3_surface(z: np.ndarray | torch.Tensor) -> np.ndarray:
     """K3 surface projection.
 
     Projects onto a representation related to K3 surfaces, which are
@@ -133,7 +131,7 @@ def k3_surface(z: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
     return np.column_stack([x, y, z_coord])
 
 
-def mirror_symmetry(z: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
+def mirror_symmetry(z: np.ndarray | torch.Tensor) -> np.ndarray:
     """Mirror symmetry projection.
 
     Projects using mirror symmetry relations between complex and
@@ -168,7 +166,7 @@ def mirror_symmetry(z: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
     return np.column_stack([x, y, z_coord])
 
 
-def fermat_surface(z: Union[np.ndarray, torch.Tensor], degree: int = 4) -> np.ndarray:
+def fermat_surface(z: np.ndarray | torch.Tensor, degree: int = 4) -> np.ndarray:
     """Fermat surface z1^d + z2^d + z3^d + z4^d = 0
 
     Projects onto the Fermat hypersurface of specified degree.
@@ -196,7 +194,7 @@ def fermat_surface(z: Union[np.ndarray, torch.Tensor], degree: int = 4) -> np.nd
     return np.column_stack([x, y, z_coord])
 
 
-def torus_fibration(z: Union[np.ndarray, torch.Tensor]) -> np.ndarray:
+def torus_fibration(z: np.ndarray | torch.Tensor) -> np.ndarray:
     """Elliptic fibration (torus fibers over base).
 
     Projects using the structure of an elliptic fibration, where

@@ -5,9 +5,7 @@ Tests all new improvements without relying on src/__init__.py
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -98,7 +96,7 @@ class SimpleTransformer(nn.Module):
         return {"x_recon": x_recon, "mu": mu, "logvar": logvar, "z": z, "prediction": prediction}
 
 
-def load_stanford_data(drug_class: str) -> Tuple[pd.DataFrame, List[str], List[str]]:
+def load_stanford_data(drug_class: str) -> tuple[pd.DataFrame, list[str], list[str]]:
     """Load Stanford HIVDB data."""
     data_dir = project_root / "data" / "research"
 
@@ -122,13 +120,13 @@ def load_stanford_data(drug_class: str) -> Tuple[pd.DataFrame, List[str], List[s
     # All Stanford HIVDB files use "P" prefix for position columns
     prefix = "P"
 
-    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix):].isdigit()]
-    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix):]))
+    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix) :].isdigit()]
+    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix) :]))
 
     return df, position_cols, drug_columns[drug_class]
 
 
-def encode_amino_acids(df: pd.DataFrame, position_cols: List[str]) -> np.ndarray:
+def encode_amino_acids(df: pd.DataFrame, position_cols: list[str]) -> np.ndarray:
     """One-hot encode amino acid sequences."""
     aa_alphabet = "ACDEFGHIKLMNPQRSTVWY*-"
     aa_to_idx = {aa: i for i, aa in enumerate(aa_alphabet)}
@@ -149,7 +147,7 @@ def encode_amino_acids(df: pd.DataFrame, position_cols: List[str]) -> np.ndarray
     return encoded
 
 
-def prepare_data(drug_class: str, target_drug: str) -> Tuple:
+def prepare_data(drug_class: str, target_drug: str) -> tuple:
     """Prepare data for training."""
     df, position_cols, drugs = load_stanford_data(drug_class)
     df_valid = df[df[target_drug].notna() & (df[target_drug] > 0)].copy()
@@ -164,13 +162,16 @@ def prepare_data(drug_class: str, target_drug: str) -> Tuple:
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     return (
-        torch.tensor(X_train), torch.tensor(y_train),
-        torch.tensor(X_test), torch.tensor(y_test),
-        X.shape[1], len(position_cols)
+        torch.tensor(X_train),
+        torch.tensor(y_train),
+        torch.tensor(X_test),
+        torch.tensor(y_test),
+        X.shape[1],
+        len(position_cols),
     )
 
 
-def compute_loss(out: Dict, x: torch.Tensor, y: torch.Tensor, ranking_weight: float = 0.3) -> torch.Tensor:
+def compute_loss(out: dict, x: torch.Tensor, y: torch.Tensor, ranking_weight: float = 0.3) -> torch.Tensor:
     """Compute training loss."""
     recon = F.mse_loss(out["x_recon"], x)
     kl = -0.5 * torch.mean(1 + out["logvar"] - out["mu"].pow(2) - out["logvar"].exp())
@@ -178,8 +179,8 @@ def compute_loss(out: Dict, x: torch.Tensor, y: torch.Tensor, ranking_weight: fl
     pred = out.get("prediction", out["z"][:, 0])
     p_c = pred - pred.mean()
     y_c = y - y.mean()
-    p_std = torch.sqrt(torch.sum(p_c ** 2) + 1e-8)
-    y_std = torch.sqrt(torch.sum(y_c ** 2) + 1e-8)
+    p_std = torch.sqrt(torch.sum(p_c**2) + 1e-8)
+    y_std = torch.sqrt(torch.sum(y_c**2) + 1e-8)
     corr = torch.sum(p_c * y_c) / (p_std * y_std)
     rank = ranking_weight * (-corr)
 
@@ -217,6 +218,7 @@ def train_model(model: nn.Module, train_x, train_y, test_x, test_y, epochs=50, d
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--drug-class", type=str, default="pi")
@@ -264,13 +266,15 @@ def main():
             trans = train_model(model, train_x, train_y, test_x, test_y, args.epochs, device)
             print(f"  Transformer:  {trans:+.4f}")
 
-            results.append({
-                "drug": drug,
-                "baseline": baseline,
-                "gene_specific": gene_spec,
-                "transformer": trans,
-                "best_improvement": max(gene_spec, trans) - baseline,
-            })
+            results.append(
+                {
+                    "drug": drug,
+                    "baseline": baseline,
+                    "gene_specific": gene_spec,
+                    "transformer": trans,
+                    "best_improvement": max(gene_spec, trans) - baseline,
+                }
+            )
 
         except Exception as e:
             print(f"  Error: {e}")
@@ -283,8 +287,10 @@ def main():
         print(f"{'Drug':<8} {'Baseline':>10} {'Gene-Spec':>12} {'Transformer':>12} {'Improve':>10}")
         print("-" * 60)
         for r in sorted(results, key=lambda x: -x["baseline"]):
-            print(f"{r['drug']:<8} {r['baseline']:>+10.4f} {r['gene_specific']:>+12.4f} "
-                  f"{r['transformer']:>+12.4f} {r['best_improvement']:>+10.4f}")
+            print(
+                f"{r['drug']:<8} {r['baseline']:>+10.4f} {r['gene_specific']:>+12.4f} "
+                f"{r['transformer']:>+12.4f} {r['best_improvement']:>+10.4f}"
+            )
 
         avg_b = np.mean([r["baseline"] for r in results])
         avg_g = np.mean([r["gene_specific"] for r in results])

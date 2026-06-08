@@ -25,8 +25,8 @@ References:
 from __future__ import annotations
 
 import math
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterator, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -39,14 +39,14 @@ class FisherInfo:
     """Container for Fisher information matrix and related quantities."""
 
     matrix: torch.Tensor  # Fisher information matrix
-    eigenvalues: Optional[torch.Tensor] = None
-    eigenvectors: Optional[torch.Tensor] = None
-    condition_number: Optional[float] = None
-    trace: Optional[float] = None
-    log_determinant: Optional[float] = None
+    eigenvalues: torch.Tensor | None = None
+    eigenvectors: torch.Tensor | None = None
+    condition_number: float | None = None
+    trace: float | None = None
+    log_determinant: float | None = None
 
     @classmethod
-    def from_matrix(cls, F_matrix: torch.Tensor) -> "FisherInfo":
+    def from_matrix(cls, F_matrix: torch.Tensor) -> FisherInfo:
         """Create FisherInfo from Fisher matrix with computed properties."""
         # Compute eigendecomposition for analysis
         eigenvalues, eigenvectors = torch.linalg.eigh(F_matrix)
@@ -108,8 +108,8 @@ class FisherInformationEstimator:
         self,
         data_loader: Iterator,
         n_samples: int = 100,
-        loss_fn: Optional[Callable] = None,
-    ) -> Union[FisherInfo, Dict[str, FisherInfo]]:
+        loss_fn: Callable | None = None,
+    ) -> FisherInfo | dict[str, FisherInfo]:
         """Estimate Fisher information matrix.
 
         Args:
@@ -141,7 +141,7 @@ class FisherInformationEstimator:
         F_matrix = torch.zeros(self.n_params, self.n_params, device=device)
 
         sample_count = 0
-        for batch_idx, (inputs, targets) in enumerate(data_loader):
+        for _batch_idx, (inputs, targets) in enumerate(data_loader):
             if sample_count >= n_samples:
                 break
 
@@ -185,7 +185,7 @@ class FisherInformationEstimator:
         data_loader: Iterator,
         n_samples: int,
         loss_fn: Callable,
-    ) -> Dict[str, FisherInfo]:
+    ) -> dict[str, FisherInfo]:
         """Estimate block-diagonal Fisher (one block per layer)."""
         device = next(self.model.parameters()).device
 
@@ -197,7 +197,7 @@ class FisherInformationEstimator:
                 fisher_blocks[name] = torch.zeros(size, size, device=device)
 
         sample_count = 0
-        for batch_idx, (inputs, targets) in enumerate(data_loader):
+        for _batch_idx, (inputs, targets) in enumerate(data_loader):
             if sample_count >= n_samples:
                 break
 
@@ -285,7 +285,7 @@ class NaturalGradientOptimizer(Optimizer):
         super().__init__(params, defaults)
 
     @torch.no_grad()
-    def step(self, closure: Optional[Callable] = None) -> Optional[torch.Tensor]:
+    def step(self, closure: Callable | None = None) -> torch.Tensor | None:
         """Perform optimization step.
 
         Args:
@@ -375,7 +375,7 @@ class KFACOptimizer(Optimizer):
         self.step_count = 0
 
         # State for each layer
-        self.layer_state: Dict[str, Dict] = {}
+        self.layer_state: dict[str, dict] = {}
         self._register_hooks()
 
         params = model.parameters()
@@ -530,7 +530,7 @@ class KFACOptimizer(Optimizer):
                 if a_size == grad.size(1):
                     nat_grad = S_inv @ grad @ A_inv[:-1, :-1]
                 else:
-                    nat_grad = S_inv @ grad @ A_inv[:grad.size(1), :grad.size(1)]
+                    nat_grad = S_inv @ grad @ A_inv[: grad.size(1), : grad.size(1)]
             else:
                 nat_grad = grad  # For bias
 
@@ -543,7 +543,7 @@ class KFACOptimizer(Optimizer):
             return grad  # Fall back on any error
 
     @torch.no_grad()
-    def step(self, closure: Optional[Callable] = None) -> Optional[torch.Tensor]:
+    def step(self, closure: Callable | None = None) -> torch.Tensor | None:
         """Perform optimization step."""
         loss = None
         if closure is not None:
@@ -614,7 +614,7 @@ class InformationGeometricAnalyzer:
         self.track_eigenvalues = track_eigenvalues
         self.n_eigenvalues = n_eigenvalues
 
-        self.history: Dict[str, list] = {
+        self.history: dict[str, list] = {
             "condition_numbers": [],
             "trace": [],
             "log_det": [],
@@ -626,7 +626,7 @@ class InformationGeometricAnalyzer:
         self,
         data_loader: Iterator,
         n_samples: int = 50,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Analyze Fisher information at current training step.
 
         Args:
@@ -669,8 +669,8 @@ class InformationGeometricAnalyzer:
 
     def geodesic_distance(
         self,
-        params1: Dict[str, torch.Tensor],
-        params2: Dict[str, torch.Tensor],
+        params1: dict[str, torch.Tensor],
+        params2: dict[str, torch.Tensor],
         fisher_info: FisherInfo,
     ) -> float:
         """Compute geodesic distance between parameter configurations.
@@ -719,7 +719,7 @@ class InformationGeometricAnalyzer:
         data_loader: Iterator,
         epsilon: float = 0.01,
         n_directions: int = 10,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Measure loss landscape flatness around current parameters.
 
         Uses random directions in parameter space to estimate local

@@ -16,8 +16,6 @@ Purpose = understanding that r → addition_accuracy.
 Single responsibility: Learn and predict consequence of metric structure.
 """
 
-from typing import Dict, List, Optional, Tuple
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -63,10 +61,10 @@ class ConsequencePredictor(nn.Module):
         self.register_buffer("n_updates", torch.tensor(0))
 
         # History for computing actual addition accuracy
-        self.actual_accuracy_history: List[float] = []
-        self.predicted_accuracy_history: List[float] = []
+        self.actual_accuracy_history: list[float] = []
+        self.predicted_accuracy_history: list[float] = []
 
-    def compute_z_statistics(self, z: torch.Tensor) -> Tuple[float, float]:
+    def compute_z_statistics(self, z: torch.Tensor) -> tuple[float, float]:
         """Compute latent space statistics.
 
         Args:
@@ -167,9 +165,7 @@ class ConsequencePredictor(nn.Module):
         return (numerator / denominator).item()
 
 
-def evaluate_addition_accuracy(
-    model: nn.Module, device: str, n_samples: int = 1000, curvature: float = 1.0
-) -> float:
+def evaluate_addition_accuracy(model: nn.Module, device: str, n_samples: int = 1000, curvature: float = 1.0) -> float:
     """Evaluate model's emergent addition capability.
 
     Tests: z_a + z_b - z_0 ≈ z_{a∘b}
@@ -301,8 +297,8 @@ class PurposefulRankingLoss(nn.Module):
         ranking_correlation: float,
         z: torch.Tensor,
         coverage_pct: float,
-        actual_addition_accuracy: Optional[float] = None,
-    ) -> Dict[str, torch.Tensor]:
+        actual_addition_accuracy: float | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Compute consequence-aware loss.
 
         Args:

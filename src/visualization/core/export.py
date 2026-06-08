@@ -13,15 +13,14 @@ with consistent quality settings for publication and presentation.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.figure import Figure
 
-from ..config import (DPI_PRESENTATION, DPI_PUBLICATION, ExportFormat,
-                      get_config)
+from ..config import DPI_PRESENTATION, DPI_PUBLICATION, ExportFormat, get_config
 
 # =============================================================================
 # Export Functions
@@ -55,10 +54,7 @@ def save_figure(
     """
     config = get_config()
 
-    if output_dir is None:
-        output_dir = config.output_dir
-    else:
-        output_dir = Path(output_dir)
+    output_dir = config.output_dir if output_dir is None else Path(output_dir)
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -269,7 +265,7 @@ def set_figure_size_inches(
     fig.set_size_inches(width, height)
 
 
-def figure_to_array(fig: Figure, dpi: int = 150) -> "np.ndarray":
+def figure_to_array(fig: Figure, dpi: int = 150) -> np.ndarray:
     """Convert figure to numpy array.
 
     Args:
@@ -343,10 +339,7 @@ def save_plotly_figure(
     """
     config = get_config()
 
-    if output_dir is None:
-        output_dir = config.output_dir
-    else:
-        output_dir = Path(output_dir)
+    output_dir = config.output_dir if output_dir is None else Path(output_dir)
 
     output_dir.mkdir(parents=True, exist_ok=True)
 

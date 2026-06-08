@@ -16,8 +16,7 @@ Three specialist variants are trained:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
@@ -75,7 +74,7 @@ class DDGEncoder(nn.Module):
         in_dim = config.effective_input_dim
 
         for i in range(config.n_layers):
-            out_dim = config.hidden_dim // (2 ** i) if i > 0 else config.hidden_dim
+            out_dim = config.hidden_dim // (2**i) if i > 0 else config.hidden_dim
             out_dim = max(out_dim, config.latent_dim * 2)
 
             layers.append(nn.Linear(in_dim, out_dim))
@@ -189,7 +188,7 @@ class DDGVAE(nn.Module):
     protein stability effects.
     """
 
-    def __init__(self, config: Optional[DDGVAEConfig] = None, **kwargs):
+    def __init__(self, config: DDGVAEConfig | None = None, **kwargs):
         """Initialize DDG VAE.
 
         Args:
@@ -367,7 +366,7 @@ class DDGVAE(nn.Module):
             return mu
 
     @classmethod
-    def create_s669_variant(cls, use_hyperbolic: bool = True) -> "DDGVAE":
+    def create_s669_variant(cls, use_hyperbolic: bool = True) -> DDGVAE:
         """Create VAE-S669 variant for benchmark dataset.
 
         This variant is optimized for the S669 benchmark:
@@ -387,7 +386,7 @@ class DDGVAE(nn.Module):
         return cls(config)
 
     @classmethod
-    def create_protherm_variant(cls, use_hyperbolic: bool = True) -> "DDGVAE":
+    def create_protherm_variant(cls, use_hyperbolic: bool = True) -> DDGVAE:
         """Create VAE-ProTherm variant for curated high-quality data.
 
         This variant has larger capacity for cleaner data:
@@ -407,7 +406,7 @@ class DDGVAE(nn.Module):
         return cls(config)
 
     @classmethod
-    def create_wide_variant(cls, use_hyperbolic: bool = True) -> "DDGVAE":
+    def create_wide_variant(cls, use_hyperbolic: bool = True) -> DDGVAE:
         """Create VAE-Wide variant for large diverse dataset.
 
         This variant has maximum capacity for diversity:

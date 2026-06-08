@@ -10,7 +10,9 @@ import os
 from collections import defaultdict
 
 
-def get_file_stats(root_dirs, extensions={".py", ".md", ".ts", ".tsx", ".js", ".json"}):
+def get_file_stats(root_dirs, extensions=None):
+    if extensions is None:
+        extensions = {".py", ".md", ".ts", ".tsx", ".js", ".json"}
     file_stats = []
     # Adjust root_dirs to be absolute or relative to where script is run. Assuming run from repo root.
     repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -28,7 +30,7 @@ def get_file_stats(root_dirs, extensions={".py", ".md", ".ts", ".tsx", ".js", ".
                     rel_path = os.path.relpath(file_path, repo_root)
 
                     try:
-                        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                        with open(file_path, encoding="utf-8", errors="ignore") as f:
                             lines = f.readlines()
                             file_stats.append(
                                 {
@@ -113,7 +115,9 @@ def generate_report(file_stats, pair_dups, output_file="CODEBASE_ANALYSIS.md"):
         f.write(f"\n**Total Lines:** {total_lines}\n\n")
 
         f.write("## Code Duplication (Shared 6-line blocks)\n\n")
-        f.write("This section shows pairs of files that share significant chunks of identical code (ignoring whitespace).\n\n")
+        f.write(
+            "This section shows pairs of files that share significant chunks of identical code (ignoring whitespace).\n\n"
+        )
 
         # Sort duplicates by "score" (number of shared windows)
         sorted_dups = sorted(pair_dups.items(), key=lambda x: x[1], reverse=True)

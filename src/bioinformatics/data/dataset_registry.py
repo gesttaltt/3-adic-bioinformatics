@@ -14,26 +14,20 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Union, Literal
+from typing import Literal
 
-import numpy as np
 import torch
-from torch.utils.data import Dataset, ConcatDataset
+from torch.utils.data import ConcatDataset, Dataset
 
+from src.bioinformatics.data.proteingym_loader import (
+    ProteinGymLoader,
+)
 from src.bioinformatics.data.protherm_loader import (
     ProThermLoader,
-    ProThermDataset,
-    ProThermDatabase,
 )
 from src.bioinformatics.data.s669_loader import (
     S669Loader,
-    S669Dataset,
 )
-from src.bioinformatics.data.proteingym_loader import (
-    ProteinGymLoader,
-    ProteinGymDataset,
-)
-
 
 DatasetType = Literal["protherm", "s669", "proteingym", "combined"]
 
@@ -67,8 +61,8 @@ class DatasetRegistry:
 
     def __init__(
         self,
-        data_dir: Optional[Path] = None,
-        aa_embeddings: Optional[dict[str, torch.Tensor]] = None,
+        data_dir: Path | None = None,
+        aa_embeddings: dict[str, torch.Tensor] | None = None,
         curvature: float = 1.0,
     ):
         """Initialize registry.
@@ -239,17 +233,11 @@ class DatasetRegistry:
 
         if path.suffix == ".pt":
             data = torch.load(path, map_location=device, weights_only=True)
-            if isinstance(data, dict) and "embeddings" in data:
-                embeddings = data["embeddings"]
-            else:
-                embeddings = data
+            embeddings = data["embeddings"] if isinstance(data, dict) and "embeddings" in data else data
         elif path.suffix == ".json":
             with open(path) as f:
                 data = json.load(f)
-            embeddings = {
-                aa: torch.tensor(emb, device=device, dtype=torch.float32)
-                for aa, emb in data.items()
-            }
+            embeddings = {aa: torch.tensor(emb, device=device, dtype=torch.float32) for aa, emb in data.items()}
         else:
             raise ValueError(f"Unsupported file format: {path.suffix}")
 
@@ -281,13 +269,11 @@ class DatasetRegistry:
         n_train = len(dataset) - n_val
 
         generator = torch.Generator().manual_seed(seed)
-        train_dataset, val_dataset = random_split(
-            dataset, [n_train, n_val], generator=generator
-        )
+        train_dataset, val_dataset = random_split(dataset, [n_train, n_val], generator=generator)
 
         return train_dataset, val_dataset
 
-    def save_manifest(self, path: Optional[Path] = None) -> None:
+    def save_manifest(self, path: Path | None = None) -> None:
         """Save dataset manifest with all info.
 
         Args:

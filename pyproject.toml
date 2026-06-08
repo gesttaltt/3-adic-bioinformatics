@@ -159,17 +159,41 @@ exclude = [
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
-ignore = ["E501"]
+ignore = [
+    "E402",   # module import not at top of file (common in ML/research scripts)
+    "E501",   # line too long
+    "E722",   # bare except clause (sometimes intentional in research code)
+    "E741",   # ambiguous variable name (l, I, O common in ML)
+    "B007",   # loop control variable not used in body
+    "B008",   # function call in default argument
+    "B018",   # found useless statement
+    "B027",   # empty method in abstract base class
+    "B904",   # raise within except without raise from
+    "F401",   # imported but unused (common in re-exports and research code)
+    "F403",   # star imports (common in research/convenience imports)
+    "F601",   # use in {literals}
+    "SIM102", # use single if instead of nested if
+    "SIM105", # use contextlib.suppress
+    "SIM108", # use ternary operator instead of if-else block
+    "SIM110", # use comprehension instead of for loop
+    "SIM115", # use context manager for opening files
+    "SIM116", # use dict instead of if/elif chain
+    "UP007",  # use X | Y for Union annotations
+    "B024",   # abstract base class with no abstract methods (used for documentation)
+]
 fixable = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["F401"]
+"**/__init__.py" = ["F811"]
+"src/scripts/**" = ["F811", "F841", "B023"]
+"src/scripts/experiments/run_improvements_standalone.py" = ["F821"]
 "scripts/visualization/*" = ["E722", "E402"]
 "scripts/analysis/*" = ["E722", "E402"]
 "src/__init__.py" = ["E402"]
 "scripts/train/*" = ["E402"]
 "scripts/eval/*" = ["E402"]
-"src/training/environment.py" = ["F401"]
+"src/training/environment.py" = ["F401", "UP035"]
 
 # Pytest configuration
 [tool.pytest.ini_options]

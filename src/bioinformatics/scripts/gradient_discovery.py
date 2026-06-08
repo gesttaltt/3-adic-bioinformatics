@@ -14,30 +14,29 @@ gradient-based navigation that wouldn't be possible in discrete space.
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parents[3]))
 
 import json
 from dataclasses import dataclass
-from typing import Optional
 from datetime import datetime
 
-import torch
-import torch.nn.functional as F
-import numpy as np
-from scipy.spatial.distance import pdist, squareform
-from scipy.stats import spearmanr, pearsonr
-from sklearn.cluster import KMeans, DBSCAN
-from sklearn.manifold import TSNE
-from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from scipy.spatial.distance import pdist, squareform
+from scipy.stats import spearmanr
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 
-from src.bioinformatics.models.ddg_vae import DDGVAE
 from src.bioinformatics.data.protherm_loader import ProThermLoader
+from src.bioinformatics.models.ddg_vae import DDGVAE
 
 
 @dataclass
 class MutationEmbedding:
     """Container for mutation with its VAE embedding."""
+
     mutation_id: str
     wild_type: str
     mutant: str
@@ -60,8 +59,8 @@ class GradientDiscovery:
         self.vae.eval()
         self.device = device
         self.mutations: list[MutationEmbedding] = []
-        self.embeddings: Optional[np.ndarray] = None
-        self.distance_matrix: Optional[np.ndarray] = None
+        self.embeddings: np.ndarray | None = None
+        self.distance_matrix: np.ndarray | None = None
 
     def extract_embeddings(self, dataset, records) -> None:
         """Extract VAE embeddings for all mutations."""
@@ -82,23 +81,25 @@ class GradientDiscovery:
 
                 vae_pred = output["ddg_pred"].cpu().item()
 
-                self.mutations.append(MutationEmbedding(
-                    mutation_id=record.full_id,
-                    wild_type=record.wild_type,
-                    mutant=record.mutant,
-                    position=record.position,
-                    protein=record.pdb_id,
-                    ddg=record.ddg,
-                    embedding=emb,
-                    vae_pred=vae_pred,
-                ))
+                self.mutations.append(
+                    MutationEmbedding(
+                        mutation_id=record.full_id,
+                        wild_type=record.wild_type,
+                        mutant=record.mutant,
+                        position=record.position,
+                        protein=record.pdb_id,
+                        ddg=record.ddg,
+                        embedding=emb,
+                        vae_pred=vae_pred,
+                    )
+                )
 
         self.embeddings = np.array([m.embedding for m in self.mutations])
         self._compute_distances()
 
     def _compute_distances(self) -> None:
         """Compute pairwise distances in latent space."""
-        self.distance_matrix = squareform(pdist(self.embeddings, metric='euclidean'))
+        self.distance_matrix = squareform(pdist(self.embeddings, metric="euclidean"))
 
     def find_ddg_gradient(self) -> dict:
         """Find the direction of maximum DDG change in latent space.
@@ -159,16 +160,18 @@ class GradientDiscovery:
             # Predict DDG at interpolated point
             with torch.no_grad():
                 # We need to decode the embedding - approximate by using nearest
-                predicted_ddg = nearest.vae_pred
+                pass
 
-            path.append({
-                "t": t,
-                "interpolated_embedding": interp_emb,
-                "nearest_mutation": nearest.mutation_id,
-                "nearest_distance": distances[nearest_idx],
-                "nearest_ddg": nearest.ddg,
-                "estimated_ddg": (1 - t) * self.mutations[start_idx].ddg + t * self.mutations[end_idx].ddg,
-            })
+            path.append(
+                {
+                    "t": t,
+                    "interpolated_embedding": interp_emb,
+                    "nearest_mutation": nearest.mutation_id,
+                    "nearest_distance": distances[nearest_idx],
+                    "nearest_ddg": nearest.ddg,
+                    "estimated_ddg": (1 - t) * self.mutations[start_idx].ddg + t * self.mutations[end_idx].ddg,
+                }
+            )
 
         return path
 
@@ -206,16 +209,18 @@ class GradientDiscovery:
                 feature_dist = feature_distances[i, j]
 
                 if feature_dist > 5:  # Require some feature distance
-                    unexpected.append({
-                        "mutation1": self.mutations[i].mutation_id,
-                        "mutation2": self.mutations[j].mutation_id,
-                        "latent_distance": latent_dist,
-                        "feature_distance": feature_dist,
-                        "ddg1": self.mutations[i].ddg,
-                        "ddg2": self.mutations[j].ddg,
-                        "ddg_diff": abs(self.mutations[i].ddg - self.mutations[j].ddg),
-                        "ratio": feature_dist / (latent_dist + 0.1),
-                    })
+                    unexpected.append(
+                        {
+                            "mutation1": self.mutations[i].mutation_id,
+                            "mutation2": self.mutations[j].mutation_id,
+                            "latent_distance": latent_dist,
+                            "feature_distance": feature_dist,
+                            "ddg1": self.mutations[i].ddg,
+                            "ddg2": self.mutations[j].ddg,
+                            "ddg_diff": abs(self.mutations[i].ddg - self.mutations[j].ddg),
+                            "ratio": feature_dist / (latent_dist + 0.1),
+                        }
+                    )
 
         # Sort by ratio (high ratio = unexpected closeness)
         unexpected.sort(key=lambda x: -x["ratio"])
@@ -231,7 +236,7 @@ class GradientDiscovery:
         clusters = []
         for c in range(n_clusters):
             mask = labels == c
-            cluster_mutations = [m for m, is_in in zip(self.mutations, mask) if is_in]
+            cluster_mutations = [m for m, is_in in zip(self.mutations, mask, strict=False) if is_in]
             cluster_ddgs = [m.ddg for m in cluster_mutations]
 
             # Dominant mutation types
@@ -241,16 +246,18 @@ class GradientDiscovery:
                 wt_counts[m.wild_type] = wt_counts.get(m.wild_type, 0) + 1
                 mut_counts[m.mutant] = mut_counts.get(m.mutant, 0) + 1
 
-            clusters.append({
-                "cluster_id": c,
-                "size": len(cluster_mutations),
-                "mean_ddg": np.mean(cluster_ddgs),
-                "std_ddg": np.std(cluster_ddgs),
-                "ddg_range": [min(cluster_ddgs), max(cluster_ddgs)],
-                "dominant_wt": max(wt_counts, key=wt_counts.get) if wt_counts else None,
-                "dominant_mut": max(mut_counts, key=mut_counts.get) if mut_counts else None,
-                "mutations": [m.mutation_id for m in cluster_mutations[:5]],  # Sample
-            })
+            clusters.append(
+                {
+                    "cluster_id": c,
+                    "size": len(cluster_mutations),
+                    "mean_ddg": np.mean(cluster_ddgs),
+                    "std_ddg": np.std(cluster_ddgs),
+                    "ddg_range": [min(cluster_ddgs), max(cluster_ddgs)],
+                    "dominant_wt": max(wt_counts, key=wt_counts.get) if wt_counts else None,
+                    "dominant_mut": max(mut_counts, key=mut_counts.get) if mut_counts else None,
+                    "mutations": [m.mutation_id for m in cluster_mutations[:5]],  # Sample
+                }
+            )
 
         return {
             "n_clusters": n_clusters,
@@ -291,7 +298,7 @@ class GradientDiscovery:
         for i, m in enumerate(self.mutations):
             # Find k nearest neighbors
             distances = self.distance_matrix[i]
-            neighbor_indices = np.argsort(distances)[1:k+1]  # Exclude self
+            neighbor_indices = np.argsort(distances)[1 : k + 1]  # Exclude self
 
             # Get neighbor embeddings and DDGs
             neighbor_embs = self.embeddings[neighbor_indices]
@@ -314,14 +321,16 @@ class GradientDiscovery:
                 weighted_direction = np.zeros_like(self.embeddings[i])
                 gradient_magnitude = 0
 
-            local_gradients.append({
-                "mutation": m.mutation_id,
-                "ddg": m.ddg,
-                "local_gradient": weighted_direction.tolist(),
-                "gradient_magnitude": gradient_magnitude,
-                "neighbor_ddg_variance": np.var(neighbor_ddgs),
-                "neighbors": [self.mutations[j].mutation_id for j in neighbor_indices],
-            })
+            local_gradients.append(
+                {
+                    "mutation": m.mutation_id,
+                    "ddg": m.ddg,
+                    "local_gradient": weighted_direction.tolist(),
+                    "gradient_magnitude": gradient_magnitude,
+                    "neighbor_ddg_variance": np.var(neighbor_ddgs),
+                    "neighbors": [self.mutations[j].mutation_id for j in neighbor_indices],
+                }
+            )
 
         return local_gradients
 
@@ -336,14 +345,11 @@ class GradientDiscovery:
         fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 
         # Plot 1: Colored by DDG
-        scatter1 = axes[0].scatter(
-            emb_2d[:, 0], emb_2d[:, 1],
-            c=ddg_values, cmap='RdYlBu_r', s=50, alpha=0.7
-        )
-        axes[0].set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.1%})')
-        axes[0].set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.1%})')
-        axes[0].set_title('VAE Latent Space (colored by DDG)')
-        plt.colorbar(scatter1, ax=axes[0], label='DDG (kcal/mol)')
+        scatter1 = axes[0].scatter(emb_2d[:, 0], emb_2d[:, 1], c=ddg_values, cmap="RdYlBu_r", s=50, alpha=0.7)
+        axes[0].set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0]:.1%})")
+        axes[0].set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]:.1%})")
+        axes[0].set_title("VAE Latent Space (colored by DDG)")
+        plt.colorbar(scatter1, ax=axes[0], label="DDG (kcal/mol)")
 
         # Plot 2: Colored by protein
         proteins = [m.protein for m in self.mutations]
@@ -351,16 +357,13 @@ class GradientDiscovery:
         protein_colors = {p: i for i, p in enumerate(unique_proteins)}
         colors = [protein_colors[p] for p in proteins]
 
-        scatter2 = axes[1].scatter(
-            emb_2d[:, 0], emb_2d[:, 1],
-            c=colors, cmap='tab20', s=50, alpha=0.7
-        )
-        axes[1].set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.1%})')
-        axes[1].set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.1%})')
-        axes[1].set_title('VAE Latent Space (colored by protein)')
+        axes[1].scatter(emb_2d[:, 0], emb_2d[:, 1], c=colors, cmap="tab20", s=50, alpha=0.7)
+        axes[1].set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0]:.1%})")
+        axes[1].set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]:.1%})")
+        axes[1].set_title("VAE Latent Space (colored by protein)")
 
         plt.tight_layout()
-        plt.savefig(output_path / 'latent_space_visualization.png', dpi=150)
+        plt.savefig(output_path / "latent_space_visualization.png", dpi=150)
         plt.close()
 
         # Additional: Gradient visualization
@@ -372,25 +375,26 @@ class GradientDiscovery:
         gradient_2d = gradient_2d / np.linalg.norm(gradient_2d) * 2
 
         fig, ax = plt.subplots(figsize=(8, 8))
-        scatter = ax.scatter(
-            emb_2d[:, 0], emb_2d[:, 1],
-            c=ddg_values, cmap='RdYlBu_r', s=50, alpha=0.7
-        )
+        scatter = ax.scatter(emb_2d[:, 0], emb_2d[:, 1], c=ddg_values, cmap="RdYlBu_r", s=50, alpha=0.7)
 
         # Draw gradient arrow
         center = emb_2d.mean(axis=0)
-        ax.annotate('', xy=center + gradient_2d, xytext=center,
-                   arrowprops=dict(arrowstyle='->', color='black', lw=3))
-        ax.text(center[0] + gradient_2d[0] * 1.1, center[1] + gradient_2d[1] * 1.1,
-               'DDG gradient', fontsize=12, fontweight='bold')
+        ax.annotate("", xy=center + gradient_2d, xytext=center, arrowprops=dict(arrowstyle="->", color="black", lw=3))
+        ax.text(
+            center[0] + gradient_2d[0] * 1.1,
+            center[1] + gradient_2d[1] * 1.1,
+            "DDG gradient",
+            fontsize=12,
+            fontweight="bold",
+        )
 
-        ax.set_xlabel('PC1')
-        ax.set_ylabel('PC2')
-        ax.set_title(f'DDG Gradient in Latent Space (corr={gradient_info["gradient_ddg_correlation"]:.3f})')
-        plt.colorbar(scatter, label='DDG (kcal/mol)')
+        ax.set_xlabel("PC1")
+        ax.set_ylabel("PC2")
+        ax.set_title(f"DDG Gradient in Latent Space (corr={gradient_info['gradient_ddg_correlation']:.3f})")
+        plt.colorbar(scatter, label="DDG (kcal/mol)")
 
         plt.tight_layout()
-        plt.savefig(output_path / 'ddg_gradient_visualization.png', dpi=150)
+        plt.savefig(output_path / "ddg_gradient_visualization.png", dpi=150)
         plt.close()
 
 
@@ -416,8 +420,7 @@ def main():
     print("\n[1] Loading trained VAE...")
     vae = DDGVAE.create_protherm_variant(use_hyperbolic=False)
     ckpt = torch.load(
-        "outputs/ddg_vae_training_20260129_212316/vae_protherm/best.pt",
-        map_location=args.device, weights_only=False
+        "outputs/ddg_vae_training_20260129_212316/vae_protherm/best.pt", map_location=args.device, weights_only=False
     )
     vae.load_state_dict(ckpt["model_state_dict"])
     print("  VAE loaded")
@@ -444,8 +447,8 @@ def main():
 
     gradient_info = discovery.find_ddg_gradient()
     print(f"  Gradient-DDG correlation: {gradient_info['gradient_ddg_correlation']:.4f}")
-    print(f"  This means {abs(gradient_info['gradient_ddg_correlation'])*100:.1f}% of DDG variance")
-    print(f"  is explained by a single direction in latent space!")
+    print(f"  This means {abs(gradient_info['gradient_ddg_correlation']) * 100:.1f}% of DDG variance")
+    print("  is explained by a single direction in latent space!")
 
     # ========================================
     # Analysis 2: Clustering
@@ -471,7 +474,7 @@ def main():
     unexpected = discovery.find_unexpected_neighbors(top_k=10)
     print("\n  Top pairs with similar latent embeddings but different features:")
     for i, pair in enumerate(unexpected[:5]):
-        print(f"\n  {i+1}. {pair['mutation1']} <-> {pair['mutation2']}")
+        print(f"\n  {i + 1}. {pair['mutation1']} <-> {pair['mutation2']}")
         print(f"     Latent dist: {pair['latent_distance']:.3f}, Feature dist: {pair['feature_distance']:.1f}")
         print(f"     DDG: {pair['ddg1']:.2f} vs {pair['ddg2']:.2f} (diff: {pair['ddg_diff']:.2f})")
 
@@ -488,8 +491,7 @@ def main():
     print(f"  Latent distance: {extreme_path['latent_distance']:.3f}")
     print("\n  Path through latent space:")
     for step in extreme_path["path"][::4]:  # Every 4th step
-        print(f"    t={step['t']:.2f}: nearest={step['nearest_mutation'][:20]:20s} "
-              f"DDG≈{step['estimated_ddg']:.2f}")
+        print(f"    t={step['t']:.2f}: nearest={step['nearest_mutation'][:20]:20s} DDG≈{step['estimated_ddg']:.2f}")
 
     # ========================================
     # Analysis 5: Local Gradients
@@ -504,8 +506,10 @@ def main():
     local_gradients.sort(key=lambda x: -x["gradient_magnitude"])
     print("\n  Mutations with strongest local DDG gradients:")
     for lg in local_gradients[:5]:
-        print(f"    {lg['mutation']}: magnitude={lg['gradient_magnitude']:.3f}, "
-              f"DDG={lg['ddg']:.2f}, neighbor_var={lg['neighbor_ddg_variance']:.2f}")
+        print(
+            f"    {lg['mutation']}: magnitude={lg['gradient_magnitude']:.3f}, "
+            f"DDG={lg['ddg']:.2f}, neighbor_var={lg['neighbor_ddg_variance']:.2f}"
+        )
 
     # ========================================
     # Visualizations
@@ -557,10 +561,10 @@ def main():
 Key Findings:
 
 1. DDG GRADIENT: A single direction in latent space explains
-   {abs(gradient_info['gradient_ddg_correlation'])*100:.1f}% of DDG variation (corr={gradient_info['gradient_ddg_correlation']:.3f})
+   {abs(gradient_info["gradient_ddg_correlation"]) * 100:.1f}% of DDG variation (corr={gradient_info["gradient_ddg_correlation"]:.3f})
 
-2. CLUSTERS: {cluster_info['n_clusters']} distinct functional clusters found
-   - Cluster DDGs range from {min(c['mean_ddg'] for c in cluster_info['clusters']):.2f} to {max(c['mean_ddg'] for c in cluster_info['clusters']):.2f}
+2. CLUSTERS: {cluster_info["n_clusters"]} distinct functional clusters found
+   - Cluster DDGs range from {min(c["mean_ddg"] for c in cluster_info["clusters"]):.2f} to {max(c["mean_ddg"] for c in cluster_info["clusters"]):.2f}
 
 3. UNEXPECTED NEIGHBORS: Found mutations that are functionally similar
    (close in latent space) despite being from different proteins/positions

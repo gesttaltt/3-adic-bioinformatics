@@ -33,7 +33,6 @@ import logging
 import threading
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +44,7 @@ class MetricRecord:
     name: str
     value: float
     step: int
-    tags: Dict[str, str] = field(default_factory=dict)
+    tags: dict[str, str] = field(default_factory=dict)
 
 
 class MetricsBuffer:
@@ -61,20 +60,20 @@ class MetricsBuffer:
         Args:
             max_size: Maximum records before auto-drain warning
         """
-        self._records: List[MetricRecord] = []
+        self._records: list[MetricRecord] = []
         self._lock = threading.Lock()
         self._max_size = max_size
         self._overflow_warned = False
 
         # Aggregation for epoch-level metrics
-        self._epoch_accumulators: Dict[str, List[float]] = defaultdict(list)
+        self._epoch_accumulators: dict[str, list[float]] = defaultdict(list)
 
     def record(
         self,
         name: str,
         value: float,
         step: int,
-        tags: Optional[Dict[str, str]] = None,
+        tags: dict[str, str] | None = None,
     ) -> None:
         """Record a metric value.
 
@@ -97,9 +96,9 @@ class MetricsBuffer:
 
     def record_batch(
         self,
-        metrics: Dict[str, float],
+        metrics: dict[str, float],
         step: int,
-        tags: Optional[Dict[str, str]] = None,
+        tags: dict[str, str] | None = None,
     ) -> None:
         """Record multiple metrics at once.
 
@@ -123,7 +122,7 @@ class MetricsBuffer:
         with self._lock:
             self._epoch_accumulators[name].append(value)
 
-    def get_accumulated_mean(self, name: str) -> Optional[float]:
+    def get_accumulated_mean(self, name: str) -> float | None:
         """Get mean of accumulated values.
 
         Args:
@@ -138,7 +137,7 @@ class MetricsBuffer:
                 return None
             return sum(values) / len(values)
 
-    def clear_accumulators(self) -> Dict[str, float]:
+    def clear_accumulators(self) -> dict[str, float]:
         """Clear accumulators and return means.
 
         Returns:
@@ -152,7 +151,7 @@ class MetricsBuffer:
             self._epoch_accumulators.clear()
             return means
 
-    def drain(self) -> List[MetricRecord]:
+    def drain(self) -> list[MetricRecord]:
         """Drain all records from buffer.
 
         This is the only method that should be called by the writer.
@@ -189,7 +188,7 @@ class ScopedMetrics:
         self,
         buffer: MetricsBuffer,
         step: int,
-        tags: Optional[Dict[str, str]] = None,
+        tags: dict[str, str] | None = None,
     ):
         self._buffer = buffer
         self._step = step

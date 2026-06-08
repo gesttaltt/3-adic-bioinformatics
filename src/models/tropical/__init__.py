@@ -20,16 +20,16 @@ This means:
 """
 
 from src.models.tropical.tropical_layers import (
-    TropicalLinear,
+    TropicalActivation,
     TropicalConv1d,
     TropicalLayerNorm,
-    TropicalActivation,
+    TropicalLinear,
 )
 from src.models.tropical.tropical_vae import (
+    TropicalDecoder,
+    TropicalEncoder,
     TropicalVAE,
     TropicalVAEConfig,
-    TropicalEncoder,
-    TropicalDecoder,
 )
 
 __all__ = [

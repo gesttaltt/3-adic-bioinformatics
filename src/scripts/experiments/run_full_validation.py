@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -28,7 +27,8 @@ sys.path.insert(0, str(project_root))
 # Data Loading (with fixed P prefix)
 # =============================================================================
 
-def load_data(drug_class: str) -> Tuple[pd.DataFrame, List[str], List[str]]:
+
+def load_data(drug_class: str) -> tuple[pd.DataFrame, list[str], list[str]]:
     """Load Stanford HIVDB data with correct P prefix."""
     data_dir = project_root / "data" / "research"
 
@@ -51,13 +51,13 @@ def load_data(drug_class: str) -> Tuple[pd.DataFrame, List[str], List[str]]:
 
     # All Stanford HIVDB files use "P" prefix for position columns
     prefix = "P"
-    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix):].isdigit()]
-    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix):]))
+    position_cols = [col for col in df.columns if col.startswith(prefix) and col[len(prefix) :].isdigit()]
+    position_cols = sorted(position_cols, key=lambda x: int(x[len(prefix) :]))
 
     return df, position_cols, drug_columns[drug_class]
 
 
-def encode_sequences(df: pd.DataFrame, position_cols: List[str]) -> np.ndarray:
+def encode_sequences(df: pd.DataFrame, position_cols: list[str]) -> np.ndarray:
     """One-hot encode amino acid sequences."""
     aa_alphabet = "ACDEFGHIKLMNPQRSTVWY*-"
     aa_to_idx = {aa: i for i, aa in enumerate(aa_alphabet)}
@@ -78,7 +78,7 @@ def encode_sequences(df: pd.DataFrame, position_cols: List[str]) -> np.ndarray:
     return encoded
 
 
-def prepare_drug_data(drug_class: str, drug: str) -> Tuple:
+def prepare_drug_data(drug_class: str, drug: str) -> tuple:
     """Prepare train/test data for a specific drug."""
     df, position_cols, _ = load_data(drug_class)
     df_valid = df[df[drug].notna() & (df[drug] > 0)].copy()
@@ -107,10 +107,11 @@ def prepare_drug_data(drug_class: str, drug: str) -> Tuple:
 # Model Architectures
 # =============================================================================
 
+
 class StandardVAE(nn.Module):
     """Standard VAE with ranking loss."""
 
-    def __init__(self, input_dim: int, hidden_dims: List[int] = None, latent_dim: int = 16):
+    def __init__(self, input_dim: int, hidden_dims: list[int] = None, latent_dim: int = 16):
         super().__init__()
         if hidden_dims is None:
             hidden_dims = [256, 128, 64]
@@ -252,6 +253,7 @@ class TransformerVAE(nn.Module):
 # Training
 # =============================================================================
 
+
 def train_model(
     model: nn.Module,
     train_x: torch.Tensor,
@@ -261,7 +263,7 @@ def train_model(
     epochs: int = 50,
     device: str = "cpu",
     ranking_weight: float = 0.3,
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """Train model and return best test correlation and final loss."""
     model = model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
@@ -319,6 +321,7 @@ def train_model(
 # Main Validation
 # =============================================================================
 
+
 def run_validation(epochs: int = 50, device: str = "cuda"):
     """Run comprehensive validation across all drugs."""
     all_results = []
@@ -331,7 +334,7 @@ def run_validation(epochs: int = 50, device: str = "cuda"):
     }
 
     for drug_class, drugs in drug_classes.items():
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"DRUG CLASS: {drug_class.upper()}")
         print("=" * 60)
 
@@ -373,7 +376,7 @@ def run_validation(epochs: int = 50, device: str = "cuda"):
     return all_results
 
 
-def print_summary(results: List[Dict]):
+def print_summary(results: list[dict]):
     """Print summary table."""
     print("\n" + "=" * 80)
     print("COMPREHENSIVE VALIDATION SUMMARY")
@@ -387,7 +390,9 @@ def print_summary(results: List[Dict]):
             by_class[cls] = []
         by_class[cls].append(r)
 
-    print(f"\n{'Drug':<8} {'Class':<6} {'N':<6} {'Pos':<5} {'Std VAE':>10} {'Attn VAE':>10} {'Trans VAE':>10} {'Best':>8}")
+    print(
+        f"\n{'Drug':<8} {'Class':<6} {'N':<6} {'Pos':<5} {'Std VAE':>10} {'Attn VAE':>10} {'Trans VAE':>10} {'Best':>8}"
+    )
     print("-" * 80)
 
     for drug_class in ["pi", "nrti", "nnrti", "ini"]:
@@ -404,7 +409,9 @@ def print_summary(results: List[Dict]):
         avg_attn = np.mean([r["attention_vae"] for r in by_class[drug_class]])
         avg_trans = np.mean([r["transformer_vae"] for r in by_class[drug_class]])
         avg_best = np.mean([r["best"] for r in by_class[drug_class]])
-        print(f"{'AVG':<8} {drug_class:<6} {'':<6} {'':<5} {avg_std:>+10.4f} {avg_attn:>+10.4f} {avg_trans:>+10.4f} {avg_best:>+8.4f}")
+        print(
+            f"{'AVG':<8} {drug_class:<6} {'':<6} {'':<5} {avg_std:>+10.4f} {avg_attn:>+10.4f} {avg_trans:>+10.4f} {avg_best:>+8.4f}"
+        )
         print("-" * 80)
 
     # Overall average
@@ -412,7 +419,9 @@ def print_summary(results: List[Dict]):
     avg_attn = np.mean([r["attention_vae"] for r in results])
     avg_trans = np.mean([r["transformer_vae"] for r in results])
     avg_best = np.mean([r["best"] for r in results])
-    print(f"{'OVERALL':<8} {'':<6} {'':<6} {'':<5} {avg_std:>+10.4f} {avg_attn:>+10.4f} {avg_trans:>+10.4f} {avg_best:>+8.4f}")
+    print(
+        f"{'OVERALL':<8} {'':<6} {'':<6} {'':<5} {avg_std:>+10.4f} {avg_attn:>+10.4f} {avg_trans:>+10.4f} {avg_best:>+8.4f}"
+    )
 
 
 def main():

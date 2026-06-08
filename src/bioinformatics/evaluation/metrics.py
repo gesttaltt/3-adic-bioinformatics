@@ -12,10 +12,9 @@ literature for fair comparison with other methods.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
-from scipy.stats import spearmanr, pearsonr
+from scipy.stats import pearsonr, spearmanr
 
 
 @dataclass
@@ -41,8 +40,8 @@ class DDGMetrics:
     n_samples: int
 
     # Confidence intervals (optional, from bootstrap)
-    spearman_ci: Optional[tuple[float, float]] = None
-    pearson_ci: Optional[tuple[float, float]] = None
+    spearman_ci: tuple[float, float] | None = None
+    pearson_ci: tuple[float, float] | None = None
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
@@ -112,7 +111,7 @@ def compute_all_metrics(
     # Error metrics
     errors = y_pred - y_true
     mae = np.mean(np.abs(errors))
-    mse = np.mean(errors ** 2)
+    mse = np.mean(errors**2)
     rmse = np.sqrt(mse)
 
     # Classification metrics

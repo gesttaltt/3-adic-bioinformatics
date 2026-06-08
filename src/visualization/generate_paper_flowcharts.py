@@ -1,10 +1,13 @@
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 import os
 from pathlib import Path
 
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+
 # Configuration — output alongside the other HIV paper images
-OUTPUT_DIR = str(Path(__file__).resolve().parents[2] / "research" / "diseases" / "hiv" / "public_medical_paper" / "images")
+OUTPUT_DIR = str(
+    Path(__file__).resolve().parents[2] / "research" / "diseases" / "hiv" / "public_medical_paper" / "images"
+)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 plt.style.use("seaborn-v0_8-white")
@@ -21,17 +24,13 @@ def save_plot(filename):
 
 
 def draw_box(ax, x, y, w, h, text, color="#E0E0E0", ec="black"):
-    rect = patches.FancyBboxPatch(
-        (x, y), w, h, boxstyle="round,pad=0.1", fc=color, ec=ec
-    )
+    rect = patches.FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.1", fc=color, ec=ec)
     ax.add_patch(rect)
     ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", wrap=True, fontsize=9)
 
 
 def draw_arrow(ax, x1, y1, x2, y2):
-    ax.annotate(
-        "", xy=(x2, y2), xytext=(x1, y1), arrowprops=dict(arrowstyle="->", lw=1.5)
-    )
+    ax.annotate("", xy=(x2, y2), xytext=(x1, y1), arrowprops=dict(arrowstyle="->", lw=1.5))
 
 
 def plot_06_barrier_decision():
@@ -197,9 +196,7 @@ def plot_26_tradeoff():
     draw_box(ax, 0.5, 3, 3, 2, "Drug Pressure\nSelects FOR", color="#FFCDD2")
     draw_box(ax, 6.5, 3, 3, 2, "Immune Pressure\nSelects AGAINST", color="#C8E6C9")
 
-    ax.text(
-        5, 1, "Conflict: Treatment drives immune escape", ha="center", style="italic"
-    )
+    ax.text(5, 1, "Conflict: Treatment drives immune escape", ha="center", style="italic")
     ax.set_title("Drug vs Immune Trade-off", fontsize=14)
     save_plot("26_tradeoff_conflict_diagram.png")
 

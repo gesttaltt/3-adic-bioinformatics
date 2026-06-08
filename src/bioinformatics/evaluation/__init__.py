@@ -11,16 +11,16 @@ This module provides:
 - BenchmarkRunner: Benchmark suite runner
 """
 
-from src.bioinformatics.evaluation.metrics import DDGMetrics, compute_all_metrics
+from src.bioinformatics.evaluation.benchmark_runner import (
+    BenchmarkResult,
+    BenchmarkRunner,
+)
 from src.bioinformatics.evaluation.cross_validation import (
     CrossValidator,
-    loo_cv,
     kfold_cv,
+    loo_cv,
 )
-from src.bioinformatics.evaluation.benchmark_runner import (
-    BenchmarkRunner,
-    BenchmarkResult,
-)
+from src.bioinformatics.evaluation.metrics import DDGMetrics, compute_all_metrics
 
 __all__ = [
     "DDGMetrics",

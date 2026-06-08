@@ -16,9 +16,8 @@ Both are designed to work within 6GB VRAM constraints (RTX 3050).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Optional
 import math
+from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
@@ -64,9 +63,7 @@ class SinusoidalPositionalEncoding(nn.Module):
 
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
-        )
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0)  # (1, max_len, d_model)
@@ -135,8 +132,8 @@ class TransformerBlock(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        attn_mask: Optional[torch.Tensor] = None,
-        key_padding_mask: Optional[torch.Tensor] = None,
+        attn_mask: torch.Tensor | None = None,
+        key_padding_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Forward pass.
 
@@ -152,7 +149,9 @@ class TransformerBlock(nn.Module):
             # Pre-LN: norm -> attention -> residual
             normed = self.norm1(x)
             attn_out, _ = self.attn(
-                normed, normed, normed,
+                normed,
+                normed,
+                normed,
                 attn_mask=attn_mask,
                 key_padding_mask=key_padding_mask,
             )
@@ -163,7 +162,9 @@ class TransformerBlock(nn.Module):
         else:
             # Post-LN: attention -> residual -> norm
             attn_out, _ = self.attn(
-                x, x, x,
+                x,
+                x,
+                x,
                 attn_mask=attn_mask,
                 key_padding_mask=key_padding_mask,
             )
@@ -185,7 +186,7 @@ class DDGTransformer(nn.Module):
     - Smaller max sequence length
     """
 
-    def __init__(self, config: Optional[TransformerConfig] = None):
+    def __init__(self, config: TransformerConfig | None = None):
         super().__init__()
 
         if config is None:
@@ -197,23 +198,17 @@ class DDGTransformer(nn.Module):
         self.embedding = nn.Embedding(config.vocab_size, config.d_model)
 
         # Positional encoding
-        self.pos_encoding = SinusoidalPositionalEncoding(
-            config.d_model, config.max_seq_len, config.dropout
-        )
+        self.pos_encoding = SinusoidalPositionalEncoding(config.d_model, config.max_seq_len, config.dropout)
 
         # Transformer blocks
-        self.blocks = nn.ModuleList([
-            TransformerBlock(config) for _ in range(config.n_layers)
-        ])
+        self.blocks = nn.ModuleList([TransformerBlock(config) for _ in range(config.n_layers)])
 
         # Final layer norm
         self.final_norm = nn.LayerNorm(config.d_model)
 
         # Mutation-aware attention for pooling
         self.mutation_query = nn.Parameter(torch.randn(1, 1, config.d_model))
-        self.mutation_attn = nn.MultiheadAttention(
-            config.d_model, config.n_heads, config.dropout, batch_first=True
-        )
+        self.mutation_attn = nn.MultiheadAttention(config.d_model, config.n_heads, config.dropout, batch_first=True)
 
         # Prediction head
         self.head = nn.Sequential(
@@ -226,8 +221,8 @@ class DDGTransformer(nn.Module):
     def forward(
         self,
         sequence: torch.Tensor,
-        mutation_pos: Optional[torch.Tensor] = None,
-        padding_mask: Optional[torch.Tensor] = None,
+        mutation_pos: torch.Tensor | None = None,
+        padding_mask: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         """Forward pass.
 
@@ -248,9 +243,7 @@ class DDGTransformer(nn.Module):
         # Process through transformer blocks
         for block in self.blocks:
             if self.config.use_gradient_checkpointing and self.training:
-                x = torch.utils.checkpoint.checkpoint(
-                    block, x, use_reentrant=False
-                )
+                x = torch.utils.checkpoint.checkpoint(block, x, use_reentrant=False)
             else:
                 x = block(x, key_padding_mask=padding_mask)
 
@@ -272,8 +265,8 @@ class DDGTransformer(nn.Module):
     def predict(
         self,
         sequence: torch.Tensor,
-        mutation_pos: Optional[torch.Tensor] = None,
-        padding_mask: Optional[torch.Tensor] = None,
+        mutation_pos: torch.Tensor | None = None,
+        padding_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Make DDG predictions."""
         self.eval()
@@ -292,7 +285,7 @@ class HierarchicalTransformer(nn.Module):
     More memory-efficient than full-sequence transformer.
     """
 
-    def __init__(self, config: Optional[TransformerConfig] = None):
+    def __init__(self, config: TransformerConfig | None = None):
         super().__init__()
 
         if config is None:
@@ -302,26 +295,18 @@ class HierarchicalTransformer(nn.Module):
 
         # Shared embedding
         self.embedding = nn.Embedding(config.vocab_size, config.d_model)
-        self.pos_encoding = SinusoidalPositionalEncoding(
-            config.d_model, config.max_seq_len, config.dropout
-        )
+        self.pos_encoding = SinusoidalPositionalEncoding(config.d_model, config.max_seq_len, config.dropout)
 
         # Local encoder (mutation context)
-        self.local_blocks = nn.ModuleList([
-            TransformerBlock(config) for _ in range(config.n_layers)
-        ])
+        self.local_blocks = nn.ModuleList([TransformerBlock(config) for _ in range(config.n_layers)])
         self.local_norm = nn.LayerNorm(config.d_model)
 
         # Global encoder (strided sequence)
-        self.global_blocks = nn.ModuleList([
-            TransformerBlock(config) for _ in range(config.n_layers)
-        ])
+        self.global_blocks = nn.ModuleList([TransformerBlock(config) for _ in range(config.n_layers)])
         self.global_norm = nn.LayerNorm(config.d_model)
 
         # Cross-attention: local queries, global keys/values
-        self.cross_attn = nn.MultiheadAttention(
-            config.d_model, config.n_heads, config.dropout, batch_first=True
-        )
+        self.cross_attn = nn.MultiheadAttention(config.d_model, config.n_heads, config.dropout, batch_first=True)
 
         # Fusion and prediction
         self.fusion = nn.Sequential(
@@ -378,7 +363,7 @@ class HierarchicalTransformer(nn.Module):
         self,
         sequence: torch.Tensor,
         mutation_pos: torch.Tensor,
-        padding_mask: Optional[torch.Tensor] = None,
+        padding_mask: torch.Tensor | None = None,
     ) -> dict[str, torch.Tensor]:
         """Forward pass.
 
@@ -398,9 +383,7 @@ class HierarchicalTransformer(nn.Module):
         # Process local context
         for block in self.local_blocks:
             if self.config.use_gradient_checkpointing and self.training:
-                x_local = torch.utils.checkpoint.checkpoint(
-                    block, x_local, use_reentrant=False
-                )
+                x_local = torch.utils.checkpoint.checkpoint(block, x_local, use_reentrant=False)
             else:
                 x_local = block(x_local)
         x_local = self.local_norm(x_local)
@@ -418,9 +401,7 @@ class HierarchicalTransformer(nn.Module):
 
         for block in self.global_blocks:
             if self.config.use_gradient_checkpointing and self.training:
-                x_global = torch.utils.checkpoint.checkpoint(
-                    block, x_global, use_reentrant=False
-                )
+                x_global = torch.utils.checkpoint.checkpoint(block, x_global, use_reentrant=False)
             else:
                 x_global = block(x_global, key_padding_mask=global_padding_mask)
         x_global = self.global_norm(x_global)
@@ -428,7 +409,9 @@ class HierarchicalTransformer(nn.Module):
         # Cross-attention: local queries global context
         local_query = local_repr.unsqueeze(1)
         context, _ = self.cross_attn(
-            local_query, x_global, x_global,
+            local_query,
+            x_global,
+            x_global,
             key_padding_mask=global_padding_mask,
         )
         context = context.squeeze(1)
@@ -447,7 +430,7 @@ class HierarchicalTransformer(nn.Module):
         self,
         sequence: torch.Tensor,
         mutation_pos: torch.Tensor,
-        padding_mask: Optional[torch.Tensor] = None,
+        padding_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Make DDG predictions."""
         self.eval()

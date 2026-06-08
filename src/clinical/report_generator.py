@@ -30,19 +30,19 @@ Usage:
 
 from __future__ import annotations
 
+import html
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-import html
-import io
+from typing import Any
 
 
 class ReportFormat(Enum):
     """Supported report output formats."""
+
     HTML = "html"
     PDF = "pdf"
     JSON = "json"
@@ -50,6 +50,7 @@ class ReportFormat(Enum):
 
 class ReportLanguage(Enum):
     """Supported report languages."""
+
     ENGLISH = "en"
     SPANISH = "es"
     FRENCH = "fr"
@@ -58,26 +59,28 @@ class ReportLanguage(Enum):
 @dataclass
 class DrugPrediction:
     """Drug resistance prediction for report."""
+
     drug_name: str
     drug_class: str
     resistance_score: float
     classification: str  # susceptible, intermediate, resistant
     confidence: float
-    mutations: List[str] = field(default_factory=list)
+    mutations: list[str] = field(default_factory=list)
     interpretation: str = ""
 
 
 @dataclass
 class ReportConfig:
     """Configuration for report generation."""
+
     format: ReportFormat = ReportFormat.HTML
     language: ReportLanguage = ReportLanguage.ENGLISH
     include_logo: bool = True
     include_mutations: bool = True
     include_interpretation: bool = True
     include_recommendations: bool = True
-    custom_header: Optional[str] = None
-    custom_footer: Optional[str] = None
+    custom_header: str | None = None
+    custom_footer: str | None = None
     organization_name: str = "P-adic VAE Drug Resistance Prediction"
     report_version: str = "1.0"
 
@@ -85,17 +88,18 @@ class ReportConfig:
 @dataclass
 class ResistanceReport:
     """Complete drug resistance report."""
+
     report_id: str
-    patient_id: Optional[str]
+    patient_id: str | None
     sequence_length: int
     analysis_date: datetime
     disease: str
-    predictions: List[DrugPrediction]
-    recommended_drugs: List[str]
-    avoid_drugs: List[str]
-    warnings: List[str]
+    predictions: list[DrugPrediction]
+    recommended_drugs: list[str]
+    avoid_drugs: list[str]
+    warnings: list[str]
     overall_recommendation: str
-    mutations_detected: List[Dict[str, Any]]
+    mutations_detected: list[dict[str, Any]]
     config: ReportConfig
     raw_sequence: str = ""
 
@@ -232,17 +236,17 @@ class HTMLReportRenderer(BaseReportRenderer):
         else:
             color = "#dc3545"
 
-        return f'''
+        return f"""
         <div style="background: #e9ecef; border-radius: 4px; height: 20px; width: 100px; display: inline-block; vertical-align: middle;">
             <div style="background: {color}; height: 100%; width: {percentage}%; border-radius: 4px;"></div>
         </div>
         <span style="margin-left: 8px;">{percentage}%</span>
-        '''
+        """
 
     def render(self, report: ResistanceReport) -> bytes:
         """Render report as HTML."""
         # Group predictions by drug class
-        by_class: Dict[str, List[DrugPrediction]] = {}
+        by_class: dict[str, list[DrugPrediction]] = {}
         for pred in report.predictions:
             drug_class = pred.drug_class.upper()
             if drug_class not in by_class:
@@ -425,7 +429,7 @@ class HTMLReportRenderer(BaseReportRenderer):
         <div class="meta-info">
             <div class="meta-item">
                 <span class="meta-label">{self.t("patient_id")}</span>
-                <span class="meta-value">{html.escape(report.patient_id or 'N/A')}</span>
+                <span class="meta-value">{html.escape(report.patient_id or "N/A")}</span>
             </div>
             <div class="meta-item">
                 <span class="meta-label">{self.t("disease")}</span>
@@ -447,7 +451,7 @@ class HTMLReportRenderer(BaseReportRenderer):
 
         # Add drug tables by class
         for drug_class, predictions in by_class.items():
-            html_content += f'''
+            html_content += f"""
             <div class="drug-class">
                 <h3>{drug_class}</h3>
                 <table>
@@ -457,83 +461,85 @@ class HTMLReportRenderer(BaseReportRenderer):
                             <th>{self.t("score")}</th>
                             <th>{self.t("classification")}</th>
                             <th>{self.t("confidence")}</th>
-'''
+"""
             if self.config.include_mutations:
-                html_content += f'                            <th>{self.t("mutations")}</th>\n'
-            html_content += '''                        </tr>
+                html_content += f"                            <th>{self.t('mutations')}</th>\n"
+            html_content += """                        </tr>
                     </thead>
                     <tbody>
-'''
+"""
 
             for pred in sorted(predictions, key=lambda p: -p.resistance_score):
-                badge_class = "success" if pred.classification == "susceptible" else (
-                    "warning" if pred.classification == "intermediate" else "danger"
+                badge_class = (
+                    "success"
+                    if pred.classification == "susceptible"
+                    else ("warning" if pred.classification == "intermediate" else "danger")
                 )
                 classification_display = self.t(pred.classification.lower().replace(" ", "_"))
 
-                html_content += f'''                        <tr>
+                html_content += f"""                        <tr>
                             <td><strong>{html.escape(pred.drug_name)}</strong></td>
                             <td>{self._get_resistance_bar(pred.resistance_score)}</td>
                             <td><span class="badge badge-{badge_class}">{classification_display}</span></td>
                             <td>{pred.confidence * 100:.1f}%</td>
-'''
+"""
                 if self.config.include_mutations:
                     mutations = ", ".join(pred.mutations) if pred.mutations else "-"
-                    html_content += f'                            <td>{html.escape(mutations)}</td>\n'
-                html_content += '                        </tr>\n'
+                    html_content += f"                            <td>{html.escape(mutations)}</td>\n"
+                html_content += "                        </tr>\n"
 
-            html_content += '''                    </tbody>
+            html_content += """                    </tbody>
                 </table>
             </div>
-'''
+"""
 
         # Add warnings if any
         if report.warnings and self.config.include_interpretation:
-            html_content += f'''
+            html_content += f"""
         <div class="warnings">
             <h4>{self.t("warnings")}</h4>
             <ul>
-'''
+"""
             for warning in report.warnings:
-                html_content += f'                <li>{html.escape(warning)}</li>\n'
-            html_content += '''            </ul>
+                html_content += f"                <li>{html.escape(warning)}</li>\n"
+            html_content += """            </ul>
         </div>
-'''
+"""
 
         # Add recommendations
         if self.config.include_recommendations:
-            html_content += f'''
+            html_content += f"""
         <div class="section">
             <h2>{self.t("recommendations")}</h2>
             <div class="recommendations">
                 <div class="rec-box recommended">
                     <h4>{self.t("recommended")}</h4>
                     <ul>
-'''
+"""
             for drug in report.recommended_drugs[:10]:  # Limit to top 10
-                html_content += f'                        <li>{html.escape(drug)}</li>\n'
+                html_content += f"                        <li>{html.escape(drug)}</li>\n"
             if not report.recommended_drugs:
-                html_content += '                        <li>-</li>\n'
+                html_content += "                        <li>-</li>\n"
 
-            html_content += f'''                    </ul>
+            html_content += f"""                    </ul>
                 </div>
                 <div class="rec-box avoid">
                     <h4>{self.t("avoid")}</h4>
                     <ul>
-'''
+"""
             for drug in report.avoid_drugs[:10]:  # Limit to top 10
-                html_content += f'                        <li>{html.escape(drug)}</li>\n'
+                html_content += f"                        <li>{html.escape(drug)}</li>\n"
             if not report.avoid_drugs:
-                html_content += '                        <li>-</li>\n'
+                html_content += "                        <li>-</li>\n"
 
-            html_content += '''                    </ul>
+            html_content += """                    </ul>
                 </div>
             </div>
         </div>
-'''
+"""
 
         # Add overall recommendation
-        html_content += f'''
+        html_content += f"""
         <div class="section">
             <h2>{self.t("overall")}</h2>
             <div class="overall">
@@ -549,7 +555,7 @@ class HTMLReportRenderer(BaseReportRenderer):
         </div>
     </div>
 </body>
-</html>'''
+</html>"""
 
         return html_content.encode("utf-8")
 
@@ -566,6 +572,7 @@ class PDFReportRenderer(BaseReportRenderer):
         # Try to use weasyprint for PDF conversion
         try:
             from weasyprint import HTML
+
             pdf_bytes = HTML(string=html_content.decode("utf-8")).write_pdf()
             return pdf_bytes
         except ImportError:
@@ -616,7 +623,7 @@ class JSONReportRenderer(BaseReportRenderer):
 class ReportGenerator:
     """Main report generator class."""
 
-    def __init__(self, config: Optional[ReportConfig] = None):
+    def __init__(self, config: ReportConfig | None = None):
         """Initialize the report generator.
 
         Args:
@@ -631,8 +638,9 @@ class ReportGenerator:
 
     def _generate_report_id(self) -> str:
         """Generate a unique report ID."""
-        from datetime import datetime
         import random
+        from datetime import datetime
+
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         random_suffix = random.randint(1000, 9999)
         return f"RPT-{timestamp}-{random_suffix}"
@@ -640,15 +648,15 @@ class ReportGenerator:
     def generate(
         self,
         sequence: str,
-        predictions: List[DrugPrediction],
+        predictions: list[DrugPrediction],
         disease: str = "HIV",
-        patient_id: Optional[str] = None,
-        recommended_drugs: Optional[List[str]] = None,
-        avoid_drugs: Optional[List[str]] = None,
-        warnings: Optional[List[str]] = None,
+        patient_id: str | None = None,
+        recommended_drugs: list[str] | None = None,
+        avoid_drugs: list[str] | None = None,
+        warnings: list[str] | None = None,
         overall_recommendation: str = "",
-        mutations_detected: Optional[List[Dict[str, Any]]] = None,
-        output_format: Optional[ReportFormat] = None,
+        mutations_detected: list[dict[str, Any]] | None = None,
+        output_format: ReportFormat | None = None,
     ) -> bytes:
         """Generate a clinical report.
 
@@ -694,9 +702,9 @@ class ReportGenerator:
 
     def generate_from_api_response(
         self,
-        api_response: Dict[str, Any],
+        api_response: dict[str, Any],
         sequence: str,
-        output_format: Optional[ReportFormat] = None,
+        output_format: ReportFormat | None = None,
     ) -> bytes:
         """Generate report from API response.
 
@@ -715,15 +723,17 @@ class ReportGenerator:
         if "drug_class_results" in api_response:
             for drug_class, class_preds in api_response["drug_class_results"].items():
                 for pred in class_preds:
-                    predictions.append(DrugPrediction(
-                        drug_name=pred.get("drug", "Unknown"),
-                        drug_class=drug_class,
-                        resistance_score=pred.get("resistance_score", 0.0),
-                        classification=pred.get("interpretation", "").split(" - ")[0].lower(),
-                        confidence=pred.get("confidence", 0.85),
-                        mutations=pred.get("mutations_detected") or [],
-                        interpretation=pred.get("interpretation", ""),
-                    ))
+                    predictions.append(
+                        DrugPrediction(
+                            drug_name=pred.get("drug", "Unknown"),
+                            drug_class=drug_class,
+                            resistance_score=pred.get("resistance_score", 0.0),
+                            classification=pred.get("interpretation", "").split(" - ")[0].lower(),
+                            confidence=pred.get("confidence", 0.85),
+                            mutations=pred.get("mutations_detected") or [],
+                            interpretation=pred.get("interpretation", ""),
+                        )
+                    )
 
         return self.generate(
             sequence=sequence,
@@ -741,7 +751,7 @@ class ReportGenerator:
         self,
         content: bytes,
         filepath: Path,
-        report_format: Optional[ReportFormat] = None,
+        report_format: ReportFormat | None = None,
     ) -> Path:
         """Save report to file.
 
@@ -798,8 +808,8 @@ class ReportArchive:
         self,
         report_id: str,
         content: bytes,
-        patient_id: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        patient_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Path:
         """Archive a report.
 
@@ -821,18 +831,20 @@ class ReportArchive:
         archive_path.write_bytes(content)
 
         # Update index
-        self.index["reports"].append({
-            "report_id": report_id,
-            "patient_id": patient_id,
-            "archived_at": datetime.now().isoformat(),
-            "path": str(archive_path.relative_to(self.archive_dir)),
-            "metadata": metadata or {},
-        })
+        self.index["reports"].append(
+            {
+                "report_id": report_id,
+                "patient_id": patient_id,
+                "archived_at": datetime.now().isoformat(),
+                "path": str(archive_path.relative_to(self.archive_dir)),
+                "metadata": metadata or {},
+            }
+        )
         self._save_index()
 
         return archive_path
 
-    def retrieve(self, report_id: str) -> Optional[bytes]:
+    def retrieve(self, report_id: str) -> bytes | None:
         """Retrieve an archived report.
 
         Args:
@@ -850,10 +862,10 @@ class ReportArchive:
 
     def list_reports(
         self,
-        patient_id: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> List[Dict[str, Any]]:
+        patient_id: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> list[dict[str, Any]]:
         """List archived reports with optional filters.
 
         Args:

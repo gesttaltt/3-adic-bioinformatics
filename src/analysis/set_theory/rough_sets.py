@@ -23,11 +23,11 @@ References:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, FrozenSet, Generic, List, Optional, Set, TypeVar
+from typing import Any, Generic, TypeVar
 
 from src.analysis.set_theory.mutation_sets import Mutation, MutationSet
-
 
 T = TypeVar("T")
 
@@ -43,15 +43,15 @@ class ApproximationSpace(Generic[T]):
     Objects are indiscernible if they belong to the same equivalence class.
     """
 
-    universe: Set[T]
-    equivalence_classes: List[FrozenSet[T]]
+    universe: set[T]
+    equivalence_classes: list[frozenset[T]]
 
     @classmethod
     def from_attributes(
         cls,
-        objects: List[T],
+        objects: list[T],
         attribute_fn: Callable[[T], Any],
-    ) -> "ApproximationSpace[T]":
+    ) -> ApproximationSpace[T]:
         """Create approximation space from attribute function.
 
         Objects with the same attribute value are indiscernible.
@@ -64,7 +64,7 @@ class ApproximationSpace(Generic[T]):
             Approximation space
         """
         # Group by attribute value
-        groups: Dict[Any, List[T]] = {}
+        groups: dict[Any, list[T]] = {}
         for obj in objects:
             attr = attribute_fn(obj)
             if attr not in groups:
@@ -81,8 +81,8 @@ class ApproximationSpace(Generic[T]):
     @classmethod
     def from_mutation_genes(
         cls,
-        mutations: List[Mutation],
-    ) -> "ApproximationSpace[Mutation]":
+        mutations: list[Mutation],
+    ) -> ApproximationSpace[Mutation]:
         """Create space where mutations in same gene are indiscernible.
 
         Args:
@@ -93,7 +93,7 @@ class ApproximationSpace(Generic[T]):
         """
         return cls.from_attributes(mutations, lambda m: m.gene)
 
-    def get_equivalence_class(self, obj: T) -> FrozenSet[T]:
+    def get_equivalence_class(self, obj: T) -> frozenset[T]:
         """Get equivalence class containing object.
 
         Args:
@@ -127,8 +127,8 @@ class RoughSet(Generic[T]):
 
     def __init__(
         self,
-        lower: Set[T],
-        upper: Set[T],
+        lower: set[T],
+        upper: set[T],
         name: str = "",
     ):
         """Initialize rough set.
@@ -151,10 +151,10 @@ class RoughSet(Generic[T]):
     @classmethod
     def from_approximation_space(
         cls,
-        target: Set[T],
+        target: set[T],
         space: ApproximationSpace[T],
         name: str = "",
-    ) -> "RoughSet[T]":
+    ) -> RoughSet[T]:
         """Create rough set from approximation space.
 
         Lower approximation: Union of equivalence classes contained in target
@@ -168,8 +168,8 @@ class RoughSet(Generic[T]):
         Returns:
             Rough set approximating target
         """
-        lower: Set[T] = set()
-        upper: Set[T] = set()
+        lower: set[T] = set()
+        upper: set[T] = set()
 
         for ec in space.equivalence_classes:
             if ec.issubset(target):
@@ -183,7 +183,7 @@ class RoughSet(Generic[T]):
         return cls(lower, upper, name)
 
     @property
-    def boundary(self) -> FrozenSet[T]:
+    def boundary(self) -> frozenset[T]:
         """Boundary region: Upper - Lower (uncertain members)."""
         return self.upper - self.lower
 
@@ -223,30 +223,25 @@ class RoughSet(Generic[T]):
         return element in self.boundary
 
     def __repr__(self) -> str:
-        return (
-            f"RoughSet({self.name}, "
-            f"lower={len(self.lower)}, "
-            f"upper={len(self.upper)}, "
-            f"boundary={len(self.boundary)})"
-        )
+        return f"RoughSet({self.name}, lower={len(self.lower)}, upper={len(self.upper)}, boundary={len(self.boundary)})"
 
     # Rough set operations
 
-    def __and__(self, other: "RoughSet[T]") -> "RoughSet[T]":
+    def __and__(self, other: RoughSet[T]) -> RoughSet[T]:
         """Rough intersection."""
         return RoughSet(
             self.lower & other.lower,
             self.upper & other.upper,
         )
 
-    def __or__(self, other: "RoughSet[T]") -> "RoughSet[T]":
+    def __or__(self, other: RoughSet[T]) -> RoughSet[T]:
         """Rough union."""
         return RoughSet(
             self.lower | other.lower,
             self.upper | other.upper,
         )
 
-    def complement(self, universe: Set[T]) -> "RoughSet[T]":
+    def complement(self, universe: set[T]) -> RoughSet[T]:
         """Rough complement.
 
         ~Lower = U - Upper
@@ -276,10 +271,10 @@ class RoughClassifier:
     @classmethod
     def from_evidence(
         cls,
-        definite_resistance: List[str],
-        possible_resistance: List[str],
+        definite_resistance: list[str],
+        possible_resistance: list[str],
         drug_name: str = "",
-    ) -> "RoughClassifier":
+    ) -> RoughClassifier:
         """Create classifier from mutation evidence.
 
         Args:
@@ -307,19 +302,13 @@ class RoughClassifier:
             Classification: "resistant", "susceptible", or "uncertain"
         """
         # Check for definite resistance mutations
-        has_definite = any(
-            mut in self.positive_mutations.lower
-            for mut in mutations
-        )
+        has_definite = any(mut in self.positive_mutations.lower for mut in mutations)
 
         if has_definite:
             return "resistant"
 
         # Check for possible resistance mutations
-        has_possible = any(
-            mut in self.positive_mutations.upper
-            for mut in mutations
-        )
+        has_possible = any(mut in self.positive_mutations.upper for mut in mutations)
 
         if has_possible:
             return "uncertain"
@@ -329,7 +318,7 @@ class RoughClassifier:
     def classify_detailed(
         self,
         mutations: MutationSet,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Detailed classification with evidence.
 
         Args:
@@ -338,14 +327,8 @@ class RoughClassifier:
         Returns:
             Detailed classification result
         """
-        definite_hits = [
-            m for m in mutations
-            if m in self.positive_mutations.lower
-        ]
-        possible_hits = [
-            m for m in mutations
-            if m in self.positive_mutations.boundary
-        ]
+        definite_hits = [m for m in mutations if m in self.positive_mutations.lower]
+        possible_hits = [m for m in mutations if m in self.positive_mutations.boundary]
 
         classification = self.classify(mutations)
 
@@ -356,15 +339,13 @@ class RoughClassifier:
             "confidence": confidence,
             "definite_resistance_mutations": [str(m) for m in definite_hits],
             "possible_resistance_mutations": [str(m) for m in possible_hits],
-            "evidence_strength": "strong" if definite_hits else (
-                "moderate" if possible_hits else "none"
-            ),
+            "evidence_strength": "strong" if definite_hits else ("moderate" if possible_hits else "none"),
         }
 
     def _compute_confidence(
         self,
-        definite: List[Mutation],
-        possible: List[Mutation],
+        definite: list[Mutation],
+        possible: list[Mutation],
     ) -> float:
         """Compute classification confidence.
 
@@ -402,17 +383,17 @@ class VariablePrecisionRoughSet(Generic[T]):
 
     lower_threshold: float  # Inclusion threshold for lower (e.g., 0.9)
     upper_threshold: float  # Inclusion threshold for upper (e.g., 0.1)
-    lower: FrozenSet[T] = field(default_factory=frozenset)
-    upper: FrozenSet[T] = field(default_factory=frozenset)
+    lower: frozenset[T] = field(default_factory=frozenset)
+    upper: frozenset[T] = field(default_factory=frozenset)
 
     @classmethod
     def from_approximation_space(
         cls,
-        target: Set[T],
+        target: set[T],
         space: ApproximationSpace[T],
         lower_threshold: float = 0.9,
         upper_threshold: float = 0.1,
-    ) -> "VariablePrecisionRoughSet[T]":
+    ) -> VariablePrecisionRoughSet[T]:
         """Create VPRS from approximation space.
 
         An equivalence class is in:
@@ -428,8 +409,8 @@ class VariablePrecisionRoughSet(Generic[T]):
         Returns:
             Variable precision rough set
         """
-        lower: Set[T] = set()
-        upper: Set[T] = set()
+        lower: set[T] = set()
+        upper: set[T] = set()
 
         for ec in space.equivalence_classes:
             overlap = len(ec & target)
@@ -458,8 +439,8 @@ class DecisionTable:
 
     def __init__(
         self,
-        objects: List[Dict[str, Any]],
-        condition_attrs: List[str],
+        objects: list[dict[str, Any]],
+        condition_attrs: list[str],
         decision_attr: str,
     ):
         """Initialize decision table.
@@ -475,8 +456,8 @@ class DecisionTable:
 
     def indiscernibility_classes(
         self,
-        attributes: Optional[List[str]] = None,
-    ) -> List[List[int]]:
+        attributes: list[str] | None = None,
+    ) -> list[list[int]]:
         """Compute indiscernibility classes.
 
         Args:
@@ -488,7 +469,7 @@ class DecisionTable:
         attrs = attributes or self.condition_attrs
 
         # Group by attribute values
-        groups: Dict[tuple, List[int]] = {}
+        groups: dict[tuple, list[int]] = {}
         for i, obj in enumerate(self.objects):
             key = tuple(obj.get(a) for a in attrs)
             if key not in groups:
@@ -500,7 +481,7 @@ class DecisionTable:
     def lower_approximation(
         self,
         decision_value: Any,
-    ) -> Set[int]:
+    ) -> set[int]:
         """Compute lower approximation of decision class.
 
         Args:
@@ -510,16 +491,13 @@ class DecisionTable:
             Set of object indices in lower approximation
         """
         # Get decision class
-        decision_class = {
-            i for i, obj in enumerate(self.objects)
-            if obj.get(self.decision_attr) == decision_value
-        }
+        decision_class = {i for i, obj in enumerate(self.objects) if obj.get(self.decision_attr) == decision_value}
 
         # Get indiscernibility classes
         ind_classes = self.indiscernibility_classes()
 
         # Lower = union of classes contained in decision class
-        lower: Set[int] = set()
+        lower: set[int] = set()
         for cls in ind_classes:
             if set(cls).issubset(decision_class):
                 lower.update(cls)
@@ -529,7 +507,7 @@ class DecisionTable:
     def upper_approximation(
         self,
         decision_value: Any,
-    ) -> Set[int]:
+    ) -> set[int]:
         """Compute upper approximation of decision class.
 
         Args:
@@ -538,15 +516,12 @@ class DecisionTable:
         Returns:
             Set of object indices in upper approximation
         """
-        decision_class = {
-            i for i, obj in enumerate(self.objects)
-            if obj.get(self.decision_attr) == decision_value
-        }
+        decision_class = {i for i, obj in enumerate(self.objects) if obj.get(self.decision_attr) == decision_value}
 
         ind_classes = self.indiscernibility_classes()
 
         # Upper = union of classes overlapping decision class
-        upper: Set[int] = set()
+        upper: set[int] = set()
         for cls in ind_classes:
             if not set(cls).isdisjoint(decision_class):
                 upper.update(cls)
@@ -565,13 +540,13 @@ class DecisionTable:
         decision_values = set(obj.get(self.decision_attr) for obj in self.objects)
 
         # Compute positive region (union of lower approximations)
-        positive_region: Set[int] = set()
+        positive_region: set[int] = set()
         for dv in decision_values:
             positive_region.update(self.lower_approximation(dv))
 
         return len(positive_region) / len(self.objects)
 
-    def find_reducts(self) -> List[List[str]]:
+    def find_reducts(self) -> list[list[str]]:
         """Find reducts (minimal attribute subsets preserving quality).
 
         Returns:

@@ -1,6 +1,12 @@
 """
 Clinical Decision Support Dashboard for HIV Treatment
 
+⚠️ RESEARCH PROTOTYPE — NOT VALIDATED FOR CLINICAL USE ⚠️
+This module has NOT been validated in clinical trials. All outputs are
+computational predictions based on sequence features. DO NOT use for
+diagnostic, treatment, or clinical decision-making. Clinical decisions
+must be made by qualified healthcare providers using validated tools.
+
 This module provides a unified interface for clinical decision support,
 integrating all literature-derived implementations:
 - P-adic codon analysis
@@ -10,11 +16,11 @@ integrating all literature-derived implementations:
 - Drug resistance prediction
 - Optimal treatment recommendations
 
-Designed for:
-- Treatment selection
-- Resistance monitoring
-- Vaccine candidate prioritization
-- bnAb therapy optimization
+Designed for RESEARCH USE ONLY:
+- Exploratory treatment analysis
+- Computational resistance monitoring
+- Vaccine candidate research
+- bnAb therapy research
 """
 
 from __future__ import annotations
@@ -33,24 +39,25 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 # Import implementations
 try:
-    from literature_implementations import (
-        PAdicCodonEncoder,
-        PottsModelFitness,
-        ZeroShotMutationPredictor,
-        EpistasisDetector,
-        QuasispeciesSimulator,
-    )
     from advanced_literature_implementations import (
-        ProteinConformationGenerator,
         DrugResistanceAnalyzer,
         HLAEpitopePredictorSimulated,
+        ProteinConformationGenerator,
     )
     from cutting_edge_implementations import (
-        OptimalTransportAligner,
-        ProteinLanguageModel,
         AntibodyOptimizer,
         HIVHostInteractionPredictor,
+        OptimalTransportAligner,
+        ProteinLanguageModel,
     )
+    from literature_implementations import (
+        EpistasisDetector,
+        PAdicCodonEncoder,
+        PottsModelFitness,
+        QuasispeciesSimulator,
+        ZeroShotMutationPredictor,
+    )
+
     IMPORTS_AVAILABLE = True
 except ImportError:
     IMPORTS_AVAILABLE = False
@@ -64,6 +71,7 @@ except ImportError:
 @dataclass
 class PatientProfile:
     """Patient information for clinical analysis."""
+
     patient_id: str
     hiv_sequences: dict[str, str] = field(default_factory=dict)
     hla_alleles: list[str] = field(default_factory=list)
@@ -77,6 +85,7 @@ class PatientProfile:
 @dataclass
 class TreatmentRecommendation:
     """Treatment recommendation with supporting evidence."""
+
     regimen: str
     confidence: float
     rationale: list[str]
@@ -88,6 +97,7 @@ class TreatmentRecommendation:
 @dataclass
 class ResistanceAssessment:
     """Drug resistance assessment results."""
+
     overall_risk: str
     mutations_detected: list[str]
     drug_class_risks: dict[str, float]
@@ -98,6 +108,7 @@ class ResistanceAssessment:
 @dataclass
 class VaccinePrioritization:
     """Vaccine candidate prioritization results."""
+
     top_epitopes: list[dict[str, Any]]
     population_coverage: float
     conservation_score: float
@@ -109,9 +120,18 @@ class VaccinePrioritization:
 # =============================================================================
 
 
+RESEARCH_USE_ONLY = True
+"""Flag: this module is for research use only, not clinical deployment."""
+
+
 class ClinicalDashboard:
     """
     Unified clinical decision support dashboard.
+
+    ⚠️ RESEARCH PROTOTYPE — NOT VALIDATED FOR CLINICAL USE ⚠️
+    All outputs are computational predictions. Not for diagnostic or
+    treatment decisions. Use only in research settings with oversight
+    from qualified healthcare professionals.
 
     Integrates all analysis tools for comprehensive patient assessment.
     """
@@ -125,36 +145,19 @@ class ClinicalDashboard:
 
         # Treatment databases
         self.drug_classes = {
-            'NRTI': ['TDF', 'FTC', 'ABC', '3TC', 'AZT', 'DDI', 'D4T'],
-            'NNRTI': ['EFV', 'NVP', 'RPV', 'ETR', 'DOR'],
-            'PI': ['LPV/r', 'ATV/r', 'DRV/r', 'SQV/r', 'FPV/r'],
-            'INSTI': ['DTG', 'RAL', 'EVG', 'BIC', 'CAB'],
-            'Entry': ['MVC', 'ENF', 'IBA', 'FTR']
+            "NRTI": ["TDF", "FTC", "ABC", "3TC", "AZT", "DDI", "D4T"],
+            "NNRTI": ["EFV", "NVP", "RPV", "ETR", "DOR"],
+            "PI": ["LPV/r", "ATV/r", "DRV/r", "SQV/r", "FPV/r"],
+            "INSTI": ["DTG", "RAL", "EVG", "BIC", "CAB"],
+            "Entry": ["MVC", "ENF", "IBA", "FTR"],
         }
 
         # Resistance mutation databases
         self.resistance_mutations = {
-            'NRTI': {
-                'M184V': ['3TC', 'FTC'],
-                'K65R': ['TDF', 'ABC'],
-                'TAMs': ['AZT'],
-                'K70E': ['TDF']
-            },
-            'NNRTI': {
-                'K103N': ['EFV', 'NVP'],
-                'Y181C': ['NVP', 'ETR'],
-                'E138K': ['RPV']
-            },
-            'PI': {
-                'I50V': ['DRV', 'ATV'],
-                'I84V': ['All PIs'],
-                'L90M': ['SQV', 'NFV']
-            },
-            'INSTI': {
-                'R263K': ['DTG'],
-                'Q148H': ['RAL', 'EVG'],
-                'N155H': ['RAL']
-            }
+            "NRTI": {"M184V": ["3TC", "FTC"], "K65R": ["TDF", "ABC"], "TAMs": ["AZT"], "K70E": ["TDF"]},
+            "NNRTI": {"K103N": ["EFV", "NVP"], "Y181C": ["NVP", "ETR"], "E138K": ["RPV"]},
+            "PI": {"I50V": ["DRV", "ATV"], "I84V": ["All PIs"], "L90M": ["SQV", "NFV"]},
+            "INSTI": {"R263K": ["DTG"], "Q148H": ["RAL", "EVG"], "N155H": ["RAL"]},
         }
 
     def _init_modules(self):
@@ -200,10 +203,7 @@ class ClinicalDashboard:
     # TREATMENT RECOMMENDATION
     # =========================================================================
 
-    def recommend_treatment(
-        self,
-        patient: PatientProfile
-    ) -> TreatmentRecommendation:
+    def recommend_treatment(self, patient: PatientProfile) -> TreatmentRecommendation:
         """
         Generate personalized treatment recommendation.
 
@@ -217,28 +217,16 @@ class ClinicalDashboard:
         resistance = self.assess_resistance(patient)
 
         # Determine optimal drug classes
-        available_classes = self._filter_available_classes(
-            resistance.drug_class_risks,
-            patient.treatment_history
-        )
+        available_classes = self._filter_available_classes(resistance.drug_class_risks, patient.treatment_history)
 
         # Build recommended regimen
-        regimen, rationale = self._build_regimen(
-            available_classes,
-            patient
-        )
+        regimen, rationale = self._build_regimen(available_classes, patient)
 
         # Generate alternatives
-        alternatives = self._generate_alternatives(
-            available_classes,
-            patient
-        )
+        alternatives = self._generate_alternatives(available_classes, patient)
 
         # Monitoring recommendations
-        monitoring = self._get_monitoring_recommendations(
-            resistance,
-            patient
-        )
+        monitoring = self._get_monitoring_recommendations(resistance, patient)
 
         return TreatmentRecommendation(
             regimen=regimen,
@@ -246,14 +234,10 @@ class ClinicalDashboard:
             rationale=rationale,
             alternatives=alternatives,
             monitoring=monitoring,
-            resistance_risk=resistance.overall_risk
+            resistance_risk=resistance.overall_risk,
         )
 
-    def _filter_available_classes(
-        self,
-        class_risks: dict[str, float],
-        treatment_history: list[str]
-    ) -> list[str]:
+    def _filter_available_classes(self, class_risks: dict[str, float], treatment_history: list[str]) -> list[str]:
         """Filter drug classes by resistance and history."""
         available = []
 
@@ -266,22 +250,18 @@ class ClinicalDashboard:
 
         return available
 
-    def _build_regimen(
-        self,
-        available_classes: list[str],
-        patient: PatientProfile
-    ) -> tuple[str, list[str]]:
+    def _build_regimen(self, available_classes: list[str], patient: PatientProfile) -> tuple[str, list[str]]:
         """Build optimal regimen from available drug classes."""
         rationale = []
 
         # Standard preferred regimen structure
-        if 'INSTI' in available_classes:
+        if "INSTI" in available_classes:
             backbone = "DTG + TAF/FTC"
             rationale.append("INSTI-based regimen preferred (high barrier)")
-        elif 'PI' in available_classes:
+        elif "PI" in available_classes:
             backbone = "DRV/r + TAF/FTC"
             rationale.append("PI-based regimen (treatment-experienced)")
-        elif 'NNRTI' in available_classes:
+        elif "NNRTI" in available_classes:
             backbone = "EFV + TDF/FTC"
             rationale.append("NNRTI-based (if no K103N detected)")
         else:
@@ -296,39 +276,31 @@ class ClinicalDashboard:
 
         return backbone, rationale
 
-    def _generate_alternatives(
-        self,
-        available_classes: list[str],
-        patient: PatientProfile
-    ) -> list[str]:
+    def _generate_alternatives(self, available_classes: list[str], patient: PatientProfile) -> list[str]:
         """Generate alternative regimens."""
         alternatives = []
 
-        if 'INSTI' in available_classes:
+        if "INSTI" in available_classes:
             alternatives.append("BIC/TAF/FTC (single tablet)")
             alternatives.append("DTG/3TC (two-drug regimen)")
 
-        if 'PI' in available_classes:
+        if "PI" in available_classes:
             alternatives.append("DRV/c/TAF/FTC (single tablet)")
 
-        if 'Entry' in available_classes:
+        if "Entry" in available_classes:
             alternatives.append("LEN + optimized backbone (investigational)")
 
         return alternatives[:3]
 
-    def _get_monitoring_recommendations(
-        self,
-        resistance: ResistanceAssessment,
-        patient: PatientProfile
-    ) -> list[str]:
+    def _get_monitoring_recommendations(self, resistance: ResistanceAssessment, patient: PatientProfile) -> list[str]:
         """Generate monitoring recommendations."""
         monitoring = [
             "Viral load at 4 weeks, then every 3 months",
             "CD4 count every 6 months",
-            "Genotype if virologic failure"
+            "Genotype if virologic failure",
         ]
 
-        if resistance.overall_risk == 'high':
+        if resistance.overall_risk == "high":
             monitoring.insert(0, "Genotype at 8 weeks")
             monitoring.append("Consider integrase resistance testing")
 
@@ -337,18 +309,14 @@ class ClinicalDashboard:
 
         return monitoring
 
-    def _calculate_confidence(
-        self,
-        resistance: ResistanceAssessment,
-        available_classes: list[str]
-    ) -> float:
+    def _calculate_confidence(self, resistance: ResistanceAssessment, available_classes: list[str]) -> float:
         """Calculate recommendation confidence."""
         base_confidence = 0.9
 
         # Reduce for high resistance
-        if resistance.overall_risk == 'high':
+        if resistance.overall_risk == "high":
             base_confidence -= 0.2
-        elif resistance.overall_risk == 'moderate':
+        elif resistance.overall_risk == "moderate":
             base_confidence -= 0.1
 
         # Reduce for limited options
@@ -361,10 +329,7 @@ class ClinicalDashboard:
     # RESISTANCE ASSESSMENT
     # =========================================================================
 
-    def assess_resistance(
-        self,
-        patient: PatientProfile
-    ) -> ResistanceAssessment:
+    def assess_resistance(self, patient: PatientProfile) -> ResistanceAssessment:
         """
         Comprehensive resistance assessment.
 
@@ -379,15 +344,11 @@ class ClinicalDashboard:
 
         # Analyze each drug class
         for drug_class in self.drug_classes:
-            risk = self._assess_class_resistance(
-                drug_class,
-                patient.hiv_sequences,
-                patient.treatment_history
-            )
+            risk = self._assess_class_resistance(drug_class, patient.hiv_sequences, patient.treatment_history)
             class_risks[drug_class] = risk
 
         # Detect specific mutations
-        for seq_name, sequence in patient.hiv_sequences.items():
+        for _seq_name, sequence in patient.hiv_sequences.items():
             detected = self._detect_mutations(sequence)
             mutations_detected.extend(detected)
 
@@ -395,38 +356,30 @@ class ClinicalDashboard:
         max_risk = max(class_risks.values()) if class_risks else 0.0
 
         if max_risk > 0.7:
-            overall_risk = 'high'
+            overall_risk = "high"
         elif max_risk > 0.4:
-            overall_risk = 'moderate'
+            overall_risk = "moderate"
         else:
-            overall_risk = 'low'
+            overall_risk = "low"
 
         # Predict evolution
-        trajectory = self._predict_evolution(
-            patient.hiv_sequences,
-            mutations_detected
-        )
+        trajectory = self._predict_evolution(patient.hiv_sequences, mutations_detected)
 
         return ResistanceAssessment(
             overall_risk=overall_risk,
             mutations_detected=list(set(mutations_detected)),
             drug_class_risks=class_risks,
             evolution_trajectory=trajectory,
-            time_to_failure=self._estimate_time_to_failure(class_risks)
+            time_to_failure=self._estimate_time_to_failure(class_risks),
         )
 
-    def _assess_class_resistance(
-        self,
-        drug_class: str,
-        sequences: dict[str, str],
-        history: list[str]
-    ) -> float:
+    def _assess_class_resistance(self, drug_class: str, sequences: dict[str, str], history: list[str]) -> float:
         """Assess resistance to a drug class."""
         risk = 0.0
 
         # Check mutation database
         if drug_class in self.resistance_mutations:
-            for mutation, drugs in self.resistance_mutations[drug_class].items():
+            for mutation, _drugs in self.resistance_mutations[drug_class].items():
                 for seq in sequences.values():
                     if self._has_mutation(seq, mutation):
                         risk += 0.3
@@ -441,7 +394,8 @@ class ClinicalDashboard:
         """Check if sequence has a specific mutation."""
         # Parse mutation (e.g., M184V -> position 184, wildtype M, mutant V)
         import re
-        match = re.match(r'([A-Z])(\d+)([A-Z])', mutation)
+
+        match = re.match(r"([A-Z])(\d+)([A-Z])", mutation)
         if not match:
             return False
 
@@ -449,7 +403,7 @@ class ClinicalDashboard:
         pos = int(pos)
 
         if pos <= len(sequence):
-            return sequence[pos-1] == mut
+            return sequence[pos - 1] == mut
 
         return False
 
@@ -459,25 +413,21 @@ class ClinicalDashboard:
 
         # Reference wild-type positions
         wt_reference = {
-            184: 'M',
-            103: 'K',
-            65: 'K',
-            50: 'I',
-            155: 'N',
+            184: "M",
+            103: "K",
+            65: "K",
+            50: "I",
+            155: "N",
         }
 
         for pos, wt in wt_reference.items():
-            if pos <= len(sequence) and sequence[pos-1] != wt:
-                mut = sequence[pos-1]
+            if pos <= len(sequence) and sequence[pos - 1] != wt:
+                mut = sequence[pos - 1]
                 detected.append(f"{wt}{pos}{mut}")
 
         return detected
 
-    def _predict_evolution(
-        self,
-        sequences: dict[str, str],
-        current_mutations: list[str]
-    ) -> str:
+    def _predict_evolution(self, sequences: dict[str, str], current_mutations: list[str]) -> str:
         """Predict resistance evolution trajectory."""
         if len(current_mutations) >= 5:
             return "Multi-drug resistance likely - limited options"
@@ -488,10 +438,7 @@ class ClinicalDashboard:
         else:
             return "No significant resistance - standard monitoring"
 
-    def _estimate_time_to_failure(
-        self,
-        class_risks: dict[str, float]
-    ) -> int | None:
+    def _estimate_time_to_failure(self, class_risks: dict[str, float]) -> int | None:
         """Estimate days to treatment failure."""
         max_risk = max(class_risks.values()) if class_risks else 0.0
 
@@ -509,9 +456,7 @@ class ClinicalDashboard:
     # =========================================================================
 
     def prioritize_vaccines(
-        self,
-        sequences: dict[str, str],
-        patient_hla: list[str] | None = None
+        self, sequences: dict[str, str], patient_hla: list[str] | None = None
     ) -> VaccinePrioritization:
         """
         Prioritize vaccine candidates based on multiple criteria.
@@ -526,28 +471,28 @@ class ClinicalDashboard:
 
         # Predict epitopes for all sequences
         for protein_name, sequence in sequences.items():
-            if hasattr(self.hla_predictor, 'predict_epitopes'):
-                epitopes = self.hla_predictor.predict_epitopes(
-                    sequence, protein_name
+            if hasattr(self.hla_predictor, "predict_epitopes"):
+                epitopes = self.hla_predictor.predict_epitopes(sequence, protein_name)
+                all_epitopes.extend(
+                    [
+                        {
+                            "peptide": e.peptide,
+                            "protein": e.protein,
+                            "position": e.position,
+                            "coverage": e.population_coverage,
+                            "n_alleles": len(e.hla_alleles),
+                        }
+                        for e in epitopes
+                    ]
                 )
-                all_epitopes.extend([
-                    {
-                        'peptide': e.peptide,
-                        'protein': e.protein,
-                        'position': e.position,
-                        'coverage': e.population_coverage,
-                        'n_alleles': len(e.hla_alleles)
-                    }
-                    for e in epitopes
-                ])
 
         # Sort by priority
-        all_epitopes.sort(key=lambda x: -x.get('coverage', 0))
+        all_epitopes.sort(key=lambda x: -x.get("coverage", 0))
 
         # Calculate metrics
         if all_epitopes:
             top_epitopes = all_epitopes[:10]
-            max_coverage = max(e.get('coverage', 0) for e in top_epitopes)
+            max_coverage = max(e.get("coverage", 0) for e in top_epitopes)
         else:
             top_epitopes = []
             max_coverage = 0.0
@@ -562,13 +507,10 @@ class ClinicalDashboard:
             top_epitopes=top_epitopes,
             population_coverage=max_coverage,
             conservation_score=conservation,
-            escape_risk=escape_risk
+            escape_risk=escape_risk,
         )
 
-    def _calculate_conservation(
-        self,
-        sequences: dict[str, str]
-    ) -> float:
+    def _calculate_conservation(self, sequences: dict[str, str]) -> float:
         """Calculate sequence conservation score."""
         if not sequences:
             return 0.0
@@ -588,16 +530,13 @@ class ClinicalDashboard:
 
         return identical / min_len
 
-    def _assess_escape_risk(
-        self,
-        epitopes: list[dict[str, Any]]
-    ) -> str:
+    def _assess_escape_risk(self, epitopes: list[dict[str, Any]]) -> str:
         """Assess escape risk for epitopes."""
         if not epitopes:
             return "unknown"
 
         # Based on epitope properties
-        avg_coverage = np.mean([e.get('coverage', 0) for e in epitopes])
+        avg_coverage = np.mean([e.get("coverage", 0) for e in epitopes])
 
         if avg_coverage > 0.6:
             return "low"
@@ -610,10 +549,7 @@ class ClinicalDashboard:
     # BNAB THERAPY OPTIMIZATION
     # =========================================================================
 
-    def optimize_bnab_therapy(
-        self,
-        patient: PatientProfile
-    ) -> dict[str, Any]:
+    def optimize_bnab_therapy(self, patient: PatientProfile) -> dict[str, Any]:
         """
         Optimize broadly neutralizing antibody therapy.
 
@@ -624,51 +560,38 @@ class ClinicalDashboard:
         """
         # Available bnAbs
         bnabs = {
-            'VRC01': {'epitope': 'CD4bs', 'breadth': 0.68},
-            '3BNC117': {'epitope': 'CD4bs', 'breadth': 0.78},
-            'NIH45-46': {'epitope': 'CD4bs', 'breadth': 0.77},
-            '10E8': {'epitope': 'MPER', 'breadth': 0.76},
-            'PG9': {'epitope': 'V1V2', 'breadth': 0.70},
-            'PGT121': {'epitope': 'V3', 'breadth': 0.65},
+            "VRC01": {"epitope": "CD4bs", "breadth": 0.68},
+            "3BNC117": {"epitope": "CD4bs", "breadth": 0.78},
+            "NIH45-46": {"epitope": "CD4bs", "breadth": 0.77},
+            "10E8": {"epitope": "MPER", "breadth": 0.76},
+            "PG9": {"epitope": "V1V2", "breadth": 0.70},
+            "PGT121": {"epitope": "V3", "breadth": 0.65},
         }
 
         # Analyze patient sequences for sensitivity
         sensitivity = {}
         for bnab, info in bnabs.items():
-            sens = self._predict_bnab_sensitivity(
-                patient.hiv_sequences,
-                bnab,
-                info['epitope']
-            )
-            sensitivity[bnab] = {
-                'sensitivity': sens,
-                'epitope': info['epitope'],
-                'breadth': info['breadth']
-            }
+            sens = self._predict_bnab_sensitivity(patient.hiv_sequences, bnab, info["epitope"])
+            sensitivity[bnab] = {"sensitivity": sens, "epitope": info["epitope"], "breadth": info["breadth"]}
 
         # Find optimal combination
         optimal = self._find_optimal_combination(sensitivity)
 
         return {
-            'individual_sensitivity': sensitivity,
-            'optimal_combination': optimal['bnabs'],
-            'expected_coverage': optimal['coverage'],
-            'epitope_diversity': optimal['n_epitopes'],
-            'recommendation': self._format_bnab_recommendation(optimal)
+            "individual_sensitivity": sensitivity,
+            "optimal_combination": optimal["bnabs"],
+            "expected_coverage": optimal["coverage"],
+            "epitope_diversity": optimal["n_epitopes"],
+            "recommendation": self._format_bnab_recommendation(optimal),
         }
 
-    def _predict_bnab_sensitivity(
-        self,
-        sequences: dict[str, str],
-        bnab: str,
-        epitope: str
-    ) -> float:
+    def _predict_bnab_sensitivity(self, sequences: dict[str, str], bnab: str, epitope: str) -> float:
         """Predict sensitivity to a specific bnAb."""
         # Simplified sensitivity based on epitope region
         # In production, would use actual neutralization models
 
         # Check if Env sequence available
-        env_seq = sequences.get('Env', sequences.get('env', ''))
+        env_seq = sequences.get("Env", sequences.get("env", ""))
 
         if not env_seq:
             return 0.5  # Default moderate sensitivity
@@ -677,34 +600,27 @@ class ClinicalDashboard:
         sensitivity = 0.5
 
         # V3 characteristics affect sensitivity
-        if epitope == 'V3' and 'GPGR' in env_seq:
+        if epitope == "V3" and "GPGR" in env_seq:
             sensitivity += 0.2
-        elif epitope == 'CD4bs':
+        elif epitope == "CD4bs":
             # CD4bs is relatively conserved
             sensitivity += 0.15
 
         return min(1.0, sensitivity)
 
-    def _find_optimal_combination(
-        self,
-        sensitivity: dict[str, dict]
-    ) -> dict[str, Any]:
+    def _find_optimal_combination(self, sensitivity: dict[str, dict]) -> dict[str, Any]:
         """Find optimal bnAb combination."""
         # Sort by sensitivity
-        ranked = sorted(
-            sensitivity.items(),
-            key=lambda x: x[1]['sensitivity'],
-            reverse=True
-        )
+        ranked = sorted(sensitivity.items(), key=lambda x: x[1]["sensitivity"], reverse=True)
 
         # Build combination with epitope diversity
         selected = []
         epitopes_covered = set()
 
         for bnab, info in ranked:
-            if info['epitope'] not in epitopes_covered:
+            if info["epitope"] not in epitopes_covered:
                 selected.append(bnab)
-                epitopes_covered.add(info['epitope'])
+                epitopes_covered.add(info["epitope"])
 
             if len(selected) >= 3:
                 break
@@ -712,22 +628,15 @@ class ClinicalDashboard:
         # Calculate expected coverage
         coverage = 1.0
         for bnab in selected:
-            coverage *= (1 - sensitivity[bnab]['sensitivity'])
+            coverage *= 1 - sensitivity[bnab]["sensitivity"]
         coverage = 1 - coverage
 
-        return {
-            'bnabs': selected,
-            'coverage': coverage,
-            'n_epitopes': len(epitopes_covered)
-        }
+        return {"bnabs": selected, "coverage": coverage, "n_epitopes": len(epitopes_covered)}
 
-    def _format_bnab_recommendation(
-        self,
-        optimal: dict[str, Any]
-    ) -> str:
+    def _format_bnab_recommendation(self, optimal: dict[str, Any]) -> str:
         """Format bnAb recommendation."""
-        bnabs = ' + '.join(optimal['bnabs'])
-        coverage = optimal['coverage'] * 100
+        bnabs = " + ".join(optimal["bnabs"])
+        coverage = optimal["coverage"] * 100
 
         return f"Recommended: {bnabs} (expected {coverage:.1f}% coverage)"
 
@@ -735,10 +644,7 @@ class ClinicalDashboard:
     # COMPREHENSIVE REPORT
     # =========================================================================
 
-    def generate_report(
-        self,
-        patient: PatientProfile
-    ) -> dict[str, Any]:
+    def generate_report(self, patient: PatientProfile) -> dict[str, Any]:
         """
         Generate comprehensive clinical report.
 
@@ -750,11 +656,7 @@ class ClinicalDashboard:
         print(f"Patient ID: {patient.patient_id}")
         print(f"Generated: {datetime.now()}")
 
-        report = {
-            'patient_id': patient.patient_id,
-            'timestamp': datetime.now().isoformat(),
-            'analyses': {}
-        }
+        report = {"patient_id": patient.patient_id, "timestamp": datetime.now().isoformat(), "analyses": {}}
 
         # 1. Resistance Assessment
         print("\n" + "-" * 70)
@@ -766,11 +668,11 @@ class ClinicalDashboard:
         print(f"  Mutations: {', '.join(resistance.mutations_detected) or 'None detected'}")
         print(f"  Evolution: {resistance.evolution_trajectory}")
 
-        report['analyses']['resistance'] = {
-            'risk': resistance.overall_risk,
-            'mutations': resistance.mutations_detected,
-            'class_risks': resistance.drug_class_risks,
-            'trajectory': resistance.evolution_trajectory
+        report["analyses"]["resistance"] = {
+            "risk": resistance.overall_risk,
+            "mutations": resistance.mutations_detected,
+            "class_risks": resistance.drug_class_risks,
+            "trajectory": resistance.evolution_trajectory,
         }
 
         # 2. Treatment Recommendation
@@ -788,12 +690,12 @@ class ClinicalDashboard:
         for a in treatment.alternatives:
             print(f"    - {a}")
 
-        report['analyses']['treatment'] = {
-            'regimen': treatment.regimen,
-            'confidence': treatment.confidence,
-            'rationale': treatment.rationale,
-            'alternatives': treatment.alternatives,
-            'monitoring': treatment.monitoring
+        report["analyses"]["treatment"] = {
+            "regimen": treatment.regimen,
+            "confidence": treatment.confidence,
+            "rationale": treatment.rationale,
+            "alternatives": treatment.alternatives,
+            "monitoring": treatment.monitoring,
         }
 
         # 3. Vaccine Prioritization (if sequences available)
@@ -813,16 +715,16 @@ class ClinicalDashboard:
                 for e in vaccines.top_epitopes[:3]:
                     print(f"    - {e['peptide']} ({e['protein']}): {e.get('coverage', 0):.1%}")
 
-            report['analyses']['vaccines'] = {
-                'n_epitopes': len(vaccines.top_epitopes),
-                'coverage': vaccines.population_coverage,
-                'conservation': vaccines.conservation_score,
-                'escape_risk': vaccines.escape_risk,
-                'top_epitopes': vaccines.top_epitopes[:5]
+            report["analyses"]["vaccines"] = {
+                "n_epitopes": len(vaccines.top_epitopes),
+                "coverage": vaccines.population_coverage,
+                "conservation": vaccines.conservation_score,
+                "escape_risk": vaccines.escape_risk,
+                "top_epitopes": vaccines.top_epitopes[:5],
             }
 
         # 4. bnAb Therapy (if Env sequence available)
-        if 'Env' in patient.hiv_sequences or 'env' in patient.hiv_sequences:
+        if "Env" in patient.hiv_sequences or "env" in patient.hiv_sequences:
             print("\n" + "-" * 70)
             print("4. BNAB THERAPY OPTIMIZATION")
             print("-" * 70)
@@ -831,15 +733,15 @@ class ClinicalDashboard:
             print(f"  {bnab['recommendation']}")
             print(f"  Epitope diversity: {bnab['epitope_diversity']} classes")
 
-            report['analyses']['bnab'] = {
-                'combination': bnab['optimal_combination'],
-                'coverage': bnab['expected_coverage'],
-                'diversity': bnab['epitope_diversity']
+            report["analyses"]["bnab"] = {
+                "combination": bnab["optimal_combination"],
+                "coverage": bnab["expected_coverage"],
+                "diversity": bnab["epitope_diversity"],
             }
 
         # Save report
         output_file = self.output_dir / f"report_{patient.patient_id}.json"
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             json.dump(report, f, indent=2, default=str)
 
         print("\n" + "=" * 70)
@@ -868,17 +770,17 @@ def main():
     patient = PatientProfile(
         patient_id="HIV-2024-001",
         hiv_sequences={
-            'Protease': "PQITLWQRPLVTIKIGGQLKEALLDTGADDTVLEEMNLPGRWKPKMIGGIGGFIKV",
-            'RT': "CQGVPVLPKITLWQRPLVTIRIGGQLKEALLDTGADDTVLEDIDLPGRWKPKMIGG",
-            'Gag': "MGARASVLSGGELDRWEKIRLRPGGKKKYKLKHIVWASRELERFAVNPGLLETS",
-            'Env': "MRVKEKYQHLWRWGWRWGTMLLGMLMICSATEKLWVTVYYGVPVWKEATTTLFCAS"
+            "Protease": "PQITLWQRPLVTIKIGGQLKEALLDTGADDTVLEEMNLPGRWKPKMIGGIGGFIKV",
+            "RT": "CQGVPVLPKITLWQRPLVTIRIGGQLKEALLDTGADDTVLEDIDLPGRWKPKMIGG",
+            "Gag": "MGARASVLSGGELDRWEKIRLRPGGKKKYKLKHIVWASRELERFAVNPGLLETS",
+            "Env": "MRVKEKYQHLWRWGWRWGTMLLGMLMICSATEKLWVTVYYGVPVWKEATTTLFCAS",
         },
-        hla_alleles=['HLA-A*02:01', 'HLA-B*07:02'],
-        treatment_history=['EFV', 'TDF', 'FTC'],
+        hla_alleles=["HLA-A*02:01", "HLA-B*07:02"],
+        treatment_history=["EFV", "TDF", "FTC"],
         viral_load=45000,
         cd4_count=320,
         subtype="B",
-        risk_factors=['treatment_experienced', 'prior_virologic_failure']
+        risk_factors=["treatment_experienced", "prior_virologic_failure"],
     )
 
     # Generate comprehensive report
@@ -893,18 +795,18 @@ def main():
     patients = [
         PatientProfile(
             patient_id="HIV-2024-002",
-            hiv_sequences={'Protease': "PQITLWQRPLVTIKIGGQLKEALLDTGADDTVLEEMNLPGRWKPKMIGGIGGFIKV"},
+            hiv_sequences={"Protease": "PQITLWQRPLVTIKIGGQLKEALLDTGADDTVLEEMNLPGRWKPKMIGGIGGFIKV"},
             viral_load=500,
             cd4_count=450,
-            treatment_history=[]
+            treatment_history=[],
         ),
         PatientProfile(
             patient_id="HIV-2024-003",
-            hiv_sequences={'Protease': "PQITLWQRPLVTIKIGGQLKEALLDTGADDTVLEEMNLPGRWKPKMIGGIGGFIKV"},
+            hiv_sequences={"Protease": "PQITLWQRPLVTIKIGGQLKEALLDTGADDTVLEEMNLPGRWKPKMIGGIGGFIKV"},
             viral_load=250000,
             cd4_count=150,
-            treatment_history=['AZT', '3TC', 'EFV', 'TDF', 'LPV/r']
-        )
+            treatment_history=["AZT", "3TC", "EFV", "TDF", "LPV/r"],
+        ),
     ]
 
     for p in patients:

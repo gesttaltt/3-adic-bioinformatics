@@ -32,13 +32,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.data.hiv import (
-    load_catnap,
-    get_catnap_by_antibody,
-    get_catnap_sensitive_viruses,
-    get_catnap_resistant_viruses,
     calculate_antibody_breadth,
-    get_bnab_classes,
     classify_antibody,
+    get_bnab_classes,
+    get_catnap_by_antibody,
+    get_catnap_resistant_viruses,
+    get_catnap_sensitive_viruses,
+    load_catnap,
 )
 
 
@@ -100,16 +100,18 @@ def analyze_sensitivity_signatures(df: pd.DataFrame, ic50_threshold: float = 1.0
         separation = log_resistant.mean() - log_sensitive.mean()
         pooled_std = np.sqrt((log_sensitive.var() + log_resistant.var()) / 2)
 
-        results.append({
-            "Antibody": antibody,
-            "n_sensitive": len(sensitive),
-            "n_resistant": len(resistant),
-            "mean_sensitive_ic50": sensitive_ic50.mean(),
-            "mean_resistant_ic50": resistant_ic50.mean(),
-            "log_separation": separation,
-            "effect_size": separation / pooled_std if pooled_std > 0 else 0,
-            "epitope_class": classify_antibody(antibody) or "Unknown",
-        })
+        results.append(
+            {
+                "Antibody": antibody,
+                "n_sensitive": len(sensitive),
+                "n_resistant": len(resistant),
+                "mean_sensitive_ic50": sensitive_ic50.mean(),
+                "mean_resistant_ic50": resistant_ic50.mean(),
+                "log_separation": separation,
+                "effect_size": separation / pooled_std if pooled_std > 0 else 0,
+                "epitope_class": classify_antibody(antibody) or "Unknown",
+            }
+        )
 
     return pd.DataFrame(results).sort_values("effect_size", ascending=False)
 
@@ -124,14 +126,10 @@ def cluster_antibodies_by_profile(potency_df: pd.DataFrame) -> pd.DataFrame:
 
     # Assign cluster based on epitope class
     class_to_cluster = {cls: i for i, cls in enumerate(get_bnab_classes().keys())}
-    potency_df["cluster"] = potency_df["epitope_class"].map(
-        lambda x: class_to_cluster.get(x, -1)
-    )
+    potency_df["cluster"] = potency_df["epitope_class"].map(lambda x: class_to_cluster.get(x, -1))
 
     # Sub-cluster by potency within each class
-    potency_df["potency_rank"] = potency_df.groupby("cluster")["potency_score"].rank(
-        ascending=False
-    )
+    potency_df["potency_rank"] = potency_df.groupby("cluster")["potency_score"].rank(ascending=False)
 
     return potency_df
 
@@ -222,8 +220,7 @@ def main():
         top_5 = breadth_df.head(5)
         print("\nTop 5 Broadest Antibodies:")
         for _, row in top_5.iterrows():
-            print(f"  {row['Antibody']}: {row['breadth_pct']:.1f}% "
-                  f"({row['n_neutralized']}/{row['n_tested']})")
+            print(f"  {row['Antibody']}: {row['breadth_pct']:.1f}% ({row['n_neutralized']}/{row['n_tested']})")
 
     # Compute potency metrics
     print("\nComputing potency metrics...")
@@ -234,8 +231,7 @@ def main():
         top_potent = potency_df.head(5)
         print("\nTop 5 Most Potent Antibodies:")
         for _, row in top_potent.iterrows():
-            print(f"  {row['Antibody']}: median IC50 = {row['median_ic50']:.3f} ug/mL "
-                  f"({row['epitope_class']})")
+            print(f"  {row['Antibody']}: median IC50 = {row['median_ic50']:.3f} ug/mL ({row['epitope_class']})")
 
     # Analyze sensitivity signatures
     print("\nAnalyzing sensitivity signatures...")

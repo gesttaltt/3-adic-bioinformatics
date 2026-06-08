@@ -33,7 +33,6 @@ Usage:
 from __future__ import annotations
 
 import math
-from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -42,11 +41,9 @@ from torch import Tensor
 
 from src.geometry import (
     exp_map_zero,
-    log_map_zero,
     poincare_distance,
     project_to_poincare,
 )
-
 
 # =============================================================================
 # P-adic Mathematics (Generalized)
@@ -94,7 +91,7 @@ def compute_padic_distance(a: int, b: int, p: int) -> float:
     return float(p ** (-v))
 
 
-def to_padic_representation(n: int, p: int, n_digits: int) -> List[int]:
+def to_padic_representation(n: int, p: int, n_digits: int) -> list[int]:
     """Convert integer to p-adic digit representation.
 
     Args:
@@ -112,7 +109,7 @@ def to_padic_representation(n: int, p: int, n_digits: int) -> List[int]:
     return digits
 
 
-def from_padic_representation(digits: List[int], p: int) -> int:
+def from_padic_representation(digits: list[int], p: int) -> int:
     """Convert p-adic digits back to integer.
 
     Args:
@@ -124,7 +121,7 @@ def from_padic_representation(digits: List[int], p: int) -> int:
     """
     result = 0
     for i, d in enumerate(digits):
-        result += d * (p ** i)
+        result += d * (p**i)
     return result
 
 
@@ -163,7 +160,7 @@ class SegmentSplitter(nn.Module):
 
         assert self.stride > 0, "Overlap must be less than segment size"
 
-    def forward(self, x: Tensor, lengths: Optional[Tensor] = None) -> Tuple[Tensor, Tensor]:
+    def forward(self, x: Tensor, lengths: Tensor | None = None) -> tuple[Tensor, Tensor]:
         """Split sequence into segments.
 
         Args:
@@ -272,7 +269,7 @@ class PadicSegmentEncoder(nn.Module):
         # Pre-compute valuations for positions
         valuations = [compute_padic_valuation(i, prime) for i in range(segment_size)]
         valuations = [min(v, max_valuation) for v in valuations]
-        self.register_buffer('position_valuations', torch.tensor(valuations, dtype=torch.long))
+        self.register_buffer("position_valuations", torch.tensor(valuations, dtype=torch.long))
 
         # Transformer layer for segment encoding
         self.input_proj = nn.Linear(embed_dim, hidden_dim)
@@ -282,21 +279,19 @@ class PadicSegmentEncoder(nn.Module):
             nhead=n_heads,
             dim_feedforward=hidden_dim * 4,
             dropout=dropout,
-            activation='gelu',
+            activation="gelu",
             batch_first=True,
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=2)
 
         # Attention pooling
         self.pool_query = nn.Parameter(torch.randn(1, 1, hidden_dim) * 0.02)
-        self.pool_attention = nn.MultiheadAttention(
-            hidden_dim, n_heads, dropout=dropout, batch_first=True
-        )
+        self.pool_attention = nn.MultiheadAttention(hidden_dim, n_heads, dropout=dropout, batch_first=True)
 
         # Project to latent space
         self.output_proj = nn.Linear(hidden_dim, latent_dim)
 
-    def forward(self, segment: Tensor, mask: Optional[Tensor] = None) -> Tensor:
+    def forward(self, segment: Tensor, mask: Tensor | None = None) -> Tensor:
         """Encode a segment.
 
         Args:
@@ -321,10 +316,7 @@ class PadicSegmentEncoder(nn.Module):
         x = self.input_proj(x)
 
         # Transformer encoding
-        if mask is not None:
-            src_key_padding_mask = ~mask
-        else:
-            src_key_padding_mask = None
+        src_key_padding_mask = ~mask if mask is not None else None
 
         x = self.transformer(x, src_key_padding_mask=src_key_padding_mask)
 
@@ -381,9 +373,7 @@ class HierarchicalAggregator(nn.Module):
         self.segment_pos = nn.Embedding(max_segments, latent_dim)
 
         # Cross-segment attention
-        self.cross_attention = nn.MultiheadAttention(
-            latent_dim, n_heads, dropout=dropout, batch_first=True
-        )
+        self.cross_attention = nn.MultiheadAttention(latent_dim, n_heads, dropout=dropout, batch_first=True)
 
         # Aggregation MLP
         self.aggregator = nn.Sequential(
@@ -400,8 +390,8 @@ class HierarchicalAggregator(nn.Module):
     def forward(
         self,
         segment_embeddings: Tensor,
-        segment_mask: Optional[Tensor] = None,
-    ) -> Tuple[Tensor, Tensor]:
+        segment_mask: Tensor | None = None,
+    ) -> tuple[Tensor, Tensor]:
         """Aggregate segment embeddings.
 
         Args:
@@ -421,10 +411,7 @@ class HierarchicalAggregator(nn.Module):
         x = segment_embeddings + pos_emb.unsqueeze(0)
 
         # Self-attention across segments
-        if segment_mask is not None:
-            key_padding_mask = ~segment_mask
-        else:
-            key_padding_mask = None
+        key_padding_mask = ~segment_mask if segment_mask is not None else None
 
         x, _ = self.cross_attention(x, x, x, key_padding_mask=key_padding_mask)
 
@@ -541,8 +528,8 @@ class GeneralizedPadicEncoder(nn.Module):
     def forward(
         self,
         x: Tensor,
-        lengths: Optional[Tensor] = None,
-    ) -> Dict[str, Tensor]:
+        lengths: Tensor | None = None,
+    ) -> dict[str, Tensor]:
         """Forward pass.
 
         Args:
@@ -574,9 +561,9 @@ class GeneralizedPadicEncoder(nn.Module):
             radius = poincare_distance(z_hyp, origin, c=self.curvature)
 
             return {
-                'z_hyp': z_hyp,
-                'radius': radius,
-                'n_segments': torch.ones(batch_size, device=device),
+                "z_hyp": z_hyp,
+                "radius": radius,
+                "n_segments": torch.ones(batch_size, device=device),
             }
 
         # Split into segments
@@ -596,14 +583,14 @@ class GeneralizedPadicEncoder(nn.Module):
         z_hyp, radius = self.aggregator(segment_embeddings, segment_mask)
 
         return {
-            'z_hyp': z_hyp,
-            'radius': radius,
-            'n_segments': torch.full((batch_size,), n_segments, device=device),
+            "z_hyp": z_hyp,
+            "radius": radius,
+            "n_segments": torch.full((batch_size,), n_segments, device=device),
         }
 
-    def encode(self, x: Tensor, lengths: Optional[Tensor] = None) -> Tensor:
+    def encode(self, x: Tensor, lengths: Tensor | None = None) -> Tensor:
         """Convenience method to get just the embedding."""
-        return self.forward(x, lengths)['z_hyp']
+        return self.forward(x, lengths)["z_hyp"]
 
 
 # =============================================================================
@@ -666,13 +653,13 @@ def create_nucleotide_encoder(
 
 
 __all__ = [
-    'GeneralizedPadicEncoder',
-    'SegmentSplitter',
-    'PadicSegmentEncoder',
-    'HierarchicalAggregator',
-    'create_codon_encoder',
-    'create_aminoacid_encoder',
-    'create_nucleotide_encoder',
-    'compute_padic_valuation',
-    'compute_padic_distance',
+    "GeneralizedPadicEncoder",
+    "SegmentSplitter",
+    "PadicSegmentEncoder",
+    "HierarchicalAggregator",
+    "create_codon_encoder",
+    "create_aminoacid_encoder",
+    "create_nucleotide_encoder",
+    "compute_padic_valuation",
+    "compute_padic_distance",
 ]

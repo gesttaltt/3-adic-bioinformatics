@@ -28,11 +28,9 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 
 from src.biology.codons import GENETIC_CODE, codon_index_to_triplet
 from src.losses.codon_usage import CodonOptimalityScore, Organism
@@ -117,7 +115,7 @@ class GenerationMetrics:
     n_sequences: int = 0
     mean_length: float = 0.0
 
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> dict[str, float]:
         """Convert all metrics to flat dictionary for logging."""
         result = {}
 
@@ -145,8 +143,8 @@ class GenerationMetrics:
 
 
 def compute_sequence_identity(
-    seq1: Union[str, List[int], torch.Tensor],
-    seq2: Union[str, List[int], torch.Tensor],
+    seq1: str | list[int] | torch.Tensor,
+    seq2: str | list[int] | torch.Tensor,
 ) -> float:
     """Compute sequence identity between two sequences.
 
@@ -171,7 +169,7 @@ def compute_sequence_identity(
     if min_len == 0:
         return 0.0
 
-    matches = sum(1 for a, b in zip(seq1[:min_len], seq2[:min_len]) if a == b)
+    matches = sum(1 for a, b in zip(seq1[:min_len], seq2[:min_len], strict=False) if a == b)
     return matches / min_len
 
 
@@ -213,7 +211,7 @@ def compute_pairwise_distances(
 def compute_cluster_entropy(
     sequences: torch.Tensor,
     n_clusters: int = 10,
-) -> Tuple[float, int]:
+) -> tuple[float, int]:
     """Compute cluster entropy of sequence set.
 
     Args:
@@ -253,7 +251,7 @@ def compute_cluster_entropy(
 
 def check_biological_validity(
     codon_sequences: torch.Tensor,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Check biological validity of codon sequences.
 
     Args:
@@ -312,7 +310,7 @@ class ProteinGymEvaluator:
 
     def __init__(
         self,
-        training_sequences: Optional[torch.Tensor] = None,
+        training_sequences: torch.Tensor | None = None,
         organism: Organism = Organism.HUMAN,
         use_structure_prediction: bool = False,
     ):
@@ -333,7 +331,7 @@ class ProteinGymEvaluator:
     def compute_quality_metrics(
         self,
         generated: torch.Tensor,
-        targets: Optional[torch.Tensor] = None,
+        targets: torch.Tensor | None = None,
     ) -> QualityMetrics:
         """Compute quality metrics for generated sequences.
 
@@ -481,7 +479,7 @@ class ProteinGymEvaluator:
     def evaluate(
         self,
         generated: torch.Tensor,
-        targets: Optional[torch.Tensor] = None,
+        targets: torch.Tensor | None = None,
     ) -> GenerationMetrics:
         """Run complete evaluation.
 
@@ -509,8 +507,8 @@ class ProteinGymEvaluator:
 
 def evaluate_generated_sequences(
     generated: torch.Tensor,
-    training_set: Optional[torch.Tensor] = None,
-    targets: Optional[torch.Tensor] = None,
+    training_set: torch.Tensor | None = None,
+    targets: torch.Tensor | None = None,
     organism: Organism = Organism.HUMAN,
 ) -> GenerationMetrics:
     """Convenience function for sequence evaluation.

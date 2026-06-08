@@ -344,7 +344,7 @@ class theme_context:
         self.context = Context(context) if isinstance(context, str) else context
         self._original_rcparams: dict[str, Any] = {}
 
-    def __enter__(self) -> "theme_context":
+    def __enter__(self) -> theme_context:
         # Store current rcParams
         self._original_rcparams = plt.rcParams.copy()
         # Apply new theme

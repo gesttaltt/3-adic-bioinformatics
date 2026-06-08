@@ -22,7 +22,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -38,14 +38,16 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # CONFIGURATION DATACLASSES
 # =============================================================================
 
+
 @dataclass
 class ExperimentConfig:
     """Configuration for a single experiment."""
+
     name: str
     # Architecture
     model_type: str = "simple_hyperbolic"  # simple, simple_hyperbolic, tropical, swarm
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [64, 32])
+    hidden_dims: list[int] = field(default_factory=lambda: [64, 32])
     # Projection
     use_hyperbolic: bool = True
     curvature: float = 1.0
@@ -71,6 +73,7 @@ class ExperimentConfig:
 @dataclass
 class ExperimentResult:
     """Results from experiment."""
+
     name: str
     accuracy: float
     spearman: float
@@ -78,12 +81,13 @@ class ExperimentResult:
     training_time: float
     final_loss: float
     config: ExperimentConfig
-    error: Optional[str] = None
+    error: str | None = None
 
 
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
+
 
 def compute_padic_distance(i: int, j: int) -> float:
     """Compute 3-adic distance."""
@@ -97,7 +101,7 @@ def compute_padic_distance(i: int, j: int) -> float:
     return 3.0 ** (-k)
 
 
-def evaluate_embeddings(z: torch.Tensor, indices: torch.Tensor) -> Dict[str, float]:
+def evaluate_embeddings(z: torch.Tensor, indices: torch.Tensor) -> dict[str, float]:
     """Evaluate latent space structure."""
     from sklearn.cluster import KMeans
     from sklearn.metrics import silhouette_score
@@ -114,8 +118,7 @@ def evaluate_embeddings(z: torch.Tensor, indices: torch.Tensor) -> Dict[str, flo
     mask = i_idx != j_idx
     i_idx, j_idx = i_idx[mask], j_idx[mask]
 
-    padic_dists = [compute_padic_distance(indices_np[i], indices_np[j])
-                   for i, j in zip(i_idx, j_idx)]
+    padic_dists = [compute_padic_distance(indices_np[i], indices_np[j]) for i, j in zip(i_idx, j_idx, strict=False)]
     latent_dists = np.linalg.norm(z_np[i_idx] - z_np[j_idx], axis=1)
 
     corr, _ = spearmanr(padic_dists, latent_dists)
@@ -140,10 +143,12 @@ def evaluate_embeddings(z: torch.Tensor, indices: torch.Tensor) -> Dict[str, flo
 # MODEL FACTORY
 # =============================================================================
 
+
 def create_model(config: ExperimentConfig):
     """Create model based on configuration."""
     if config.model_type == "simple":
         from src.models.simple_vae import SimpleVAE
+
         return SimpleVAE(
             input_dim=9,
             latent_dim=config.latent_dim,
@@ -151,6 +156,7 @@ def create_model(config: ExperimentConfig):
         )
     elif config.model_type == "simple_hyperbolic":
         from src.models.simple_vae import SimpleVAEWithHyperbolic
+
         return SimpleVAEWithHyperbolic(
             input_dim=9,
             latent_dim=config.latent_dim,
@@ -160,6 +166,7 @@ def create_model(config: ExperimentConfig):
     elif config.model_type == "tropical":
         # Tropical VAE wrapper
         from src.models.simple_vae import SimpleVAE
+
         # For now, use simple VAE as base (tropical layers would need integration)
         return SimpleVAE(
             input_dim=9,
@@ -168,14 +175,18 @@ def create_model(config: ExperimentConfig):
         )
     elif config.model_type == "optimal":
         from src.models.optimal_vae import OptimalVAE, OptimalVAEConfig
-        return OptimalVAE(OptimalVAEConfig(
-            latent_dim=config.latent_dim,
-            hidden_dims=config.hidden_dims,
-            enable_hyperbolic=config.use_hyperbolic,
-            enable_padic_ranking=config.padic_loss_type != "none",
-        ))
+
+        return OptimalVAE(
+            OptimalVAEConfig(
+                latent_dim=config.latent_dim,
+                hidden_dims=config.hidden_dims,
+                enable_hyperbolic=config.use_hyperbolic,
+                enable_padic_ranking=config.padic_loss_type != "none",
+            )
+        )
     else:
         from src.models.simple_vae import SimpleVAE
+
         return SimpleVAE(input_dim=9, latent_dim=config.latent_dim)
 
 
@@ -183,18 +194,21 @@ def create_model(config: ExperimentConfig):
 # LOSS FACTORY
 # =============================================================================
 
+
 def create_padic_loss(config: ExperimentConfig):
     """Create p-adic loss based on configuration."""
     if config.padic_loss_type == "none":
         return None
     elif config.padic_loss_type == "triplet":
         from src.losses.padic import PAdicRankingLoss
+
         return PAdicRankingLoss(margin=0.1, n_triplets=500)
     elif config.padic_loss_type == "soft_ranking":
         # Use the soft ranking implementation we created earlier
         return SoftPadicRankingLoss(temperature=0.5)
     elif config.padic_loss_type == "geodesic":
         from src.losses.padic_geodesic import PAdicGeodesicLoss
+
         return PAdicGeodesicLoss(curvature=config.curvature)
     elif config.padic_loss_type == "contrastive":
         return ContrastivePadicLoss(temperature=0.1)
@@ -208,15 +222,19 @@ def create_radial_loss(config: ExperimentConfig):
         return None
     elif config.radial_loss_type == "stratification":
         from src.losses.radial_stratification import RadialStratificationLoss
+
         return RadialStratificationLoss()
     elif config.radial_loss_type == "hierarchy":
         from src.losses.padic_geodesic import RadialHierarchyLoss
+
         return RadialHierarchyLoss()
     elif config.radial_loss_type == "monotonic":
         from src.losses.padic_geodesic import MonotonicRadialLoss
+
         return MonotonicRadialLoss()
     elif config.radial_loss_type == "global_rank":
         from src.losses.padic_geodesic import GlobalRankLoss
+
         return GlobalRankLoss()
     else:
         return None
@@ -225,6 +243,7 @@ def create_radial_loss(config: ExperimentConfig):
 # =============================================================================
 # P-ADIC LOSS IMPLEMENTATIONS (from our earlier work)
 # =============================================================================
+
 
 class SoftPadicRankingLoss(nn.Module):
     """Soft p-adic ranking using KL divergence."""
@@ -240,7 +259,7 @@ class SoftPadicRankingLoss(nn.Module):
             return torch.tensor(0.0, device=z.device)
 
         if n > self.n_samples:
-            idx = torch.randperm(n)[:self.n_samples]
+            idx = torch.randperm(n)[: self.n_samples]
             z = z[idx]
             indices = indices[idx]
             n = self.n_samples
@@ -254,7 +273,7 @@ class SoftPadicRankingLoss(nn.Module):
         latent_ranks = F.softmax(-latent_dist / self.temperature, dim=1)
         padic_ranks = F.softmax(-padic_dist / self.temperature, dim=1)
 
-        loss = F.kl_div(latent_ranks.log(), padic_ranks, reduction='batchmean')
+        loss = F.kl_div(latent_ranks.log(), padic_ranks, reduction="batchmean")
         return loss
 
 
@@ -272,7 +291,7 @@ class ContrastivePadicLoss(nn.Module):
             return torch.tensor(0.0, device=z.device)
 
         if n > self.n_samples:
-            idx = torch.randperm(n)[:self.n_samples]
+            idx = torch.randperm(n)[: self.n_samples]
             z = z[idx]
             indices = indices[idx]
             n = self.n_samples
@@ -297,10 +316,11 @@ class ContrastivePadicLoss(nn.Module):
 # EXPERIMENT RUNNER
 # =============================================================================
 
+
 def run_experiment(config: ExperimentConfig) -> ExperimentResult:
     """Run a single experiment configuration."""
     from src.data.generation import generate_all_ternary_operations
-    from src.losses.dual_vae_loss import ReconstructionLoss, KLDivergenceLoss
+    from src.losses.dual_vae_loss import KLDivergenceLoss, ReconstructionLoss
 
     start_time = time.time()
 
@@ -402,7 +422,8 @@ def run_experiment(config: ExperimentConfig) -> ExperimentResult:
 # EXPERIMENT DEFINITIONS
 # =============================================================================
 
-def get_phase1_experiments() -> List[ExperimentConfig]:
+
+def get_phase1_experiments() -> list[ExperimentConfig]:
     """Phase 1: Architecture × Projection sweep."""
     experiments = []
 
@@ -426,17 +447,19 @@ def get_phase1_experiments() -> List[ExperimentConfig]:
                 continue  # Hyperbolic VAE needs hyperbolic
 
             name = f"{model_type}_{proj_name}"
-            experiments.append(ExperimentConfig(
-                name=name,
-                model_type=model_type,
-                use_hyperbolic=use_hyp,
-                curvature=curv,
-            ))
+            experiments.append(
+                ExperimentConfig(
+                    name=name,
+                    model_type=model_type,
+                    use_hyperbolic=use_hyp,
+                    curvature=curv,
+                )
+            )
 
     return experiments
 
 
-def get_phase2_experiments(base_model: str = "simple_hyperbolic") -> List[ExperimentConfig]:
+def get_phase2_experiments(base_model: str = "simple_hyperbolic") -> list[ExperimentConfig]:
     """Phase 2: Loss combination sweep."""
     experiments = []
 
@@ -446,18 +469,20 @@ def get_phase2_experiments(base_model: str = "simple_hyperbolic") -> List[Experi
     for padic in padic_types:
         for radial in radial_types:
             name = f"{base_model}_padic_{padic}_radial_{radial}"
-            experiments.append(ExperimentConfig(
-                name=name,
-                model_type=base_model,
-                use_hyperbolic=True,
-                padic_loss_type=padic,
-                radial_loss_type=radial,
-            ))
+            experiments.append(
+                ExperimentConfig(
+                    name=name,
+                    model_type=base_model,
+                    use_hyperbolic=True,
+                    padic_loss_type=padic,
+                    radial_loss_type=radial,
+                )
+            )
 
     return experiments
 
 
-def get_phase3_experiments(base_config: Dict[str, Any] = None) -> List[ExperimentConfig]:
+def get_phase3_experiments(base_config: dict[str, Any] = None) -> list[ExperimentConfig]:
     """Phase 3: Training strategy sweep."""
     experiments = []
 
@@ -469,37 +494,55 @@ def get_phase3_experiments(base_config: Dict[str, Any] = None) -> List[Experimen
         for schedule in schedules:
             for lr in lrs:
                 name = f"beta_{beta}_sched_{schedule}_lr_{lr}"
-                experiments.append(ExperimentConfig(
-                    name=name,
-                    model_type="simple_hyperbolic",
-                    use_hyperbolic=True,
-                    beta=beta,
-                    beta_schedule=schedule,
-                    learning_rate=lr,
-                ))
+                experiments.append(
+                    ExperimentConfig(
+                        name=name,
+                        model_type="simple_hyperbolic",
+                        use_hyperbolic=True,
+                        beta=beta,
+                        beta_schedule=schedule,
+                        learning_rate=lr,
+                    )
+                )
 
     return experiments
 
 
-def get_top20_experiments() -> List[ExperimentConfig]:
+def get_top20_experiments() -> list[ExperimentConfig]:
     """Top 20 most promising configurations."""
     return [
         # Verified best
         ExperimentConfig(name="01_hyp_no_padic", model_type="simple_hyperbolic", padic_loss_type="none"),
         # Soft ranking variants
         ExperimentConfig(name="02_hyp_soft_ranking", model_type="simple_hyperbolic", padic_loss_type="soft_ranking"),
-        ExperimentConfig(name="03_hyp_soft_w05", model_type="simple_hyperbolic", padic_loss_type="soft_ranking", padic_weight=0.5),
-        ExperimentConfig(name="04_hyp_soft_w01", model_type="simple_hyperbolic", padic_loss_type="soft_ranking", padic_weight=0.1),
+        ExperimentConfig(
+            name="03_hyp_soft_w05", model_type="simple_hyperbolic", padic_loss_type="soft_ranking", padic_weight=0.5
+        ),
+        ExperimentConfig(
+            name="04_hyp_soft_w01", model_type="simple_hyperbolic", padic_loss_type="soft_ranking", padic_weight=0.1
+        ),
         # Geodesic variants
         ExperimentConfig(name="05_hyp_geodesic", model_type="simple_hyperbolic", padic_loss_type="geodesic"),
-        ExperimentConfig(name="06_hyp_geodesic_w05", model_type="simple_hyperbolic", padic_loss_type="geodesic", padic_weight=0.5),
+        ExperimentConfig(
+            name="06_hyp_geodesic_w05", model_type="simple_hyperbolic", padic_loss_type="geodesic", padic_weight=0.5
+        ),
         # Radial variants
         ExperimentConfig(name="07_hyp_monotonic", model_type="simple_hyperbolic", radial_loss_type="monotonic"),
         ExperimentConfig(name="08_hyp_global_rank", model_type="simple_hyperbolic", radial_loss_type="global_rank"),
         ExperimentConfig(name="09_hyp_hierarchy", model_type="simple_hyperbolic", radial_loss_type="hierarchy"),
         # Combined
-        ExperimentConfig(name="10_hyp_soft_monotonic", model_type="simple_hyperbolic", padic_loss_type="soft_ranking", radial_loss_type="monotonic"),
-        ExperimentConfig(name="11_hyp_geodesic_monotonic", model_type="simple_hyperbolic", padic_loss_type="geodesic", radial_loss_type="monotonic"),
+        ExperimentConfig(
+            name="10_hyp_soft_monotonic",
+            model_type="simple_hyperbolic",
+            padic_loss_type="soft_ranking",
+            radial_loss_type="monotonic",
+        ),
+        ExperimentConfig(
+            name="11_hyp_geodesic_monotonic",
+            model_type="simple_hyperbolic",
+            padic_loss_type="geodesic",
+            radial_loss_type="monotonic",
+        ),
         # Training variants
         ExperimentConfig(name="12_hyp_warmup", model_type="simple_hyperbolic", beta_schedule="warmup"),
         ExperimentConfig(name="13_hyp_cyclical", model_type="simple_hyperbolic", beta_schedule="cyclical"),
@@ -519,6 +562,7 @@ def get_top20_experiments() -> List[ExperimentConfig]:
 # =============================================================================
 # MAIN
 # =============================================================================
+
 
 def main():
     parser = argparse.ArgumentParser(description="Combination Sweep")
@@ -606,26 +650,28 @@ def main():
     # Save results
     results_data = []
     for r in results:
-        results_data.append({
-            "name": r.name,
-            "accuracy": r.accuracy,
-            "spearman": r.spearman,
-            "silhouette": r.silhouette,
-            "training_time": r.training_time,
-            "final_loss": r.final_loss,
-            "error": r.error,
-            "config": {
-                "model_type": r.config.model_type,
-                "latent_dim": r.config.latent_dim,
-                "use_hyperbolic": r.config.use_hyperbolic,
-                "curvature": r.config.curvature,
-                "padic_loss_type": r.config.padic_loss_type,
-                "padic_weight": r.config.padic_weight,
-                "radial_loss_type": r.config.radial_loss_type,
-                "beta": r.config.beta,
-                "beta_schedule": r.config.beta_schedule,
+        results_data.append(
+            {
+                "name": r.name,
+                "accuracy": r.accuracy,
+                "spearman": r.spearman,
+                "silhouette": r.silhouette,
+                "training_time": r.training_time,
+                "final_loss": r.final_loss,
+                "error": r.error,
+                "config": {
+                    "model_type": r.config.model_type,
+                    "latent_dim": r.config.latent_dim,
+                    "use_hyperbolic": r.config.use_hyperbolic,
+                    "curvature": r.config.curvature,
+                    "padic_loss_type": r.config.padic_loss_type,
+                    "padic_weight": r.config.padic_weight,
+                    "radial_loss_type": r.config.radial_loss_type,
+                    "beta": r.config.beta,
+                    "beta_schedule": r.config.beta_schedule,
+                },
             }
-        })
+        )
 
     output_path = PROJECT_ROOT / "outputs" / args.output
     output_path.parent.mkdir(parents=True, exist_ok=True)

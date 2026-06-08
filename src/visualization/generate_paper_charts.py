@@ -1,12 +1,15 @@
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
-import numpy as np
 import os
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
 # Configuration — output alongside the other HIV paper images
-OUTPUT_DIR = str(Path(__file__).resolve().parents[2] / "research" / "diseases" / "hiv" / "public_medical_paper" / "images")
+OUTPUT_DIR = str(
+    Path(__file__).resolve().parents[2] / "research" / "diseases" / "hiv" / "public_medical_paper" / "images"
+)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Style Settings
@@ -61,9 +64,7 @@ def plot_01_drug_barrier():
     )
 
     ax.set_xlabel("Genetic Distance", fontsize=12)
-    ax.set_title(
-        "Genetic Barrier to Resistance by Drug Class", fontsize=14, fontweight="bold"
-    )
+    ax.set_title("Genetic Barrier to Resistance by Drug Class", fontsize=14, fontweight="bold")
     ax.set_xlim(0, 8)
     ax.invert_yaxis()
 
@@ -103,9 +104,7 @@ def plot_05_heatmap():
         vmax=1,
         ax=ax,
     )
-    ax.set_title(
-        "Cross-Resistance Between Drug Classes", fontsize=14, fontweight="bold"
-    )
+    ax.set_title("Cross-Resistance Between Drug Classes", fontsize=14, fontweight="bold")
     save_plot("05_cross_resistance_heatmap.png")
 
 
@@ -127,7 +126,7 @@ def plot_07_hla_protection():
     ax.set_xlabel("Escape Rate (Lower is Better Protection)", fontsize=12)
     ax.set_title("HLA Alleles Ranked by HIV Protection", fontsize=14, fontweight="bold")
 
-    for i, (rate, prot) in enumerate(zip(data["Escape Rate"], data["Protection"])):
+    for i, (rate, prot) in enumerate(zip(data["Escape Rate"], data["Protection"], strict=False)):
         ax.text(rate + 0.01, i, f"{rate:.3f} [{prot}]", va="center")
 
     save_plot("07_hla_protection_ranking.png")
@@ -184,9 +183,7 @@ def plot_15_aa_distribution():
     ax.set_xticks(x)
     ax.set_xticklabels(amino_acids)
     ax.set_ylabel("Frequency (%)")
-    ax.set_title(
-        "Amino Acid Distribution at Position 22", fontsize=14, fontweight="bold"
-    )
+    ax.set_title("Amino Acid Distribution at Position 22", fontsize=14, fontweight="bold")
     ax.legend()
 
     # Annotations
@@ -204,9 +201,7 @@ def plot_16_tropism_comparison():
     bars = ax.bar(methods, acc, color=colors)
     ax.set_ylim(60, 90)
     ax.set_ylabel("Accuracy (%)")
-    ax.set_title(
-        "Tropism Prediction Accuracy Comparison", fontsize=14, fontweight="bold"
-    )
+    ax.set_title("Tropism Prediction Accuracy Comparison", fontsize=14, fontweight="bold")
 
     for bar in bars:
         height = bar.get_height()
@@ -252,10 +247,7 @@ def plot_19_bnab_scatter():
     from matplotlib.lines import Line2D
 
     legend_elements = [
-        Line2D(
-            [0], [0], marker="o", color="w", markerfacecolor=v, label=k, markersize=10
-        )
-        for k, v in colors.items()
+        Line2D([0], [0], marker="o", color="w", markerfacecolor=v, label=k, markersize=10) for k, v in colors.items()
     ]
     ax.legend(handles=legend_elements, loc="lower right")
     save_plot("19_bnab_breadth_potency.png")
@@ -386,9 +378,7 @@ def plot_33_goldilocks():
     fit_plot = 1 / (1 + np.exp(0.8 * (x_plot - 7)))
     net_plot = eff_plot * fit_plot
 
-    ax.plot(
-        x_plot, eff_plot, "--", label="Immune Escape Efficacy", color="green", alpha=0.5
-    )
+    ax.plot(x_plot, eff_plot, "--", label="Immune Escape Efficacy", color="green", alpha=0.5)
     ax.plot(x_plot, fit_plot, "--", label="Viral Fitness", color="red", alpha=0.5)
     ax.plot(
         x_plot,

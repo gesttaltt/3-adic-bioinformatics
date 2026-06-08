@@ -22,7 +22,6 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
-from typing import Optional
 
 # Hub configuration
 DEFAULT_REPO_ID = "ivanpol/ternary-vae-checkpoints"
@@ -40,9 +39,9 @@ def get_repo_id() -> str:
 
 def upload_checkpoint(
     local_path: str | Path,
-    repo_id: Optional[str] = None,
-    path_in_repo: Optional[str] = None,
-    commit_message: Optional[str] = None,
+    repo_id: str | None = None,
+    path_in_repo: str | None = None,
+    commit_message: str | None = None,
 ) -> str:
     """Upload a checkpoint file to Hugging Face Hub.
 
@@ -96,7 +95,7 @@ def upload_checkpoint(
 def download_checkpoint(
     path_in_repo: str,
     local_dir: str | Path = "checkpoints",
-    repo_id: Optional[str] = None,
+    repo_id: str | None = None,
     force: bool = False,
 ) -> Path:
     """Download a checkpoint from Hugging Face Hub.
@@ -131,7 +130,7 @@ def download_checkpoint(
     return Path(downloaded)
 
 
-def list_checkpoints(repo_id: Optional[str] = None) -> list[str]:
+def list_checkpoints(repo_id: str | None = None) -> list[str]:
     """List all checkpoints in the Hugging Face repo.
 
     Args:
@@ -156,7 +155,7 @@ def list_checkpoints(repo_id: Optional[str] = None) -> list[str]:
 
 def upload_directory(
     local_dir: str | Path,
-    repo_id: Optional[str] = None,
+    repo_id: str | None = None,
     pattern: str = "*.pt",
 ) -> list[str]:
     """Upload all checkpoints from a directory.
@@ -190,7 +189,7 @@ def upload_directory(
 def ensure_checkpoint(
     checkpoint_name: str,
     local_dir: str | Path = "checkpoints",
-    repo_id: Optional[str] = None,
+    repo_id: str | None = None,
 ) -> Path:
     """Ensure a checkpoint is available locally, downloading if needed.
 
@@ -216,7 +215,7 @@ def ensure_checkpoint(
     if local_path.exists():
         return local_path
 
-    print(f"Checkpoint not found locally, downloading from Hub...")
+    print("Checkpoint not found locally, downloading from Hub...")
     return download_checkpoint(checkpoint_name, local_dir, repo_id)
 
 

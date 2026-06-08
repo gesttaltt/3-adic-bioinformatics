@@ -48,7 +48,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.data.generation import generate_all_ternary_operations
 from src.losses.dual_vae_loss import KLDivergenceLoss, ReconstructionLoss
 from src.models.optimal_vae import OptimalVAE, OptimalVAEConfig
-from src.training import GrokDetector, EpochMetrics, TernaryDataset
+from src.training import EpochMetrics, GrokDetector, TernaryDataset
 
 
 def set_seeds(seed: int = 42):
@@ -80,12 +80,8 @@ def create_dataloaders(batch_size: int, val_split: float = 0.1, seed: int = 42):
         dataset, [n_train, n_val], generator=torch.Generator().manual_seed(seed)
     )
 
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True
-    )
-    val_loader = torch.utils.data.DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=False
-    )
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     return train_loader, val_loader, n_train, n_val
 
@@ -105,9 +101,7 @@ def train_epoch(model, train_loader, optimizer, recon_loss_fn, kl_loss_fn, devic
 
         optimizer.zero_grad()
 
-        loss, loss_dict = model.compute_loss(
-            x, batch_indices, recon_loss_fn, kl_loss_fn, beta
-        )
+        loss, loss_dict = model.compute_loss(x, batch_indices, recon_loss_fn, kl_loss_fn, beta)
 
         loss.backward()
         optimizer.step()
@@ -140,9 +134,7 @@ def validate(model, val_loader, recon_loss_fn, kl_loss_fn, device):
             x = batch["operation"].to(device)
             batch_indices = batch["index"].to(device)
 
-            loss, _ = model.compute_loss(
-                x, batch_indices, recon_loss_fn, kl_loss_fn, beta=1.0
-            )
+            loss, _ = model.compute_loss(x, batch_indices, recon_loss_fn, kl_loss_fn, beta=1.0)
 
             outputs = model(x)
             z = outputs["z"]
@@ -185,10 +177,7 @@ def main():
     args = parser.parse_args()
 
     # Device
-    if args.device:
-        device = args.device
-    else:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
 
     print("\n" + "=" * 70)
     print("OPTIMAL VAE TRAINING")
@@ -224,9 +213,7 @@ def main():
         model.load_state_dict(checkpoint["model_state_dict"])
 
     # Create dataloaders
-    train_loader, val_loader, n_train, n_val = create_dataloaders(
-        args.batch_size, seed=args.seed
-    )
+    train_loader, val_loader, n_train, n_val = create_dataloaders(args.batch_size, seed=args.seed)
     print(f"Training samples: {n_train:,}")
     print(f"Validation samples: {n_val:,}")
 
@@ -237,7 +224,7 @@ def main():
     # Evaluate only
     if args.evaluate:
         val_metrics = validate(model, val_loader, recon_loss_fn, kl_loss_fn, device)
-        print(f"\nValidation Results:")
+        print("\nValidation Results:")
         print(f"  Loss: {val_metrics['loss']:.4f}")
         print(f"  Accuracy: {val_metrics['accuracy']:.1%}")
         return
@@ -262,10 +249,7 @@ def main():
 
     for epoch in range(args.epochs):
         # Train (use configured beta)
-        train_metrics = train_epoch(
-            model, train_loader, optimizer, recon_loss_fn, kl_loss_fn, device,
-            beta=config.beta
-        )
+        train_metrics = train_epoch(model, train_loader, optimizer, recon_loss_fn, kl_loss_fn, device, beta=config.beta)
 
         # Validate
         val_metrics = validate(model, val_loader, recon_loss_fn, kl_loss_fn, device)
@@ -321,7 +305,7 @@ def main():
     print("\n" + "=" * 70)
     print("TRAINING COMPLETE")
     print("=" * 70)
-    print(f"Total time: {elapsed:.1f}s ({elapsed/args.epochs:.2f}s/epoch)")
+    print(f"Total time: {elapsed:.1f}s ({elapsed / args.epochs:.2f}s/epoch)")
     print(f"Best val loss: {best_val_loss:.4f}")
     print(f"Final accuracy: {val_metrics['accuracy']:.1%}")
 

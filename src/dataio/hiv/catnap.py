@@ -12,7 +12,6 @@ Contains 189,879 antibody-virus neutralization records.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 
@@ -67,7 +66,7 @@ def load_catnap() -> pd.DataFrame:
     return df
 
 
-def _parse_ic_value(value) -> Optional[float]:
+def _parse_ic_value(value) -> float | None:
     """Parse IC50/IC80 values, handling censored values."""
     if pd.isna(value) or value == "":
         return None
@@ -80,7 +79,7 @@ def _parse_ic_value(value) -> Optional[float]:
         return None
 
 
-def get_catnap_by_antibody(df: Optional[pd.DataFrame] = None, antibody: str = "VRC01") -> pd.DataFrame:
+def get_catnap_by_antibody(df: pd.DataFrame | None = None, antibody: str = "VRC01") -> pd.DataFrame:
     """
     Get neutralization data for a specific antibody.
 
@@ -101,7 +100,7 @@ def get_catnap_by_antibody(df: Optional[pd.DataFrame] = None, antibody: str = "V
 
 
 def get_catnap_sensitive_viruses(
-    df: Optional[pd.DataFrame] = None,
+    df: pd.DataFrame | None = None,
     antibody: str = "VRC01",
     ic50_threshold: float = 1.0,
 ) -> pd.DataFrame:
@@ -123,7 +122,7 @@ def get_catnap_sensitive_viruses(
 
 
 def get_catnap_resistant_viruses(
-    df: Optional[pd.DataFrame] = None,
+    df: pd.DataFrame | None = None,
     antibody: str = "VRC01",
     ic50_threshold: float = 50.0,
 ) -> pd.DataFrame:
@@ -145,7 +144,7 @@ def get_catnap_resistant_viruses(
 
 
 def calculate_antibody_breadth(
-    df: Optional[pd.DataFrame] = None,
+    df: pd.DataFrame | None = None,
     ic50_threshold: float = 50.0,
 ) -> pd.DataFrame:
     """
@@ -182,12 +181,14 @@ def calculate_antibody_breadth(
         n_neutralized = len(ab_data[ab_data["IC50_numeric"] <= ic50_threshold])
         breadth_pct = 100 * n_neutralized / n_tested if n_tested > 0 else 0
 
-        results.append({
-            "Antibody": antibody,
-            "n_tested": n_tested,
-            "n_neutralized": n_neutralized,
-            "breadth_pct": breadth_pct,
-        })
+        results.append(
+            {
+                "Antibody": antibody,
+                "n_tested": n_tested,
+                "n_neutralized": n_neutralized,
+                "breadth_pct": breadth_pct,
+            }
+        )
 
     result_df = pd.DataFrame(results)
     return result_df.sort_values("breadth_pct", ascending=False).reset_index(drop=True)
@@ -210,7 +211,7 @@ def get_bnab_classes() -> dict[str, list[str]]:
     }
 
 
-def classify_antibody(antibody: str) -> Optional[str]:
+def classify_antibody(antibody: str) -> str | None:
     """
     Classify an antibody by its epitope target.
 

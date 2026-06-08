@@ -31,7 +31,10 @@ from src.config.paths import PROCESSED_DATA_DIR, RAW_DATA_DIR
 try:
     # Attempt to import from the location found in research/
     from research.bioinformatics.codon_encoder_research.hiv.src.hyperbolic_utils import (
-        AA_TO_CODON, encode_sequence_hyperbolic, load_hyperbolic_encoder)
+        AA_TO_CODON,
+        encode_sequence_hyperbolic,
+        load_hyperbolic_encoder,
+    )
 except ImportError:
     print("Error: Could not import hyperbolic_utils. Please ensure the project structure is correct.")
     sys.exit(1)

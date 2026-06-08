@@ -17,12 +17,9 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
 
 # NNRTI Cross-Resistance Matrix
 NNRTI_CROSS_RESISTANCE = {
@@ -44,10 +41,11 @@ NNRTI_MUTATIONS = {
 @dataclass
 class NNRTIConfig:
     """Configuration for NNRTI cross-resistance VAE."""
+
     input_dim: int
     latent_dim: int = 16
-    hidden_dims: List[int] = field(default_factory=lambda: [256, 128, 64])
-    drug_names: List[str] = field(default_factory=lambda: ["NVP", "EFV", "ETR", "RPV", "DOR"])
+    hidden_dims: list[int] = field(default_factory=lambda: [256, 128, 64])
+    drug_names: list[str] = field(default_factory=lambda: ["NVP", "EFV", "ETR", "RPV", "DOR"])
     n_positions: int = 318
     dropout: float = 0.1
     n_heads: int = 4
@@ -85,7 +83,11 @@ class GenerationSpecificEncoder(nn.Module):
                 pos_data = x_reshaped[:, pos - 1, :]
                 is_mutated = (pos_data[:, :-1].sum(dim=-1) > 0).float()
                 first_gen_features.append(is_mutated)
-        first_gen = torch.stack(first_gen_features, dim=-1) if first_gen_features else torch.zeros(batch_size, len(self.first_gen_pos), device=device)
+        first_gen = (
+            torch.stack(first_gen_features, dim=-1)
+            if first_gen_features
+            else torch.zeros(batch_size, len(self.first_gen_pos), device=device)
+        )
 
         # Second generation features
         second_gen_features = []
@@ -94,7 +96,11 @@ class GenerationSpecificEncoder(nn.Module):
                 pos_data = x_reshaped[:, pos - 1, :]
                 is_mutated = (pos_data[:, :-1].sum(dim=-1) > 0).float()
                 second_gen_features.append(is_mutated)
-        second_gen = torch.stack(second_gen_features, dim=-1) if second_gen_features else torch.zeros(batch_size, len(self.second_gen_pos), device=device)
+        second_gen = (
+            torch.stack(second_gen_features, dim=-1)
+            if second_gen_features
+            else torch.zeros(batch_size, len(self.second_gen_pos), device=device)
+        )
 
         # Embed
         first_embed = self.first_gen_embed(first_gen)
@@ -125,12 +131,14 @@ class NNRTICrossResistanceVAE(nn.Module):
         layers = []
         in_dim = cfg.input_dim
         for h in cfg.hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, h),
-                nn.GELU(),
-                nn.LayerNorm(h),
-                nn.Dropout(cfg.dropout),
-            ])
+            layers.extend(
+                [
+                    nn.Linear(in_dim, h),
+                    nn.GELU(),
+                    nn.LayerNorm(h),
+                    nn.Dropout(cfg.dropout),
+                ]
+            )
             in_dim = h
         self.encoder = nn.Sequential(*layers)
 
@@ -175,7 +183,7 @@ class NNRTICrossResistanceVAE(nn.Module):
                 matrix[i, j] = NNRTI_CROSS_RESISTANCE.get(d1, {}).get(d2, 0)
         return matrix
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         batch_size = x.size(0)
         device = x.device
 
@@ -209,10 +217,7 @@ class NNRTICrossResistanceVAE(nn.Module):
             z_drug = z_drugs[:, i, :]
 
             # Use appropriate generation features
-            if drug in self.first_gen_drugs:
-                gen_feat = first_gen_feat
-            else:
-                gen_feat = second_gen_feat
+            gen_feat = first_gen_feat if drug in self.first_gen_drugs else second_gen_feat
 
             z_with_gen = torch.cat([z_drug, gen_feat], dim=-1)
             pred = self.drug_heads[drug](z_with_gen).squeeze(-1)

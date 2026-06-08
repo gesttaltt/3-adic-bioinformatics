@@ -38,6 +38,7 @@ class GuideDesignOptimizer:
         """
         if analyzer is None:
             from .analyzer import CRISPROfftargetAnalyzer
+
             analyzer = CRISPROfftargetAnalyzer()
         self.analyzer = analyzer
 

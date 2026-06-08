@@ -14,8 +14,6 @@ References:
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -111,7 +109,7 @@ class SimCLR(nn.Module):
         proj_dim: int = 128,
         hidden_dim: int = 256,
         temperature: float = 0.5,
-        augmentation: Optional[SequenceAugmentations] = None,
+        augmentation: SequenceAugmentations | None = None,
     ):
         """Initialize SimCLR.
 
@@ -298,7 +296,7 @@ class MoCo(nn.Module):
         self.encoder_k = encoder.__class__(*encoder.init_args)  # Key encoder
 
         # Initialize key encoder from query
-        for param_q, param_k in zip(self.encoder_q.parameters(), self.encoder_k.parameters()):
+        for param_q, param_k in zip(self.encoder_q.parameters(), self.encoder_k.parameters(), strict=False):
             param_k.data.copy_(param_q.data)
             param_k.requires_grad = False
 
@@ -313,7 +311,7 @@ class MoCo(nn.Module):
     @torch.no_grad()
     def _momentum_update(self):
         """Update key encoder with momentum."""
-        for param_q, param_k in zip(self.encoder_q.parameters(), self.encoder_k.parameters()):
+        for param_q, param_k in zip(self.encoder_q.parameters(), self.encoder_k.parameters(), strict=False):
             param_k.data = self.momentum * param_k.data + (1 - self.momentum) * param_q.data
 
     @torch.no_grad()
@@ -324,19 +322,19 @@ class MoCo(nn.Module):
 
         # Replace oldest keys
         if ptr + batch_size > self.queue_size:
-            self.queue[:, ptr:] = keys.t()[:, :self.queue_size - ptr]
+            self.queue[:, ptr:] = keys.t()[:, : self.queue_size - ptr]
             remaining = batch_size - (self.queue_size - ptr)
-            self.queue[:, :remaining] = keys.t()[:, self.queue_size - ptr:]
+            self.queue[:, :remaining] = keys.t()[:, self.queue_size - ptr :]
             self.queue_ptr[0] = remaining
         else:
-            self.queue[:, ptr:ptr + batch_size] = keys.t()
+            self.queue[:, ptr : ptr + batch_size] = keys.t()
             self.queue_ptr[0] = (ptr + batch_size) % self.queue_size
 
     def forward(
         self,
         x_q: torch.Tensor,
         x_k: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute query and key embeddings.
 
         Args:

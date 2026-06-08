@@ -37,7 +37,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -77,9 +76,9 @@ class ExtraterrestrialSample:
     """Sample from an extraterrestrial source."""
 
     source: AminoAcidSource
-    measurements: List[AminoAcidMeasurement]
+    measurements: list[AminoAcidMeasurement]
     total_organic_carbon_ppm: float
-    collection_date: Optional[str] = None
+    collection_date: str | None = None
     notes: str = ""
 
 
@@ -94,7 +93,7 @@ class CompatibilityResult:
     non_proteinogenic_fraction: float  # Non-standard AAs
     chirality_ratio: float  # L/(L+D) ratio
     code_universality_score: float
-    key_findings: List[str] = field(default_factory=list)
+    key_findings: list[str] = field(default_factory=list)
 
 
 # Earth's canonical 20 amino acids with their codon assignments
@@ -113,7 +112,7 @@ NON_PROTEINOGENIC_AMINO_ACIDS = {
 }
 
 # Reference Earth amino acid abundances (normalized, from proteins)
-EARTH_AMINO_ACID_ABUNDANCE: Dict[str, float] = {
+EARTH_AMINO_ACID_ABUNDANCE: dict[str, float] = {
     "A": 0.074,  # Alanine
     "R": 0.042,  # Arginine
     "N": 0.044,  # Asparagine
@@ -137,7 +136,7 @@ EARTH_AMINO_ACID_ABUNDANCE: Dict[str, float] = {
 }
 
 # Murchison meteorite amino acid data (representative values in ppb)
-MURCHISON_REFERENCE: Dict[str, float] = {
+MURCHISON_REFERENCE: dict[str, float] = {
     "G": 2500,  # Glycine - most abundant
     "A": 1800,  # Alanine
     "D": 450,  # Aspartic acid
@@ -211,8 +210,8 @@ class AsteroidAminoAcidAnalyzer:
 
     def normalize_concentrations(
         self,
-        measurements: List[AminoAcidMeasurement],
-    ) -> Dict[str, float]:
+        measurements: list[AminoAcidMeasurement],
+    ) -> dict[str, float]:
         """Normalize amino acid concentrations to frequencies.
 
         Args:
@@ -229,7 +228,7 @@ class AsteroidAminoAcidAnalyzer:
 
     def compute_earth_compatibility(
         self,
-        frequencies: Dict[str, float],
+        frequencies: dict[str, float],
     ) -> float:
         """Compute compatibility with Earth's amino acid usage.
 
@@ -263,7 +262,7 @@ class AsteroidAminoAcidAnalyzer:
 
     def compute_padic_optimality(
         self,
-        frequencies: Dict[str, float],
+        frequencies: dict[str, float],
     ) -> float:
         """Compute p-adic optimality score.
 
@@ -279,7 +278,7 @@ class AsteroidAminoAcidAnalyzer:
             return 0.0
 
         # Compute pairwise p-adic distances weighted by abundance
-        aas = [aa for aa in frequencies.keys() if aa in PROTEINOGENIC_AMINO_ACIDS]
+        aas = [aa for aa in frequencies if aa in PROTEINOGENIC_AMINO_ACIDS]
 
         if len(aas) < 2:
             return 0.0
@@ -303,7 +302,7 @@ class AsteroidAminoAcidAnalyzer:
 
     def compute_chirality_ratio(
         self,
-        measurements: List[AminoAcidMeasurement],
+        measurements: list[AminoAcidMeasurement],
     ) -> float:
         """Compute L-form to total ratio.
 
@@ -429,8 +428,8 @@ class AsteroidAminoAcidAnalyzer:
 
     def compare_sources(
         self,
-        samples: List[ExtraterrestrialSample],
-    ) -> Dict[str, CompatibilityResult]:
+        samples: list[ExtraterrestrialSample],
+    ) -> dict[str, CompatibilityResult]:
         """Compare multiple extraterrestrial sources.
 
         Args:
@@ -443,8 +442,8 @@ class AsteroidAminoAcidAnalyzer:
 
     def calculate_prebiotic_padic_score(
         self,
-        aa_frequencies: Dict[str, float],
-    ) -> Dict[str, float]:
+        aa_frequencies: dict[str, float],
+    ) -> dict[str, float]:
         """Calculate how well prebiotic AA ratios match p-adic optimal code.
 
         Args:

@@ -21,7 +21,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 from .base import TrainingCallback
 
@@ -57,7 +57,7 @@ class LoggingCallback(TrainingCallback):
         self.log_level = log_level
         self.include_batch_logs = include_batch_logs
 
-    def on_train_start(self, trainer: "BaseTrainer") -> None:
+    def on_train_start(self, trainer: BaseTrainer) -> None:
         """Log training start."""
         logger.log(
             self.log_level,
@@ -69,7 +69,7 @@ class LoggingCallback(TrainingCallback):
             },
         )
 
-    def on_train_end(self, trainer: "BaseTrainer") -> None:
+    def on_train_end(self, trainer: BaseTrainer) -> None:
         """Log training end."""
         logger.log(
             self.log_level,
@@ -80,16 +80,14 @@ class LoggingCallback(TrainingCallback):
             },
         )
 
-    def on_epoch_start(self, epoch: int, trainer: "BaseTrainer") -> None:
+    def on_epoch_start(self, epoch: int, trainer: BaseTrainer) -> None:
         """Log epoch start."""
         logger.debug(
             f"Epoch {epoch + 1} started",
             extra={"event": "epoch_start", "epoch": epoch},
         )
 
-    def on_epoch_end(
-        self, epoch: int, metrics: Dict[str, float], trainer: "BaseTrainer"
-    ) -> None:
+    def on_epoch_end(self, epoch: int, metrics: dict[str, float], trainer: BaseTrainer) -> None:
         """Log epoch summary with key metrics."""
         # Extract key metrics for logging
         loss = metrics.get("loss", metrics.get("total_loss", 0))
@@ -98,8 +96,7 @@ class LoggingCallback(TrainingCallback):
 
         logger.log(
             self.log_level,
-            f"Epoch {epoch + 1}: loss={loss:.4f}, coverage={coverage:.2f}%, "
-            f"correlation={correlation:.4f}",
+            f"Epoch {epoch + 1}: loss={loss:.4f}, coverage={coverage:.2f}%, correlation={correlation:.4f}",
             extra={
                 "event": "epoch_end",
                 "epoch": epoch,
@@ -111,8 +108,8 @@ class LoggingCallback(TrainingCallback):
         self,
         batch_idx: int,
         loss: Any,
-        metrics: Dict[str, float],
-        trainer: "BaseTrainer",
+        metrics: dict[str, float],
+        trainer: BaseTrainer,
     ) -> None:
         """Log batch progress if enabled."""
         if not self.include_batch_logs:
@@ -139,8 +136,8 @@ class TensorBoardCallback(TrainingCallback):
 
     def __init__(
         self,
-        writer: Optional["SummaryWriter"] = None,
-        log_dir: Optional[str] = None,
+        writer: SummaryWriter | None = None,
+        log_dir: str | None = None,
         histogram_interval: int = 10,
         embedding_interval: int = 50,
     ):
@@ -158,7 +155,7 @@ class TensorBoardCallback(TrainingCallback):
         self.embedding_interval = embedding_interval
         self._owns_writer = False
 
-    def on_train_start(self, trainer: "BaseTrainer") -> None:
+    def on_train_start(self, trainer: BaseTrainer) -> None:
         """Initialize TensorBoard writer if needed."""
         if self.writer is None and self.log_dir:
             from torch.utils.tensorboard import SummaryWriter
@@ -166,14 +163,12 @@ class TensorBoardCallback(TrainingCallback):
             self.writer = SummaryWriter(self.log_dir)
             self._owns_writer = True
 
-    def on_train_end(self, trainer: "BaseTrainer") -> None:
+    def on_train_end(self, trainer: BaseTrainer) -> None:
         """Close TensorBoard writer if we own it."""
         if self._owns_writer and self.writer is not None:
             self.writer.close()
 
-    def on_epoch_end(
-        self, epoch: int, metrics: Dict[str, float], trainer: "BaseTrainer"
-    ) -> None:
+    def on_epoch_end(self, epoch: int, metrics: dict[str, float], trainer: BaseTrainer) -> None:
         """Log metrics to TensorBoard."""
         if self.writer is None:
             return
@@ -182,9 +177,7 @@ class TensorBoardCallback(TrainingCallback):
             if isinstance(value, (int, float)):
                 self.writer.add_scalar(f"train/{name}", value, epoch)
 
-    def on_validation_end(
-        self, epoch: int, metrics: Dict[str, float], trainer: "BaseTrainer"
-    ) -> None:
+    def on_validation_end(self, epoch: int, metrics: dict[str, float], trainer: BaseTrainer) -> None:
         """Log validation metrics to TensorBoard."""
         if self.writer is None:
             return
@@ -210,13 +203,11 @@ class ProgressCallback(TrainingCallback):
         self.update_interval = update_interval
         self.total_epochs = 0
 
-    def on_train_start(self, trainer: "BaseTrainer") -> None:
+    def on_train_start(self, trainer: BaseTrainer) -> None:
         """Record total epochs."""
         self.total_epochs = getattr(trainer, "total_epochs", 0)
 
-    def on_epoch_end(
-        self, epoch: int, metrics: Dict[str, float], trainer: "BaseTrainer"
-    ) -> None:
+    def on_epoch_end(self, epoch: int, metrics: dict[str, float], trainer: BaseTrainer) -> None:
         """Print progress update."""
         if (epoch + 1) % self.update_interval != 0:
             return
@@ -226,8 +217,7 @@ class ProgressCallback(TrainingCallback):
 
         progress = (epoch + 1) / self.total_epochs * 100 if self.total_epochs else 0
         logger.info(
-            f"[{progress:5.1f}%] Epoch {epoch + 1}/{self.total_epochs} | "
-            f"Loss: {loss:.4f} | Coverage: {coverage:.2f}%"
+            f"[{progress:5.1f}%] Epoch {epoch + 1}/{self.total_epochs} | Loss: {loss:.4f} | Coverage: {coverage:.2f}%"
         )
 
 

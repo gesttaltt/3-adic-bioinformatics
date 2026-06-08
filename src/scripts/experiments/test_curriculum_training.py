@@ -50,7 +50,7 @@ def evaluate_embeddings(z, indices):
     mask = i_idx != j_idx
     i_idx, j_idx = i_idx[mask], j_idx[mask]
 
-    padic_dists = [compute_padic_distance(indices_np[i], indices_np[j]) for i, j in zip(i_idx, j_idx)]
+    padic_dists = [compute_padic_distance(indices_np[i], indices_np[j]) for i, j in zip(i_idx, j_idx, strict=False)]
     latent_dists = np.linalg.norm(z_np[i_idx] - z_np[j_idx], axis=1)
 
     corr, _ = spearmanr(padic_dists, latent_dists)
@@ -140,7 +140,12 @@ def train_standard(model, ops, indices, epochs=100, padic_weight=0.5, radial_wei
         accuracy = (pred == target).float().mean().item()
         metrics = evaluate_embeddings(z, indices)
 
-    return {"accuracy": accuracy, "spearman": metrics["spearman"], "silhouette": metrics["silhouette"], "history": history}
+    return {
+        "accuracy": accuracy,
+        "spearman": metrics["spearman"],
+        "silhouette": metrics["silhouette"],
+        "history": history,
+    }
 
 
 def main():
@@ -167,13 +172,15 @@ def main():
     start = time.time()
     result = train_standard(model, ops, indices, epochs=100)
     elapsed = time.time() - start
-    results.append({
-        "name": "Standard - SimpleHyp",
-        "accuracy": result["accuracy"],
-        "spearman": result["spearman"],
-        "silhouette": result["silhouette"],
-        "time": elapsed,
-    })
+    results.append(
+        {
+            "name": "Standard - SimpleHyp",
+            "accuracy": result["accuracy"],
+            "spearman": result["spearman"],
+            "silhouette": result["silhouette"],
+            "time": elapsed,
+        }
+    )
     print(f"  Accuracy: {result['accuracy']:.1%}, Spearman: {result['spearman']:+.4f}, Time: {elapsed:.1f}s")
 
     # Test 2: Curriculum training - SimpleVAEWithHyperbolic
@@ -191,13 +198,15 @@ def main():
     start = time.time()
     result = trainer.train(ops, indices, eval_fn=evaluate_embeddings, verbose=False)
     elapsed = time.time() - start
-    results.append({
-        "name": "Curriculum - SimpleHyp",
-        "accuracy": result["accuracy"],
-        "spearman": result["spearman"],
-        "silhouette": result["silhouette"],
-        "time": elapsed,
-    })
+    results.append(
+        {
+            "name": "Curriculum - SimpleHyp",
+            "accuracy": result["accuracy"],
+            "spearman": result["spearman"],
+            "silhouette": result["silhouette"],
+            "time": elapsed,
+        }
+    )
     print(f"  Accuracy: {result['accuracy']:.1%}, Spearman: {result['spearman']:+.4f}, Time: {elapsed:.1f}s")
 
     # Test 3: Standard training - TropicalHyperbolicVAE
@@ -206,13 +215,15 @@ def main():
     start = time.time()
     result = train_standard(model, ops, indices, epochs=100)
     elapsed = time.time() - start
-    results.append({
-        "name": "Standard - TropicalHyp",
-        "accuracy": result["accuracy"],
-        "spearman": result["spearman"],
-        "silhouette": result["silhouette"],
-        "time": elapsed,
-    })
+    results.append(
+        {
+            "name": "Standard - TropicalHyp",
+            "accuracy": result["accuracy"],
+            "spearman": result["spearman"],
+            "silhouette": result["silhouette"],
+            "time": elapsed,
+        }
+    )
     print(f"  Accuracy: {result['accuracy']:.1%}, Spearman: {result['spearman']:+.4f}, Time: {elapsed:.1f}s")
 
     # Test 4: Curriculum training - TropicalHyperbolicVAE
@@ -222,13 +233,15 @@ def main():
     start = time.time()
     result = trainer.train(ops, indices, eval_fn=evaluate_embeddings, verbose=False)
     elapsed = time.time() - start
-    results.append({
-        "name": "Curriculum - TropicalHyp",
-        "accuracy": result["accuracy"],
-        "spearman": result["spearman"],
-        "silhouette": result["silhouette"],
-        "time": elapsed,
-    })
+    results.append(
+        {
+            "name": "Curriculum - TropicalHyp",
+            "accuracy": result["accuracy"],
+            "spearman": result["spearman"],
+            "silhouette": result["silhouette"],
+            "time": elapsed,
+        }
+    )
     print(f"  Accuracy: {result['accuracy']:.1%}, Spearman: {result['spearman']:+.4f}, Time: {elapsed:.1f}s")
 
     # Summary
@@ -239,7 +252,9 @@ def main():
     print("-" * 100)
 
     for r in results:
-        print(f"{r['name']:<30} {r['accuracy']:>9.1%} {r['spearman']:>+10.4f} {r['silhouette']:>10.4f} {r['time']:>7.1f}s")
+        print(
+            f"{r['name']:<30} {r['accuracy']:>9.1%} {r['spearman']:>+10.4f} {r['silhouette']:>10.4f} {r['time']:>7.1f}s"
+        )
 
     # Compare
     print("\n" + "=" * 80)
@@ -254,19 +269,19 @@ def main():
     print("\nSimpleVAEWithHyperbolic:")
     print(f"  Standard:   acc={simpleHyp_std['accuracy']:.1%}, corr={simpleHyp_std['spearman']:+.4f}")
     print(f"  Curriculum: acc={simpleHyp_curr['accuracy']:.1%}, corr={simpleHyp_curr['spearman']:+.4f}")
-    acc_diff = simpleHyp_curr['accuracy'] - simpleHyp_std['accuracy']
-    corr_diff = simpleHyp_curr['spearman'] - simpleHyp_std['spearman']
+    acc_diff = simpleHyp_curr["accuracy"] - simpleHyp_std["accuracy"]
+    corr_diff = simpleHyp_curr["spearman"] - simpleHyp_std["spearman"]
     print(f"  Difference: acc={acc_diff:+.1%}, corr={corr_diff:+.4f}")
 
     print("\nTropicalHyperbolicVAE:")
     print(f"  Standard:   acc={tropicalHyp_std['accuracy']:.1%}, corr={tropicalHyp_std['spearman']:+.4f}")
     print(f"  Curriculum: acc={tropicalHyp_curr['accuracy']:.1%}, corr={tropicalHyp_curr['spearman']:+.4f}")
-    acc_diff = tropicalHyp_curr['accuracy'] - tropicalHyp_std['accuracy']
-    corr_diff = tropicalHyp_curr['spearman'] - tropicalHyp_std['spearman']
+    acc_diff = tropicalHyp_curr["accuracy"] - tropicalHyp_std["accuracy"]
+    corr_diff = tropicalHyp_curr["spearman"] - tropicalHyp_std["spearman"]
     print(f"  Difference: acc={acc_diff:+.1%}, corr={corr_diff:+.4f}")
 
     # Best overall
-    best = max(results, key=lambda r: 0.4 * r['accuracy'] + 0.4 * r['spearman'] + 0.2 * r['silhouette'])
+    best = max(results, key=lambda r: 0.4 * r["accuracy"] + 0.4 * r["spearman"] + 0.2 * r["silhouette"])
     print(f"\nBest overall: {best['name']}")
     print(f"  Accuracy: {best['accuracy']:.1%}, Spearman: {best['spearman']:+.4f}")
 

@@ -13,18 +13,18 @@ Usage:
 """
 
 import argparse
-import sys
 import json
-from pathlib import Path
-from datetime import datetime
+import sys
 import time
+from datetime import datetime
+from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
 from scipy.stats import spearmanr
-import numpy as np
+from torch.utils.data import DataLoader, TensorDataset
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -32,8 +32,8 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.core import TERNARY
 from src.data.generation import generate_all_ternary_operations
 from src.models import TernaryVAEV5_11_PartialFreeze
-from src.models.homeostasis import HomeostasisController, compute_Q
-from src.utils.checkpoint import load_checkpoint_compat, get_model_state_dict
+from src.models.homeostasis import compute_Q
+from src.utils.checkpoint import get_model_state_dict, load_checkpoint_compat
 
 
 class RichHierarchyLoss(nn.Module):
@@ -60,11 +60,8 @@ class RichHierarchyLoss(nn.Module):
         self.max_valuation = 9
 
         self.register_buffer(
-            'target_radii',
-            torch.tensor([
-                outer_radius - (v / self.max_valuation) * (outer_radius - inner_radius)
-                for v in range(10)
-            ])
+            "target_radii",
+            torch.tensor([outer_radius - (v / self.max_valuation) * (outer_radius - inner_radius) for v in range(10)]),
         )
 
     def forward(self, z_hyp, indices, logits, targets, original_radii=None):
@@ -117,14 +114,18 @@ class RichHierarchyLoss(nn.Module):
             separation_loss = separation_loss + violation
 
         total = (
-            self.hierarchy_weight * hierarchy_loss +
-            self.coverage_weight * coverage_loss +
-            self.richness_weight * richness_loss +
-            self.separation_weight * separation_loss
+            self.hierarchy_weight * hierarchy_loss
+            + self.coverage_weight * coverage_loss
+            + self.richness_weight * richness_loss
+            + self.separation_weight * separation_loss
         )
 
-        return {'total': total, 'hierarchy_loss': hierarchy_loss,
-                'coverage_loss': coverage_loss, 'richness_loss': richness_loss}
+        return {
+            "total": total,
+            "hierarchy_loss": hierarchy_loss,
+            "coverage_loss": coverage_loss,
+            "richness_loss": richness_loss,
+        }
 
 
 def compute_metrics(model, all_ops, indices, device):
@@ -135,12 +136,12 @@ def compute_metrics(model, all_ops, indices, device):
 
     with torch.no_grad():
         for i in range(0, len(all_ops), batch_size):
-            batch_ops = all_ops[i:i+batch_size].to(device)
+            batch_ops = all_ops[i : i + batch_size].to(device)
             out = model(batch_ops, compute_control=False)
-            z_A = out['z_A_hyp']
+            z_A = out["z_A_hyp"]
             all_radii.append(z_A.norm(dim=-1).cpu().numpy())
             all_z.append(z_A.cpu().numpy())
-            logits = model.decoder_A(out['mu_A'])
+            logits = model.decoder_A(out["mu_A"])
             preds = torch.argmax(logits, dim=-1) - 1
             correct = (preds == batch_ops.long()).float().mean(dim=1).cpu().numpy()
             all_correct.append(correct)
@@ -172,30 +173,33 @@ def compute_metrics(model, all_ops, indices, device):
 
     model.train()
     return {
-        'coverage': coverage, 'hierarchy': hierarchy, 'richness': richness,
-        'dist_corr': dist_corr, 'Q': compute_Q(dist_corr, hierarchy),
-        'r_v0': float(all_radii[valuations == 0].mean()),
-        'r_v9': float(all_radii[valuations == 9].mean()) if (valuations == 9).any() else np.nan,
+        "coverage": coverage,
+        "hierarchy": hierarchy,
+        "richness": richness,
+        "dist_corr": dist_corr,
+        "Q": compute_Q(dist_corr, hierarchy),
+        "r_v0": float(all_radii[valuations == 0].mean()),
+        "r_v9": float(all_radii[valuations == 9].mean()) if (valuations == 9).any() else np.nan,
     }
 
 
 def run_experiment(config, all_ops, indices, device, base_ckpt_path):
     """Run a single experiment with given config."""
-    exp_name = config['name']
-    print(f"\n{'='*60}")
+    exp_name = config["name"]
+    print(f"\n{'=' * 60}")
     print(f"EXPERIMENT: {exp_name}")
     print(f"Config: {config}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     save_dir = PROJECT_ROOT / f"checkpoints/sweep_{exp_name}"
     save_dir.mkdir(parents=True, exist_ok=True)
 
     # Create model with experiment config
     model = TernaryVAEV5_11_PartialFreeze(
-        latent_dim=config.get('latent_dim', 16),
-        hidden_dim=config.get('hidden_dim', 64),
+        latent_dim=config.get("latent_dim", 16),
+        hidden_dim=config.get("hidden_dim", 64),
         max_radius=0.99,
-        curvature=config.get('curvature', 1.0),
+        curvature=config.get("curvature", 1.0),
         use_controller=False,
         use_dual_projection=True,
         freeze_encoder_b=False,
@@ -204,12 +208,12 @@ def run_experiment(config, all_ops, indices, device, base_ckpt_path):
     )
 
     # Load base checkpoint (only if dimensions match)
-    if base_ckpt_path.exists() and config.get('latent_dim', 16) == 16:
+    if base_ckpt_path.exists() and config.get("latent_dim", 16) == 16:
         try:
             ckpt = load_checkpoint_compat(base_ckpt_path, map_location=device)
             model_state = get_model_state_dict(ckpt)
             model.load_state_dict(model_state, strict=False)
-            print(f"  Loaded base checkpoint")
+            print("  Loaded base checkpoint")
         except Exception as e:
             print(f"  Warning: Could not load checkpoint: {e}")
     else:
@@ -221,33 +225,35 @@ def run_experiment(config, all_ops, indices, device, base_ckpt_path):
 
     # Dataset
     dataset = TensorDataset(all_ops, indices)
-    dataloader = DataLoader(dataset, batch_size=config.get('batch_size', 512), shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=config.get("batch_size", 512), shuffle=True)
 
     # Get original radii
     with torch.no_grad():
         model.eval()
         original_radii_list = []
         for i in range(0, len(all_ops), 4096):
-            batch = all_ops[i:i+4096].to(device)
+            batch = all_ops[i : i + 4096].to(device)
             out = model(batch, compute_control=False)
-            original_radii_list.append(out['z_A_hyp'].norm(dim=-1))
+            original_radii_list.append(out["z_A_hyp"].norm(dim=-1))
         original_radii = torch.cat(original_radii_list)
         model.train()
 
     # Initial metrics
     init_metrics = compute_metrics(model, all_ops, indices, device)
-    print(f"  Initial: cov={init_metrics['coverage']*100:.1f}%, hier={init_metrics['hierarchy']:.4f}, rich={init_metrics['richness']:.6f}")
+    print(
+        f"  Initial: cov={init_metrics['coverage'] * 100:.1f}%, hier={init_metrics['hierarchy']:.4f}, rich={init_metrics['richness']:.6f}"
+    )
 
     # Loss and optimizer
     loss_fn = RichHierarchyLoss(
-        hierarchy_weight=config.get('hierarchy_weight', 5.0),
-        coverage_weight=config.get('coverage_weight', 1.0),
-        richness_weight=config.get('richness_weight', 2.0),
-        separation_weight=config.get('separation_weight', 3.0),
+        hierarchy_weight=config.get("hierarchy_weight", 5.0),
+        coverage_weight=config.get("coverage_weight", 1.0),
+        richness_weight=config.get("richness_weight", 2.0),
+        separation_weight=config.get("separation_weight", 3.0),
     ).to(device)
 
-    lr = config.get('lr', 5e-4)
-    epochs = config.get('epochs', 40)
+    lr = config.get("lr", 5e-4)
+    epochs = config.get("epochs", 40)
 
     # Training loop
     history = []
@@ -268,17 +274,17 @@ def run_experiment(config, all_ops, indices, device, base_ckpt_path):
             orig_radii_batch = original_radii[batch_idx]
 
             out = model(batch_ops, compute_control=False)
-            z_A = out['z_A_hyp']
-            logits = model.decoder_A(out['mu_A'])
+            z_A = out["z_A_hyp"]
+            logits = model.decoder_A(out["mu_A"])
 
             losses = loss_fn(z_A, batch_idx, logits, batch_ops, orig_radii_batch)
 
             optimizer.zero_grad()
-            losses['total'].backward()
+            losses["total"].backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
 
-            epoch_loss += losses['total'].item()
+            epoch_loss += losses["total"].item()
             n_batches += 1
 
         epoch_loss /= n_batches
@@ -288,51 +294,57 @@ def run_experiment(config, all_ops, indices, device, base_ckpt_path):
             metrics = compute_metrics(model, all_ops, indices, device)
             elapsed = time.time() - start_time
 
-            print(f"  Epoch {epoch:3d}/{epochs} | loss={epoch_loss:.4f} | "
-                  f"cov={metrics['coverage']*100:.1f}% hier={metrics['hierarchy']:.4f} "
-                  f"rich={metrics['richness']:.6f} | {elapsed/60:.1f}min")
+            print(
+                f"  Epoch {epoch:3d}/{epochs} | loss={epoch_loss:.4f} | "
+                f"cov={metrics['coverage'] * 100:.1f}% hier={metrics['hierarchy']:.4f} "
+                f"rich={metrics['richness']:.6f} | {elapsed / 60:.1f}min"
+            )
 
-            history.append({
-                'epoch': epoch,
-                'loss': epoch_loss,
-                **metrics
-            })
+            history.append({"epoch": epoch, "loss": epoch_loss, **metrics})
 
-            if metrics['hierarchy'] < best_hier and metrics['coverage'] > 0.99:
-                best_hier = metrics['hierarchy']
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': model.state_dict(),
-                    'metrics': metrics,
-                    'config': config,
-                }, save_dir / 'best.pt')
+            if metrics["hierarchy"] < best_hier and metrics["coverage"] > 0.99:
+                best_hier = metrics["hierarchy"]
+                torch.save(
+                    {
+                        "epoch": epoch,
+                        "model_state_dict": model.state_dict(),
+                        "metrics": metrics,
+                        "config": config,
+                    },
+                    save_dir / "best.pt",
+                )
 
     # Final metrics
     final_metrics = compute_metrics(model, all_ops, indices, device)
     elapsed = time.time() - start_time
 
     result = {
-        'name': exp_name,
-        'config': config,
-        'init_metrics': init_metrics,
-        'final_metrics': final_metrics,
-        'history': history,
-        'elapsed_minutes': elapsed / 60,
-        'best_hierarchy': best_hier,
+        "name": exp_name,
+        "config": config,
+        "init_metrics": init_metrics,
+        "final_metrics": final_metrics,
+        "history": history,
+        "elapsed_minutes": elapsed / 60,
+        "best_hierarchy": best_hier,
     }
 
     # Save results
-    with open(save_dir / 'results.json', 'w') as f:
+    with open(save_dir / "results.json", "w") as f:
         json.dump(result, f, indent=2, default=float)
 
-    torch.save({
-        'model_state_dict': model.state_dict(),
-        'metrics': final_metrics,
-        'config': config,
-    }, save_dir / 'final.pt')
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "metrics": final_metrics,
+            "config": config,
+        },
+        save_dir / "final.pt",
+    )
 
-    print(f"\n  RESULT: hier={final_metrics['hierarchy']:.4f}, rich={final_metrics['richness']:.6f}, "
-          f"cov={final_metrics['coverage']*100:.1f}% ({elapsed/60:.1f} min)")
+    print(
+        f"\n  RESULT: hier={final_metrics['hierarchy']:.4f}, rich={final_metrics['richness']:.6f}, "
+        f"cov={final_metrics['coverage'] * 100:.1f}% ({elapsed / 60:.1f} min)"
+    )
 
     return result
 
@@ -341,38 +353,40 @@ def main():
     parser = argparse.ArgumentParser(description="Strategic parameter sweep")
     parser.add_argument("--epochs", type=int, default=40, help="Epochs per experiment")
     parser.add_argument("--device", type=str, default="cuda")
-    parser.add_argument("--base_checkpoint", type=str,
-                        default="checkpoints/v5_11_homeostasis/best.pt")
-    parser.add_argument("--experiments", type=str, default="all",
-                        help="Which experiments: all, curvature, latent_dim, or comma-separated list")
+    parser.add_argument("--base_checkpoint", type=str, default="checkpoints/v5_11_homeostasis/best.pt")
+    parser.add_argument(
+        "--experiments",
+        type=str,
+        default="all",
+        help="Which experiments: all, curvature, latent_dim, or comma-separated list",
+    )
     args = parser.parse_args()
 
-    device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
     print(f"Epochs per experiment: {args.epochs}")
 
     # Define experiments
     all_experiments = {
         # Curvature sweep (fixed latent_dim=16)
-        'curv_0.5': {'curvature': 0.5, 'latent_dim': 16, 'epochs': args.epochs},
-        'curv_1.0': {'curvature': 1.0, 'latent_dim': 16, 'epochs': args.epochs},
-        'curv_2.0': {'curvature': 2.0, 'latent_dim': 16, 'epochs': args.epochs},
-
+        "curv_0.5": {"curvature": 0.5, "latent_dim": 16, "epochs": args.epochs},
+        "curv_1.0": {"curvature": 1.0, "latent_dim": 16, "epochs": args.epochs},
+        "curv_2.0": {"curvature": 2.0, "latent_dim": 16, "epochs": args.epochs},
         # Latent dimension sweep (fixed curvature=1.0)
-        'latent_8': {'latent_dim': 8, 'curvature': 1.0, 'epochs': args.epochs},
-        'latent_16': {'latent_dim': 16, 'curvature': 1.0, 'epochs': args.epochs},
-        'latent_32': {'latent_dim': 32, 'curvature': 1.0, 'epochs': args.epochs},
+        "latent_8": {"latent_dim": 8, "curvature": 1.0, "epochs": args.epochs},
+        "latent_16": {"latent_dim": 16, "curvature": 1.0, "epochs": args.epochs},
+        "latent_32": {"latent_dim": 32, "curvature": 1.0, "epochs": args.epochs},
     }
 
     # Select experiments
-    if args.experiments == 'all':
+    if args.experiments == "all":
         experiments = all_experiments
-    elif args.experiments == 'curvature':
-        experiments = {k: v for k, v in all_experiments.items() if k.startswith('curv_')}
-    elif args.experiments == 'latent_dim':
-        experiments = {k: v for k, v in all_experiments.items() if k.startswith('latent_')}
+    elif args.experiments == "curvature":
+        experiments = {k: v for k, v in all_experiments.items() if k.startswith("curv_")}
+    elif args.experiments == "latent_dim":
+        experiments = {k: v for k, v in all_experiments.items() if k.startswith("latent_")}
     else:
-        exp_names = [e.strip() for e in args.experiments.split(',')]
+        exp_names = [e.strip() for e in args.experiments.split(",")]
         experiments = {k: v for k, v in all_experiments.items() if k in exp_names}
 
     print(f"\nRunning {len(experiments)} experiments: {list(experiments.keys())}")
@@ -392,13 +406,13 @@ def main():
     total_start = time.time()
 
     for name, config in experiments.items():
-        config['name'] = name
+        config["name"] = name
         try:
             result = run_experiment(config, all_ops, indices, device, base_ckpt)
             results.append(result)
         except Exception as e:
             print(f"  ERROR in {name}: {e}")
-            results.append({'name': name, 'error': str(e)})
+            results.append({"name": name, "error": str(e)})
 
         # Clear GPU memory between experiments
         torch.cuda.empty_cache()
@@ -406,39 +420,46 @@ def main():
     total_elapsed = time.time() - total_start
 
     # Summary
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("SWEEP SUMMARY")
-    print("="*70)
+    print("=" * 70)
     print(f"{'Experiment':<15} {'Hierarchy':>10} {'Richness':>12} {'Coverage':>10} {'Time':>8}")
-    print("-"*70)
+    print("-" * 70)
 
     for r in results:
-        if 'error' in r:
+        if "error" in r:
             print(f"{r['name']:<15} ERROR: {r['error']}")
         else:
-            fm = r['final_metrics']
-            print(f"{r['name']:<15} {fm['hierarchy']:>10.4f} {fm['richness']:>12.6f} "
-                  f"{fm['coverage']*100:>9.1f}% {r['elapsed_minutes']:>7.1f}m")
+            fm = r["final_metrics"]
+            print(
+                f"{r['name']:<15} {fm['hierarchy']:>10.4f} {fm['richness']:>12.6f} "
+                f"{fm['coverage'] * 100:>9.1f}% {r['elapsed_minutes']:>7.1f}m"
+            )
 
-    print("-"*70)
-    print(f"Total time: {total_elapsed/60:.1f} minutes")
+    print("-" * 70)
+    print(f"Total time: {total_elapsed / 60:.1f} minutes")
 
     # Save summary
     summary_path = PROJECT_ROOT / "checkpoints/sweep_summary.json"
-    with open(summary_path, 'w') as f:
-        json.dump({
-            'timestamp': datetime.now().isoformat(),
-            'total_elapsed_minutes': total_elapsed / 60,
-            'results': results,
-        }, f, indent=2, default=float)
+    with open(summary_path, "w") as f:
+        json.dump(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "total_elapsed_minutes": total_elapsed / 60,
+                "results": results,
+            },
+            f,
+            indent=2,
+            default=float,
+        )
     print(f"\nSummary saved to: {summary_path}")
 
     # Best result
-    valid_results = [r for r in results if 'error' not in r]
+    valid_results = [r for r in results if "error" not in r]
     if valid_results:
-        best = min(valid_results, key=lambda x: x['final_metrics']['hierarchy'])
+        best = min(valid_results, key=lambda x: x["final_metrics"]["hierarchy"])
         print(f"\nBEST: {best['name']} with hierarchy={best['final_metrics']['hierarchy']:.4f}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

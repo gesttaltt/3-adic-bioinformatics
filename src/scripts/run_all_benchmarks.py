@@ -26,8 +26,9 @@ import argparse
 import logging
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import numpy as np
 from scipy.stats import spearmanr
@@ -146,13 +147,13 @@ def run_hiv_multi_drug_benchmark() -> dict[str, Any]:
     # Import HIV module
     try:
         from src.diseases.hiv_analyzer import (
-            HIVAnalyzer,
-            HIVGene,
-            HIVDrug,
-            HIVDrugClass,
             DRUG_TO_CLASS,
             GENE_MUTATIONS,
             REFERENCE_SEQUENCES,
+            HIVAnalyzer,
+            HIVDrug,
+            HIVDrugClass,
+            HIVGene,
             create_hiv_synthetic_dataset,
         )
     except ImportError as e:
@@ -167,7 +168,7 @@ def run_hiv_multi_drug_benchmark() -> dict[str, Any]:
         "summary": {},
     }
 
-    analyzer = HIVAnalyzer()
+    HIVAnalyzer()
 
     # Test each gene
     for gene in [HIVGene.RT, HIVGene.PR, HIVGene.IN]:
@@ -240,11 +241,7 @@ def run_hiv_multi_drug_benchmark() -> dict[str, Any]:
             }
 
     # Overall summary
-    all_scores = [
-        r["spearman"]
-        for r in results["individual_drug_results"].values()
-        if "spearman" in r
-    ]
+    all_scores = [r["spearman"] for r in results["individual_drug_results"].values() if "spearman" in r]
     if all_scores:
         results["summary"] = {
             "total_drugs": len(all_scores),
@@ -308,19 +305,14 @@ def run_all_disease_benchmarks() -> dict[str, Any]:
 
         if result.get("status") == "success":
             successful.append(name)
-            logger.info(
-                f"  {name}: {result['n_samples']} samples, "
-                f"Spearman={result['spearman']:.3f}"
-            )
+            logger.info(f"  {name}: {result['n_samples']} samples, Spearman={result['spearman']:.3f}")
         else:
             failed.append(name)
             logger.warning(f"  {name}: {result.get('error', 'Unknown error')}")
 
     # Summary
     successful_results = [
-        results["disease_results"][d]
-        for d in successful
-        if "spearman" in results["disease_results"][d]
+        results["disease_results"][d] for d in successful if "spearman" in results["disease_results"][d]
     ]
 
     if successful_results:
@@ -342,7 +334,11 @@ def run_all_disease_benchmarks() -> dict[str, Any]:
 
         # Rank by Spearman
         ranked = sorted(
-            [(d, results["disease_results"][d]["spearman"]) for d in successful if "spearman" in results["disease_results"][d]],
+            [
+                (d, results["disease_results"][d]["spearman"])
+                for d in successful
+                if "spearman" in results["disease_results"][d]
+            ],
             key=lambda x: x[1],
             reverse=True,
         )
@@ -370,15 +366,15 @@ def run_multi_drug_joint_prediction() -> dict[str, Any]:
     # HIV multi-drug joint prediction
     try:
         from src.diseases.hiv_analyzer import (
+            GENE_MUTATIONS,
+            REFERENCE_SEQUENCES,
             HIVAnalyzer,
             HIVGene,
-            REFERENCE_SEQUENCES,
-            GENE_MUTATIONS,
         )
 
         logger.info("\nHIV RT multi-drug joint prediction...")
 
-        analyzer = HIVAnalyzer()
+        HIVAnalyzer()
         reference = REFERENCE_SEQUENCES[HIVGene.RT]
 
         # Generate test sequences with varying resistance
@@ -390,7 +386,7 @@ def run_multi_drug_joint_prediction() -> dict[str, Any]:
         mutation_db = GENE_MUTATIONS[HIVGene.RT]
         mutation_positions = list(mutation_db.keys())
 
-        for i in range(49):
+        for _i in range(49):
             seq = list(reference)
             n_muts = np.random.randint(1, 5)
             positions = np.random.choice(mutation_positions, min(n_muts, len(mutation_positions)), replace=False)
@@ -420,10 +416,12 @@ def run_multi_drug_joint_prediction() -> dict[str, Any]:
                             nnrti_score += score
 
             sequences.append("".join(seq))
-            resistance_profiles.append({
-                "NRTI": min(nrti_score / 3, 1.0),
-                "NNRTI": min(nnrti_score / 3, 1.0),
-            })
+            resistance_profiles.append(
+                {
+                    "NRTI": min(nrti_score / 3, 1.0),
+                    "NNRTI": min(nnrti_score / 3, 1.0),
+                }
+            )
 
         # Compute correlation between NRTI and NNRTI predictions
         nrti_scores = [p["NRTI"] for p in resistance_profiles]
@@ -438,8 +436,10 @@ def run_multi_drug_joint_prediction() -> dict[str, Any]:
             "nnrti_mean": float(np.mean(nnrti_scores)),
             "cross_class_correlation": cross_corr,
             "interpretation": (
-                "independent_pathways" if abs(cross_corr) < 0.3
-                else "partially_linked" if abs(cross_corr) < 0.6
+                "independent_pathways"
+                if abs(cross_corr) < 0.3
+                else "partially_linked"
+                if abs(cross_corr) < 0.6
                 else "strongly_linked"
             ),
         }
@@ -455,7 +455,6 @@ def run_multi_drug_joint_prediction() -> dict[str, Any]:
     # E. coli multi-drug joint prediction
     try:
         from src.diseases.ecoli_betalactam_analyzer import (
-            EcoliBetaLactamAnalyzer,
             TEM1_REFERENCE,
             TEM_MUTATIONS,
         )
@@ -469,7 +468,7 @@ def run_multi_drug_joint_prediction() -> dict[str, Any]:
         np.random.seed(43)
         mutation_positions = list(TEM_MUTATIONS.keys())
 
-        for i in range(49):
+        for _i in range(49):
             seq = list(TEM1_REFERENCE)
             n_muts = np.random.randint(1, 4)
             positions = np.random.choice(mutation_positions, min(n_muts, len(mutation_positions)), replace=False)
@@ -495,10 +494,12 @@ def run_multi_drug_joint_prediction() -> dict[str, Any]:
                             inhib_score += score
 
             sequences.append("".join(seq))
-            profiles.append({
-                "cephalosporin": min(ceph_score / 2, 1.0),
-                "inhibitor": min(inhib_score / 2, 1.0),
-            })
+            profiles.append(
+                {
+                    "cephalosporin": min(ceph_score / 2, 1.0),
+                    "inhibitor": min(inhib_score / 2, 1.0),
+                }
+            )
 
         ceph_scores = [p["cephalosporin"] for p in profiles]
         inhib_scores = [p["inhibitor"] for p in profiles]
@@ -512,8 +513,10 @@ def run_multi_drug_joint_prediction() -> dict[str, Any]:
             "inhibitor_mean": float(np.mean(inhib_scores)),
             "cross_class_correlation": cross_corr,
             "interpretation": (
-                "mutually_exclusive" if cross_corr < -0.2
-                else "independent" if abs(cross_corr) < 0.3
+                "mutually_exclusive"
+                if cross_corr < -0.2
+                else "independent"
+                if abs(cross_corr) < 0.3
                 else "co-occurring"
             ),
         }
@@ -558,7 +561,9 @@ def print_summary_table(results: dict) -> None:
             summary = results["summary"]
             logger.info("-" * 62)
             logger.info(f"Total: {summary.get('successful', 0)}/{summary.get('total_diseases', 0)} diseases")
-            logger.info(f"Mean Spearman: {summary.get('mean_spearman', 0):.3f} (std: {summary.get('std_spearman', 0):.3f})")
+            logger.info(
+                f"Mean Spearman: {summary.get('mean_spearman', 0):.3f} (std: {summary.get('std_spearman', 0):.3f})"
+            )
             logger.info(f"Range: [{summary.get('min_spearman', 0):.3f}, {summary.get('max_spearman', 0):.3f}]")
 
     # HIV multi-drug
@@ -577,7 +582,9 @@ def print_summary_table(results: dict) -> None:
         if "summary" in hiv:
             summary = hiv["summary"]
             logger.info("-" * 60)
-            logger.info(f"Overall: {summary.get('total_drugs', 0)} drugs, Mean Spearman: {summary.get('mean_spearman', 0):.3f}")
+            logger.info(
+                f"Overall: {summary.get('total_drugs', 0)} drugs, Mean Spearman: {summary.get('mean_spearman', 0):.3f}"
+            )
 
     # Multi-drug joint prediction
     if "multi_drug_results" in results:
@@ -586,11 +593,15 @@ def print_summary_table(results: dict) -> None:
 
         if "hiv_joint" in md and "status" not in md["hiv_joint"]:
             hiv = md["hiv_joint"]
-            logger.info(f"HIV RT: NRTI/NNRTI cross-correlation = {hiv['cross_class_correlation']:.3f} ({hiv['interpretation']})")
+            logger.info(
+                f"HIV RT: NRTI/NNRTI cross-correlation = {hiv['cross_class_correlation']:.3f} ({hiv['interpretation']})"
+            )
 
         if "ecoli_joint" in md and "status" not in md["ecoli_joint"]:
             ec = md["ecoli_joint"]
-            logger.info(f"E. coli: ESBL/IRT cross-correlation = {ec['cross_class_correlation']:.3f} ({ec['interpretation']})")
+            logger.info(
+                f"E. coli: ESBL/IRT cross-correlation = {ec['cross_class_correlation']:.3f} ({ec['interpretation']})"
+            )
 
     logger.info("\n" + "=" * 80)
 
@@ -637,6 +648,7 @@ def main():
 
     # Save results
     import json
+
     output_path = Path("data/benchmark_results.json")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 

@@ -11,7 +11,6 @@ This is the single source of truth for codon/genetic code constants used in:
 - Research scripts (codon extraction, analysis)
 """
 
-
 # Nucleotide bases
 NUCLEOTIDES = "TCAG"
 

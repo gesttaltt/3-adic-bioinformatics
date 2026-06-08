@@ -36,7 +36,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 from .schema import ConfigValidationError, TrainingConfig
 
@@ -47,8 +47,8 @@ ENV_PREFIX = "TVAE_"
 
 
 def load_config(
-    config_path: Optional[Union[str, Path]] = None,
-    overrides: Optional[Dict[str, Any]] = None,
+    config_path: str | Path | None = None,
+    overrides: dict[str, Any] | None = None,
     validate: bool = True,
 ) -> TrainingConfig:
     """Load configuration with priority: overrides > env > yaml > defaults.
@@ -76,7 +76,7 @@ def load_config(
         # Load with overrides
         config = load_config(overrides={"epochs": 500, "batch_size": 128})
     """
-    config_dict: Dict[str, Any] = {}
+    config_dict: dict[str, Any] = {}
 
     # 1. Load from YAML if provided
     if config_path is not None:
@@ -110,20 +110,20 @@ def load_config(
     return config
 
 
-def _load_yaml(path: Path) -> Dict[str, Any]:
+def _load_yaml(path: Path) -> dict[str, Any]:
     """Load YAML file and return dictionary."""
     try:
         import yaml
     except ImportError:
         raise ImportError("PyYAML is required for config loading. Install with: pip install pyyaml")
 
-    with open(path, "r") as f:
+    with open(path) as f:
         data = yaml.safe_load(f)
 
     return data if data else {}
 
 
-def _load_env_vars() -> Dict[str, Any]:
+def _load_env_vars() -> dict[str, Any]:
     """Load configuration from environment variables with TVAE_ prefix.
 
     Environment variable mapping:
@@ -135,7 +135,7 @@ def _load_env_vars() -> Dict[str, Any]:
     Returns:
         Dictionary of overrides from environment
     """
-    overrides: Dict[str, Any] = {}
+    overrides: dict[str, Any] = {}
 
     for key, value in os.environ.items():
         if not key.startswith(ENV_PREFIX):
@@ -192,7 +192,7 @@ def _parse_env_value(value: str) -> Any:
     return value
 
 
-def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     """Deep merge two dictionaries, with override taking precedence."""
     result = base.copy()
 
@@ -234,7 +234,7 @@ def _validate_config(config: TrainingConfig) -> None:
         logger.warning(f"Large latent_dim={config.geometry.latent_dim} may slow training")
 
 
-def save_config(config: TrainingConfig, path: Union[str, Path]) -> None:
+def save_config(config: TrainingConfig, path: str | Path) -> None:
     """Save configuration to YAML file.
 
     Args:

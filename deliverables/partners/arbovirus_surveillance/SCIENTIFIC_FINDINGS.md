@@ -4,6 +4,13 @@
 
 **Purpose:** Unbiased assessment of primer design results based on verified data.
 
+> ⚠️ **SEQUENCE PROVENANCE NOTE:** All analyses on this page used NCBIClient-generated
+> **demo sequences** (phylogenetically realistic but synthetic — not verified real NCBI
+> accessions). The 270 "DENV-4 genomes" are simulated, not downloaded from GenBank.
+> All quantitative findings (71.7% identity, 97.4% no conserved windows, 322M degeneracy)
+> are **preliminary** and must be independently confirmed by re-running with real NCBI
+> sequences using the `--use-ncbi` flag before any publication or clinical application.
+
 ---
 
 ## Executive Summary
@@ -18,7 +25,7 @@
 
 ## 1. The Diversity Problem: Quantified
 
-### 1.1 Per-Clade Entropy Analysis (270 DENV-4 genomes)
+### 1.1 Per-Clade Entropy Analysis (270 DENV-4 demo sequences — see provenance note above)
 
 | Clade | N sequences | % of dataset | Mean Entropy | Conserved Windows |
 |-------|:-----------:|:------------:|:------------:|:-----------------:|
@@ -186,10 +193,12 @@ The research layer uses genuine TrainableCodonEncoder embeddings to identify low
 
 | Finding | Implication |
 |---------|-------------|
-| DENV-4 has 71.7% within-serotype identity (vs 95-98% for other serotypes) | Traditional primer design assumptions don't apply |
-| 97.4% of sequences have no conserved 25bp window | Pan-DENV-4 single primers are impossible |
-| Best conserved region requires 322M primer variants | Degenerate primers exceed practical limits by 300,000x |
-| Clade-specific approach covers only 2.6% of sequences | Alternative detection strategies required |
+| DENV-4 has 71.7% within-serotype identity (vs 95-98% for other serotypes) ⚠️ **PRELIMINARY — demo sequences** | Traditional primer design assumptions don't apply |
+| 97.4% of sequences have no conserved 25bp window ⚠️ **PRELIMINARY — demo sequences** | Pan-DENV-4 single primers are impossible |
+| Best conserved region requires 322M primer variants ⚠️ **PRELIMINARY — demo sequences** | Degenerate primers exceed practical limits by 300,000x |
+| Clade-specific approach covers only 2.6% of sequences ⚠️ **PRELIMINARY — demo sequences** | Alternative detection strategies required |
+
+**To confirm these findings with real data:** `python scripts/A2_pan_arbovirus_primers.py --use-ncbi`
 
 ### 6.2 Scientific Value
 

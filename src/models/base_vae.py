@@ -32,7 +32,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -56,7 +56,7 @@ class VAEOutput:
     mu: torch.Tensor
     logvar: torch.Tensor
     z: torch.Tensor
-    z_hyp: Optional[torch.Tensor] = None
+    z_hyp: torch.Tensor | None = None
     extras: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, torch.Tensor]:
@@ -132,7 +132,7 @@ class BaseVAE(nn.Module, ABC):
                 return self.decoder(z)
     """
 
-    def __init__(self, config: Optional[VAEConfig] = None, **kwargs):
+    def __init__(self, config: VAEConfig | None = None, **kwargs):
         """Initialize base VAE.
 
         Args:
@@ -309,8 +309,8 @@ class BaseVAE(nn.Module, ABC):
     def compute_loss(
         self,
         x: torch.Tensor,
-        outputs: Optional[dict[str, torch.Tensor]] = None,
-        beta: Optional[float] = None,
+        outputs: dict[str, torch.Tensor] | None = None,
+        beta: float | None = None,
     ) -> dict[str, torch.Tensor]:
         """Compute VAE loss (reconstruction + beta * KL).
 
@@ -373,7 +373,7 @@ class BaseVAE(nn.Module, ABC):
         else:
             return logits
 
-    def sample(self, n_samples: int, device: Optional[torch.device] = None) -> torch.Tensor:
+    def sample(self, n_samples: int, device: torch.device | None = None) -> torch.Tensor:
         """Sample from prior and decode.
 
         Args:
@@ -469,10 +469,10 @@ class HyperbolicBaseVAE(BaseVAE):
     relationships in biological sequences.
     """
 
-    def __init__(self, config: Optional[VAEConfig] = None, **kwargs):
+    def __init__(self, config: VAEConfig | None = None, **kwargs):
         super().__init__(config, **kwargs)
 
-    def exp_map(self, v: torch.Tensor, c: Optional[float] = None) -> torch.Tensor:
+    def exp_map(self, v: torch.Tensor, c: float | None = None) -> torch.Tensor:
         """Exponential map from tangent space to Poincare ball.
 
         Args:
@@ -492,7 +492,7 @@ class HyperbolicBaseVAE(BaseVAE):
         scale = torch.tanh(sqrt_c * v_norm / 2.0) / (sqrt_c * v_norm)
         return v * scale
 
-    def log_map(self, y: torch.Tensor, c: Optional[float] = None) -> torch.Tensor:
+    def log_map(self, y: torch.Tensor, c: float | None = None) -> torch.Tensor:
         """Logarithmic map from Poincare ball to tangent space.
 
         Args:
@@ -515,7 +515,7 @@ class HyperbolicBaseVAE(BaseVAE):
         self,
         x: torch.Tensor,
         y: torch.Tensor,
-        c: Optional[float] = None,
+        c: float | None = None,
     ) -> torch.Tensor:
         """Compute hyperbolic distance between points.
 
@@ -579,7 +579,7 @@ class ConditionalBaseVAE(BaseVAE):
 
     def __init__(
         self,
-        config: Optional[VAEConfig] = None,
+        config: VAEConfig | None = None,
         condition_dim: int = 0,
         n_conditions: int = 0,
         **kwargs,
@@ -620,7 +620,7 @@ class ConditionalBaseVAE(BaseVAE):
     def forward(
         self,
         x: torch.Tensor,
-        condition: Optional[torch.Tensor] = None,
+        condition: torch.Tensor | None = None,
         **kwargs,
     ) -> dict[str, torch.Tensor]:
         """Forward pass with optional conditioning.

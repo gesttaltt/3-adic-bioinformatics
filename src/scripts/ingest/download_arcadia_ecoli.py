@@ -40,11 +40,9 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 
@@ -117,7 +115,7 @@ def download_from_zenodo(output_dir: Path) -> bool:
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info(f"Downloading Arcadia E. coli dataset from Zenodo...")
+    logger.info("Downloading Arcadia E. coli dataset from Zenodo...")
     logger.info(f"Record: {ZENODO_URL}")
     logger.info(f"Output: {output_dir}")
     logger.info("This may take a while (~6.1 GB)...")
@@ -156,7 +154,10 @@ def download_from_github(output_dir: Path) -> bool:
 
     # Key files from GitHub
     files_to_download = [
-        ("README.md", "https://raw.githubusercontent.com/Arcadia-Science/2024-Ecoli-amr-genotype-phenotype_7000strains/main/README.md"),
+        (
+            "README.md",
+            "https://raw.githubusercontent.com/Arcadia-Science/2024-Ecoli-amr-genotype-phenotype_7000strains/main/README.md",
+        ),
     ]
 
     for filename, url in files_to_download:
@@ -177,7 +178,7 @@ def download_from_github(output_dir: Path) -> bool:
 def process_phenotype_data(
     data_dir: Path,
     output_dir: Path,
-) -> Optional[dict]:
+) -> dict | None:
     """Process phenotype data into framework format.
 
     Args:
@@ -215,7 +216,9 @@ def process_phenotype_data(
     logger.info(f"Loaded {len(df)} samples with columns: {list(df.columns)}")
 
     # Extract beta-lactam columns
-    mic_columns = [col for col in df.columns if any(drug in col.lower() for drug in ["amp", "cef", "pip", "mero", "erta", "aztre"])]
+    mic_columns = [
+        col for col in df.columns if any(drug in col.lower() for drug in ["amp", "cef", "pip", "mero", "erta", "aztre"])
+    ]
     logger.info(f"Found {len(mic_columns)} MIC columns: {mic_columns}")
 
     # Summary statistics
@@ -245,7 +248,7 @@ def process_phenotype_data(
 def process_genotype_data(
     data_dir: Path,
     output_dir: Path,
-) -> Optional[dict]:
+) -> dict | None:
     """Process genotype/sequence data.
 
     Args:
@@ -289,15 +292,12 @@ def create_dataset_for_benchmark(
     Returns:
         (X, y, ids) tuple for benchmarking
     """
-    from src.diseases.ecoli_betalactam_analyzer import (
-        EcoliBetaLactamAnalyzer,
-        BetaLactam,
-    )
 
     phenotype_file = processed_dir / "phenotypes.csv"
     if not phenotype_file.exists():
         logger.warning("No processed phenotype data, using synthetic")
         from src.diseases import create_ecoli_synthetic_dataset
+
         return create_ecoli_synthetic_dataset()
 
     import pandas as pd
@@ -308,6 +308,7 @@ def create_dataset_for_benchmark(
     # TODO: Implement full data loading when TEM sequences are available
     # For now, return synthetic data
     from src.diseases import create_ecoli_synthetic_dataset
+
     return create_ecoli_synthetic_dataset()
 
 
@@ -359,10 +360,10 @@ def main():
         print("=" * 60)
         print(f"\nZenodo URL: {ZENODO_URL}")
         print(f"GitHub URL: {GITHUB_URL}")
-        print(f"\nSize: ~6.1 GB (compressed)")
-        print(f"Strains: 7,000+ E. coli isolates")
-        print(f"Antibiotics: 21 drugs")
-        print(f"\nBeta-lactams in dataset:")
+        print("\nSize: ~6.1 GB (compressed)")
+        print("Strains: 7,000+ E. coli isolates")
+        print("Antibiotics: 21 drugs")
+        print("\nBeta-lactams in dataset:")
         for drug in BETA_LACTAM_DRUGS:
             print(f"  - {drug}")
         print(f"\nDefault data directory: {DEFAULT_DATA_DIR}")
@@ -398,7 +399,7 @@ def main():
         pheno_summary = process_phenotype_data(args.data_dir, args.output_dir)
 
         logger.info("Processing genotype data...")
-        geno_summary = process_genotype_data(args.data_dir, args.output_dir)
+        process_genotype_data(args.data_dir, args.output_dir)
 
         if pheno_summary:
             print("\n" + "=" * 60)

@@ -24,7 +24,6 @@ from src.graphs import (
     HyboWaveNet,
     HyperbolicGraphConv,
     HyperbolicLinear,
-    LorentzMLP,
     LorentzOperations,
     PoincareOperations,
     SpectralWavelet,
@@ -46,7 +45,7 @@ def example_poincare_operations():
 
     # Mobius addition
     z = poincare.mobius_add(x, y)
-    print(f"\nMobius addition: x + y (in hyperbolic space)")
+    print("\nMobius addition: x + y (in hyperbolic space)")
     print(f"  Input norms: x={x.norm(dim=-1).mean():.3f}, y={y.norm(dim=-1).mean():.3f}")
     print(f"  Output norm: {z.norm(dim=-1).mean():.3f}")
 
@@ -54,15 +53,15 @@ def example_poincare_operations():
     v = torch.randn(10, 8) * 0.1  # Tangent vector
     origin = torch.zeros(1, 8)
     exp_v = poincare.exp_map(v, origin)
-    print(f"\nExponential map: tangent -> Poincare ball")
+    print("\nExponential map: tangent -> Poincare ball")
     print(f"  Tangent vector norm: {v.norm(dim=-1).mean():.3f}")
     print(f"  Mapped point norm: {exp_v.norm(dim=-1).mean():.3f}")
 
     # Hyperbolic distance
     dist = poincare.distance(x, y)
-    print(f"\nHyperbolic distance:")
+    print("\nHyperbolic distance:")
     print(f"  Mean distance: {dist.mean():.3f}")
-    print(f"  (Grows faster near boundary of ball)")
+    print("  (Grows faster near boundary of ball)")
 
 
 def example_lorentz_operations():
@@ -135,10 +134,12 @@ def example_hyperbolic_graph_conv():
     x = torch.randn(n_nodes, 16) * 0.3
 
     # Random edges
-    edge_index = torch.stack([
-        torch.randint(0, n_nodes, (n_edges,)),
-        torch.randint(0, n_nodes, (n_edges,)),
-    ])
+    edge_index = torch.stack(
+        [
+            torch.randint(0, n_nodes, (n_edges,)),
+            torch.randint(0, n_nodes, (n_edges,)),
+        ]
+    )
 
     # Forward pass
     out = conv(x, edge_index)

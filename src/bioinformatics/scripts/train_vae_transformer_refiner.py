@@ -22,33 +22,34 @@ Usage:
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parents[3]))
 
 import argparse
 import json
-from datetime import datetime
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List, Tuple
+from datetime import datetime
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader, random_split, ConcatDataset
+from scipy.stats import pearsonr, spearmanr
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import CosineAnnealingLR, OneCycleLR
-from scipy.stats import spearmanr, pearsonr
-import numpy as np
+from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.utils.data import DataLoader, Dataset, random_split
 
-from src.bioinformatics.models.ddg_vae import DDGVAE, DDGVAEConfig
+from src.bioinformatics.data.preprocessing import compute_features
 from src.bioinformatics.data.protherm_loader import ProThermLoader
 from src.bioinformatics.data.s669_loader import S669Loader
-from src.bioinformatics.data.preprocessing import compute_features
+from src.bioinformatics.models.ddg_vae import DDGVAE, DDGVAEConfig
 from src.bioinformatics.training.deterministic import set_deterministic_mode
 
 
 @dataclass
 class PipelineConfig:
     """Configuration for the full VAE→Transformer→Refiner pipeline."""
+
     # VAE config
     vae_latent_dim: int = 32
     vae_hidden_dim: int = 128
@@ -63,7 +64,7 @@ class PipelineConfig:
     trans_dropout: float = 0.1
 
     # Refiner config
-    refiner_hidden_dims: List[int] = field(default_factory=lambda: [64, 32])
+    refiner_hidden_dims: list[int] = field(default_factory=lambda: [64, 32])
     refiner_dropout: float = 0.1
 
     # Training
@@ -100,12 +101,8 @@ class FullPipelineModel(nn.Module):
 
         # Transformer on VAE embeddings
         self.trans_input_proj = nn.Linear(1, config.trans_d_model)
-        self.trans_pos_enc = nn.Parameter(
-            torch.randn(1, config.vae_latent_dim, config.trans_d_model) * 0.02
-        )
-        self.trans_cls_token = nn.Parameter(
-            torch.randn(1, 1, config.trans_d_model) * 0.02
-        )
+        self.trans_pos_enc = nn.Parameter(torch.randn(1, config.vae_latent_dim, config.trans_d_model) * 0.02)
+        self.trans_cls_token = nn.Parameter(torch.randn(1, 1, config.trans_d_model) * 0.02)
 
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=config.trans_d_model,
@@ -133,12 +130,14 @@ class FullPipelineModel(nn.Module):
         refiner_layers = []
         in_dim = config.trans_d_model + config.vae_latent_dim + 1  # CLS + mu + trans_pred
         for hidden_dim in config.refiner_hidden_dims:
-            refiner_layers.extend([
-                nn.Linear(in_dim, hidden_dim),
-                nn.SiLU(),
-                nn.LayerNorm(hidden_dim),
-                nn.Dropout(config.refiner_dropout),
-            ])
+            refiner_layers.extend(
+                [
+                    nn.Linear(in_dim, hidden_dim),
+                    nn.SiLU(),
+                    nn.LayerNorm(hidden_dim),
+                    nn.Dropout(config.refiner_dropout),
+                ]
+            )
             in_dim = hidden_dim
         refiner_layers.append(nn.Linear(in_dim, 1))
         self.refiner = nn.Sequential(*refiner_layers)
@@ -148,11 +147,11 @@ class FullPipelineModel(nn.Module):
         self.trans_weight = nn.Parameter(torch.tensor(0.3))
         self.refiner_weight = nn.Parameter(torch.tensor(0.4))
 
-    def forward_vae(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward_vae(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward pass through VAE only."""
         return self.vae(x)
 
-    def forward_transformer(self, mu: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward_transformer(self, mu: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward pass through transformer on VAE embeddings."""
         batch_size = mu.shape[0]
 
@@ -190,7 +189,7 @@ class FullPipelineModel(nn.Module):
         combined = torch.cat([cls_embedding, mu, trans_pred], dim=-1)
         return self.refiner(combined)
 
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Full forward pass through entire pipeline."""
         # VAE
         vae_out = self.forward_vae(x)
@@ -206,16 +205,9 @@ class FullPipelineModel(nn.Module):
         refiner_pred = self.forward_refiner(cls_embedding, mu, trans_pred)
 
         # Weighted combination
-        weights = F.softmax(
-            torch.stack([self.vae_weight, self.trans_weight, self.refiner_weight]),
-            dim=0
-        )
+        weights = F.softmax(torch.stack([self.vae_weight, self.trans_weight, self.refiner_weight]), dim=0)
 
-        final_pred = (
-            weights[0] * vae_pred +
-            weights[1] * trans_pred +
-            weights[2] * refiner_pred
-        )
+        final_pred = weights[0] * vae_pred + weights[1] * trans_pred + weights[2] * refiner_pred
 
         return {
             "ddg_pred": final_pred,
@@ -233,7 +225,7 @@ class FullPipelineModel(nn.Module):
         x: torch.Tensor,
         y: torch.Tensor,
         stage: str = "full",  # "vae", "transformer", "refiner", "full"
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """Compute loss for specified training stage."""
         if y.dim() == 1:
             y = y.unsqueeze(-1)
@@ -241,9 +233,7 @@ class FullPipelineModel(nn.Module):
         if stage == "vae":
             vae_out = self.forward_vae(x)
             recon_loss = F.mse_loss(vae_out["ddg_pred"], y)
-            kl_loss = -0.5 * torch.mean(
-                1 + vae_out["logvar"] - vae_out["mu"].pow(2) - vae_out["logvar"].exp()
-            )
+            kl_loss = -0.5 * torch.mean(1 + vae_out["logvar"] - vae_out["mu"].pow(2) - vae_out["logvar"].exp())
             total_loss = recon_loss + self.config.vae_beta * kl_loss
             return {"loss": total_loss, "recon_loss": recon_loss, "kl_loss": kl_loss}
 
@@ -260,9 +250,7 @@ class FullPipelineModel(nn.Module):
                 vae_out = self.forward_vae(x)
                 mu = vae_out["mu"]
                 trans_out = self.forward_transformer(mu)
-            refiner_pred = self.forward_refiner(
-                trans_out["cls_embedding"], mu, trans_out["trans_pred"]
-            )
+            refiner_pred = self.forward_refiner(trans_out["cls_embedding"], mu, trans_out["trans_pred"])
             loss = F.mse_loss(refiner_pred, y)
             return {"loss": loss}
 
@@ -274,9 +262,7 @@ class FullPipelineModel(nn.Module):
             refiner_loss = F.mse_loss(out["refiner_pred"], y)
 
             # KL for VAE regularization
-            kl_loss = -0.5 * torch.mean(
-                1 + out["logvar"] - out["mu"].pow(2) - out["logvar"].exp()
-            )
+            kl_loss = -0.5 * torch.mean(1 + out["logvar"] - out["mu"].pow(2) - out["logvar"].exp())
 
             total_loss = final_loss + 0.1 * kl_loss
 
@@ -307,7 +293,7 @@ class CombinedDataset(Dataset):
 
         # Process ProTherm
         for record in protherm_records:
-            if hasattr(record, 'wild_type'):
+            if hasattr(record, "wild_type"):
                 wt, mut, ddg = record.wild_type, record.mutant, record.ddg
             else:
                 wt, mut, ddg = record["wild_type"], record["mutant"], record["ddg"]
@@ -350,7 +336,7 @@ def train_stage(
     patience: int,
     device: str,
     verbose: bool = True,
-) -> Dict[str, List[float]]:
+) -> dict[str, list[float]]:
     """Train a specific stage of the pipeline."""
 
     # Freeze/unfreeze appropriate parameters
@@ -373,10 +359,12 @@ def train_stage(
             p.requires_grad = True
         for p in model.refiner.parameters():
             p.requires_grad = False
-        params = list(model.transformer.parameters()) + \
-                 list(model.trans_input_proj.parameters()) + \
-                 list(model.trans_head.parameters()) + \
-                 [model.trans_pos_enc, model.trans_cls_token]
+        params = (
+            list(model.transformer.parameters())
+            + list(model.trans_input_proj.parameters())
+            + list(model.trans_head.parameters())
+            + [model.trans_pos_enc, model.trans_cls_token]
+        )
     elif stage == "refiner":
         for p in model.vae.parameters():
             p.requires_grad = False
@@ -438,9 +426,7 @@ def train_stage(
                 elif stage == "refiner":
                     vae_out = model.forward_vae(x)
                     trans_out = model.forward_transformer(vae_out["mu"])
-                    pred = model.forward_refiner(
-                        trans_out["cls_embedding"], vae_out["mu"], trans_out["trans_pred"]
-                    )
+                    pred = model.forward_refiner(trans_out["cls_embedding"], vae_out["mu"], trans_out["trans_pred"])
                 else:
                     out = model.forward(x)
                     pred = out["ddg_pred"]
@@ -459,8 +445,7 @@ def train_stage(
         history["val_spearman"].append(float(val_spearman))
 
         if verbose and epoch % 10 == 0:
-            print(f"  [{stage}] Epoch {epoch:3d}: loss={train_loss:.4f} "
-                  f"val_loss={val_loss:.4f} ρ={val_spearman:.4f}")
+            print(f"  [{stage}] Epoch {epoch:3d}: loss={train_loss:.4f} val_loss={val_loss:.4f} ρ={val_spearman:.4f}")
 
         if val_spearman > best_spearman:
             best_spearman = val_spearman
@@ -484,7 +469,7 @@ def compute_qa_metrics(
     model: FullPipelineModel,
     dataloader: DataLoader,
     device: str,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Compute QA metrics."""
     model.eval()
 
@@ -545,7 +530,7 @@ def compute_qa_metrics(
     return result
 
 
-def print_qa_report(name: str, metrics: Dict[str, float]):
+def print_qa_report(name: str, metrics: dict[str, float]):
     """Print QA report."""
     print(f"\n{'=' * 60}")
     print(f"QA REPORT: {name}")
@@ -555,12 +540,12 @@ def print_qa_report(name: str, metrics: Dict[str, float]):
     print(f"  Overall Pearson:  {metrics['pearson']:.4f}")
     print(f"  MAE: {metrics['mae']:.4f}")
 
-    print(f"\n  Per-Source:")
+    print("\n  Per-Source:")
     for src in ["s669", "protherm"]:
         if f"{src}_spearman" in metrics:
             print(f"    {src:12s}: ρ={metrics[f'{src}_spearman']:.4f} (n={metrics[f'{src}_n']})")
 
-    print(f"\n  Per-Component:")
+    print("\n  Per-Component:")
     for comp in ["vae", "trans", "refiner", "final"]:
         if f"{comp}_spearman" in metrics:
             print(f"    {comp:12s}: ρ={metrics[f'{comp}_spearman']:.4f}")
@@ -620,10 +605,7 @@ def main():
     # Split
     n_val = int(len(dataset) * 0.15)
     n_train = len(dataset) - n_val
-    train_ds, val_ds = random_split(
-        dataset, [n_train, n_val],
-        generator=torch.Generator().manual_seed(42)
-    )
+    train_ds, val_ds = random_split(dataset, [n_train, n_val], generator=torch.Generator().manual_seed(42))
 
     train_loader = DataLoader(train_ds, batch_size=config.batch_size, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=config.batch_size, shuffle=False)
@@ -648,7 +630,9 @@ def main():
     print("=" * 60)
 
     vae_history, vae_best = train_stage(
-        model, train_loader, val_loader,
+        model,
+        train_loader,
+        val_loader,
         stage="vae",
         epochs=config.vae_epochs,
         lr=config.vae_lr,
@@ -665,7 +649,9 @@ def main():
     print("=" * 60)
 
     trans_history, trans_best = train_stage(
-        model, train_loader, val_loader,
+        model,
+        train_loader,
+        val_loader,
         stage="transformer",
         epochs=config.trans_epochs,
         lr=config.trans_lr,
@@ -682,7 +668,9 @@ def main():
     print("=" * 60)
 
     refiner_history, refiner_best = train_stage(
-        model, train_loader, val_loader,
+        model,
+        train_loader,
+        val_loader,
         stage="refiner",
         epochs=config.refiner_epochs,
         lr=config.refiner_lr,
@@ -699,7 +687,9 @@ def main():
     print("=" * 60)
 
     finetune_history, finetune_best = train_stage(
-        model, train_loader, val_loader,
+        model,
+        train_loader,
+        val_loader,
         stage="full",
         epochs=config.finetune_epochs,
         lr=config.finetune_lr,
@@ -719,11 +709,8 @@ def main():
     # Get learned weights
     model.eval()
     with torch.no_grad():
-        weights = F.softmax(
-            torch.stack([model.vae_weight, model.trans_weight, model.refiner_weight]),
-            dim=0
-        )
-    print(f"\n  Learned Weights:")
+        weights = F.softmax(torch.stack([model.vae_weight, model.trans_weight, model.refiner_weight]), dim=0)
+    print("\n  Learned Weights:")
     print(f"    VAE:      {weights[0].item():.3f}")
     print(f"    Trans:    {weights[1].item():.3f}")
     print(f"    Refiner:  {weights[2].item():.3f}")
@@ -731,11 +718,14 @@ def main():
     # =========================================================
     # Save
     # =========================================================
-    torch.save({
-        "model_state_dict": model.state_dict(),
-        "config": config,
-        "qa_metrics": qa_metrics,
-    }, output_dir / "best.pt")
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "config": config,
+            "qa_metrics": qa_metrics,
+        },
+        output_dir / "best.pt",
+    )
 
     results = {
         "vae_best": vae_best,
@@ -747,7 +737,7 @@ def main():
             "vae": float(weights[0]),
             "trans": float(weights[1]),
             "refiner": float(weights[2]),
-        }
+        },
     }
 
     with open(output_dir / "results.json", "w") as f:
@@ -759,7 +749,7 @@ def main():
     print("\n" + "=" * 70)
     print("TRAINING COMPLETE - SUMMARY")
     print("=" * 70)
-    print(f"\n  Stage Results:")
+    print("\n  Stage Results:")
     print(f"    VAE:        {vae_best:.4f}")
     print(f"    Transformer: {trans_best:.4f}")
     print(f"    Refiner:    {refiner_best:.4f}")

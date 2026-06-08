@@ -16,8 +16,8 @@ This module provides carefully curated color palettes that are:
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -351,11 +351,7 @@ def lighten(color: str, factor: float = 0.3) -> str:
     """
     rgba = to_rgba(color)
     lightened = [c + (1 - c) * factor for c in rgba[:3]]
-    return "#{:02x}{:02x}{:02x}".format(
-        int(lightened[0] * 255),
-        int(lightened[1] * 255),
-        int(lightened[2] * 255),
-    )
+    return f"#{int(lightened[0] * 255):02x}{int(lightened[1] * 255):02x}{int(lightened[2] * 255):02x}"
 
 
 def darken(color: str, factor: float = 0.3) -> str:
@@ -370,11 +366,7 @@ def darken(color: str, factor: float = 0.3) -> str:
     """
     rgba = to_rgba(color)
     darkened = [c * (1 - factor) for c in rgba[:3]]
-    return "#{:02x}{:02x}{:02x}".format(
-        int(darkened[0] * 255),
-        int(darkened[1] * 255),
-        int(darkened[2] * 255),
-    )
+    return f"#{int(darkened[0] * 255):02x}{int(darkened[1] * 255):02x}{int(darkened[2] * 255):02x}"
 
 
 def with_alpha(color: str, alpha: float = 0.5) -> tuple[float, float, float, float]:
@@ -413,11 +405,7 @@ def color_gradient(
     for i in range(n_steps):
         t = i / (n_steps - 1) if n_steps > 1 else 0
         rgba = rgba1 + t * (rgba2 - rgba1)
-        hex_color = "#{:02x}{:02x}{:02x}".format(
-            int(rgba[0] * 255),
-            int(rgba[1] * 255),
-            int(rgba[2] * 255),
-        )
+        hex_color = f"#{int(rgba[0] * 255):02x}{int(rgba[1] * 255):02x}{int(rgba[2] * 255):02x}"
         gradient.append(hex_color)
 
     return gradient

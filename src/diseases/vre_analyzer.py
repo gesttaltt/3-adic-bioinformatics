@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -161,17 +161,21 @@ class VREConfig(DiseaseConfig):
     name: str = "vre"
     display_name: str = "Vancomycin-Resistant Enterococcus"
     disease_type: DiseaseType = DiseaseType.BACTERIAL
-    tasks: list[TaskType] = field(default_factory=lambda: [
-        TaskType.RESISTANCE,
-        TaskType.FITNESS,
-    ])
+    tasks: list[TaskType] = field(
+        default_factory=lambda: [
+            TaskType.RESISTANCE,
+            TaskType.FITNESS,
+        ]
+    )
 
     # Data sources
-    data_sources: dict[str, str] = field(default_factory=lambda: {
-        "ncbi_pathogen": "https://www.ncbi.nlm.nih.gov/pathogens/",
-        "pubmlst": "https://pubmlst.org/organisms/enterococcus-faecium",
-        "cdc_ar": "https://www.cdc.gov/drugresistance/",
-    })
+    data_sources: dict[str, str] = field(
+        default_factory=lambda: {
+            "ncbi_pathogen": "https://www.ncbi.nlm.nih.gov/pathogens/",
+            "pubmlst": "https://pubmlst.org/organisms/enterococcus-faecium",
+            "cdc_ar": "https://www.cdc.gov/drugresistance/",
+        }
+    )
 
     # VRE-specific settings
     classify_species: bool = True
@@ -181,9 +185,7 @@ class VREConfig(DiseaseConfig):
     # Sequence settings
     min_sequence_length: int = 50
 
-    genes: list[str] = field(
-        default_factory=lambda: [g.value for g in VREGene]
-    )
+    genes: list[str] = field(default_factory=lambda: [g.value for g in VREGene])
 
 
 class VREAnalyzer(DiseaseAnalyzer):
@@ -199,7 +201,7 @@ class VREAnalyzer(DiseaseAnalyzer):
     - Treatment option assessment
     """
 
-    def __init__(self, config: Optional[VREConfig] = None):
+    def __init__(self, config: VREConfig | None = None):
         """Initialize VRE analyzer.
 
         Args:
@@ -211,7 +213,7 @@ class VREAnalyzer(DiseaseAnalyzer):
     def analyze(
         self,
         sequences: dict[VREGene, list[str]],
-        species: Optional[EnterococcusSpecies] = None,
+        species: EnterococcusSpecies | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Analyze VRE sequences for resistance and virulence.
@@ -226,7 +228,7 @@ class VREAnalyzer(DiseaseAnalyzer):
         """
         results = {
             "n_sequences": len(next(iter(sequences.values()), [])),
-            "genes_analyzed": [g.value for g in sequences.keys()],
+            "genes_analyzed": [g.value for g in sequences],
             "species": species.value if species else None,
         }
 
@@ -367,11 +369,13 @@ class VREAnalyzer(DiseaseAnalyzer):
                         fold_change = aa_effects[aa]
                         if fold_change > 1.0:
                             resistance_score += np.log2(fold_change) / 10
-                            detected_mutations.append({
-                                "position": pos,
-                                "amino_acid": aa,
-                                "fold_change": fold_change,
-                            })
+                            detected_mutations.append(
+                                {
+                                    "position": pos,
+                                    "amino_acid": aa,
+                                    "fold_change": fold_change,
+                                }
+                            )
 
             results["scores"].append(min(resistance_score, 1.0))
             results["mutations"].append(detected_mutations)
@@ -464,7 +468,7 @@ class VREAnalyzer(DiseaseAnalyzer):
         self,
         van_genotype: dict[str, Any],
         resistance_data: dict[str, Any],
-        species: Optional[EnterococcusSpecies] = None,
+        species: EnterococcusSpecies | None = None,
     ) -> dict[str, Any]:
         """Assess available treatment options.
 
