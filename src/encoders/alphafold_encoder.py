@@ -173,24 +173,62 @@ class AlphaFoldStructureLoader:
 
         np.savez_compressed(cache_file, **data)
 
-    def _download_structure(self, uniprot_id: str) -> AlphaFoldStructure:
-        """Download structure from AlphaFold DB.
+    def _resolve_download_url(self, uniprot_id: str) -> str:
+        """Resolve PDB download URL via the API with direct-URL fallback.
 
-        Note: This is a mock implementation. In production, use requests
-        to fetch from the actual API.
+        The /api/prediction endpoint is sunset 2026-06-25; the response field
+        changed from entryId to modelEntityId. We try the API first so the
+        canonical pdbUrl is used when available, then fall back to constructing
+        the URL directly from the UniProt ID (stable pattern regardless of API).
         """
+        try:
+            import requests
+            api_url = f"{self.ALPHAFOLD_API_URL}prediction/{uniprot_id}"
+            resp = requests.get(api_url, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                info = data[0] if data else {}
+
+                # pdbUrl is present in both old and new API responses
+                pdb_url = info.get("pdbUrl")
+                if pdb_url:
+                    return pdb_url
+
+                # New API (post-sunset): modelEntityId replaces entryId
+                model_entity_id = info.get("modelEntityId")
+                if model_entity_id:
+                    if "-model_v" in model_entity_id:
+                        return f"{self.ALPHAFOLD_DB_URL}{model_entity_id}.pdb"
+                    version = info.get("latestVersion", self.model_version)
+                    return f"{self.ALPHAFOLD_DB_URL}{model_entity_id}-model_v{version}.pdb"
+
+                # Old API: entryId
+                entry_id = info.get("entryId")
+                if entry_id:
+                    version = info.get("latestVersion", self.model_version)
+                    return f"{self.ALPHAFOLD_DB_URL}{entry_id}-model_v{version}.pdb"
+
+        except Exception as e:
+            logger.debug(f"AlphaFold API lookup failed for {uniprot_id}: {e}")
+
+        # Fallback: construct URL directly (works for single-fragment proteins)
+        return f"{self.ALPHAFOLD_DB_URL}AF-{uniprot_id}-F1-model_v{self.model_version}.pdb"
+
+    def _download_structure(self, uniprot_id: str) -> AlphaFoldStructure:
+        """Download structure from AlphaFold DB."""
         try:
             import requests
         except ImportError:
             logger.warning("requests not available, returning mock structure")
             return self._mock_structure(uniprot_id)
 
-        # Construct URLs
-        pdb_url = f"{self.ALPHAFOLD_DB_URL}AF-{uniprot_id}-F1-model_v{self.model_version}.pdb"
-        pae_url = f"{self.ALPHAFOLD_DB_URL}AF-{uniprot_id}-F1-predicted_aligned_error_v{self.model_version}.json"
+        pdb_url = self._resolve_download_url(uniprot_id)
+        pae_url = pdb_url.replace(
+            f"-model_v{self.model_version}.pdb",
+            f"-predicted_aligned_error_v{self.model_version}.json",
+        )
 
         try:
-            # Download PDB
             pdb_response = requests.get(pdb_url, timeout=30)
             if pdb_response.status_code == 200:
                 coords, plddt, sequence = self._parse_pdb(pdb_response.text)
@@ -198,7 +236,6 @@ class AlphaFoldStructureLoader:
                 logger.warning(f"Failed to download PDB for {uniprot_id}: {pdb_response.status_code}")
                 return self._mock_structure(uniprot_id)
 
-            # Try to download PAE
             pae = None
             try:
                 pae_response = requests.get(pae_url, timeout=30)

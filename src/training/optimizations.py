@@ -28,7 +28,7 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import GradScaler, autocast
 from torch.optim import Optimizer
 from torch.optim.swa_utils import SWALR, AveragedModel
 from torch.utils.checkpoint import checkpoint, checkpoint_sequential
@@ -96,6 +96,7 @@ class MixedPrecisionTrainer:
             else:
                 self.dtype = torch.float16
                 self.scaler = GradScaler(
+                    device="cuda",
                     init_scale=self.config.init_scale,
                     growth_factor=self.config.growth_factor,
                     backoff_factor=self.config.backoff_factor,
@@ -115,7 +116,7 @@ class MixedPrecisionTrainer:
             Context with mixed precision enabled
         """
         if self._enabled:
-            with autocast(dtype=self.dtype):
+            with autocast(device_type="cuda", dtype=self.dtype):
                 yield
         else:
             yield

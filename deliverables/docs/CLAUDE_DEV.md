@@ -301,9 +301,15 @@ from src.geometry import poincare_distance, exp_map_zero
 
 ## Known Issues
 
-- `torch.cuda.amp` deprecation warnings (API migration needed)
 - Graph breaks in torch.compile from `.item()` calls (minor)
-- ~40 research scripts use Euclidean norm() (low priority)
+
+## Recently Fixed
+
+- `torch.cuda.amp` → `torch.amp` migration (`src/training/optimizations.py`)
+- AlphaFold `/api/prediction` sunset 2026-06-25: `AlphaFoldStructureLoader` now resolves
+  download URLs via API (`modelEntityId`/`entryId`/`pdbUrl`) with direct-URL fallback
+  (`src/encoders/alphafold_encoder.py`)
+- V5.12.2 hyperbolic audit complete: all 258 `.norm()` calls verified correct
 
 ---
 
@@ -311,10 +317,8 @@ from src.geometry import poincare_distance, exp_map_zero
 
 | Priority | Task |
 |:--------:|------|
-| 1 | V5.12.2 research script fixes (~40 files) |
-| 2 | Partner README updates (usage examples) |
-| 3 | Fix tier numbering in docs |
-| 4 | Publication figures organization |
+| 1 | Fix tier numbering in docs |
+| 2 | Publication figures organization |
 
 ---
 
