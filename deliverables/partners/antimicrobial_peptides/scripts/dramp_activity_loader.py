@@ -34,8 +34,20 @@ PROJECT_ROOT = PACKAGE_DIR.parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))  # For ML model imports
 sys.path.insert(0, str(PACKAGE_DIR))   # For local src imports (priority)
 
-# Import from local src (self-contained)
-from src.constants import HYDROPHOBICITY, CHARGES, VOLUMES, WHO_CRITICAL_PATHOGENS
+# Import constants directly from the AMP package file to avoid namespace collision:
+# when this loader is imported from train_definitive.py, project-root's 'src' package
+# is already cached in sys.modules, shadowing the local src/constants.py.
+import importlib.util as _ilu
+_const_spec = _ilu.spec_from_file_location(
+    "amp_src_constants", str(PACKAGE_DIR / "src" / "constants.py")
+)
+_const_mod = _ilu.module_from_spec(_const_spec)
+_const_spec.loader.exec_module(_const_mod)
+HYDROPHOBICITY = _const_mod.HYDROPHOBICITY
+CHARGES = _const_mod.CHARGES
+VOLUMES = _const_mod.VOLUMES
+WHO_CRITICAL_PATHOGENS = _const_mod.WHO_CRITICAL_PATHOGENS
+del _ilu, _const_spec, _const_mod
 
 # Try to import requests for downloading
 try:
